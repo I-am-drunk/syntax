@@ -1,0 +1,19 @@
+.topic-star { color: var(--tertiary); border: 0; border-radius: 9999px; transition: color .12s ease; }
+.topic-star:hover { color: var(--muted); }
+.topic-star svg { transition: transform .15s ease; }
+.topic-star:hover:not(:active) svg { transform: scale(1.15); }
+.topic-star:active svg { transform: scale(1); }
+.topic-star:focus-visible { outline: none; box-shadow: 0 0 0 3px #456dff; }
+[data-theme='dark'] .topic-star:focus-visible { box-shadow: 0 0 0 3px #375ce3; }
+.topics-desktop[data-no-pins] > .topic-group:first-child { margin-top: 0; }
+.topic-toast { display: flex; align-items: flex-start; gap: 12px; padding: 16px 20px;
+  border: 1px solid #0000001a; border-radius: 12px; color: #000; background: #f8f8f8;
+  box-shadow: 0 0 15px #0000001a; font-family: 'CoFo Brilliant', sans-serif; font-size: 16px; line-height: 24px; }
+.topic-toast[data-type='success'] { background: #d4f5dd; border-width: 0; }
+.topic-toast-content { display: flex; flex: 1; flex-direction: column; gap: 4px; }
+.topic-toast-title { font-weight: 500; }
+.topic-toast-icon { align-self: flex-start; color: #000; flex-shrink: 0; margin-block-start: 2px; }
+[data-theme='dark'] .topic-toast { background: #1e1e1e; color: #fff; border-color: #fff3; box-shadow: 0 0 15px #000000b3; }
+[data-theme='dark'] .topic-toast[data-type='success'] { background: #004e16; }
+[data-theme='dark'] .topic-toast-icon { color: #fff; }
+@media (min-width: 769px) { .topic-toast { width: 100%; } }

@@ -1,0 +1,1476 @@
+/* ==========================================================================
+   MPM2D Pen Studio — 100% Brilliant Design Language
+   Exact Brilliant tokens: #fff / #141414 surfaces, #456dff blue, #29cc57 green,
+   tactile 3D-pressable pill buttons, zero TLDraw chrome, zero scroll-card slop.
+   ========================================================================== */
+
+.pen-studio-root {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: #ffffff;
+  color: #141414;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.pen-studio-root[data-theme='dark'] {
+  background: #141414;
+  color: #ffffff;
+}
+
+/* --------------------------------------------------------------------------
+   1. Brilliant Top Control Bar (in normal flex flow ABOVE paper — zero overlap)
+   -------------------------------------------------------------------------- */
+.pen-br-topbar-wrap {
+  position: relative;
+  z-index: 45;
+  flex: 0 0 auto;
+  background: #ffffff;
+  border-bottom: 1.5px solid rgba(0, 0, 0, 0.08);
+  transition: opacity 160ms ease;
+}
+
+.pen-br-topbar-wrap[data-theme='dark'] {
+  background: #141414;
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.pen-br-topbar-wrap[data-dimmed] {
+  opacity: 0.3;
+}
+
+.pen-br-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 50px;
+  padding: 0 12px;
+}
+
+.pen-br-bar-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.pen-br-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1.5px solid #e2e4e9;
+  background: #ffffff;
+  color: #141414;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  box-shadow: 0 2px 0 #e2e4e9;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform 90ms ease, box-shadow 90ms ease, border-color 120ms ease, background-color 120ms ease, color 120ms ease;
+}
+
+.pen-br-topbar-wrap[data-theme='dark'] .pen-br-chip {
+  background: #1f2025;
+  border-color: #363842;
+  box-shadow: 0 2px 0 #2a2c34;
+  color: #f4f4f6;
+}
+
+.pen-br-chip:hover {
+  background: #f8f9fb;
+  border-color: #cfd3dc;
+}
+
+.pen-br-topbar-wrap[data-theme='dark'] .pen-br-chip:hover {
+  background: #272930;
+  border-color: #494c59;
+}
+
+.pen-br-chip:active {
+  transform: translateY(2px);
+  box-shadow: 0 0 0 transparent;
+}
+
+.pen-br-chip[data-active] {
+  background: #eef2ff;
+  border-color: #456dff;
+  box-shadow: 0 2px 0 #375ce3;
+  color: #375ce3;
+}
+
+.pen-br-topbar-wrap[data-theme='dark'] .pen-br-chip[data-active] {
+  background: #152459;
+  border-color: #5c7eff;
+  box-shadow: 0 2px 0 #3b5be0;
+  color: #9bb1ff;
+}
+
+.pen-br-chevron {
+  opacity: 0.6;
+  transition: transform 140ms ease;
+}
+
+.pen-br-chip[data-active] .pen-br-chevron {
+  transform: rotate(180deg);
+}
+
+/* Center Brilliant Tool Strip */
+.pen-br-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 999px;
+  background: #f4f5f7;
+  border: 1.5px solid #e5e7ec;
+}
+
+.pen-br-topbar-wrap[data-theme='dark'] .pen-br-tools {
+  background: #1e1f24;
+  border-color: #32343d;
+}
+
+.pen-br-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: #595d68;
+  cursor: pointer;
+  transition: background-color 110ms ease, color 110ms ease, box-shadow 110ms ease;
+}
+
+.pen-br-topbar-wrap[data-theme='dark'] .pen-br-tool-btn {
+  color: #9c9fa9;
+}
+
+.pen-br-tool-btn:hover {
+  color: #141414;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.pen-br-topbar-wrap[data-theme='dark'] .pen-br-tool-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pen-br-tool-btn[data-active] {
+  background: #456dff;
+  color: #ffffff;
+  box-shadow: 0 2px 0 #3358e6;
+}
+
+.pen-br-topbar-wrap[data-theme='dark'] .pen-br-tool-btn[data-active] {
+  background: #5c7eff;
+  color: #ffffff;
+  box-shadow: 0 2px 0 #3b5be0;
+}
+
+.pen-br-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1.5px solid transparent;
+  background: transparent;
+  color: #4d515c;
+  cursor: pointer;
+  transition: background-color 110ms ease, color 110ms ease, border-color 110ms ease, opacity 110ms ease;
+}
+
+.pen-br-topbar-wrap[data-theme='dark'] .pen-br-icon-btn {
+  color: #a6a9b3;
+}
+
+.pen-br-icon-btn:hover:not(:disabled) {
+  background: #f2f3f6;
+  color: #141414;
+}
+
+.pen-br-topbar-wrap[data-theme='dark'] .pen-br-icon-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.09);
+  color: #ffffff;
+}
+
+.pen-br-icon-btn:disabled {
+  opacity: 0.28;
+  cursor: default;
+}
+
+.pen-br-icon-btn[data-active] {
+  background: #eef2ff;
+  border-color: #456dff;
+  color: #375ce3;
+}
+
+.pen-br-topbar-wrap[data-theme='dark'] .pen-br-icon-btn[data-active] {
+  background: #152459;
+  border-color: #5c7eff;
+  color: #9bb1ff;
+}
+
+/* --------------------------------------------------------------------------
+   2. Brilliant Popovers (strictly ABOVE canvas & drawer — z:70)
+   -------------------------------------------------------------------------- */
+.pen-br-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 12px;
+  z-index: 70;
+  width: 256px;
+  padding: 12px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1.5px solid #e2e4e9;
+  box-shadow:
+    0 14px 36px rgba(0, 0, 0, 0.12),
+    0 3px 0 #e2e4e9;
+  animation: pen-br-pop-in 120ms cubic-bezier(0.2, 0.85, 0.25, 1);
+}
+
+.pen-br-topbar-wrap[data-theme='dark'] .pen-br-popover {
+  background: #1c1d22;
+  border-color: #363842;
+  box-shadow:
+    0 18px 44px rgba(0, 0, 0, 0.52),
+    0 3px 0 #2a2c34;
+}
+
+.pen-br-popover-plan {
+  width: 312px;
+  left: 98px;
+}
+
+@keyframes pen-br-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.pen-br-pop-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #666666;
+  margin-bottom: 8px;
+  padding: 0 2px;
+}
+
+.pen-br-topbar-wrap[data-theme='dark'] .pen-br-pop-eyebrow {
+  color: #999999;
+}
+
+.pen-br-paper-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.pen-br-paper-chip {
+  height: 30px;
+  border-radius: 10px;
+  border: 1.5px solid #e2e4e9;
+  background: #ffffff;
+  color: #333333;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 110ms ease;
+}
+
+.pen-br-topbar-wrap[data-theme='dark'] .pen-br-paper-chip {
+  background: #25272e;
+  border-color: #3a3d47;
+  color: #e4e6ec;
+}
+
+.pen-br-paper-chip:hover {
+  border-color: #456dff;
+}
+
+.pen-br-paper-chip[data-active] {
+  background: #456dff;
+  border-color: #456dff;
+  box-shadow: 0 2px 0 #3358e6;
+  color: #ffffff;
+}
+
+.pen-br-pop-sep {
+  height: 1px;
+  background: rgba(0, 0, 0, 0.08);
+  margin: 10px 0;
+}
+
+.pen-br-topbar-wrap[data-theme='dark'] .pen-br-pop-sep {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.pen-br-pop-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 9px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: #141414;
+  font-size: 13px;
+  font-weight: 550;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 110ms ease;
+}
+
+.pen-br-topbar-wrap[data-theme='dark'] .pen-br-pop-row {
+  color: #f0f1f5;
+}
+
+.pen-br-pop-row:hover {
+  background: #f4f5f7;
+}
+
+.pen-br-topbar-wrap[data-theme='dark'] .pen-br-pop-row:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.pen-br-pop-row.is-danger {
+  color: #e14b4b;
+}
+
+.pen-br-topbar-wrap[data-theme='dark'] .pen-br-pop-row.is-danger {
+  color: #ff8585;
+}
+
+.pen-br-confirm-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #e14b4b;
+}
+
+.pen-br-confirm-row span {
+  flex: 1;
+}
+
+.pen-br-confirm-yes,
+.pen-br-confirm-no {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: none;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.pen-br-confirm-yes {
+  background: #e14b4b;
+  color: #ffffff;
+}
+
+.pen-br-confirm-no {
+  background: #eef0f4;
+  color: #333333;
+}
+
+.pen-br-topbar-wrap[data-theme='dark'] .pen-br-confirm-no {
+  background: #2f313a;
+  color: #f0f1f5;
+}
+
+.pen-br-pop-foot {
+  margin-top: 8px;
+  padding: 7px 6px 2px;
+  border-top: 1px solid rgba(0, 0, 0, 0.07);
+  font-size: 11px;
+  color: #666666;
+  line-height: 1.35;
+}
+
+.pen-br-topbar-wrap[data-theme='dark'] .pen-br-pop-foot {
+  border-top-color: rgba(255, 255, 255, 0.08);
+  color: #999999;
+}
+
+.pen-br-plan-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.pen-br-plan-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font-size: 13px;
+  line-height: 1.42;
+  color: #141414;
+}
+
+.pen-br-topbar-wrap[data-theme='dark'] .pen-br-plan-list li {
+  color: #f0f1f5;
+}
+
+.pen-br-plan-num {
+  flex: 0 0 21px;
+  height: 21px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #456dff;
+  font-size: 11px;
+  font-weight: 750;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}
+
+.pen-br-topbar-wrap[data-theme='dark'] .pen-br-plan-num {
+  background: #152459;
+  color: #9bb1ff;
+}
+
+/* --------------------------------------------------------------------------
+   3. Top-Left Pull-In / Pull-Out Reference Brush Drawer (Size, Opacity, Color)
+   -------------------------------------------------------------------------- */
+.pen-br-brush-dock {
+  position: absolute;
+  top: 62px;
+  left: 0;
+  z-index: 30;
+  display: flex;
+  align-items: flex-start;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+
+.pen-br-brush-dock[data-dimmed] {
+  opacity: 0.24;
+}
+
+.pen-br-brush-slab {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 54px;
+  padding: 12px 6px 12px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1.5px solid #e2e4e9;
+  border-left: none;
+  border-radius: 0 16px 16px 0;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), 0 3px 0 #e2e4e9;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transform: translateX(-100%);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 210ms cubic-bezier(0.22, 1, 0.36, 1), opacity 160ms ease;
+}
+
+.pen-br-brush-dock[data-open] .pen-br-brush-slab {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.pen-br-brush-dock[data-theme='dark'] .pen-br-brush-slab {
+  background: rgba(28, 29, 34, 0.96);
+  border-color: #363842;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), 0 3px 0 #2a2c34;
+}
+
+/* Pull-in / pull-out arrow handle attached cleanly to the drawer edge */
+.pen-br-dock-tab {
+  pointer-events: auto;
+  position: relative;
+  margin-top: 12px;
+  margin-left: -1.5px;
+  transform: translateX(-54px);
+  width: 24px;
+  height: 44px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: 0 12px 12px 0;
+  border: 1.5px solid #e2e4e9;
+  border-left: none;
+  background: #ffffff;
+  color: #555964;
+  box-shadow: 2px 3px 8px rgba(0, 0, 0, 0.08);
+  cursor: pointer;
+  transition: transform 210ms cubic-bezier(0.22, 1, 0.36, 1), background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.pen-br-brush-dock[data-open] .pen-br-dock-tab {
+  transform: translateX(0);
+}
+
+.pen-br-brush-dock[data-theme='dark'] .pen-br-dock-tab {
+  background: #1f2025;
+  border-color: #363842;
+  color: #b4b7c2;
+  box-shadow: 2px 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.pen-br-dock-tab:hover {
+  background: #f5f7ff;
+  border-color: #456dff;
+  color: #456dff;
+}
+
+.pen-br-brush-dock[data-theme='dark'] .pen-br-dock-tab:hover {
+  background: #152459;
+  border-color: #5c7eff;
+  color: #9bb1ff;
+}
+
+.pen-br-dock-arrow {
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform: rotate(180deg);
+}
+
+.pen-br-brush-dock[data-open] .pen-br-dock-arrow {
+  transform: rotate(0deg);
+}
+
+.pen-br-tab-ink-pip {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.16);
+}
+
+/* Procreate-grade tapered vertical sliders inside the brush drawer */
+.pen-br-slider-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.pen-br-nib-preview {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: #f4f5f7;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pen-br-brush-dock[data-theme='dark'] .pen-br-nib-preview {
+  background: #282a32;
+}
+
+.pen-br-nib-dot {
+  border-radius: 999px;
+  transition: width 110ms ease, height 110ms ease, background-color 110ms ease;
+}
+
+.pen-br-vtrack {
+  position: relative;
+  width: 24px;
+  height: 82px;
+  display: flex;
+  justify-content: center;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.pen-br-vtrack.is-opacity {
+  height: 62px;
+}
+
+.pen-br-vtrack::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  border-radius: 999px;
+  background: #eaecf0;
+}
+
+.pen-br-brush-dock[data-theme='dark'] .pen-br-vtrack::before {
+  background: #2e303a;
+}
+
+.pen-br-vtrack-fill {
+  position: absolute;
+  bottom: 0;
+  width: 6px;
+  border-radius: 999px;
+  background: #456dff;
+  pointer-events: none;
+}
+
+.pen-br-brush-dock[data-theme='dark'] .pen-br-vtrack-fill {
+  background: #7491ff;
+}
+
+.pen-br-vtrack-knob {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 2.5px solid #456dff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
+}
+
+.pen-br-brush-dock[data-theme='dark'] .pen-br-vtrack-knob {
+  background: #141414;
+  border-color: #7491ff;
+}
+
+.pen-br-slider-val {
+  font-size: 10px;
+  font-weight: 700;
+  color: #666666;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.pen-br-brush-dock[data-theme='dark'] .pen-br-slider-val {
+  color: #9e9fa8;
+}
+
+.pen-br-slab-divider {
+  width: 28px;
+  height: 1.5px;
+  border-radius: 99px;
+  background: rgba(0, 0, 0, 0.08);
+}
+
+.pen-br-brush-dock[data-theme='dark'] .pen-br-slab-divider {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.pen-br-color-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+
+.pen-br-color-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  border: none;
+  background: var(--dot-hex);
+  box-shadow: inset 0 0 0 1.5px rgba(0, 0, 0, 0.16);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 110ms ease, box-shadow 110ms ease;
+}
+
+.pen-br-color-dot:hover {
+  transform: scale(1.12);
+}
+
+.pen-br-color-dot[data-active] {
+  transform: scale(1.14);
+  box-shadow:
+    0 0 0 2px #ffffff,
+    0 0 0 4px #456dff;
+}
+
+.pen-br-brush-dock[data-theme='dark'] .pen-br-color-dot[data-active] {
+  box-shadow:
+    0 0 0 2px #1c1d22,
+    0 0 0 4px #7491ff;
+}
+
+/* --------------------------------------------------------------------------
+   4. Full-Page Brilliant Paper Viewport & TldrawEditor Layering
+   -------------------------------------------------------------------------- */
+.pen-pdf-viewport {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  overflow: hidden;
+  background: #ffffff;
+  touch-action: none;
+}
+
+.pen-pdf-viewport[data-theme='dark'] {
+  background: #141414;
+}
+
+.pen-pdf-viewport .tl-container {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: #ffffff !important;
+  --color-background: #ffffff;
+}
+
+.pen-pdf-viewport[data-theme='dark'] .tl-container {
+  background: #141414 !important;
+  --color-background: #141414;
+}
+
+.pen-br-canvas-bg {
+  position: absolute;
+  inset: 0;
+  background: #ffffff;
+  pointer-events: none;
+}
+
+.pen-br-canvas-bg[data-theme='dark'] {
+  background: #141414;
+}
+
+.pen-pdf-viewport .tl-watermark_SEE-LICENSE {
+  display: none !important;
+}
+
+/* CRITICAL STACKING & POSITIONING GUARANTEE:
+   position: absolute; top: 0; left: 0 keeps .tl-shape origin at (0, 0).
+   isolation: isolate keeps paper/borders strictly UNDER drawn ink strokes (.tl-shape). */
+.pen-br-sheet {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 0;
+  isolation: isolate;
+  pointer-events: none;
+  background: #ffffff;
+  color: #141414;
+}
+
+.pen-br-sheet[data-theme='dark'] {
+  background: #141414;
+  color: #ffffff;
+}
+
+.pen-pdf-viewport .tl-html-layer.tl-shapes > .tl-shape {
+  z-index: 2;
+}
+
+/* Full-bleed paper ruling */
+.pen-br-ruling {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.pen-br-ruling[data-paper='dots'] {
+  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.13) 1px, transparent 1.1px);
+  background-size: 24px 24px;
+  background-position: 12px 12px;
+}
+
+.pen-br-sheet[data-theme='dark'] .pen-br-ruling[data-paper='dots'] {
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.1) 1px, transparent 1.1px);
+}
+
+.pen-br-ruling[data-paper='grid'] {
+  background-image:
+    linear-gradient(to right, rgba(0, 0, 0, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.06) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.pen-br-sheet[data-theme='dark'] .pen-br-ruling[data-paper='grid'] {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+}
+
+.pen-br-ruling[data-paper='lined'] {
+  background-image: linear-gradient(to bottom, transparent 31px, rgba(69, 109, 255, 0.12) 32px);
+  background-size: 100% 32px;
+}
+
+.pen-br-sheet[data-theme='dark'] .pen-br-ruling[data-paper='lined'] {
+  background-image: linear-gradient(to bottom, transparent 31px, rgba(116, 145, 255, 0.12) 32px);
+}
+
+.pen-br-ruling[data-paper='blank'] {
+  background: transparent;
+}
+
+/* Quiet Brilliant editorial step header (zero boxed card clutter!) */
+.pen-br-step-head {
+  position: relative;
+  z-index: 1;
+  padding: 24px 32px 18px 88px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  pointer-events: none;
+}
+
+.pen-br-sheet[data-theme='dark'] .pen-br-step-head {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.pen-br-step-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+}
+
+.pen-br-step-circle {
+  font-size: 22px;
+  font-weight: 700;
+  color: #456dff;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.pen-br-sheet[data-theme='dark'] .pen-br-step-circle {
+  color: #7491ff;
+}
+
+.pen-br-sheet[data-checked] .pen-br-step-circle {
+  color: #15b441;
+}
+
+.pen-br-step-title {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.35;
+  color: #141414;
+  flex: 1 1 auto;
+}
+
+.pen-br-sheet[data-theme='dark'] .pen-br-step-title {
+  color: #ffffff;
+}
+
+.pen-br-step-count {
+  font-size: 12px;
+  font-weight: 650;
+  color: #8c8c96;
+  font-variant-numeric: tabular-nums;
+}
+
+.pen-br-step-sub {
+  margin: 6px 0 0 31px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #55555e;
+}
+
+.pen-br-sheet[data-theme='dark'] .pen-br-step-sub {
+  color: #9e9fa8;
+}
+
+/* Brilliant Green LED completion trace */
+.pen-br-led-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.pen-br-led-rect {
+  fill: none;
+  stroke: #29cc57;
+  stroke-width: 2.5;
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 0;
+  animation: pen-br-led-trace 460ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes pen-br-led-trace {
+  from {
+    stroke-dashoffset: 1000;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Razor-sharp bottom-edge resize highlight (ONLY near bottom drag edge) */
+.pen-br-resize-glow {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 3;
+  transition: opacity 90ms ease-out;
+}
+
+.pen-br-resize-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 16px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 4px;
+  cursor: ns-resize;
+  pointer-events: auto;
+  z-index: 4;
+}
+
+.pen-br-resize-pill {
+  width: 36px;
+  height: 3px;
+  border-radius: 99px;
+  background: rgba(0, 0, 0, 0.14);
+  transition: width 120ms ease, background-color 120ms ease;
+}
+
+.pen-br-sheet[data-theme='dark'] .pen-br-resize-pill {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.pen-br-sheet[data-near-resize] .pen-br-resize-pill,
+.pen-br-sheet[data-resizing] .pen-br-resize-pill,
+.pen-br-resize-bar:hover .pen-br-resize-pill {
+  width: 58px;
+  background: #456dff;
+}
+
+/* --------------------------------------------------------------------------
+   5. Brilliant-Native Bottom Step Navigation Bar (Mirrors .lesson-footer)
+   -------------------------------------------------------------------------- */
+.pen-br-footer {
+  position: relative;
+  z-index: 35;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px 14px;
+  background: #ffffff;
+  border-top: 1.5px solid rgba(0, 0, 0, 0.08);
+  transition: opacity 160ms ease, border-color 220ms ease;
+}
+
+.pen-br-footer[data-theme='dark'] {
+  background: #141414;
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+.pen-br-footer[data-checked] {
+  border-top-color: rgba(41, 204, 87, 0.45);
+}
+
+.pen-br-footer[data-dimmed] {
+  opacity: 0.3;
+}
+
+.pen-br-step-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Stylized Brilliant Back / Forward Arrow Pills */
+.pen-br-arrow-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 2px solid #e2e4e9;
+  background: #ffffff;
+  color: #141414;
+  box-shadow: 0 3px 0 #d7dae2;
+  cursor: pointer;
+  transition: transform 90ms ease-out, box-shadow 90ms ease-out, border-color 120ms ease, background-color 120ms ease;
+}
+
+.pen-br-footer[data-theme='dark'] .pen-br-arrow-btn {
+  background: #1f2025;
+  border-color: #3f414a;
+  box-shadow: 0 3px 0 #2d2f36;
+  color: #ffffff;
+}
+
+.pen-br-arrow-btn:hover:not(:disabled) {
+  border-color: #456dff;
+  color: #456dff;
+  background: #f5f7ff;
+}
+
+.pen-br-footer[data-theme='dark'] .pen-br-arrow-btn:hover:not(:disabled) {
+  border-color: #5c7eff;
+  color: #9bb1ff;
+  background: #152459;
+}
+
+.pen-br-arrow-btn:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 transparent;
+}
+
+.pen-br-arrow-btn:disabled {
+  opacity: 0.35;
+  box-shadow: none;
+  cursor: default;
+}
+
+/* Step Pills Strip */
+.pen-br-step-pills {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px;
+}
+
+.pen-br-step-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 2px solid #e2e4e9;
+  background: #ffffff;
+  color: #555964;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.pen-br-footer[data-theme='dark'] .pen-br-step-dot {
+  background: #1f2025;
+  border-color: #3a3c45;
+  color: #a6a9b3;
+}
+
+.pen-br-step-dot:hover {
+  border-color: #456dff;
+  color: #456dff;
+}
+
+.pen-br-step-dot[data-current] {
+  background: #eef2ff;
+  border-color: #456dff;
+  color: #375ce3;
+  box-shadow: 0 2px 0 #375ce3;
+}
+
+.pen-br-footer[data-theme='dark'] .pen-br-step-dot[data-current] {
+  background: #152459;
+  border-color: #5c7eff;
+  color: #ffffff;
+  box-shadow: 0 2px 0 #3b5be0;
+}
+
+.pen-br-step-dot[data-done] {
+  background: #ecfdf3;
+  border-color: #29cc57;
+  color: #15803d;
+}
+
+.pen-br-footer[data-theme='dark'] .pen-br-step-dot[data-done] {
+  background: #0f2e1a;
+  border-color: #29cc57;
+  color: #5ed981;
+}
+
+.pen-br-step-dot[data-done][data-current] {
+  background: #29cc57;
+  border-color: #29cc57;
+  color: #ffffff;
+  box-shadow: 0 2px 0 #15b441;
+}
+
+.pen-br-step-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1.5px dashed #cfd3dc;
+  background: transparent;
+  color: #7a7e8a;
+  cursor: pointer;
+  transition: all 110ms ease;
+}
+
+.pen-br-footer[data-theme='dark'] .pen-br-step-add {
+  border-color: #444752;
+  color: #8c8f9b;
+}
+
+.pen-br-step-add:hover {
+  border-color: #456dff;
+  color: #456dff;
+  background: #eef2ff;
+}
+
+.pen-br-footer[data-theme='dark'] .pen-br-step-add:hover {
+  border-color: #5c7eff;
+  color: #9bb1ff;
+  background: #152459;
+}
+
+/* Brilliant 3D-Pressable Done / Check Button (exact .lesson-action feel) */
+.pen-br-done-btn {
+  padding: 0;
+  border: none;
+  background: transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  outline: none;
+}
+
+.pen-br-done-btn:focus-visible {
+  box-shadow: 0 0 0 3px #456dff;
+}
+
+.pen-br-done-face {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 42px;
+  padding: 0 22px;
+  border-radius: 999px;
+  background: #222222;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  box-shadow: 0 4px 0 #000000;
+  transition: transform 100ms ease-out, box-shadow 100ms ease-out, background-color 140ms ease;
+}
+
+.pen-br-footer[data-theme='dark'] .pen-br-done-face {
+  background: #e5e5e5;
+  color: #000000;
+  box-shadow: 0 4px 0 #b3b3b3;
+}
+
+.pen-br-done-btn:hover .pen-br-done-face {
+  filter: brightness(1.06);
+}
+
+.pen-br-done-btn:active .pen-br-done-face {
+  transform: translateY(4px);
+  box-shadow: 0 0 0 transparent;
+}
+
+.pen-br-done-btn[data-checked] .pen-br-done-face {
+  background: #29cc57;
+  color: #ffffff;
+  box-shadow: 0 4px 0 #15b441;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.22);
+}
+
+/* --------------------------------------------------------------------------
+   6. Signature Right-Click / Stylus Barrel Radial Joystick Pie Menu
+   -------------------------------------------------------------------------- */
+.pen-radial-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: rgba(20, 20, 20, 0.2);
+  pointer-events: auto;
+  animation: pen-radial-fade 120ms ease-out;
+}
+
+.pen-radial-backdrop[data-theme='dark'] {
+  background: rgba(0, 0, 0, 0.48);
+}
+
+@keyframes pen-radial-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.pen-radial-svg {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+}
+
+.pen-radial-wedge-fill {
+  fill: rgba(41, 204, 87, 0.12);
+}
+
+.pen-radial-backdrop[data-theme='dark'] .pen-radial-wedge-fill {
+  fill: rgba(94, 217, 129, 0.14);
+}
+
+.pen-radial-ray {
+  stroke: rgba(20, 20, 20, 0.15);
+  stroke-width: 1;
+  stroke-dasharray: 4 6;
+}
+
+.pen-radial-backdrop[data-theme='dark'] .pen-radial-ray {
+  stroke: rgba(255, 255, 255, 0.16);
+}
+
+.pen-radial-ring-base {
+  fill: none;
+  stroke: rgba(20, 20, 20, 0.14);
+  stroke-width: 1.5;
+}
+
+.pen-radial-backdrop[data-theme='dark'] .pen-radial-ring-base {
+  stroke: rgba(255, 255, 255, 0.16);
+}
+
+.pen-radial-spin-group {
+  animation: pen-radial-spin 340ms cubic-bezier(0.2, 0.85, 0.25, 1) forwards;
+}
+
+@keyframes pen-radial-spin {
+  from { transform: rotate(-110deg); }
+  to { transform: rotate(0deg); }
+}
+
+.pen-radial-ring-sweep {
+  fill: none;
+  stroke: #29cc57;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 1000;
+  animation: pen-radial-sweep 340ms cubic-bezier(0.2, 0.85, 0.25, 1) forwards;
+}
+
+@keyframes pen-radial-sweep {
+  to { stroke-dashoffset: 0; }
+}
+
+.pen-radial-ring-flash {
+  fill: none;
+  stroke: #5ed981;
+  stroke-width: 4;
+  opacity: 0;
+  animation: pen-radial-flash 260ms ease-out 300ms forwards;
+}
+
+@keyframes pen-radial-flash {
+  0% { opacity: 0; }
+  35% { opacity: 0.9; }
+  100% { opacity: 0; }
+}
+
+.pen-radial-active-arc {
+  fill: none;
+  stroke: #29cc57;
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.pen-radial-needle {
+  stroke: #29cc57;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.pen-radial-hub {
+  position: fixed;
+  transform: translate(-50%, -50%);
+  width: 68px;
+  height: 68px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 2px solid #e2e4e9;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.14);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  pointer-events: auto;
+}
+
+.pen-radial-backdrop[data-theme='dark'] .pen-radial-hub {
+  background: rgba(24, 24, 27, 0.96);
+  border-color: #3f414a;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.52);
+}
+
+.pen-radial-stick-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #29cc57;
+  transition: transform 40ms linear;
+}
+
+.pen-radial-hub-label,
+.pen-radial-hub-hint {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: #141414;
+}
+
+.pen-radial-hub-hint {
+  color: #666666;
+}
+
+.pen-radial-backdrop[data-theme='dark'] .pen-radial-hub-label {
+  color: #ffffff;
+}
+
+.pen-radial-node {
+  position: fixed;
+  transform: translate(-50%, -50%);
+  min-width: 66px;
+  height: 54px;
+  padding: 6px 10px;
+  border-radius: 14px;
+  border: 2px solid #e2e4e9;
+  background: rgba(255, 255, 255, 0.97);
+  color: #141414;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.13), 0 2px 0 #d7dae2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  animation: pen-radial-node-pop 200ms cubic-bezier(0.2, 0.85, 0.25, 1) var(--node-delay, 0ms) backwards;
+  transition: background-color 90ms ease, border-color 90ms ease, color 90ms ease, transform 90ms ease;
+}
+
+.pen-radial-backdrop[data-theme='dark'] .pen-radial-node {
+  background: rgba(28, 29, 34, 0.97);
+  border-color: #3f414a;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 2px 0 #2d2f36;
+  color: #f0f1f5;
+}
+
+@keyframes pen-radial-node-pop {
+  from {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--from-x, 0px)), calc(-50% + var(--from-y, 0px))) scale(0.84);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+.pen-radial-node[data-current] {
+  border-color: #456dff;
+  color: #456dff;
+}
+
+.pen-radial-node[data-selected] {
+  background: #29cc57;
+  border-color: #29cc57;
+  box-shadow: 0 10px 26px rgba(41, 204, 87, 0.36), 0 3px 0 #15b441;
+  color: #ffffff;
+  transform: translate(-50%, -50%) scale(1.08);
+}
+
+.pen-radial-node-icon {
+  display: inline-flex;
+}
+
+.pen-radial-node-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* Step pill wrapper with discreet delete button on hover */
+.pen-br-step-dot-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pen-br-step-del-btn {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #52525b;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(0.7);
+  transition: opacity 120ms ease, transform 120ms cubic-bezier(0.2, 0.9, 0.3, 1), background-color 100ms ease;
+  padding: 0;
+  z-index: 5;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.pen-br-footer[data-theme='dark'] .pen-br-step-del-btn {
+  background: #3f3f46;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.pen-br-step-dot-wrap:hover .pen-br-step-del-btn {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.pen-br-step-del-btn:hover {
+  background: #ef4444;
+  color: #ffffff;
+  transform: scale(1.1);
+}
+
+.pen-br-step-dot[data-custom] {
+  border-style: dashed;
+}
