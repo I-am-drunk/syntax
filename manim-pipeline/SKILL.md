@@ -19,3 +19,10 @@ This skill enforces studio-grade Brilliant / 3Blue1Brown visual pedagogy across 
    - Author Sema directly against live Manim mobjects or graph coordinates (`self.sema.enter`, `self.sema.fly_to`, `self.sema.track`, `self.sema.react`).
    - Populate rich `SemaPrompt(callout=..., say=..., subtitle=..., mode=..., accent=...)` fields so the browser runtime can toggle Callouts, Speech Bubbles, Word-Karaoke CC, or Quiet Mode dynamically without re-rendering.
 9. **Hard Visual Acceptance Gate:** Passing exit code 0 is NOT acceptance. Always inspect the 6-frame contact sheet (`manim-pipeline/.cache/qa/`) with Sema gaze projection before shipping.
+
+
+## 10. Packaging & Video.js 10 Playback Contract
+
+- `render.py` outputs individual beat MP4s and `.track.json` files to `manim-pipeline/beats/<pageId>/` and automatically invokes `manim-pipeline/package.py`.
+- `package.py` concatenates beat MP4s into one seekable H.264 MP4 per lens (`public/assets/walkthroughs/<pageId>/<theme>/visual.mp4` and `algebra.mp4`) with 0.5 s GOP keyframes (`-g 30`), merges `.sema.json` without duplicate timestamps, emits WebVTT `.captions.vtt`, and writes `src/mpm2d/walkthrough/videoManifest.ts`.
+- Whenever you verify a rotation or elevator scene, use `self.verify.assert_line_through_points(graph, line_mob, p1, p2, ...)` and `self.verify.assert_pivot_on_both_lines(graph, base_line, rotated_line, pivot_xy)` so every geometric lock-on is checked in world coordinates before packaging.

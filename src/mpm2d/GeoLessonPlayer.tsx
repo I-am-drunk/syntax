@@ -262,6 +262,7 @@ export function GeoLessonPlayer({
   const [explanationOpen, setExplanationOpen] = useState(false)
   const [walkthroughOpen, setWalkthroughOpen] = useState(false)
   const [walkthroughFloating, setWalkthroughFloating] = useState(true)
+  const [workedStepIndex, setWorkedStepIndex] = useState(0)
   const [playbookFloating, setPlaybookFloating] = useState(true)
   const [seenExplain, setSeenExplain] = useState(initialResume.seenExplain)
   const [finished, setFinished] = useState(false)
@@ -767,6 +768,12 @@ export function GeoLessonPlayer({
     () => getWalkthroughForPage(lesson.id, page),
     [lesson.id, page],
   )
+  const walkthroughInitialStep =
+    page.kind === 'worked'
+      ? workedStepIndex
+      : page.kind === 'multi-step'
+        ? Math.min(state.activeSubStep, page.steps.length - 1)
+        : 0
 
   // Left-pane slot architecture in Pen Mode: floats by default so question stays visible, or docks if user clicks Dock!
   const leftSlot: 'problem' | 'compare' | 'playbook' | 'walkthrough' =
@@ -1004,6 +1011,7 @@ export function GeoLessonPlayer({
                   semaShape={semaShape}
                   inline
                   floating={false}
+                  initialStepIndex={walkthroughInitialStep}
                   onToggleFloat={() => setWalkthroughFloating(true)}
                   onToggleVoice={() => onToggleVoice?.()}
                   onClose={() => setWalkthroughOpen(false)}
@@ -1071,6 +1079,7 @@ export function GeoLessonPlayer({
                       <BrilliantWorkedCard
                         page={page}
                         penMode={penOpen}
+                        onStepChange={setWorkedStepIndex}
                       />
                     )}
 
@@ -1530,6 +1539,7 @@ export function GeoLessonPlayer({
           voiceOn={voiceOn}
           drawMode={drawMode}
           semaShape={semaShape}
+          initialStepIndex={walkthroughInitialStep}
           onToggleFloat={penOpen ? () => setWalkthroughFloating(false) : undefined}
           onToggleVoice={() => onToggleVoice?.()}
           onClose={() => setWalkthroughOpen(false)}

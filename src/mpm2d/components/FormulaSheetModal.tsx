@@ -204,41 +204,41 @@ export function FormulaSheetContent({
 
   return (
     <div className={`fm-content-wrap${compact ? ' is-compact' : ''}${floating ? ' is-floating' : ''}`}>
-      <header
-        className={`fm-header${onDragStart ? ' is-draggable' : ''}`}
-        onPointerDown={onDragStart}
-      >
-        <div className="fm-header-title-group">
-          {onDragStart && (
-            <span className="wt-drag-grip" aria-hidden="true" title="Drag Playbook window">
-              ⋮⋮
-            </span>
-          )}
-          <div>
-            <h2 className="fm-title">Unit 2 Playbook</h2>
-            <p className="fm-subtitle">MPM2D Open-Notes Reference</p>
+      {!floating && (
+        <header
+          className={`fm-header${onDragStart ? ' is-draggable' : ''}`}
+          onPointerDown={onDragStart}
+        >
+          <div className="fm-header-title-group">
+            {onDragStart && (
+              <span className="wt-drag-grip" aria-hidden="true" title="Drag Playbook window">
+                ⋮⋮
+              </span>
+            )}
+            <div>
+              <h2 className="fm-title">Unit 2 Playbook</h2>
+              <p className="fm-subtitle">MPM2D Open-Notes Reference</p>
+            </div>
           </div>
-        </div>
-        <div className="fm-header-actions" onPointerDown={e => e.stopPropagation()}>
-          {onToggleFloat && (
+          <div className="fm-header-actions" onPointerDown={e => e.stopPropagation()}>
+            {onToggleFloat && (
+              <button
+                type="button"
+                className="fm-print-btn"
+                title="Float Playbook as draggable window"
+                onClick={onToggleFloat}
+              >
+                Float
+              </button>
+            )}
             <button
               type="button"
               className="fm-print-btn"
-              title={floating ? "Dock Playbook to side rail" : "Float Playbook as draggable window"}
-              onClick={onToggleFloat}
+              title="Print 1-page open-notes cheat sheet"
+              onClick={() => window.print()}
             >
-              {floating ? "Dock" : "Float"}
+              Print
             </button>
-          )}
-          <button
-            type="button"
-            className="fm-print-btn"
-            title="Print 1-page open-notes cheat sheet"
-            onClick={() => window.print()}
-          >
-            Print
-          </button>
-          {!floating && (
             <button
               type="button"
               className="fm-close"
@@ -248,9 +248,9 @@ export function FormulaSheetContent({
             >
               {compact ? '← Problem' : '✕'}
             </button>
-          )}
-        </div>
-      </header>
+          </div>
+        </header>
+      )}
 
       <div className="fm-tabs" role="tablist" aria-label="Formula categories">
         {TABS.map(t => (
@@ -505,21 +505,45 @@ export function FormulaSheetModal({
     )
   }
 
+  const resolvedToggleFloat = onToggleFloat ?? (dockable ? () => setFloating(false) : undefined)
+
   return (
     <WinBoxWindow
       id="syntax-playbook-winbox"
       eyebrow="MPM2D Reference"
       title="Unit 2 Playbook"
       defaultWidth={670}
-      defaultHeight={630}
+      defaultHeight={610}
       minWidth={310}
       minHeight={340}
+      headerActions={
+        <>
+          {resolvedToggleFloat && (
+            <button
+              type="button"
+              className="wt-wb-action-btn"
+              title="Dock Playbook to side rail"
+              onClick={resolvedToggleFloat}
+            >
+              Dock
+            </button>
+          )}
+          <button
+            type="button"
+            className="wt-wb-action-btn"
+            title="Print 1-page open-notes cheat sheet"
+            onClick={() => window.print()}
+          >
+            Print
+          </button>
+        </>
+      }
       onClose={onClose}
     >
       <FormulaSheetContent
         onClose={onClose}
         floating
-        onToggleFloat={onToggleFloat ?? (dockable ? () => setFloating(false) : undefined)}
+        onToggleFloat={resolvedToggleFloat}
       />
     </WinBoxWindow>
   )

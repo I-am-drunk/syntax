@@ -8,9 +8,11 @@ const CIRCLED = ['①', '②', '③', '④', '⑤', '⑥']
 export function BrilliantWorkedCard({
   page,
   penMode = false,
+  onStepChange,
 }: {
   page: WorkedPage
   penMode?: boolean
+  onStepChange?: (idx: number) => void
 }) {
   const [stepIdx, setStepIdx] = useState(0)
   const [revealedSteps, setRevealedSteps] = useState<Record<number, boolean>>({})
@@ -18,7 +20,12 @@ export function BrilliantWorkedCard({
   useEffect(() => {
     setStepIdx(0)
     setRevealedSteps({})
+    onStepChange?.(0)
   }, [page.id])
+
+  useEffect(() => {
+    onStepChange?.(stepIdx)
+  }, [stepIdx, onStepChange])
 
   const step = page.steps[stepIdx] ?? page.steps[0]
   const priorSteps = page.steps.slice(0, stepIdx)

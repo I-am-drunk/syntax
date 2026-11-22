@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+﻿import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 // @ts-expect-error winbox/src/js/winbox.js is pure ESM without type declarations
 import WinBoxCtor from 'winbox/src/js/winbox.js'
@@ -18,6 +18,8 @@ export interface WinBoxWindowProps {
   minWidth?: number
   minHeight?: number
   className?: string
+  /** Optional interactive controls portaled into the WinBox titlebar next to the close button */
+  headerActions?: React.ReactNode
   onClose: () => void
   children: React.ReactNode
 }
@@ -31,6 +33,7 @@ export function WinBoxWindow({
   minWidth = 310,
   minHeight = 320,
   className = '',
+  headerActions,
   onClose,
   children,
 }: WinBoxWindowProps) {
@@ -39,6 +42,7 @@ export function WinBoxWindow({
   onCloseRef.current = onClose
   const closingProgrammaticallyRef = useRef(false)
   const [mountNode, setMountNode] = useState<HTMLElement | null>(null)
+  const [actionsNode, setActionsNode] = useState<HTMLElement | null>(null)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -84,7 +88,7 @@ export function WinBoxWindow({
       bottom: 8,
       left: 6,
       right: 6,
-      header: 40,
+      header: 42,
       border: 0,
       onclose: () => {
         if (!closingProgrammaticallyRef.current) {
@@ -96,6 +100,22 @@ export function WinBoxWindow({
 
     boxRef.current = box
     setMountNode(box.body)
+
+    const dom = box.dom as HTMLElement | undefined
+    const headerEl = dom?.querySelector('.wb-header') as HTMLElement | null
+    const controlEl = dom?.querySelector('.wb-control') as HTMLElement | null
+    if (headerEl && controlEl) {
+      const slot = document.createElement('div')
+      slot.className = 'wb-header-actions'
+      const stopDrag = (ev: Event) => ev.stopPropagation()
+      slot.addEventListener('pointerdown', stopDrag)
+      slot.addEventListener('mousedown', stopDrag)
+      slot.addEventListener('touchstart', stopDrag, { passive: true })
+      slot.addEventListener('dblclick', stopDrag)
+      // .wb-header uses row-reverse, so inserting after .wb-control places the slot immediately to its left
+      controlEl.insertAdjacentElement('afterend', slot)
+      setActionsNode(slot)
+    }
 
     const handleViewportResize = () => {
       const b = boxRef.current
@@ -185,5 +205,10 @@ export function WinBoxWindow({
   }, [eyebrow, title, mountNode])
 
   if (!mountNode) return null
-  return createPortal(children, mountNode)
+  return (
+    <>
+      {createPortal(children, mountNode)}
+      {actionsNode && headerActions ? createPortal(headerActions, actionsNode) : null}
+    </>
+  )
 }

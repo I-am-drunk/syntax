@@ -8,12 +8,14 @@
     "api": "node server/index.mjs",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
+    "package:walkthroughs": "python manim-pipeline/package.py",
     "verify:walkthroughs": "python3 manim-pipeline/render.py --verify-only",
     "render:walkthroughs": "python3 manim-pipeline/render.py"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",
     "@rive-app/webgl2": "2.43.0",
+    "@videojs/react": "^10.6.0",
     "fabric": "6.6.1",
     "framer-motion": "12.43.0",
     "howler": "2.2.4",

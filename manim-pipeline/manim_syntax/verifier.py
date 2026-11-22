@@ -115,6 +115,32 @@ class SyntaxVerifier:
             f"screen_angle={angle_deg:.3f}° (error={err:.3f}°, tol={tol_deg}°)",
         )
 
+    def assert_line_through_points(
+        self,
+        graph: "SyntaxGraph",
+        line_mob: Mobject,
+        *points_xy: tuple[float, float],
+        name: str = "line",
+        tol: float = 0.04,
+    ) -> None:
+        """Verify that a rendered line passes through every target point in world coordinates."""
+        for xy in points_xy:
+            self.assert_point_on_line(graph, line_mob, xy, name=name, tol=tol)
+
+    def assert_pivot_on_both_lines(
+        self,
+        graph: "SyntaxGraph",
+        line_a: Mobject,
+        line_b: Mobject,
+        pivot_xy: tuple[float, float],
+        *,
+        name: str = "pivot",
+        tol: float = 0.04,
+    ) -> None:
+        """Verify that a rotation pivot lies on BOTH the base line and the rotated perpendicular line."""
+        self.assert_point_on_line(graph, line_a, pivot_xy, name=f"{name}_base", tol=tol)
+        self.assert_point_on_line(graph, line_b, pivot_xy, name=f"{name}_rotated", tol=tol)
+
     def assert_line_slope(
         self,
         graph: "SyntaxGraph",

@@ -1,30 +1,30 @@
-/* WinBox custom theme for Syntax MPM2D (Light & Dark) */
+﻿/* WinBox custom theme for Syntax MPM2D (Light & Dark) */
 .winbox.syntax-winbox {
-  background: #f4f6fb;
+  background: var(--bg-surface, #ffffff);
   border-radius: 18px;
-  border: 1px solid rgba(15, 23, 42, 0.14);
+  border: 1.5px solid rgba(15, 23, 42, 0.14);
   box-shadow:
-    0 26px 68px rgba(15, 23, 42, 0.22),
-    0 6px 20px rgba(15, 23, 42, 0.1);
+    0 24px 64px rgba(15, 23, 42, 0.22),
+    0 4px 16px rgba(15, 23, 42, 0.08);
   overflow: hidden;
   font-family: var(--font-sans, 'Inter', -apple-system, BlinkMacSystemFont, sans-serif);
   z-index: 940;
 }
 
 .winbox.syntax-winbox.focus {
-  border-color: rgba(69, 109, 255, 0.42);
+  border-color: rgba(55, 92, 227, 0.42);
   box-shadow:
-    0 30px 76px rgba(15, 23, 42, 0.28),
-    0 8px 24px rgba(69, 109, 255, 0.12);
+    0 28px 72px rgba(15, 23, 42, 0.26),
+    0 6px 20px rgba(55, 92, 227, 0.12);
 }
 
 [data-theme='dark'] .winbox.syntax-winbox,
 .winbox.syntax-winbox.is-dark {
-  background: #181c26;
-  border-color: rgba(255, 255, 255, 0.13);
+  background: #141414;
+  border-color: rgba(255, 255, 255, 0.14);
   box-shadow:
-    0 30px 76px rgba(0, 0, 0, 0.62),
-    0 6px 22px rgba(0, 0, 0, 0.42);
+    0 28px 72px rgba(0, 0, 0, 0.64),
+    0 6px 20px rgba(0, 0, 0, 0.42);
 }
 
 [data-theme='dark'] .winbox.syntax-winbox.focus,
@@ -38,24 +38,33 @@
 }
 
 .winbox.syntax-winbox .wb-header {
-  height: 40px;
-  line-height: 40px;
-  background: linear-gradient(180deg, #f9fafd 0%, #eff2f9 100%);
+  height: 42px;
+  line-height: 42px;
+  background: #f7f8fb;
   border-bottom: 1px solid rgba(15, 23, 42, 0.08);
-  color: #141824;
+  color: #141414;
   display: flex;
   flex-direction: row-reverse;
   align-items: center;
   justify-content: space-between;
-  padding: 0 6px 0 14px;
+  gap: 8px;
+  padding: 0 8px 0 14px;
   user-select: none;
 }
 
 [data-theme='dark'] .winbox.syntax-winbox .wb-header,
 .winbox.syntax-winbox.is-dark .wb-header {
-  background: linear-gradient(180deg, #1d222e 0%, #151923 100%);
+  background: #1a1c22;
   border-bottom-color: rgba(255, 255, 255, 0.08);
   color: #f2f4fa;
+}
+
+.winbox.syntax-winbox .wb-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  line-height: 1;
 }
 
 .winbox.syntax-winbox .wb-drag {
@@ -88,13 +97,13 @@
 
 /* Eyebrow truncates FIRST when window is narrow so the main title stays readable! */
 .winbox.syntax-winbox .wb-title-eyebrow {
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 800;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #456dff;
-  flex: 0 3 auto;
-  min-width: 24px;
+  color: var(--bg-blue, #375ce3);
+  flex: 0 5 auto;
+  min-width: 16px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -102,7 +111,7 @@
 
 [data-theme='dark'] .winbox.syntax-winbox .wb-title-eyebrow,
 .winbox.syntax-winbox.is-dark .wb-title-eyebrow {
-  color: #7c97ff;
+  color: #7491ff;
 }
 
 .winbox.syntax-winbox .wb-title-sep {
@@ -115,7 +124,8 @@
   font-size: 13.5px;
   font-weight: 750;
   color: inherit;
-  flex: 1 0 auto;
+  flex: 1 1 auto;
+  min-width: 90px;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -129,7 +139,7 @@
   gap: 2px;
   height: 28px;
   flex-shrink: 0;
-  margin-left: 6px;
+  margin-left: 2px;
 }
 
 .winbox.syntax-winbox .wb-control * {
@@ -156,21 +166,25 @@
 }
 
 .winbox.syntax-winbox .wb-body {
-  top: 40px;
-  background: var(--surface-card, #ffffff);
-  color: var(--text-primary, #141414);
-  border-radius: 0 0 17px 17px;
+  top: 42px;
+  background: var(--bg-surface, #ffffff);
+  color: var(--bg-ink, #141414);
+  border-radius: 0 0 16px 16px;
   overflow-x: hidden;
   overflow-y: auto;
 }
 
 [data-theme='dark'] .winbox.syntax-winbox .wb-body,
 .winbox.syntax-winbox.is-dark .wb-body {
-  background: #14171f;
-  color: #f2f3f7;
+  background: #141414;
+  color: #ffffff;
 }
 
 .winbox.syntax-winbox.min {
   border-radius: 12px 12px 0 0;
-  height: 40px !important;
+  height: 42px !important;
+}
+
+.winbox.syntax-winbox.min .wb-header-actions {
+  display: none;
 }

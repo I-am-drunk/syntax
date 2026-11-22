@@ -215,8 +215,8 @@ class SemaDirector:
 
     def _emit_keyframe(self, force: bool = False) -> None:
         t = self._now()
-        if not force and self._keyframes and abs(t - self._keyframes[-1]["t"]) < 0.015:
-            # Overwrite same-timestamp keyframe with latest state
+        if self._keyframes and abs(t - self._keyframes[-1]["t"]) < 0.015:
+            # Always overwrite same-timestamp keyframes so t=0 never has duplicate entries that teleport Sema
             self._keyframes[-1] = self._snapshot_dict(t)
             return
         self._keyframes.append(self._snapshot_dict(t))
