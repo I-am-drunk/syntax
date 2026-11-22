@@ -874,6 +874,13 @@
   will-change: transform, opacity;
 }
 
+/* The animated settings wiper is intentionally wider than the header while
+   it travels. Clip that animation at the viewport edge so narrow screens do
+   not acquire a horizontal scrollbar. */
+.app-header {
+  overflow-x: clip;
+}
+
 /* Dimmed wipe curtain trailing right behind Settings as it sweeps left */
 .primary-nav-settings-wiper::before {
   content: '';
