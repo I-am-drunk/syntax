@@ -157,7 +157,8 @@ function BrilliantNodeMedallion({
         )}
 
         {/* Soft ambient ground shadow */}
-        <ellipse cx="48" cy="54" rx="37" ry="28.5" fill="var(--med-shadow)" />
+        {/* Ground shadow belongs below the pedestal, not inside the medallion face. */}
+        <ellipse cx="48" cy="68" rx="30" ry="7" fill="var(--med-shadow)" />
 
         {/* 3D cylindrical pedestal wall */}
         <path

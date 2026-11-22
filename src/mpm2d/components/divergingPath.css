@@ -129,9 +129,10 @@
 .br-journey-stage {
   position: relative;
   width: 100%;
-  max-width: 420px;
+  max-width: min(420px, calc(100vw - 32px));
   margin: 20px auto 0;
   user-select: none;
+  overflow: visible;
 }
 
 .br-journey-svg {
@@ -177,9 +178,9 @@
 .br-catchup-pill-tag {
   padding: 2px 8px;
   border-radius: 999px;
-  background: rgba(245, 158, 11, 0.16);
-  border: 1.5px solid rgba(245, 158, 11, 0.45);
-  color: #b46900;
+  background: #fff4d6;
+  border: 1.5px solid #d88900;
+  color: #704000;
   font-size: 9.5px;
   font-weight: 800;
   letter-spacing: 0.05em;
@@ -188,9 +189,9 @@
 }
 
 :root[data-theme='dark'] .br-catchup-pill-tag {
-  background: rgba(245, 158, 11, 0.2);
-  border-color: rgba(251, 191, 36, 0.45);
-  color: #fbbf24;
+  background: #3b2a08;
+  border-color: #d99a18;
+  color: #ffd66b;
 }
 
 /* Interwoven Route Spotlight: highlight hovered/active route, softly gray the other */
@@ -233,6 +234,12 @@
   transition: opacity 150ms ease;
 }
 
+/* Catch-up nodes carry a label above the medallion. Keep their disc center on
+   the curve anchor instead of shifting the whole node downward by the label. */
+.br-journey-node-wrap.is-catchup {
+  transform: translate(-50%, -57px);
+}
+
 .br-journey-node-wrap.is-open {
   z-index: 40;
   opacity: 1 !important;
@@ -251,6 +258,9 @@
   justify-content: center;
   outline: none;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  min-width: 78px;
+  min-height: 70px;
 }
 
 .br-node-btn:focus-visible {
@@ -261,6 +271,7 @@
 
 /* Crisp Anti-Aliased Brilliant 3D Medallion Palettes */
 .br-medallion {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -388,11 +399,11 @@
 
 .br-node-caption.is-catchup {
   font-size: 12px;
-  color: #b46900;
+  color: #704000;
 }
 
 :root[data-theme='dark'] .br-node-caption.is-catchup {
-  color: #fbbf24;
+  color: #ffd66b;
 }
 
 .br-node-caption.is-muted {
@@ -641,8 +652,8 @@
 }
 
 .syntax-settings-close {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 10px;
   border: 0;
   background: transparent;
@@ -693,7 +704,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  height: 36px;
+  height: 40px;
   padding: 0 11px;
   border-radius: 10px;
   border: 1.5px solid transparent;
