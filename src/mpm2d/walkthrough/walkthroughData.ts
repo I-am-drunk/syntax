@@ -110,9 +110,9 @@ const L1_P3_WALKTHROUGH: WalkthroughSpec = {
         {
           id: 'vis-3',
           stepIndex: 2,
-          title: 'Slide the line onto P(6, 1)',
+          title: 'Move the line through P(6, 1)',
           caption:
-            'Glide the perpendicular line up and down like an elevator until it locks onto P(6, 1) — it hits the y-axis at b = −1.',
+            'Keep the slope at 1/3. Move the line until it passes through P(6, 1). It crosses the y-axis at −1.',
           audioPath: '/assets/voice/walkthroughs/l1-p3/vis-3.mp3',
           durationSec: 13.4,
           mode: 'l1p3-vis-3',

@@ -278,6 +278,7 @@ export function DivergingLevelPath({
     const curves: PathCurve[] = []
 
     const mainCoords: Array<{ id: string; x: number; y: number; done: boolean }> = []
+    let prevCatchupCoord: { x: number; y: number; done: boolean } | undefined
     let cursorY = 58
 
     lessons.forEach((lesson, idx) => {
@@ -291,18 +292,35 @@ export function DivergingLevelPath({
       // If interwoven catch-ups precede this main lesson, branch them cleanly along the right lane
       if (hasInterwovenCatchups && attachedCatchups.length > 0) {
         const anchorPrev = mainCoords[mainCoords.length - 1]
-        const branchStartX = anchorPrev ? anchorPrev.x : 126
-        const branchStartY = anchorPrev ? anchorPrev.y : Math.max(24, cursorY - 34)
+        const mx = idx % 2 === 0 ? 122 : 154
+        let previous: { x: number; y: number; done: boolean } | undefined =
+          anchorPrev ?? prevCatchupCoord
+        let firstCatchupCoord: { x: number; y: number; done: boolean } | undefined
 
-        let prevCx = branchStartX
-        let prevCy = branchStartY
+        // If this is the very first lesson in the level (no preceding main node), draw a top fork from the level entry spine!
+        if (!anchorPrev) {
+          const entryX = center
+          const entryY = 12
+          const firstCx = 300
+          const firstCy = cursorY + 8
+          curves.push({
+            id: `c-entry-${lesson.id}`,
+            route: 'catchup',
+            d: cubicPath(entryX, entryY, firstCx, firstCy),
+            done: false,
+          })
+        }
 
         attachedCatchups.forEach((c, cIdx) => {
           const cst = getStat(c.id)
           const cDone = cst?.tier === 'mastered' || cst?.tier === 'good'
-          const cx = cIdx % 2 === 0 ? 302 : 272
+          const cx = cIdx % 2 === 0 ? 300 : 272
           const cy = cursorY + 8
           cursorY += 108
+
+          if (!firstCatchupCoord) {
+            firstCatchupCoord = { x: cx, y: cy, done: cDone }
+          }
 
           nodes.push({
             id: c.id,
@@ -321,21 +339,40 @@ export function DivergingLevelPath({
             compact: true,
           })
 
-          curves.push({
-            id: `c-in-${c.id}`,
-            route: 'catchup',
-            d: cubicPath(prevCx, prevCy, cx, cy),
-            done: cDone,
-          })
-
-          prevCx = cx
-          prevCy = cy
+          if (previous) {
+            curves.push({
+              id: `c-in-${c.id}`,
+              route: 'catchup',
+              d: cubicPath(previous.x, previous.y, cx, cy),
+              done: cDone,
+            })
+          }
+          // Also connect continuity along the catchup spine if there was an earlier catchup spur
+          if (cIdx === 0 && prevCatchupCoord && anchorPrev) {
+            curves.push({
+              id: `c-spine-${c.id}`,
+              route: 'catchup',
+              d: cubicPath(prevCatchupCoord.x, prevCatchupCoord.y, cx, cy),
+              done: prevCatchupCoord.done && cDone,
+            })
+          }
+          previous = { x: cx, y: cy, done: cDone }
+          prevCatchupCoord = { x: cx, y: cy, done: cDone }
         })
 
         // Place main lesson on the left-center spine right below its catch-up spur, and merge back in!
-        const mx = idx % 2 === 0 ? 124 : 158
-        const my = cursorY + 4
+        const my = cursorY + 6
         cursorY += 126
+
+        // If this is the very first main lesson in the level, also connect it up to the level entry fork!
+        if (!anchorPrev) {
+          curves.push({
+            id: `m-entry-${lesson.id}`,
+            route: 'main',
+            d: cubicPath(center, 12, mx, my),
+            done: isDone,
+          })
+        }
 
         nodes.push({
           id: lesson.id,
@@ -354,11 +391,14 @@ export function DivergingLevelPath({
         })
 
         // Merge catch-up spur back into the supported main lesson
-        curves.push({
-          id: `c-merge-${lesson.id}`,
-          route: 'catchup',
-          d: cubicPath(prevCx, prevCy, mx, my),
-        })
+        if (previous) {
+          curves.push({
+            id: `c-merge-${lesson.id}`,
+            route: 'catchup',
+            d: cubicPath(previous.x, previous.y, mx, my),
+            done: previous.done && isDone,
+          })
+        }
 
         if (anchorPrev) {
           curves.push({
@@ -373,7 +413,7 @@ export function DivergingLevelPath({
         // Pure clean winding main course path
         const pattern = [0, 56, 0, -56]
         const offset = lessons.length <= 1 ? 0 : pattern[idx % 4]! * flip
-        const mx = hasInterwovenCatchups ? (idx % 2 === 0 ? 124 : 158) : center + offset
+        const mx = hasInterwovenCatchups ? (idx % 2 === 0 ? 122 : 154) : center + offset
         const my = cursorY
         cursorY += 132
 
@@ -424,6 +464,14 @@ export function DivergingLevelPath({
           done: allMastered,
         })
       }
+      if (hasInterwovenCatchups && prevCatchupCoord) {
+        curves.push({
+          id: `c-trophy-${levelNumber}`,
+          route: 'catchup',
+          d: cubicPath(prevCatchupCoord.x, prevCatchupCoord.y, tx, ty),
+          done: allMastered && prevCatchupCoord.done,
+        })
+      }
       nodes.push({
         id: `trophy-level-${levelNumber}`,
         route: 'main',
@@ -453,7 +501,7 @@ export function DivergingLevelPath({
   const selectedNode = layout.nodes.find(n => n.id === selectedId)
   const activeRouteFocus: 'main' | 'catchup' | null = !hasInterwovenCatchups
     ? null
-    : hoveredRoute ?? selectedNode?.route ?? 'catchup'
+    : hoveredRoute ?? selectedNode?.route ?? 'main'
 
   return (
     <div
@@ -469,6 +517,7 @@ export function DivergingLevelPath({
         width={layout.width}
         height={layout.height}
         viewBox={`0 0 ${layout.width} ${layout.height}`}
+        preserveAspectRatio="none"
         fill="none"
         shapeRendering="geometricPrecision"
         aria-hidden="true"
@@ -477,6 +526,7 @@ export function DivergingLevelPath({
           <path
             key={c.id}
             d={c.d}
+            vectorEffect="non-scaling-stroke"
             className={`br-journey-curve is-${c.route}${c.done ? ' is-done' : ''}`}
           />
         ))}

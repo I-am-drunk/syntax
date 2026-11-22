@@ -104,8 +104,8 @@ export const SEMA_EXPRESSIONS: { id: SemaExpressionName; label: string }[] = [
 ]
 
 export const SEMA_SHAPES: { id: SemaShapeName; label: string }[] = [
-  { id: 'squircle', label: 'Squircle' },
   { id: 'circle', label: 'Circle' },
+  { id: 'squircle', label: 'Squircle' },
   { id: 'pebble', label: 'Pebble' },
   { id: 'capsule', label: 'Capsule' },
   { id: 'triangle', label: 'Triangle' },

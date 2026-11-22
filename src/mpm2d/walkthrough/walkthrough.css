@@ -74,6 +74,13 @@
   line-height: 1.25;
 }
 
+.wt-current-step {
+  padding: 6px 16px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .wt-header-right {
   display: flex;
   align-items: center;
@@ -398,6 +405,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.wt-flow-equation {
+  padding-inline: 12px;
+  color: var(--text);
+  font-size: clamp(16px, 4cqi, 26px);
+  font-weight: 700;
+  text-align: center;
 }
 
 .wt-tok {
@@ -1080,4 +1095,184 @@
 .wt-generic-step-text {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+/* Floating Draggable Computer-Style Window for Walkthrough */
+.wt-floating-window {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: min(636px, calc(100vw - 24px));
+  max-height: calc(100vh - 28px);
+  overflow-y: auto;
+  background: var(--surface-card, #ffffff);
+  color: var(--text-primary, #141414);
+  border-radius: 20px;
+  border: 1.5px solid var(--border-subtle, #dde1ea);
+  box-shadow:
+    0 24px 64px rgba(10, 14, 24, 0.24),
+    0 4px 16px rgba(10, 14, 24, 0.08);
+  z-index: 920;
+  outline: none;
+  will-change: transform;
+}
+
+[data-theme='dark'] .wt-floating-window {
+  background: #14171f;
+  border-color: #2b3140;
+  color: #f2f3f7;
+  box-shadow:
+    0 28px 72px rgba(0, 0, 0, 0.56),
+    0 4px 18px rgba(0, 0, 0, 0.36);
+}
+
+.wt-header.is-draggable {
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(127, 127, 127, 0.12);
+}
+
+.wt-header.is-draggable:active {
+  cursor: grabbing;
+}
+
+.wt-header-left {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.wt-drag-grip {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: -1px;
+  color: var(--text-muted, #7c8292);
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.wt-title {
+  margin: 0;
+  font-size: 15.5px;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wt-top-stuck-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 9px;
+  border: 1px solid rgba(230, 168, 23, 0.45);
+  background: rgba(249, 210, 92, 0.14);
+  color: #9a6700;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease, transform 120ms ease;
+}
+
+[data-theme='dark'] .wt-top-stuck-btn {
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(245, 158, 11, 0.38);
+}
+
+.wt-top-stuck-btn:hover {
+  background: rgba(249, 210, 92, 0.24);
+}
+
+.wt-top-stuck-chevron {
+  transition: transform 180ms ease;
+}
+
+.wt-top-stuck-btn.is-open .wt-top-stuck-chevron {
+  transform: rotate(180deg);
+}
+
+.wt-top-rescue-wrap {
+  overflow: hidden;
+}
+
+.wt-rescue-card.is-top-dropdown {
+  margin-top: 2px;
+  box-shadow: 0 8px 20px rgba(230, 168, 23, 0.12);
+}
+
+.wt-current-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 11px;
+  border-radius: 10px;
+  background: rgba(69, 109, 255, 0.07);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary, #141414);
+}
+
+[data-theme='dark'] .wt-current-step {
+  background: rgba(116, 145, 255, 0.12);
+  color: #f2f3f7;
+}
+
+.wt-current-step-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #456dff;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.wt-current-step-eq {
+  color: var(--text-muted, #626878);
+  font-variant-numeric: tabular-nums;
+}
+
+.wt-caption-bullets {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.wt-caption-bullets li {
+  font-size: 13px;
+  line-height: 1.42;
+  color: var(--text-muted, #555b69);
+}
+
+[data-theme='dark'] .wt-caption-bullets li {
+  color: #c2c8d4;
+}
+
+/* Auto-dim playback & timeline controls when pointer is not hovering the window */
+.wt-shell .wt-controls-row {
+  opacity: 0.34;
+  filter: grayscale(0.45);
+  transition: opacity 180ms ease, filter 180ms ease;
+}
+
+.wt-shell:hover .wt-controls-row,
+.wt-shell:focus-within .wt-controls-row,
+.wt-shell:not(.is-playing) .wt-controls-row {
+  opacity: 1;
+  filter: none;
+}
+
+.wt-footer-hint {
+  font-size: 12px;
+  color: var(--text-muted, #686f7e);
 }

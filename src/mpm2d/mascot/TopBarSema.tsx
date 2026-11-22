@@ -37,7 +37,7 @@ export function TopBarSema({
   enableRoaming = true,
   dockedIntoLogo = false,
   scrollContainerRef,
-  shape = 'squircle',
+  shape = 'circle',
   expression = 'neutral',
   hasNotification = false,
   onPoke,
@@ -61,14 +61,18 @@ export function TopBarSema({
 
   const [hoverBubble, setHoverBubble] = useState(false)
   const [isSleepy, setIsSleepy] = useState(false)
+  const sleepyRef = useRef(false)
   const [logoPhase, setLogoPhase] = useState<'normal' | 'merging' | 'unmerging'>('normal')
   const prevDockedLogoRef = useRef(dockedIntoLogo)
   const [roamState, setRoamState] = useState<SemaState>('idle')
   const [roamExpr, setRoamExpr] = useState<SemaExpressionName>('happy')
   const [roamLook, setRoamLook] = useState<SemaLookPoint | null>(null)
+  const [scrolling, setScrolling] = useState(false)
+  const scrollingRef = useRef(false)
 
   const hoverTimerRef = useRef<number>(0)
   const moodTimerRef = useRef<number>(0)
+  const scrollEndTimerRef = useRef<number>(0)
   const lastActivityRef = useRef<number>(Date.now())
 
   // Center coordinates (cx, cy) of Sema in viewport space
@@ -122,16 +126,17 @@ export function TopBarSema({
     posRef.current = { x: startCx, y: startCy, vx, vy }
     clearHover()
     setIsSleepy(false)
-    setRoamState('idle')
-    setRoamExpr('excited')
     window.clearTimeout(moodTimerRef.current)
+
+    setRoamState('idle')
+    setRoamExpr(fromDrag ? 'surprised' : 'excited')
+    setPhase('roaming')
     moodTimerRef.current = window.setTimeout(() => {
       if (phaseRef.current === 'roaming') {
         setRoamState('idle')
         setRoamExpr('happy')
       }
     }, 900)
-    setPhase('roaming')
   }
 
   const recallToDock = () => {
@@ -147,6 +152,7 @@ export function TopBarSema({
   useEffect(() => {
     if (!enableRoaming) {
       if (phaseRef.current === 'roaming') recallToDock()
+      sleepyRef.current = false
       setIsSleepy(false)
       return
     }
@@ -156,14 +162,30 @@ export function TopBarSema({
 
     const bumpActivity = () => {
       lastActivityRef.current = Date.now()
-      setIsSleepy(prev => (prev ? false : prev))
+      if (sleepyRef.current) {
+        sleepyRef.current = false
+        setIsSleepy(false)
+      }
+    }
+
+    const pauseForScroll = () => {
+      bumpActivity()
+      if (!scrollingRef.current) {
+        scrollingRef.current = true
+        setScrolling(true)
+      }
+      window.clearTimeout(scrollEndTimerRef.current)
+      scrollEndTimerRef.current = window.setTimeout(() => {
+        scrollingRef.current = false
+        setScrolling(false)
+      }, 140)
     }
 
     window.addEventListener('pointermove', bumpActivity, { passive: true })
     window.addEventListener('keydown', bumpActivity, { passive: true })
-    window.addEventListener('wheel', bumpActivity, { passive: true })
+    window.addEventListener('wheel', pauseForScroll, { passive: true })
     window.addEventListener('pointerdown', bumpActivity, { passive: true })
-    scroller?.addEventListener('scroll', bumpActivity, { passive: true })
+    scroller?.addEventListener('scroll', pauseForScroll, { passive: true })
 
     const idleCheck = window.setInterval(() => {
       if (phaseRef.current !== 'docked') return
@@ -171,7 +193,8 @@ export function TopBarSema({
       const idleMs = Date.now() - lastActivityRef.current
       if (idleMs >= IDLE_TRIGGER_MS) {
         launchRoaming()
-      } else if (idleMs >= SLEEPY_AFTER_MS) {
+      } else if (idleMs >= SLEEPY_AFTER_MS && !sleepyRef.current) {
+        sleepyRef.current = true
         setIsSleepy(true)
       }
     }, 1000)
@@ -179,16 +202,18 @@ export function TopBarSema({
     return () => {
       window.removeEventListener('pointermove', bumpActivity)
       window.removeEventListener('keydown', bumpActivity)
-      window.removeEventListener('wheel', bumpActivity)
+      window.removeEventListener('wheel', pauseForScroll)
       window.removeEventListener('pointerdown', bumpActivity)
-      scroller?.removeEventListener('scroll', bumpActivity)
+      scroller?.removeEventListener('scroll', pauseForScroll)
       window.clearInterval(idleCheck)
+      window.clearTimeout(scrollEndTimerRef.current)
+      scrollingRef.current = false
     }
   }, [enableRoaming, scrollContainerRef])
 
   // Wall-bouncing physics loop (uses center coords; host is CATCH_BUBBLE_SIZE square centered on Sema)
   useEffect(() => {
-    if (phase === 'docked') return
+    if (phase === 'docked' || scrolling) return
     let raf = 0
     let lastTs = performance.now()
     let lookUpdateAcc = 0
@@ -292,7 +317,7 @@ export function TopBarSema({
       cancelAnimationFrame(raf)
       window.clearTimeout(moodTimerRef.current)
     }
-  }, [phase])
+  }, [phase, scrolling])
 
   useEffect(() => {
     const prev = prevDockedLogoRef.current
@@ -318,6 +343,7 @@ export function TopBarSema({
     return () => {
       window.clearTimeout(hoverTimerRef.current)
       window.clearTimeout(moodTimerRef.current)
+      window.clearTimeout(scrollEndTimerRef.current)
     }
   }, [])
 
@@ -355,7 +381,8 @@ export function TopBarSema({
                 size={SEMA_SIZE}
                 interactive={!dockedIntoLogo}
                 followCursor={!dockedIntoLogo}
-                dragLaunchThresholdPx={enableRoaming && !dockedIntoLogo ? 52 : undefined}
+                dragLaunchThresholdPx={enableRoaming && !dockedIntoLogo ? 148 : undefined}
+                animationPaused={scrolling}
                 onDragLaunch={
                   enableRoaming && !dockedIntoLogo
                     ? info => {
@@ -368,6 +395,9 @@ export function TopBarSema({
                 onPoke={() => {
                   clearHover()
                   onPoke?.()
+                  if (enableRoaming && Math.floor(Math.random() * 16) === 0) {
+                    launchRoaming()
+                  }
                 }}
               />
             </div>
@@ -435,9 +465,10 @@ export function TopBarSema({
                   state={roamState}
                   expression={roamExpr}
                   shape={shape}
-                  size={SEMA_SIZE + 8}
+                  size={SEMA_SIZE}
                   interactive={false}
                   followCursor={false}
+                  animationPaused={scrolling}
                   lookAt={roamLook}
                   ariaLabel="Roaming Sema"
                 />

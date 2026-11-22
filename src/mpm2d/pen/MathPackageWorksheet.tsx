@@ -33,8 +33,10 @@ export function MathPackageWorksheet({
   const dragRef = useRef<{ startClientY: number; startExtra: number } | null>(null)
 
   const sheetH = Math.max(baseHeight, baseHeight + field.extraHeight)
+  const sheetHRef = useRef(sheetH)
+  sheetHRef.current = sheetH
 
-  // Track pointer purely for the bottom-edge resize highlight (never wakes up while writing on the sheet)
+  // Track pointer ONLY within 40px of the bottom resize edge (zero React state updates while drawing!)
   useEffect(() => {
     const container = editor.getContainer()
     if (!container) return
@@ -42,19 +44,31 @@ export function MathPackageWorksheet({
     let latest: { x: number; y: number } | null = null
 
     const onMove = (e: PointerEvent) => {
+      // Never run bottom-edge hover calculations while drawing/pressing a pen button
+      if (e.buttons !== 0 && !dragRef.current) return
       latest = { x: e.clientX, y: e.clientY }
       if (!raf) {
         raf = requestAnimationFrame(() => {
           raf = 0
           if (!latest) return
           const pt = editor.screenToPage(latest)
-          setPointerPage({ x: pt.x, y: pt.y })
+          const h = sheetHRef.current
+          const nearBottom =
+            pt.x >= -20 &&
+            pt.x <= SHEET_WIDTH + 20 &&
+            Math.abs(pt.y - h) <= 40 &&
+            pt.y >= h - 40
+          if (nearBottom || dragRef.current) {
+            setPointerPage({ x: pt.x, y: pt.y })
+          } else {
+            setPointerPage(prev => (prev === null ? null : null))
+          }
         })
       }
     }
     const onLeave = () => {
       latest = null
-      if (!dragRef.current) setPointerPage(null)
+      if (!dragRef.current) setPointerPage(prev => (prev === null ? null : null))
     }
 
     container.addEventListener('pointermove', onMove, { passive: true })

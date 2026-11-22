@@ -26,14 +26,14 @@ function seg(progress: number, start: number, end: number): number {
 
 // Coordinate mapper for custom live-animated Visual Lens SVG (viewBox 0 0 420 270)
 // Math domain: x in [-5, 8] (span 13), y in [-5, 5] (span 10)
-const GX0 = 26
 const GY0 = 18
-const GW = 368
 const GH = 234
 const X_MIN = -5
 const X_MAX = 8
 const Y_MIN = -5
 const Y_MAX = 5
+const GW = GH * (X_MAX - X_MIN) / (Y_MAX - Y_MIN)
+const GX0 = (420 - GW) / 2
 
 function mx(x: number): number {
   return GX0 + ((x - X_MIN) / (X_MAX - X_MIN)) * GW
@@ -370,12 +370,9 @@ function Alg1IsolateY({ progress }: { progress: number }) {
   const moveT = easeInOut(seg(progress, 0.22, 0.62))
   const spotT = easeOut(seg(progress, 0.66, 0.88))
 
-  // +3x lifts on a clean parabolic arc over the '=' sign and flips sign to -3x!
-  const arcX = lerp(-105, 34, moveT)
-  const arcY = -Math.sin(moveT * Math.PI) * 58
-  const yX = lerp(-24, -84, moveT)
-  const constX = lerp(64, 114, moveT)
-  const flipped = moveT > 0.52
+  const equation = moveT < 0.15 ? '3x + y = −3' : moveT < 0.85
+    ? '3x + y − 3x = −3 − 3x'
+    : 'y = −3x − 3'
 
   return (
     <div className="wt-alg-stage" aria-label="Isolating y from 3x + y = -3">
@@ -388,39 +385,7 @@ function Alg1IsolateY({ progress }: { progress: number }) {
       </div>
 
       <div className="wt-alg-canvas">
-        {/* Moving 3x -> -3x token */}
-        <span
-          className={`wt-tok ${flipped ? 'is-teal' : 'is-blue'} ${spotT > 0.2 ? 'is-spot' : ''}`}
-          style={{ transform: `translate(${arcX}px, ${arcY}px)` }}
-        >
-          {flipped ? '−3x' : '3x'}
-        </span>
-
-        {/* Fading '+' operator */}
-        <span
-          className="wt-tok is-op"
-          style={{
-            transform: `translate(-62px, 0px)`,
-            opacity: Math.max(0, 1 - moveT * 2.2),
-          }}
-        >
-          +
-        </span>
-
-        {/* y glides left */}
-        <span className="wt-tok is-ink" style={{ transform: `translate(${yX}px, 0px)` }}>
-          y
-        </span>
-
-        {/* Anchor '=' sign */}
-        <span className="wt-tok is-op" style={{ transform: `translate(-34px, 0px)` }}>
-          =
-        </span>
-
-        {/* -3 shifts right cleanly to make room */}
-        <span className="wt-tok is-ink" style={{ transform: `translate(${constX}px, 0px)` }}>
-          −3
-        </span>
+        <span className="wt-flow-equation"><MathText text={equation} /></span>
       </div>
 
       <div

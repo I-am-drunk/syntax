@@ -544,9 +544,19 @@ export function PenCanvasWorkspace({
       editor.focus()
 
       let prevTool = editor.getCurrentToolId()
+      let previousUndo = false
+      let previousRedo = false
       const syncFromEditor = () => {
-        setCanUndo(editor.getCanUndo())
-        setCanRedo(editor.getCanRedo())
+        const canUndo = editor.getCanUndo()
+        const canRedo = editor.getCanRedo()
+        if (canUndo !== previousUndo) {
+          previousUndo = canUndo
+          setCanUndo(canUndo)
+        }
+        if (canRedo !== previousRedo) {
+          previousRedo = canRedo
+          setCanRedo(canRedo)
+        }
         const t = editor.getCurrentToolId()
         if (t !== prevTool) {
           prevTool = t

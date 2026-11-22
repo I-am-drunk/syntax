@@ -19,7 +19,7 @@ const DEFAULT_PREFS: SyntaxPrefs = {
   onboarded: false,
   voiceOn: true,
   penControlsCollapsed: true,
-  semaShape: 'squircle',
+  semaShape: 'circle',
   semaExpression: 'neutral',
 }
 

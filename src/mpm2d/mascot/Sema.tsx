@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef } from 'react'
 import {
   BotEngine,
   DEMI_VIEWBOX,
@@ -250,6 +250,7 @@ export function Sema({
   onPoke,
   dragLaunchThresholdPx,
   onDragLaunch,
+  animationPaused = false,
 }: {
   state?: SemaState
   expression?: SemaExpressionName
@@ -264,9 +265,11 @@ export function Sema({
   className?: string
   ariaLabel?: string
   onPoke?: () => void
-  /** If set, dragging Sema beyond this distance (px) breaks free and fires onDragLaunch */
+  /** If set, dropping Sema on the page or beyond this distance fires onDragLaunch. */
   dragLaunchThresholdPx?: number
   onDragLaunch?: (info: SemaDragLaunchInfo) => void
+  /** Freeze the expensive SVG engine while another interaction needs the frame budget. */
+  animationPaused?: boolean
 }) {
   const uid = useId().replace(/:/g, '')
   const maskId = `sema-mask-${uid}`
@@ -341,7 +344,6 @@ export function Sema({
     velX: 0,
     velY: 0,
     maxDistPx: 0,
-    launchedDuringDrag: false,
     targetDx: 0,
     targetDy: 0,
     dx: 0,
@@ -432,8 +434,11 @@ export function Sema({
     }
   }, [followCursor])
 
-  // Zero-React-Re-render 60fps imperative SVG loop
-  useEffect(() => {
+  // Zero-React-Re-render 60fps imperative SVG loop. useLayoutEffect paints the
+  // first frame before the browser presents a newly mounted Sema, preventing a
+  // blank flash when the roaming copy docks again.
+  useLayoutEffect(() => {
+    if (animationPaused) return
     let raf = 0
     let lastTs = performance.now()
     let lookUpdateTimer = 0
@@ -680,13 +685,13 @@ export function Sema({
       }
     }
 
-    raf = requestAnimationFrame(tick)
+    tick(lastTs)
     return () => {
       cancelAnimationFrame(raf)
       for (const node of gradNodes.values()) node.remove()
       gradNodes.clear()
     }
-  }, [uid])
+  }, [uid, animationPaused])
 
   const handlePointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (!interactive) return
@@ -709,7 +714,6 @@ export function Sema({
     p.velX = 0
     p.velY = 0
     p.maxDistPx = 0
-    p.launchedDuringDrag = false
     p.targetDx = 0
     p.targetDy = 0
     p.pokeVy -= 3.4
@@ -731,33 +735,14 @@ export function Sema({
     const distPx = Math.hypot(dxPx, dyPx)
     if (distPx > p.maxDistPx) p.maxDistPx = distPx
 
-    // Live break-free launch when dragged far past threshold!
     const thresh = dragLaunchThreshRef.current
-    if (thresh && onDragLaunchRef.current && distPx >= thresh * 1.45 && !p.launchedDuringDrag) {
-      p.launchedDuringDrag = true
-      p.dragging = false
-      p.pointerId = -1
-      p.targetDx = 0
-      p.targetDy = 0
-      try {
-        svgRef.current?.releasePointerCapture(e.pointerId)
-      } catch {
-        // ignore
-      }
-      onDragLaunchRef.current({
-        clientX: e.clientX,
-        clientY: e.clientY,
-        vx: p.velX || dxPx * 3,
-        vy: p.velY || dyPx * 3,
-      })
-      return
-    }
-
     const width = centerCacheRef.current.width || size
     const unitScale = width > 0 ? (VB * 2) / width : 4
     const rawX = dxPx * unitScale
     const rawY = dyPx * unitScale
     const rawMag = Math.hypot(rawX, rawY)
+    // Stay tethered to the dock while held: dragging stretches Sema, and only
+    // the release decision can break the tether and start roaming.
     const maxPull = thresh ? 76 : 54
     const dampedMag = maxPull * Math.tanh(rawMag / 90)
     const factor = rawMag > 0.001 ? dampedMag / rawMag : 0
@@ -784,7 +769,8 @@ export function Sema({
     const distPx = Math.hypot(dxPx, dyPx)
     const thresh = dragLaunchThreshRef.current
 
-    if (thresh && onDragLaunchRef.current && distPx >= thresh) {
+    const droppedOnPage = e.clientY >= 72
+    if (thresh && onDragLaunchRef.current && (distPx >= thresh || droppedOnPage)) {
       onDragLaunchRef.current({
         clientX: e.clientX,
         clientY: e.clientY,

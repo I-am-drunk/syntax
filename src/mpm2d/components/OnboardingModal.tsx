@@ -8,7 +8,7 @@ export function OnboardingModal({
   open,
   theme,
   drawMode,
-  semaShape = 'squircle',
+  semaShape = 'circle',
   onSelectTheme,
   onSelectDrawMode,
   onFinish,

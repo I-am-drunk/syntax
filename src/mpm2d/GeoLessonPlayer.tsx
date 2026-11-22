@@ -10,7 +10,7 @@ import { BrilliantMathInput } from './components/BrilliantMathInput'
 import { BrilliantPlanBuilder } from './components/BrilliantPlanBuilder'
 import { BrilliantWorkedCard } from './components/BrilliantWorkedCard'
 import { GeoExplanationContent, GeoExplanationModal } from './components/GeoExplanationModal'
-import { FormulaSheetContent } from './components/FormulaSheetModal'
+import { FormulaSheetContent, FormulaSheetModal } from './components/FormulaSheetModal'
 import { GeoCompletion } from './components/GeoCompletion'
 import { CompactExploration } from './explorations/CompactExploration'
 import { WorkspaceSplitter, type SplitterTension } from './pen/WorkspaceSplitter'
@@ -19,6 +19,7 @@ import { CheckmarkGate } from './checkmark/CheckmarkGate'
 import { getWalkthroughForPage } from './walkthrough/walkthroughData'
 import { WalkthroughContent, WalkthroughModal } from './walkthrough/WalkthroughPlayer'
 import { Sema, type SemaExpressionName, type SemaShapeName, type SemaState } from './mascot/Sema'
+import { recordWorkHistoryVersion } from './historyStore'
 
 const PenCanvasWorkspace = lazy(() => import('./pen/PenCanvasWorkspace'))
 
@@ -49,9 +50,18 @@ function loadSplitPref(): number {
   return 0.38
 }
 
-type ResumeMap = Record<string, { pageIndex: number; furthest: number }>
+type LessonResume = {
+  pageIndex: number
+  pageId?: string
+  furthest: number
+  states?: Record<string, PageRuntime>
+  seenExplain?: Record<string, boolean>
+}
 
-function readResume(lessonId: string): { pageIndex: number; furthest: number } | null {
+type ResumeMap = Record<string, LessonResume>
+
+function readResume(lessonId: string): LessonResume | null {
+  if (lessonId.startsWith('virtual-')) return null
   try {
     const raw = localStorage.getItem(RESUME_KEY)
     if (!raw) return null
@@ -62,16 +72,14 @@ function readResume(lessonId: string): { pageIndex: number; furthest: number } |
   }
 }
 
-function writeResume(lessonId: string, pageIndex: number, furthest: number) {
+function writeResume(lessonId: string, resume: LessonResume) {
   if (lessonId.startsWith('virtual-')) return
   try {
     const raw = localStorage.getItem(RESUME_KEY)
     const map: ResumeMap = raw ? (JSON.parse(raw) as ResumeMap) : {}
-    if (pageIndex <= 0 && furthest <= 0) {
-      delete map[lessonId]
-    } else {
-      map[lessonId] = { pageIndex, furthest }
-    }
+    if (resume.pageIndex === 0 && resume.furthest === 0 && !Object.keys(resume.states ?? {}).length) return
+    delete map[lessonId]
+    map[lessonId] = resume
     localStorage.setItem(RESUME_KEY, JSON.stringify(map))
   } catch {
     // ignore
@@ -190,7 +198,7 @@ export function GeoLessonPlayer({
   soundOn = true,
   drawMode = false,
   voiceOn = true,
-  semaShape = 'squircle',
+  semaShape = 'circle',
   semaExpression = 'neutral',
   penControlsCollapsed = true,
   formulasOpen,
@@ -235,20 +243,27 @@ export function GeoLessonPlayer({
   const allPages = useMemo(() => [...lesson.pages, ...lesson.checks], [lesson])
   const initialResume = useMemo(() => {
     const r = readResume(lesson.id)
-    if (!r) return { pageIndex: 0, furthest: 0 }
     const maxIdx = Math.max(0, allPages.length - 1)
+    const clamp = (index?: number) =>
+      Number.isInteger(index) ? Math.max(0, Math.min(index!, maxIdx)) : 0
+    const savedPage = allPages.findIndex(page => page.id === r?.pageId)
+    const pageIndex = savedPage < 0 ? clamp(r?.pageIndex) : savedPage
     return {
-      pageIndex: Math.min(r.pageIndex, maxIdx),
-      furthest: Math.min(r.furthest, maxIdx),
+      pageIndex,
+      furthest: Math.max(pageIndex, clamp(r?.furthest)),
+      states: r?.states ?? {},
+      seenExplain: r?.seenExplain ?? {},
     }
-  }, [lesson.id, allPages.length])
+  }, [lesson.id, allPages])
 
   const [pageIndex, setPageIndex] = useState(initialResume.pageIndex)
   const [furthest, setFurthest] = useState(initialResume.furthest)
-  const [states, setStates] = useState<Record<string, PageRuntime>>({})
+  const [states, setStates] = useState(initialResume.states)
   const [explanationOpen, setExplanationOpen] = useState(false)
   const [walkthroughOpen, setWalkthroughOpen] = useState(false)
-  const [seenExplain, setSeenExplain] = useState<Record<string, boolean>>({})
+  const [walkthroughFloating, setWalkthroughFloating] = useState(true)
+  const [playbookFloating, setPlaybookFloating] = useState(true)
+  const [seenExplain, setSeenExplain] = useState(initialResume.seenExplain)
   const [finished, setFinished] = useState(false)
 
   // Pen Studio Mode state
@@ -265,6 +280,7 @@ export function GeoLessonPlayer({
 
   const pageScrollRef = useRef<HTMLElement>(null)
   const workspaceRef = useRef<HTMLDivElement>(null)
+  const splitBoundsRef = useRef<DOMRect | null>(null)
   const lessonSurfaceRef = useRef<HTMLDivElement>(null)
 
   const page = allPages[pageIndex] ?? allPages[0]
@@ -274,6 +290,10 @@ export function GeoLessonPlayer({
   const isProblem = isInteractivePage(page)
   const penAllowed = isPenEnabledForPage(page, isCheck)
   const penOpen = penWanted && penAllowed
+  const worksheetSpec = useMemo(
+    () => buildWorksheetSpec(lesson, page, pageIndex, allPages.length, isCheck),
+    [lesson, page, pageIndex, allPages.length, isCheck],
+  )
 
   useEffect(() => {
     if (!penOpen) setPenFullscreen(false)
@@ -301,12 +321,13 @@ export function GeoLessonPlayer({
   }, [penFlipped])
 
   useEffect(() => {
+    if (isResizing) return
     try {
       localStorage.setItem(PEN_SPLIT_KEY, String(splitRatio))
     } catch {
       // ignore
     }
-  }, [splitRatio])
+  }, [splitRatio, isResizing])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -319,9 +340,9 @@ export function GeoLessonPlayer({
 
   useEffect(() => {
     if (!finished) {
-      writeResume(lesson.id, pageIndex, furthest)
+      writeResume(lesson.id, { pageIndex, pageId: page.id, furthest, states, seenExplain })
     }
-  }, [lesson.id, pageIndex, furthest, finished])
+  }, [lesson.id, page.id, pageIndex, furthest, states, seenExplain, finished])
 
   useEffect(() => {
     pageScrollRef.current?.scrollTo({ top: 0 })
@@ -398,6 +419,19 @@ export function GeoLessonPlayer({
           subJustSolved: true,
           feedback: undefined,
           pinnedHint: undefined,
+        })
+        recordWorkHistoryVersion({
+          lesson,
+          page: msPage,
+          pageIndex,
+          isCheck,
+          answerSummary: msPage.steps.map((s, idx) => `${s.label}: ${nextInputs[idx] ?? ""}`).join("  →  "),
+          subSteps: msPage.steps.map((s, idx) => ({
+            label: s.label,
+            value: nextInputs[idx] ?? "",
+            outcome: nextOutcomes[idx] ?? "correct",
+          })),
+          evaluation: hadRevealed ? 'incorrect' : 'correct',
         })
         onSound?.(hadRevealed ? 'continue' : 'correct')
       } else {
@@ -529,6 +563,22 @@ export function GeoLessonPlayer({
       feedback,
       pinnedHint: ok ? undefined : feedback ?? state.pinnedHint,
     })
+    const summaryText =
+      page.kind === 'math-input'
+        ? state.mathValue.trim()
+        : page.kind === 'choice' || page.kind === 'multi-choice' || page.kind === 'read-plan'
+          ? state.selectedIds.map(id => page.options.find(o => o.id === id)?.label ?? id).join(", ")
+          : page.kind === 'plan-order'
+            ? state.planChosen.map((id, idx) => `${idx + 1}. ${page.pool.find(b => b.id === id)?.text ?? id}`).join(" · ")
+            : "Completed"
+    recordWorkHistoryVersion({
+      lesson,
+      page,
+      pageIndex,
+      isCheck,
+      answerSummary: summaryText,
+      evaluation: ok ? 'correct' : nextEval === 'incorrect-retry' ? 'retry' : 'incorrect',
+    })
     onSound?.(ok ? 'correct' : nextEval === 'incorrect-retry' ? 'hint' : 'incorrect')
   }
 
@@ -598,7 +648,7 @@ export function GeoLessonPlayer({
   }, [finished, explanationOpen, isProblem, state, canCheck, pageIndex])
 
   const handleSplitDrag = (clientPos: number) => {
-    const rect = workspaceRef.current?.getBoundingClientRect()
+    const rect = splitBoundsRef.current ?? workspaceRef.current?.getBoundingClientRect()
     if (!rect) return
 
     const raw = isPortrait
@@ -718,15 +768,13 @@ export function GeoLessonPlayer({
     [lesson.id, page],
   )
 
-  const worksheetSpec = buildWorksheetSpec(lesson, page, pageIndex, allPages.length, isCheck)
-
-  // Left-pane slot architecture in Pen Mode: zero 3-panel collisions!
+  // Left-pane slot architecture in Pen Mode: floats by default so question stays visible, or docks if user clicks Dock!
   const leftSlot: 'problem' | 'compare' | 'playbook' | 'walkthrough' =
-    penOpen && walkthroughOpen && walkthroughSpec
+    penOpen && !walkthroughFloating && walkthroughOpen && walkthroughSpec
       ? 'walkthrough'
       : penOpen && explanationOpen && activeExplanation
         ? 'compare'
-        : penOpen && formulasOpen
+        : penOpen && !playbookFloating && formulasOpen
           ? 'playbook'
           : 'problem'
 
@@ -938,6 +986,8 @@ export function GeoLessonPlayer({
               <div className="lesson-left-slot-panel">
                 <FormulaSheetContent
                   compact
+                  floating={false}
+                  onToggleFloat={() => setPlaybookFloating(true)}
                   closeLabel="Back to problem"
                   onClose={onCloseFormulas}
                 />
@@ -953,6 +1003,8 @@ export function GeoLessonPlayer({
                   drawMode={drawMode}
                   semaShape={semaShape}
                   inline
+                  floating={false}
+                  onToggleFloat={() => setWalkthroughFloating(true)}
                   onToggleVoice={() => onToggleVoice?.()}
                   onClose={() => setWalkthroughOpen(false)}
                   onLaunchRescue={rescueId => {
@@ -1424,8 +1476,12 @@ export function GeoLessonPlayer({
               fullscreen={penFullscreen}
               tension={splitterTension}
               tensionAmount={splitterTensionAmount}
-              onDragStart={() => setIsResizing(true)}
+              onDragStart={() => {
+                splitBoundsRef.current = workspaceRef.current?.getBoundingClientRect() ?? null
+                setIsResizing(true)
+              }}
               onDragEnd={() => {
+                splitBoundsRef.current = null
                 setIsResizing(false)
                 setSplitterTension('none')
                 setSplitterTensionAmount(0)
@@ -1465,8 +1521,8 @@ export function GeoLessonPlayer({
         )}
       </div>
 
-      {/* Flying-Sema Walkthrough modal in Normal Mode */}
-      {walkthroughSpec && !penOpen && (
+      {/* Walk me through renders as a draggable floating window by default (or docks to left pane in Pen Mode when toggled) */}
+      {walkthroughSpec && (!penOpen || walkthroughFloating) && (
         <WalkthroughModal
           spec={walkthroughSpec}
           open={walkthroughOpen}
@@ -1474,12 +1530,21 @@ export function GeoLessonPlayer({
           voiceOn={voiceOn}
           drawMode={drawMode}
           semaShape={semaShape}
+          onToggleFloat={penOpen ? () => setWalkthroughFloating(false) : undefined}
           onToggleVoice={() => onToggleVoice?.()}
           onClose={() => setWalkthroughOpen(false)}
           onLaunchRescue={rescueId => {
             setWalkthroughOpen(false)
             onLaunchRescue?.(rescueId)
           }}
+        />
+      )}
+
+      {penOpen && playbookFloating && formulasOpen && (
+        <FormulaSheetModal
+          open={formulasOpen}
+          onToggleFloat={() => setPlaybookFloating(false)}
+          onClose={onCloseFormulas}
         />
       )}
 

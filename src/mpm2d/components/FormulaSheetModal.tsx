@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react'
-import { Dialog } from '@base-ui/react/dialog'
+import { useEffect, useRef, useState } from 'react'
 import { Frac, Sqrt } from './MathText'
 
 type SheetTab = 'formulas' | 'lines' | 'shapes' | 'plans' | 'traps'
@@ -189,21 +188,47 @@ export function FormulaSheetContent({
   onClose,
   closeLabel = 'Close',
   compact = false,
+  floating = false,
+  onToggleFloat,
+  onDragStart,
 }: {
   onClose: () => void
   closeLabel?: string
   compact?: boolean
+  floating?: boolean
+  onToggleFloat?: () => void
+  onDragStart?: (e: React.PointerEvent) => void
 }) {
   const [tab, setTab] = useState<SheetTab>('formulas')
 
   return (
-    <div className={`fm-content-wrap${compact ? ' is-compact' : ''}`}>
-      <header className="fm-header">
-        <div>
-          <h2 className="fm-title">Unit 2 Playbook</h2>
-          <p className="fm-subtitle">MPM2D Open-Notes Reference</p>
+    <div className={`fm-content-wrap${compact ? ' is-compact' : ''}${floating ? ' is-floating' : ''}`}>
+      <header
+        className={`fm-header${onDragStart ? ' is-draggable' : ''}`}
+        onPointerDown={onDragStart}
+      >
+        <div className="fm-header-title-group">
+          {onDragStart && (
+            <span className="wt-drag-grip" aria-hidden="true" title="Drag Playbook window">
+              ⋮⋮
+            </span>
+          )}
+          <div>
+            <h2 className="fm-title">Unit 2 Playbook</h2>
+            <p className="fm-subtitle">MPM2D Open-Notes Reference</p>
+          </div>
         </div>
-        <div className="fm-header-actions">
+        <div className="fm-header-actions" onPointerDown={e => e.stopPropagation()}>
+          {onToggleFloat && (
+            <button
+              type="button"
+              className="fm-print-btn"
+              title={floating ? "Dock Playbook to side rail" : "Float Playbook as draggable window"}
+              onClick={onToggleFloat}
+            >
+              {floating ? "Dock" : "Float"}
+            </button>
+          )}
           <button
             type="button"
             className="fm-print-btn"
@@ -453,48 +478,74 @@ export function FormulaSheetModal({
   open,
   onClose,
   dockable = false,
+  onToggleFloat,
 }: {
   open: boolean
   onClose: () => void
   dockable?: boolean
+  onToggleFloat?: () => void
 }) {
-  const [isWide, setIsWide] = useState(() =>
-    typeof window !== 'undefined' ? window.innerWidth >= 1100 : false,
-  )
+  const [floating, setFloating] = useState(true)
+  const [offset, setOffset] = useState({ x: 0, y: 0 })
+  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null)
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const mq = window.matchMedia('(min-width: 1100px)')
-    const onChange = () => setIsWide(mq.matches)
-    onChange()
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [])
+  const handleDragStart = (e: React.PointerEvent) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: offset.x,
+      origY: offset.y,
+    }
+    const onMove = (ev: PointerEvent) => {
+      const d = dragRef.current
+      if (!d) return
+      const nx = Math.max(-window.innerWidth * 0.44, Math.min(window.innerWidth * 0.44, d.origX + (ev.clientX - d.startX)))
+      const ny = Math.max(-window.innerHeight * 0.42, Math.min(window.innerHeight * 0.42, d.origY + (ev.clientY - d.startY)))
+      setOffset({ x: nx, y: ny })
+    }
+    const onUp = () => {
+      dragRef.current = null
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+  }
 
   if (!open) return null
 
-  // Non-blocking docked right rail on wide desktop when inside a lesson (Normal Mode)
-  if (dockable && isWide) {
+  if (dockable && !floating) {
     return (
       <aside className="formula-dock-rail" aria-label="Unit 2 Playbook">
-        <FormulaSheetContent onClose={onClose} closeLabel="Close Playbook" />
+        <FormulaSheetContent
+          onClose={onClose}
+          closeLabel="Close Playbook"
+          floating={false}
+          onToggleFloat={() => setFloating(true)}
+        />
       </aside>
     )
   }
 
   return (
-    <Dialog.Root
-      open={open}
-      onOpenChange={value => {
-        if (!value) onClose()
+    <div
+      className="wt-floating-window fm-floating-window"
+      role="dialog"
+      aria-label="Unit 2 Playbook"
+      style={{
+        transform: `translate3d(calc(-50% + ${Math.round(offset.x)}px), calc(-50% + ${Math.round(offset.y)}px), 0)`,
       }}
     >
-      <Dialog.Portal>
-        <Dialog.Backdrop className="explanation-backdrop" />
-        <Dialog.Popup className="practice-explanation formula-modal" initialFocus={false}>
-          <FormulaSheetContent onClose={onClose} />
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
+      <FormulaSheetContent
+        onClose={onClose}
+        floating
+        onToggleFloat={onToggleFloat ?? (dockable ? () => setFloating(false) : undefined)}
+        onDragStart={handleDragStart}
+      />
+    </div>
   )
 }

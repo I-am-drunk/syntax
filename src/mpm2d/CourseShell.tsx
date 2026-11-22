@@ -11,6 +11,7 @@ import { FormulaSheetModal } from './components/FormulaSheetModal'
 import { DivergingLevelPath, type PathLessonStat } from './components/DivergingLevelPath'
 import { OnboardingModal } from './components/OnboardingModal'
 import { SyntaxSettingsPage } from './components/SyntaxSettingsModal'
+import { SyntaxHistoryPage } from './components/SyntaxHistoryModal'
 import { TopBarSema } from './mascot/TopBarSema'
 import { loadPrefs, savePrefs, type SyntaxPrefs } from './storage'
 import { assetUrl } from './assetUrl'
@@ -45,10 +46,11 @@ function loadProgress(): SavedProgress {
   return { completed: {}, missedCheckIds: [] }
 }
 
-function loadResumeMap(): Record<string, { pageIndex: number; furthest: number }> {
+function loadResumeMap(): Record<string, { pageIndex: number; pageId?: string; furthest: number }> {
   try {
     const raw = localStorage.getItem(RESUME_KEY)
-    if (raw) return JSON.parse(raw) as Record<string, { pageIndex: number; furthest: number }>
+    const saved = raw ? JSON.parse(raw) : null
+    if (saved && typeof saved === 'object' && !Array.isArray(saved)) return saved
   } catch {
     // ignore
   }
@@ -196,13 +198,18 @@ export function CourseShell() {
   const [prefs, setPrefs] = useState<SyntaxPrefs>(loadPrefs)
   const [filterOpen, setFilterOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const [activeLessonId, setActiveLessonId] = useState<string | null>(readLessonFromHash)
   const [returnLessonId, setReturnLessonId] = useState<string | null>(null)
   const [virtualReviewLesson, setVirtualReviewLesson] = useState<GeoLesson | null>(null)
   const [selectedId, setSelectedId] = useState<string>(() => {
     const p = loadProgress()
+    const showCatchup = loadPrefs().showCatchupPaths
+    const latest = Object.keys(loadResumeMap()).reverse().find(id =>
+      ALL_LESSONS.some(lesson => lesson.id === id) && (!CATCHUP_BY_ID.has(id) || showCatchup),
+    )
     const firstIncomplete = UNIT2_LESSONS.find(l => !p.completed[l.id])
-    return firstIncomplete?.id ?? UNIT2_LESSONS[0].id
+    return latest ?? firstIncomplete?.id ?? UNIT2_LESSONS[0].id
   })
   const [popoverOpenId, setPopoverOpenId] = useState<string | null>(null)
   const [activeNav, setActiveNav] = useState<'course' | 'conference'>('course')
@@ -241,7 +248,12 @@ export function CourseShell() {
   }, [soundOn])
 
   useEffect(() => {
-    const onHash = () => setActiveLessonId(readLessonFromHash())
+    const onHash = () => {
+      const id = readLessonFromHash()
+      setActiveLessonId(id)
+      setResumeMap(loadResumeMap())
+      if (id && ALL_LESSONS.some(lesson => lesson.id === id)) setSelectedId(id)
+    }
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
@@ -267,7 +279,7 @@ export function CourseShell() {
 
   // Real scroll-spy on .course-outline: smoothly switches Unit 2 <-> Conference on scroll!
   useEffect(() => {
-    if (activeLessonId || virtualReviewLesson) return
+    if (activeLessonId || virtualReviewLesson || settingsOpen) return
     const scroller = outlineScrollRef.current
     if (!scroller) return
 
@@ -286,6 +298,7 @@ export function CourseShell() {
       triggerLine = Math.min(260, sRect.height * 0.38)
     }
 
+    let lastInConf: boolean | null = null
     const syncNavFromScroll = () => {
       raf = 0
       if (Date.now() < navLockUntilRef.current || confBottom <= confTop) return
@@ -293,10 +306,10 @@ export function CourseShell() {
       const relTop = confTop - st
       const relBottom = confBottom - st
       const inConference = relTop <= triggerLine && relBottom > 120
-      setActiveNav(prev => {
-        const next = inConference ? 'conference' : 'course'
-        return prev === next ? prev : next
-      })
+      if (inConference !== lastInConf) {
+        lastInConf = inConference
+        setActiveNav(inConference ? 'conference' : 'course')
+      }
     }
 
     const onScroll = () => {
@@ -316,7 +329,7 @@ export function CourseShell() {
       scroller.removeEventListener('scroll', onScroll)
       window.removeEventListener('resize', onResize)
     }
-  }, [activeLessonId, virtualReviewLesson, prefs.showCatchupPaths])
+  }, [activeLessonId, virtualReviewLesson, settingsOpen, prefs.showCatchupPaths])
 
   // Passive global stylus detection -> offer Draw Mode automatically
   useEffect(() => {
@@ -571,9 +584,9 @@ export function CourseShell() {
             aria-label={settingsOpen ? 'Syntax — Back to Unit 2' : 'Syntax Analytic Geometry'}
             onClick={e => {
               e.preventDefault()
-              if (settingsOpen) {
+              if (settingsOpen || historyOpen) {
                 emitSound('lightweight-choice')
-                setSettingsOpen(false)
+                setSettingsOpen(false); setHistoryOpen(false)
               } else {
                 jumpToCourse()
               }
@@ -591,7 +604,7 @@ export function CourseShell() {
             onPoke={() => emitSound('lightweight-choice')}
             onLogoClick={() => {
               emitSound('lightweight-choice')
-              setSettingsOpen(false)
+              setSettingsOpen(false); setHistoryOpen(false)
             }}
           />
         </div>
@@ -609,7 +622,7 @@ export function CourseShell() {
               aria-current={!settingsOpen && currentNavKey === 'course' ? 'page' : undefined}
               onClick={e => {
                 e.preventDefault()
-                if (settingsOpen) setSettingsOpen(false)
+                if (settingsOpen) setSettingsOpen(false); setHistoryOpen(false)
                 jumpToCourse()
               }}
             >
@@ -630,7 +643,7 @@ export function CourseShell() {
               aria-current={!settingsOpen && currentNavKey === 'conference' ? 'page' : undefined}
               onClick={e => {
                 e.preventDefault()
-                if (settingsOpen) setSettingsOpen(false)
+                if (settingsOpen) setSettingsOpen(false); setHistoryOpen(false)
                 jumpToLevel(3)
               }}
             >
@@ -651,7 +664,7 @@ export function CourseShell() {
               aria-label="Playbook & Formulas (F)"
               aria-current={!settingsOpen && currentNavKey === 'playbook' ? 'page' : undefined}
               onClick={() => {
-                if (settingsOpen) setSettingsOpen(false)
+                if (settingsOpen) setSettingsOpen(false); setHistoryOpen(false)
                 setFormulasOpen(true)
               }}
             >
@@ -732,10 +745,27 @@ export function CourseShell() {
                       onClick={() => {
                         emitSound('toggle-on')
                         setFormulasOpen(false)
+                        setHistoryOpen(false)
                         setSettingsOpen(v => !v)
                       }}
                     >
                       {settingsOpen ? 'Back to Unit 2' : 'Settings'}
+                    </Menu.Item>
+                    <Menu.Item
+                      className="menu-item"
+                      onClick={() => {
+                        emitSound('toggle-on')
+                        setFormulasOpen(false)
+                        setSettingsOpen(false); setHistoryOpen(false)
+                        setHistoryOpen(v => !v)
+                      }}
+                    >
+                      <span className="menu-item-row">
+                        <span>History</span>
+                        <span className={`menu-item-pill${historyOpen ? ' is-on' : ''}`}>
+                          {historyOpen ? 'OPEN' : 'TIME'}
+                        </span>
+                      </span>
                     </Menu.Item>
                     <Menu.Item
                       className="menu-item"
@@ -790,7 +820,7 @@ export function CourseShell() {
         </div>
       </header>
 
-      {settingsOpen ? (
+      {settingsOpen && (
         <SyntaxSettingsPage
           onClose={() => {
             emitSound('lightweight-choice')
@@ -804,8 +834,35 @@ export function CourseShell() {
           onPatchPrefs={patch => setPrefs(p => ({ ...p, ...patch }))}
           onReplayWelcome={() => setPrefs(p => ({ ...p, onboarded: false }))}
         />
-      ) : (
-      <main ref={outlineScrollRef} className="course-outline">
+      )}
+      {historyOpen && (
+        <SyntaxHistoryPage
+          soundOn={soundOn}
+          onClose={() => {
+            emitSound('lightweight-choice')
+            setHistoryOpen(false)
+          }}
+          onJumpToQuestion={(lessonId, pageIndex, pageId) => {
+            try {
+              const raw = localStorage.getItem(RESUME_KEY)
+              const map = raw ? JSON.parse(raw) : {}
+              const existing = map[lessonId] ?? { pageIndex: 0, furthest: 0 }
+              map[lessonId] = {
+                ...existing,
+                pageIndex,
+                pageId,
+                furthest: Math.max(existing.furthest ?? 0, pageIndex),
+              }
+              localStorage.setItem(RESUME_KEY, JSON.stringify(map))
+            } catch {
+              // ignore
+            }
+            setHistoryOpen(false)
+            openLesson(lessonId)
+          }}
+        />
+      )}
+      <main ref={outlineScrollRef} className="course-outline" style={settingsOpen || historyOpen ? { display: 'none' } : undefined}>
         <aside className="course-summary">
           <img
             src={assetUrl('/assets/courses/Coordinate_Geometry-bgclJY.png')}
@@ -958,10 +1015,11 @@ export function CourseShell() {
             const selStat = progress.completed[sel.id]
             const selDone = Boolean(selStat)
             const selResume = resumeMap[sel.id]
-            const selInProgress = Boolean(selResume) && !selDone
+            const selInProgress = Boolean(selResume)
             const selIsCatchup = CATCHUP_BY_ID.has(sel.id)
             const totalPages = sel.pages.length + sel.checks.length
-            const ctaText = selDone ? 'Review' : selInProgress ? 'Resume' : 'Start'
+            const savedPage = [...sel.pages, ...sel.checks].findIndex(page => page.id === selResume?.pageId)
+            const ctaText = selInProgress ? 'Resume' : selDone ? 'Review' : 'Start'
             return (
               <div className={`outline-action${selIsCatchup ? ' is-catchup' : ''}`}>
                 <div className="outline-action-meta">
@@ -970,7 +1028,7 @@ export function CourseShell() {
                   </span>
                   {selInProgress && selResume && (
                     <span className="outline-action-progress">
-                      Page {Math.min(selResume.pageIndex + 1, totalPages)} of {totalPages}
+                      Page {Math.min((savedPage >= 0 ? savedPage : selResume.pageIndex) + 1, totalPages)} of {totalPages}
                     </span>
                   )}
                   {selDone && selStat && selStat.total > 0 && (
@@ -1009,8 +1067,6 @@ export function CourseShell() {
           })()}
         </div>
       </main>
-      )}
-
       <FormulaSheetModal open={formulasOpen} onClose={() => setFormulasOpen(false)} />
 
       <OnboardingModal

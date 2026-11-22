@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Dialog } from '@base-ui/react/dialog'
 import { Sema, type SemaExpressionName, type SemaShapeName, type SemaState } from '../mascot/Sema'
 import { assetUrl } from '../assetUrl'
 import { CATCHUP_BY_ID } from '../data/catchupCourses'
@@ -45,9 +44,11 @@ export function WalkthroughContent({
   spec,
   soundOn,
   voiceOn,
-  drawMode = false,
-  semaShape = 'squircle',
+  semaShape = 'circle',
   inline = false,
+  floating = false,
+  onToggleFloat,
+  onDragStart,
   onToggleVoice,
   onClose,
   onLaunchRescue,
@@ -58,6 +59,9 @@ export function WalkthroughContent({
   drawMode?: boolean
   semaShape?: SemaShapeName
   inline?: boolean
+  floating?: boolean
+  onToggleFloat?: () => void
+  onDragStart?: (e: React.PointerEvent) => void
   onToggleVoice: () => void
   onClose: () => void
   onLaunchRescue: (rescueLessonId: string) => void
@@ -109,7 +113,11 @@ export function WalkthroughContent({
       audio = new Audio(assetUrl(beat.audioPath))
       audio.preload = 'auto'
       audioRef.current = audio
-      audio.currentTime = Math.max(0, progressRef.current * beat.durationSec)
+      audio.addEventListener('loadedmetadata', () => {
+        if (audio && Number.isFinite(audio.duration)) {
+          audio.currentTime = progressRef.current * audio.duration
+        }
+      }, { once: true })
       if (playing && !scrubbing) {
         usingAudio = true
         audio.play().catch(() => {
@@ -144,7 +152,7 @@ export function WalkthroughContent({
       raf = requestAnimationFrame(tick)
     }
 
-    raf = requestAnimationFrame(tick)
+    if (playing && !scrubbing) raf = requestAnimationFrame(tick)
     return () => {
       cancelAnimationFrame(raf)
       stopAudio()
@@ -182,7 +190,7 @@ export function WalkthroughContent({
   }
 
   const handleReplay = () => {
-    setProgress(0)
+    seek(0)
     setPlaying(true)
   }
 
@@ -198,7 +206,11 @@ export function WalkthroughContent({
   const seekToClientX = (clientX: number) => {
     const rect = trackRef.current?.getBoundingClientRect()
     if (!rect || rect.width <= 0) return
-    const val = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+    seek((clientX - rect.left) / rect.width)
+  }
+
+  const seek = (fraction: number) => {
+    const val = Math.max(0, Math.min(1, fraction))
     setProgress(val)
     if (audioRef.current && Number.isFinite(audioRef.current.duration) && audioRef.current.duration > 0) {
       audioRef.current.currentTime = val * audioRef.current.duration
@@ -245,17 +257,24 @@ export function WalkthroughContent({
         : undefined
 
   return (
-    <div className={`wt-shell${inline ? ' is-inline' : ''}`}>
-      <header className="wt-header">
+    <div className={`wt-shell${inline ? ' is-inline' : ''}${floating ? ' is-floating' : ''}${playing ? ' is-playing' : ''}`}>
+      <header
+        className={`wt-header${onDragStart ? " is-draggable" : ""}`}
+        onPointerDown={onDragStart}
+      >
         <div className="wt-header-left">
-          <div className="wt-eyebrow-row">
-            <span className="wt-eyebrow">Guided Walkthrough</span>
-            {drawMode && <span className="wt-draw-badge">Draw Mode</span>}
-          </div>
-          <h2 className="wt-title">{spec.title}</h2>
+          {onDragStart && (
+            <span className="wt-drag-grip" aria-hidden="true" title="Drag window anywhere">
+              ⋮⋮
+            </span>
+          )}
+          <h2 className="wt-title">
+            <span className="wt-eyebrow">Guided walkthrough · </span>
+            {spec.title}
+          </h2>
         </div>
 
-        <div className="wt-header-right">
+        <div className="wt-header-right" onPointerDown={e => e.stopPropagation()}>
           {spec.lenses.length > 1 && (
             <div className="wt-lens-tabs" role="tablist" aria-label="Walkthrough lens">
               {spec.lenses.map((l, idx) => {
@@ -308,6 +327,45 @@ export function WalkthroughContent({
             </button>
           )}
 
+          {rescueLesson && (
+            <button
+              type="button"
+              className={`wt-top-stuck-btn${showRescue ? " is-open" : ""}`}
+              aria-expanded={showRescue}
+              onClick={() => setShowRescue(v => !v)}
+            >
+              <span>Still stuck?</span>
+              <svg
+                className="wt-top-stuck-chevron"
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+          )}
+
+          {onToggleFloat && (
+            <button
+              type="button"
+              className={`wt-icon-btn${floating ? " is-on" : ""}`}
+              aria-label={floating ? "Dock walkthrough to side panel" : "Pop out as draggable floating window"}
+              title={floating ? "Dock to side panel" : "Pop out as draggable window"}
+              onClick={onToggleFloat}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="3" />
+                <rect x="11" y="7" width="7" height="6" rx="1.2" fill="currentColor" fillOpacity="0.22" />
+              </svg>
+            </button>
+          )}
+
           <button
             type="button"
             className="wt-icon-btn"
@@ -321,25 +379,40 @@ export function WalkthroughContent({
         </div>
       </header>
 
-      {/* Step Picker showing actual equations with smooth active highlight */}
-      {spec.steps.length > 1 && (
-        <div className="wt-step-picker" role="tablist" aria-label="Pick a step">
-          {spec.steps.map((st, idx) => {
-            const isActive = idx === beatIndex
-            return (
+      <AnimatePresence initial={false}>
+        {showRescue && rescueLesson && (
+          <motion.div
+            key="wt-top-rescue"
+            initial={{ opacity: 0, height: 0, y: -8 }}
+            animate={{ opacity: 1, height: "auto", y: 0 }}
+            exit={{ opacity: 0, height: 0, y: -8 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            className="wt-top-rescue-wrap"
+          >
+            <div className="wt-rescue-card is-top-dropdown">
+              <div className="wt-rescue-copy">
+                <strong>Catch-Up · {rescueLesson.title}</strong>
+                <p>{spec.rescueMessage}</p>
+              </div>
               <button
-                key={st.id}
                 type="button"
-                role="tab"
-                aria-selected={isActive}
-                className={`wt-step-btn${isActive ? ' is-active' : ''}`}
-                onClick={() => selectBeat(idx)}
+                className="wt-rescue-launch"
+                onClick={() => onLaunchRescue(rescueLesson.id)}
               >
-                <span className="wt-step-num">{st.stepNum}</span>
-                <span className="wt-step-eq">{st.equation}</span>
+                Start catch-up ({rescueLesson.minutes} min) →
               </button>
-            )
-          })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {spec.steps.length > 1 && (
+        <div className="wt-current-step">
+          <span className="wt-current-step-badge">Step {beat.stepIndex + 1}</span>
+          <span className="wt-current-step-label">{spec.steps[beat.stepIndex]?.label ?? beat.title}</span>
+          {spec.steps[beat.stepIndex]?.equation && (
+            <span className="wt-current-step-eq">· {spec.steps[beat.stepIndex]?.equation}</span>
+          )}
         </div>
       )}
 
@@ -409,7 +482,15 @@ export function WalkthroughContent({
             className="wt-caption-text"
           >
             <strong>{beat.title}</strong>
-            <p>{beat.caption}</p>
+            <ul className="wt-caption-bullets">
+              {beat.caption
+                .split(/(?<=[.!?])\s+/)
+                .map(s => s.trim())
+                .filter(Boolean)
+                .map((sentence, idx) => (
+                  <li key={idx}>{sentence}</li>
+                ))}
+            </ul>
           </motion.div>
         </AnimatePresence>
 
@@ -460,8 +541,16 @@ export function WalkthroughContent({
             onPointerUp={onTrackPointerUp}
             onPointerCancel={onTrackPointerUp}
             onKeyDown={e => {
-              if (e.key === 'ArrowRight') setProgress(p => Math.min(1, p + 0.08))
-              if (e.key === 'ArrowLeft') setProgress(p => Math.max(0, p - 0.08))
+              const destination = ({
+                ArrowRight: progress + 0.08,
+                ArrowLeft: progress - 0.08,
+                Home: 0,
+                End: 1,
+              } as Record<string, number>)[e.key]
+              if (destination === undefined) return
+              e.preventDefault()
+              e.stopPropagation()
+              seek(destination)
             }}
           >
             <div className="wt-timeline-rail">
@@ -509,41 +598,20 @@ export function WalkthroughContent({
         </div>
       </div>
 
-      {/* Optional "Still stuck?" Catch-Up Rescue Card */}
-      {showRescue && rescueLesson && (
-        <div className="wt-rescue-card">
-          <div className="wt-rescue-copy">
-            <strong>{rescueLesson.title}</strong>
-            <p>{spec.rescueMessage}</p>
-          </div>
+      {!floating && (
+        <footer className="wt-footer">
+          <span className="wt-footer-hint">
+            Tip: drag the timeline or switch Visual / Algebra anytime
+          </span>
           <button
             type="button"
-            className="wt-rescue-launch"
-            onClick={() => onLaunchRescue(rescueLesson.id)}
+            className="wt-primary-btn"
+            onClick={onClose}
           >
-            Start catch-up ({rescueLesson.minutes} min) →
+            Got it, let me try
           </button>
-        </div>
+        </footer>
       )}
-
-      {/* Footer Actions */}
-      <footer className="wt-footer">
-        <button
-          type="button"
-          className="wt-secondary-btn"
-          onClick={() => setShowRescue(v => !v)}
-        >
-          {showRescue ? 'Hide catch-up' : 'Still stuck?'}
-        </button>
-
-        <button
-          type="button"
-          className="wt-primary-btn"
-          onClick={onClose}
-        >
-          Got it, let me try
-        </button>
-      </footer>
     </div>
   )
 }
@@ -554,7 +622,8 @@ export function WalkthroughModal({
   soundOn,
   voiceOn,
   drawMode = false,
-  semaShape = 'squircle',
+  semaShape = 'circle',
+  onToggleFloat,
   onToggleVoice,
   onClose,
   onLaunchRescue,
@@ -565,35 +634,65 @@ export function WalkthroughModal({
   voiceOn: boolean
   drawMode?: boolean
   semaShape?: SemaShapeName
+  onToggleFloat?: () => void
   onToggleVoice: () => void
   onClose: () => void
   onLaunchRescue: (rescueLessonId: string) => void
 }) {
-  if (!spec) return null
+  const [offset, setOffset] = useState({ x: 0, y: 0 })
+  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null)
+
+  const handleDragStart = (e: React.PointerEvent) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: offset.x,
+      origY: offset.y,
+    }
+    const onMove = (ev: PointerEvent) => {
+      const d = dragRef.current
+      if (!d) return
+      const nx = Math.max(-window.innerWidth * 0.44, Math.min(window.innerWidth * 0.44, d.origX + (ev.clientX - d.startX)))
+      const ny = Math.max(-window.innerHeight * 0.42, Math.min(window.innerHeight * 0.42, d.origY + (ev.clientY - d.startY)))
+      setOffset({ x: nx, y: ny })
+    }
+    const onUp = () => {
+      dragRef.current = null
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+  }
+
+  if (!spec || !open) return null
+
   return (
-    <Dialog.Root
-      open={open}
-      onOpenChange={v => {
-        if (!v) onClose()
+    <div
+      className="wt-floating-window"
+      role="dialog"
+      aria-label={`Guided walkthrough: ${spec.title}`}
+      style={{
+        transform: `translate3d(calc(-50% + ${Math.round(offset.x)}px), calc(-50% + ${Math.round(offset.y)}px), 0)`,
       }}
     >
-      <Dialog.Portal>
-        <Dialog.Backdrop className="wt-backdrop" />
-        <Dialog.Popup className="wt-modal-popup" initialFocus={false}>
-          {open && (
-            <WalkthroughContent
-              spec={spec}
-              soundOn={soundOn}
-              voiceOn={voiceOn}
-              drawMode={drawMode}
-              semaShape={semaShape}
-              onToggleVoice={onToggleVoice}
-              onClose={onClose}
-              onLaunchRescue={onLaunchRescue}
-            />
-          )}
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
+      <WalkthroughContent
+        spec={spec}
+        soundOn={soundOn}
+        voiceOn={voiceOn}
+        drawMode={drawMode}
+        semaShape={semaShape}
+        floating
+        onToggleFloat={onToggleFloat}
+        onDragStart={handleDragStart}
+        onToggleVoice={onToggleVoice}
+        onClose={onClose}
+        onLaunchRescue={onLaunchRescue}
+      />
+    </div>
   )
 }
