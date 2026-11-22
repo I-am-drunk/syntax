@@ -15,6 +15,9 @@ import { GeoCompletion } from './components/GeoCompletion'
 import { CompactExploration } from './explorations/CompactExploration'
 import { WorkspaceSplitter, type SplitterTension } from './pen/WorkspaceSplitter'
 import { buildWorksheetSpec } from './pen/worksheetModel'
+import { CheckmarkGate } from './checkmark/CheckmarkGate'
+import { getWalkthroughForPage } from './walkthrough/walkthroughData'
+import { WalkthroughContent, WalkthroughModal } from './walkthrough/WalkthroughPlayer'
 
 const PenCanvasWorkspace = lazy(() => import('./pen/PenCanvasWorkspace'))
 
@@ -183,8 +186,16 @@ function evaluatePlanOrder(page: PlanOrderPage, chosen: string[]): { ok: boolean
 export function GeoLessonPlayer({
   lesson,
   theme,
+  soundOn = true,
+  drawMode = false,
+  voiceOn = true,
   formulasOpen,
+  returnToLessonLabel,
   onClose,
+  onReturnToLesson,
+  onLaunchRescue,
+  onToggleDrawMode,
+  onToggleVoice,
   onComplete,
   onToggleFormulas,
   onCloseFormulas,
@@ -193,8 +204,16 @@ export function GeoLessonPlayer({
 }: {
   lesson: GeoLesson
   theme: 'light' | 'dark'
+  soundOn?: boolean
+  drawMode?: boolean
+  voiceOn?: boolean
   formulasOpen: boolean
+  returnToLessonLabel?: string
   onClose: () => void
+  onReturnToLesson?: () => void
+  onLaunchRescue?: (rescueLessonId: string) => void
+  onToggleDrawMode?: () => void
+  onToggleVoice?: () => void
   onComplete: (
     lessonId: string,
     correctChecks: number,
@@ -221,6 +240,7 @@ export function GeoLessonPlayer({
   const [furthest, setFurthest] = useState(initialResume.furthest)
   const [states, setStates] = useState<Record<string, PageRuntime>>({})
   const [explanationOpen, setExplanationOpen] = useState(false)
+  const [walkthroughOpen, setWalkthroughOpen] = useState(false)
   const [seenExplain, setSeenExplain] = useState<Record<string, boolean>>({})
   const [finished, setFinished] = useState(false)
 
@@ -238,6 +258,7 @@ export function GeoLessonPlayer({
 
   const pageScrollRef = useRef<HTMLElement>(null)
   const workspaceRef = useRef<HTMLDivElement>(null)
+  const lessonSurfaceRef = useRef<HTMLDivElement>(null)
 
   const page = allPages[pageIndex] ?? allPages[0]
   const isCheck = lesson.checks.length > 0 && pageIndex >= lesson.pages.length
@@ -298,6 +319,7 @@ export function GeoLessonPlayer({
   useEffect(() => {
     pageScrollRef.current?.scrollTo({ top: 0 })
     setExplanationOpen(false)
+    setWalkthroughOpen(false)
   }, [pageIndex])
 
   // Global 'P' shortcut to toggle Pen Studio Mode
@@ -538,7 +560,7 @@ export function GeoLessonPlayer({
 
   // Keyboard Enter for fast progression
   useEffect(() => {
-    if (finished || explanationOpen) return
+    if (finished || explanationOpen || walkthroughOpen) return
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return
       if ((e.target as HTMLElement | null)?.closest('[data-pen-workspace]')) return
@@ -681,15 +703,22 @@ export function GeoLessonPlayer({
   const activeExplanation =
     page.kind !== 'explore' && page.kind !== 'worked' ? page.explanation : undefined
 
+  const walkthroughSpec = useMemo(
+    () => getWalkthroughForPage(lesson.id, page),
+    [lesson.id, page],
+  )
+
   const worksheetSpec = buildWorksheetSpec(lesson, page, pageIndex, allPages.length, isCheck)
 
   // Left-pane slot architecture in Pen Mode: zero 3-panel collisions!
-  const leftSlot: 'problem' | 'compare' | 'playbook' =
-    penOpen && explanationOpen && activeExplanation
-      ? 'compare'
-      : penOpen && formulasOpen
-        ? 'playbook'
-        : 'problem'
+  const leftSlot: 'problem' | 'compare' | 'playbook' | 'walkthrough' =
+    penOpen && walkthroughOpen && walkthroughSpec
+      ? 'walkthrough'
+      : penOpen && explanationOpen && activeExplanation
+        ? 'compare'
+        : penOpen && formulasOpen
+          ? 'playbook'
+          : 'problem'
 
   const workspaceStyle = penOpen
     ? ({ '--pen-split': `${Math.round(splitRatio * 1000) / 10}%` } as React.CSSProperties)
@@ -769,6 +798,24 @@ export function GeoLessonPlayer({
         </nav>
 
         <div className="lesson-nav-actions">
+          {onToggleDrawMode && (
+            <button
+              type="button"
+              className="lesson-nav-icon-btn"
+              data-active={drawMode || undefined}
+              onClick={() => {
+                onToggleDrawMode()
+                onSound?.('toggle-on')
+              }}
+              aria-label={drawMode ? 'Disable Draw-a-Checkmark Mode' : 'Enable Draw-a-Checkmark Mode'}
+              aria-pressed={drawMode}
+              title={drawMode ? 'Draw Mode ON (draw checkmarks)' : 'Draw Mode OFF (tap/keyboard)'}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M4 13.5 L9.5 19 L20 6" />
+              </svg>
+            </button>
+          )}
           <button
             type="button"
             className="lesson-nav-icon-btn"
@@ -832,6 +879,7 @@ export function GeoLessonPlayer({
         style={workspaceStyle}
       >
         <div
+          ref={lessonSurfaceRef}
           className="lesson-surface"
           data-evaluation={isProblem ? state.evaluation : 'unsubmitted'}
         >
@@ -842,6 +890,23 @@ export function GeoLessonPlayer({
                   compact
                   closeLabel="Back to problem"
                   onClose={onCloseFormulas}
+                />
+              </div>
+            )}
+
+            {leftSlot === 'walkthrough' && walkthroughSpec && (
+              <div className="lesson-left-slot-panel is-walkthrough">
+                <WalkthroughContent
+                  spec={walkthroughSpec}
+                  soundOn={soundOn}
+                  voiceOn={voiceOn}
+                  inline
+                  onToggleVoice={() => onToggleVoice?.()}
+                  onClose={() => setWalkthroughOpen(false)}
+                  onLaunchRescue={rescueId => {
+                    setWalkthroughOpen(false)
+                    onLaunchRescue?.(rescueId)
+                  }}
                 />
               </div>
             )}
@@ -868,8 +933,34 @@ export function GeoLessonPlayer({
                   data-is-check={isCheck}
                 >
                   <div className="lesson-content">
-                    <div className="lesson-copy">
-                      <RichText text={page.prompt} />
+                    {returnToLessonLabel && onReturnToLesson && (
+                      <button
+                        type="button"
+                        className="lesson-return-crumb"
+                        onClick={onReturnToLesson}
+                      >
+                        ← Back to {returnToLessonLabel}
+                      </button>
+                    )}
+                    <div className="lesson-copy-row">
+                      <div className="lesson-copy">
+                        <RichText text={page.prompt} />
+                      </div>
+                      {walkthroughSpec && (
+                        <button
+                          type="button"
+                          className="lesson-walkthrough-trigger"
+                          aria-label="Walk me through with Sema"
+                          title="Walk me through with Sema"
+                          onClick={() => {
+                            if (penOpen && formulasOpen) onCloseFormulas()
+                            if (explanationOpen) setExplanationOpen(false)
+                            setWalkthroughOpen(true)
+                          }}
+                        >
+                          ?
+                        </button>
+                      )}
                     </div>
 
                     {page.kind === 'explore' && (
@@ -1191,28 +1282,96 @@ export function GeoLessonPlayer({
                   </div>
                 </section>
 
-                <LessonFooter
-                  key={`${page.id}:${state.evaluation}:${state.activeSubStep}`}
-                  evaluation={state.evaluation}
-                  isProblem={isProblem}
-                  isLast={pageIndex === allPages.length - 1}
-                  isCheck={isCheck}
-                  canCheck={canCheck}
-                  onCheck={handleCheck}
-                  onRetry={handleRetry}
-                  onContinue={handleContinue}
-                  onExplain={
-                    activeExplanation
-                      ? () => {
+                {drawMode ? (
+                  <footer
+                    className="lesson-footer is-draw-mode"
+                    data-evaluation={state.evaluation}
+                  >
+                    {isProblem && state.evaluation !== 'unsubmitted' && walkthroughSpec && (
+                      <button
+                        type="button"
+                        className="lesson-draw-why-btn"
+                        onClick={() => {
                           if (penOpen && formulasOpen) onCloseFormulas()
-                          setSeenExplain(prev => ({ ...prev, [page.id]: true }))
-                          setExplanationOpen(true)
+                          setWalkthroughOpen(true)
+                        }}
+                      >
+                        Walk me through
+                      </button>
+                    )}
+                    <CheckmarkGate
+                      key={`chk-${page.id}-${state.activeSubStep}-${state.evaluation}`}
+                      label={
+                        isProblem && state.evaluation === 'unsubmitted'
+                          ? 'Draw ✓ to check'
+                          : state.evaluation === 'incorrect-retry'
+                            ? 'Draw ✓ to retry'
+                            : pageIndex === allPages.length - 1
+                              ? 'Draw ✓ to finish'
+                              : 'Draw ✓ to continue'
+                      }
+                      fallbackLabel={
+                        isProblem && state.evaluation === 'unsubmitted'
+                          ? 'Tap to check'
+                          : state.evaluation === 'incorrect-retry'
+                            ? 'Tap to try again'
+                            : pageIndex === allPages.length - 1
+                              ? 'Tap to finish'
+                              : 'Tap to continue'
+                      }
+                      disabled={isProblem && state.evaluation === 'unsubmitted' && !canCheck}
+                      visualState={
+                        state.evaluation === 'correct'
+                          ? 'correct'
+                          : state.evaluation === 'incorrect-retry' || state.evaluation === 'incorrect'
+                            ? 'wrong'
+                            : 'ready'
+                      }
+                      screenGestureContainerRef={lessonSurfaceRef}
+                      enableScreenGesture={!walkthroughOpen && !explanationOpen && !formulasOpen}
+                      onTrigger={() => {
+                        if (!isProblem) {
+                          handleContinue()
+                        } else if (state.evaluation === 'unsubmitted' && canCheck) {
+                          handleCheck()
+                        } else if (state.evaluation === 'incorrect-retry') {
+                          handleRetry()
+                        } else {
+                          handleContinue()
                         }
-                      : undefined
-                  }
-                  explanationSeen={!!seenExplain[page.id]}
-                  allowWhyOnRetry={state.attempts >= 2}
-                />
+                      }}
+                    />
+                  </footer>
+                ) : (
+                  <LessonFooter
+                    key={`${page.id}:${state.evaluation}:${state.activeSubStep}`}
+                    evaluation={state.evaluation}
+                    isProblem={isProblem}
+                    isLast={pageIndex === allPages.length - 1}
+                    isCheck={isCheck}
+                    canCheck={canCheck}
+                    onCheck={handleCheck}
+                    onRetry={handleRetry}
+                    onContinue={handleContinue}
+                    onExplain={
+                      walkthroughSpec
+                        ? () => {
+                            if (penOpen && formulasOpen) onCloseFormulas()
+                            setSeenExplain(prev => ({ ...prev, [page.id]: true }))
+                            setWalkthroughOpen(true)
+                          }
+                        : activeExplanation
+                          ? () => {
+                              if (penOpen && formulasOpen) onCloseFormulas()
+                              setSeenExplain(prev => ({ ...prev, [page.id]: true }))
+                              setExplanationOpen(true)
+                            }
+                          : undefined
+                    }
+                    explanationSeen={!!seenExplain[page.id]}
+                    allowWhyOnRetry={state.attempts >= 2}
+                  />
+                )}
               </>
             )}
           </div>
@@ -1264,6 +1423,22 @@ export function GeoLessonPlayer({
           </>
         )}
       </div>
+
+      {/* Flying-Sema Walkthrough modal in Normal Mode */}
+      {walkthroughSpec && !penOpen && (
+        <WalkthroughModal
+          spec={walkthroughSpec}
+          open={walkthroughOpen}
+          soundOn={soundOn}
+          voiceOn={voiceOn}
+          onToggleVoice={() => onToggleVoice?.()}
+          onClose={() => setWalkthroughOpen(false)}
+          onLaunchRescue={rescueId => {
+            setWalkthroughOpen(false)
+            onLaunchRescue?.(rescueId)
+          }}
+        />
+      )}
 
       {/* In Normal Mode, Why? renders as Brilliant modal; in Pen Mode, it swaps the left pane */}
       {activeExplanation && !penOpen && (

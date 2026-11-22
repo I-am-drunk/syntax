@@ -1,0 +1,16 @@
+.sema-svg {
+  display: block;
+  overflow: visible;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  flex-shrink: 0;
+}
+
+.sema-svg.is-interactive {
+  cursor: grab;
+}
+
+.sema-svg.is-interactive:active {
+  cursor: grabbing;
+}

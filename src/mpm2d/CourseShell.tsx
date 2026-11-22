@@ -1,9 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Toaster, toast } from 'sonner'
 import { playLessonSound, preloadLessonSounds, type LessonSound } from '../services/lessonSounds'
 import { COURSE_LEVELS, type GeoLesson, type GeoLessonPage } from './pageTypes'
 import { UNIT2_LESSONS } from './data/unit2Course'
+import { CATCHUP_BY_ID, CATCHUP_LESSONS, type CatchupLesson } from './data/catchupCourses'
 import { GeoLessonPlayer } from './GeoLessonPlayer'
 import { FormulaSheetModal } from './components/FormulaSheetModal'
+import { DivergingLevelPath, type PathLessonStat } from './components/DivergingLevelPath'
+import { OnboardingModal } from './components/OnboardingModal'
+import { Sema } from './mascot/Sema'
+import { loadPrefs, savePrefs, type SyntaxPrefs } from './storage'
 import { assetUrl } from './assetUrl'
 
 type SavedProgress = {
@@ -15,6 +21,8 @@ const PROGRESS_KEY = 'mpm2d-brilliant-progress-v1'
 const RESUME_KEY = 'mpm2d-resume-v1'
 const THEME_KEY = 'mpm2d-brilliant-theme-v1'
 const SOUND_KEY = 'mpm2d-brilliant-sound-v1'
+
+const ALL_LESSONS: GeoLesson[] = [...UNIT2_LESSONS, ...CATCHUP_LESSONS]
 
 function loadProgress(): SavedProgress {
   try {
@@ -68,7 +76,7 @@ function readLessonFromHash(): string | null {
   const match = location.hash.match(/^#lesson=([a-z0-9-]+)$/i)
   if (!match) return null
   const id = match[1]
-  return UNIT2_LESSONS.some(l => l.id === id) ? id : null
+  return ALL_LESSONS.some(l => l.id === id) ? id : null
 }
 
 function FormulasNavIcon() {
@@ -76,6 +84,16 @@ function FormulasNavIcon() {
     <svg className="nav-svg-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20" />
       <path d="M9 7h6M9 11h4" />
+    </svg>
+  )
+}
+
+function FilterIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <line x1="4" y1="6" x2="20" y2="6" />
+      <line x1="7" y1="12" x2="17" y2="12" />
+      <line x1="10" y1="18" x2="14" y2="18" />
     </svg>
   )
 }
@@ -120,12 +138,22 @@ function masteryTier(stat?: { correct: number; total: number }): 'none' | 'maste
   return 'retry'
 }
 
+function toPathTier(stat?: { correct: number; total: number }): PathLessonStat['tier'] {
+  if (!stat) return 'none'
+  if (stat.total === 0 || stat.correct >= stat.total) return 'mastered'
+  if (stat.correct > 0) return 'good'
+  return 'attempted'
+}
+
 export function CourseShell() {
   const [progress, setProgress] = useState<SavedProgress>(loadProgress)
   const [resumeMap, setResumeMap] = useState(loadResumeMap)
   const [theme, setTheme] = useState<'light' | 'dark'>(loadTheme)
   const [soundOn, setSoundOn] = useState<boolean>(loadSound)
+  const [prefs, setPrefs] = useState<SyntaxPrefs>(loadPrefs)
+  const [filterOpen, setFilterOpen] = useState(false)
   const [activeLessonId, setActiveLessonId] = useState<string | null>(readLessonFromHash)
+  const [returnLessonId, setReturnLessonId] = useState<string | null>(null)
   const [virtualReviewLesson, setVirtualReviewLesson] = useState<GeoLesson | null>(null)
   const [selectedId, setSelectedId] = useState<string>(() => {
     const p = loadProgress()
@@ -136,8 +164,14 @@ export function CourseShell() {
   const [formulasOpen, setFormulasOpen] = useState(false)
   const [penModeActive, setPenModeActive] = useState(false)
   const nodeRefs = useRef(new Map<string, HTMLButtonElement>())
+  const filterWrapRef = useRef<HTMLDivElement>(null)
+  const penNotifiedRef = useRef(false)
 
   useEffect(preloadLessonSounds, [])
+
+  useEffect(() => {
+    savePrefs(prefs)
+  }, [prefs])
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -161,6 +195,47 @@ export function CourseShell() {
     const onHash = () => setActiveLessonId(readLessonFromHash())
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
+  }, [])
+
+  // Close Filter popover on outside click / Escape
+  useEffect(() => {
+    if (!filterOpen) return
+    const onDown = (e: PointerEvent) => {
+      if (filterWrapRef.current && !filterWrapRef.current.contains(e.target as Node)) {
+        setFilterOpen(false)
+      }
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFilterOpen(false)
+    }
+    window.addEventListener('pointerdown', onDown)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('pointerdown', onDown)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [filterOpen])
+
+  // Passive global stylus detection -> offer Draw Mode automatically
+  useEffect(() => {
+    const onPtr = (e: PointerEvent) => {
+      if (e.pointerType !== 'pen' || penNotifiedRef.current) return
+      penNotifiedRef.current = true
+      setPrefs(prev => {
+        if (prev.drawMode) return prev
+        if (prev.onboarded) {
+          toast('Stylus detected — Draw Mode enabled', {
+            action: {
+              label: 'Undo',
+              onClick: () => setPrefs(p => ({ ...p, drawMode: false })),
+            },
+          })
+        }
+        return { ...prev, drawMode: true }
+      })
+    }
+    window.addEventListener('pointerdown', onPtr, { passive: true })
+    return () => window.removeEventListener('pointerdown', onPtr)
   }, [])
 
   // Global 'F' shortcut for Playbook (when not typing in an input or pen canvas)
@@ -197,14 +272,16 @@ export function CourseShell() {
   const activeLesson = useMemo<GeoLesson | undefined>(
     () =>
       virtualReviewLesson ??
-      (activeLessonId ? UNIT2_LESSONS.find(l => l.id === activeLessonId) : undefined),
+      (activeLessonId ? ALL_LESSONS.find(l => l.id === activeLessonId) : undefined),
     [virtualReviewLesson, activeLessonId],
   )
 
   const selectedLesson = useMemo<GeoLesson>(
-    () => UNIT2_LESSONS.find(l => l.id === selectedId) ?? UNIT2_LESSONS[0],
+    () => ALL_LESSONS.find(l => l.id === selectedId) ?? UNIT2_LESSONS[0],
     [selectedId],
   )
+
+  const selectedCatchup: CatchupLesson | undefined = CATCHUP_BY_ID.get(selectedLesson.id)
 
   const totalExercises = useMemo(
     () => UNIT2_LESSONS.reduce((acc, l) => acc + l.pages.length + l.checks.length, 0),
@@ -221,10 +298,13 @@ export function CourseShell() {
     if (soundOn) playLessonSound(cue)
   }
 
-  function openLesson(id: string) {
+  function openLesson(id: string, returnTo?: string | null) {
     setVirtualReviewLesson(null)
+    setReturnLessonId(returnTo ?? null)
     setActiveLessonId(id)
-    setSelectedId(id)
+    if (!CATCHUP_BY_ID.has(id)) {
+      setSelectedId(id)
+    }
     if (location.hash !== `#lesson=${id}`) {
       history.pushState(null, '', `#lesson=${id}`)
     }
@@ -235,6 +315,7 @@ export function CourseShell() {
       .map(id => allChecksById.get(id))
       .filter((p): p is GeoLessonPage => Boolean(p))
     if (checks.length === 0) return
+    setReturnLessonId(null)
     setVirtualReviewLesson({
       id: 'virtual-missed-checks',
       level: 3,
@@ -251,6 +332,12 @@ export function CourseShell() {
   }
 
   function closeLesson() {
+    if (returnLessonId) {
+      const back = returnLessonId
+      setReturnLessonId(null)
+      openLesson(back, null)
+      return
+    }
     setVirtualReviewLesson(null)
     setActiveLessonId(null)
     setResumeMap(loadResumeMap())
@@ -268,7 +355,7 @@ export function CourseShell() {
     const lessonObj =
       lessonId === 'virtual-missed-checks'
         ? virtualReviewLesson
-        : UNIT2_LESSONS.find(l => l.id === lessonId)
+        : ALL_LESSONS.find(l => l.id === lessonId)
 
     const lessonCheckIds = new Set(lessonObj?.checks.map(c => c.id) ?? [])
     const prevMissed = progress.missedCheckIds ?? []
@@ -293,7 +380,7 @@ export function CourseShell() {
       // ignore
     }
 
-    if (lessonId !== 'virtual-missed-checks') {
+    if (lessonId !== 'virtual-missed-checks' && !CATCHUP_BY_ID.has(lessonId)) {
       const idx = UNIT2_LESSONS.findIndex(l => l.id === lessonId)
       if (idx >= 0 && idx < UNIT2_LESSONS.length - 1) {
         setSelectedId(UNIT2_LESSONS[idx + 1].id)
@@ -324,15 +411,26 @@ export function CourseShell() {
     }
   }
 
+  const returnLessonObj = returnLessonId ? UNIT2_LESSONS.find(l => l.id === returnLessonId) : undefined
+
   if (activeLesson) {
     return (
       <>
+        <Toaster position="bottom-center" theme={theme} />
         <GeoLessonPlayer
           key={activeLesson.id}
           lesson={activeLesson}
           theme={theme}
+          soundOn={soundOn}
+          drawMode={prefs.drawMode}
+          voiceOn={prefs.voiceOn}
           formulasOpen={formulasOpen}
+          returnToLessonLabel={returnLessonObj?.shortTitle}
           onClose={closeLesson}
+          onReturnToLesson={returnLessonObj ? () => openLesson(returnLessonObj.id, null) : undefined}
+          onLaunchRescue={rescueId => openLesson(rescueId, activeLesson.id)}
+          onToggleDrawMode={() => setPrefs(p => ({ ...p, drawMode: !p.drawMode }))}
+          onToggleVoice={() => setPrefs(p => ({ ...p, voiceOn: !p.voiceOn }))}
           onComplete={handleComplete}
           onToggleFormulas={() => setFormulasOpen(v => !v)}
           onCloseFormulas={() => setFormulasOpen(false)}
@@ -355,6 +453,7 @@ export function CourseShell() {
 
   return (
     <>
+      <Toaster position="bottom-center" theme={theme} />
       <header className="app-header">
         <a
           className="wordmark"
@@ -404,6 +503,39 @@ export function CourseShell() {
           </button>
         </nav>
         <div className="header-actions">
+          {/* Single minimal Filter button toggling catch-up paths */}
+          <div className="header-filter-wrap" ref={filterWrapRef}>
+            <button
+              type="button"
+              className={`header-icon-btn${prefs.showCatchupPaths ? ' has-active-filter' : ''}`}
+              aria-label="Path filter"
+              aria-expanded={filterOpen}
+              title="Filter path"
+              onClick={() => setFilterOpen(v => !v)}
+            >
+              <FilterIcon />
+            </button>
+            {filterOpen && (
+              <div className="header-filter-popover" role="dialog" aria-label="Path filter">
+                <label className="header-filter-toggle">
+                  <span className="header-filter-copy">
+                    <strong>Show catch-up paths</strong>
+                    <span>Optional Grade 9/10 prerequisite spurs</span>
+                  </span>
+                  <input
+                    type="checkbox"
+                    className="visually-hidden"
+                    checked={prefs.showCatchupPaths}
+                    onChange={() =>
+                      setPrefs(p => ({ ...p, showCatchupPaths: !p.showCatchupPaths }))
+                    }
+                  />
+                  <span className={`header-switch${prefs.showCatchupPaths ? ' is-on' : ''}`} />
+                </label>
+              </div>
+            )}
+          </div>
+
           <button
             type="button"
             className="header-icon-btn"
@@ -427,12 +559,21 @@ export function CourseShell() {
 
       <main className="course-outline">
         <aside className="course-summary">
-          <img
-            src={assetUrl('/assets/courses/Coordinate_Geometry-bgclJY.png')}
-            width="100"
-            height="100"
-            alt=""
-          />
+          <div className="course-summary-hero">
+            <img
+              src={assetUrl('/assets/courses/Coordinate_Geometry-bgclJY.png')}
+              width="100"
+              height="100"
+              alt=""
+            />
+            <Sema
+              state="idle"
+              size={58}
+              interactive
+              ariaLabel="Sema companion — poke or drag"
+              onPoke={() => emitSound('lightweight-choice')}
+            />
+          </div>
           <h1>Analytic Geometry</h1>
           <p>MPM2D Unit 2: slopes, midpoints, distances, triangle lines, and geometric proofs.</p>
           <div className="course-counts">
@@ -485,6 +626,7 @@ export function CourseShell() {
         <div className="course-path">
           {activeLevels.map(lvl => {
             const lessons = UNIT2_LESSONS.filter(l => l.level === lvl.level)
+            const levelCatchups = CATCHUP_LESSONS.filter(c => c.level === lvl.level)
             return (
               <section
                 className="outline-level"
@@ -495,55 +637,24 @@ export function CourseShell() {
                   <span>{lvl.label}</span>
                   <h2>{lvl.title}</h2>
                 </div>
-                <div className="outline-nodes">
-                  {lessons.map((lesson, ni) => {
-                    const isSelected = lesson.id === selectedLesson.id
-                    const stat = progress.completed[lesson.id]
-                    const tier = masteryTier(stat)
-                    const inProgress = !stat && Boolean(resumeMap[lesson.id])
-                    const icon =
-                      tier === 'mastered'
-                        ? isSelected
-                          ? 'complete-selected'
-                          : 'complete'
-                        : lesson.isReview
-                          ? 'review'
-                          : isSelected
-                            ? 'selected'
-                            : 'lesson'
-
-                    return (
-                      <button
-                        type="button"
-                        key={lesson.id}
-                        className="outline-node"
-                        data-mastery={tier}
-                        ref={el => {
-                          if (el) nodeRefs.current.set(lesson.id, el)
-                          else nodeRefs.current.delete(lesson.id)
-                        }}
-                        style={{ transform: `translateX(${[0, -1, 0, 1][ni % 4] * 12}%)` }}
-                        aria-label={`${lesson.title}, ${lvl.label}${
-                          stat ? `, ${stat.correct} of ${stat.total} checks` : inProgress ? ', in progress' : ''
-                        }`}
-                        aria-pressed={isSelected}
-                        onClick={() => selectNode(lesson)}
-                        onDoubleClick={() => openLesson(lesson.id)}
-                      >
-                        <img src={assetUrl(`/assets/courses/node-${icon}.svg`)} alt="" />
-                        <span className="outline-node-label">{lesson.shortTitle}</span>
-                        {stat && stat.total > 0 && (
-                          <span className={`outline-node-score is-${tier}`}>
-                            {stat.correct}/{stat.total}
-                          </span>
-                        )}
-                        {inProgress && (
-                          <span className="outline-node-score is-progress">Resume</span>
-                        )}
-                      </button>
-                    )
-                  })}
-                </div>
+                <DivergingLevelPath
+                  lessons={lessons}
+                  catchups={levelCatchups}
+                  showCatchupPaths={prefs.showCatchupPaths}
+                  selectedId={selectedLesson.id}
+                  getStat={id => {
+                    const st = progress.completed[id]
+                    if (!st) return undefined
+                    return { correct: st.correct, total: st.total, tier: toPathTier(st) }
+                  }}
+                  hasResume={id => Boolean(resumeMap[id])}
+                  onSelect={selectNode}
+                  onOpen={id => openLesson(id)}
+                  registerNodeRef={(id, el) => {
+                    if (el) nodeRefs.current.set(id, el)
+                    else nodeRefs.current.delete(id)
+                  }}
+                />
               </section>
             )
           })}
@@ -566,13 +677,15 @@ export function CourseShell() {
                 className="course-button"
                 onClick={() => openLesson(selectedLesson.id)}
               >
-                {selectedResume
-                  ? 'Resume'
-                  : selectedTier === 'mastered'
-                    ? 'Practice again'
-                    : selectedStat
-                      ? 'Retry checks'
-                      : 'Start'}
+                {selectedCatchup
+                  ? `Start catch-up · ${selectedCatchup.minutes} min`
+                  : selectedResume
+                    ? 'Resume'
+                    : selectedTier === 'mastered'
+                      ? 'Practice again'
+                      : selectedStat
+                        ? 'Retry checks'
+                        : 'Start'}
               </button>
             </div>
           </div>
@@ -580,6 +693,15 @@ export function CourseShell() {
       </main>
 
       <FormulaSheetModal open={formulasOpen} onClose={() => setFormulasOpen(false)} />
+
+      <OnboardingModal
+        open={!prefs.onboarded}
+        theme={theme}
+        drawMode={prefs.drawMode}
+        onSelectTheme={setTheme}
+        onSelectDrawMode={next => setPrefs(p => ({ ...p, drawMode: next }))}
+        onFinish={() => setPrefs(p => ({ ...p, onboarded: true }))}
+      />
     </>
   )
 }

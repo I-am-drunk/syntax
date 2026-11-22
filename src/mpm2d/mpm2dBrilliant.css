@@ -2891,3 +2891,126 @@
   color: var(--text);
   margin: 4px 0 2px;
 }
+
+/* ===== Sema companion, ? Walkthrough trigger, Draw Mode footer, Return crumb ===== */
+.course-summary-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.lesson-return-crumb {
+  appearance: none;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  margin-bottom: 8px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(69, 109, 255, 0.35);
+  background: rgba(69, 109, 255, 0.08);
+  color: #456dff;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.lesson-return-crumb:hover {
+  background: rgba(69, 109, 255, 0.14);
+  border-color: #456dff;
+}
+
+[data-theme='dark'] .lesson-return-crumb {
+  color: #8ea6ff;
+  border-color: rgba(116, 145, 255, 0.4);
+  background: rgba(116, 145, 255, 0.14);
+}
+
+.lesson-copy-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+}
+
+.lesson-copy-row .lesson-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.lesson-walkthrough-trigger {
+  appearance: none;
+  flex-shrink: 0;
+  margin-top: 8px;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1.8px solid rgba(69, 109, 255, 0.36);
+  background: rgba(69, 109, 255, 0.08);
+  color: #456dff;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 140ms ease, background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.lesson-walkthrough-trigger:hover {
+  transform: translateY(-1px);
+  background: #456dff;
+  border-color: #456dff;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(69, 109, 255, 0.25);
+}
+
+[data-theme='dark'] .lesson-walkthrough-trigger {
+  color: #8ea6ff;
+  border-color: rgba(116, 145, 255, 0.42);
+  background: rgba(116, 145, 255, 0.14);
+}
+
+[data-theme='dark'] .lesson-walkthrough-trigger:hover {
+  background: #7491ff;
+  border-color: #7491ff;
+  color: #0e1117;
+}
+
+.lesson-footer.is-draw-mode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 20px 14px !important;
+}
+
+.lesson-draw-why-btn {
+  appearance: none;
+  border: 1.5px solid rgba(69, 109, 255, 0.35);
+  background: rgba(69, 109, 255, 0.08);
+  color: #456dff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+[data-theme='dark'] .lesson-draw-why-btn {
+  color: #8ea6ff;
+  border-color: rgba(116, 145, 255, 0.42);
+  background: rgba(116, 145, 255, 0.14);
+}
+
+/* Give Draw Mode extra bottom padding in scrollable lesson page so CheckmarkGate never overlaps choices */
+.lesson-shell .lesson-page:has(+ .lesson-footer.is-draw-mode) {
+  padding-bottom: 186px !important;
+}
