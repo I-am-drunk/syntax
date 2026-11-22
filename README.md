@@ -1,9 +1,11 @@
 <p align="center">
-  <img src="public/assets/syntax-banner.png" alt="Syntax" width="100%" />
-</p>
-
-<p align="center">
-  <strong>Interactive visual math lessons and guided walkthroughs you can touch, drag, and explore.</strong>
+  <a href="https://i-am-drunk.github.io/syntax-learning/">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="public/assets/syntax-banner-dark.png" />
+      <source media="(prefers-color-scheme: light)" srcset="public/assets/syntax-banner-light.png" />
+      <img alt="Syntax — Interactive visual math lessons and guided walkthroughs" src="public/assets/syntax-banner.png" width="100%" />
+    </picture>
+  </a>
 </p>
 
 <p align="center">
