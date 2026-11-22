@@ -18,10 +18,9 @@ export const RADIAL_SECTORS: RadialSectorItem[] = [
   { id: 'undo', label: 'Undo', shortcut: 'Ctrl+Z', angleDeg: -150 },
 ]
 
-export const RADIAL_DEADZONE = 24
-const RING_RADIUS = 86
-const NODE_RADIUS = 114
-const WEDGE_RAY_LEN = 1800
+export const RADIAL_DEADZONE = 16
+const RING_RADIUS = 44
+const NODE_RADIUS = 68
 
 export function angleToSectorIndex(angleRad: number): number {
   const deg = (angleRad * 180) / Math.PI
@@ -33,29 +32,29 @@ function SectorIcon({ id }: { id: RadialActionId }) {
   switch (id) {
     case 'draw':
       return (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
           <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
           <path d="m15 5 4 4" />
         </svg>
       )
     case 'highlight':
       return (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
           <path d="m9 11-6 6v3h9l3-3" />
           <path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4" />
         </svg>
       )
     case 'line':
       return (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
           <line x1="5" y1="19" x2="19" y2="5" />
-          <circle cx="5" cy="19" r="1.6" fill="currentColor" stroke="none" />
-          <circle cx="19" cy="5" r="1.6" fill="currentColor" stroke="none" />
+          <circle cx="5" cy="19" r="1.8" fill="currentColor" stroke="none" />
+          <circle cx="19" cy="5" r="1.8" fill="currentColor" stroke="none" />
         </svg>
       )
     case 'eraser':
       return (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
           <path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21" />
           <path d="M22 21H7" />
           <path d="m5 11 9 9" />
@@ -63,7 +62,7 @@ function SectorIcon({ id }: { id: RadialActionId }) {
       )
     case 'hand':
       return (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
           <path d="M18 11V6a2 2 0 0 0-4 0v4" />
           <path d="M14 10V4a2 2 0 0 0-4 0v6" />
           <path d="M10 10.5V6a2 2 0 0 0-4 0v8" />
@@ -72,7 +71,7 @@ function SectorIcon({ id }: { id: RadialActionId }) {
       )
     case 'undo':
       return (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
           <path d="M3 7v6h6" />
           <path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13" />
         </svg>
@@ -84,6 +83,8 @@ export type RadialMenuState = {
   open: boolean
   originX: number
   originY: number
+  cursorX: number
+  cursorY: number
   activeIdx: number | null
   stickX: number
   stickY: number
@@ -119,34 +120,26 @@ export function PenRadialMenu({
 
   if (!state.open) return null
 
-  const { originX, originY, activeIdx, stickX, stickY, pointerAngleRad } = state
+  const { originX, originY, cursorX, cursorY, activeIdx, stickX, stickY } = state
   const activeSector = activeIdx !== null ? RADIAL_SECTORS[activeIdx] : null
 
-  // Build SVG path for the active full-screen angular wedge chunk
-  let activeWedgePath = ''
-  if (activeSector) {
-    const startRad = ((activeSector.angleDeg - 30) * Math.PI) / 180
-    const endRad = ((activeSector.angleDeg + 30) * Math.PI) / 180
-    const x1 = originX + Math.cos(startRad) * WEDGE_RAY_LEN
-    const y1 = originY + Math.sin(startRad) * WEDGE_RAY_LEN
-    const x2 = originX + Math.cos(endRad) * WEDGE_RAY_LEN
-    const y2 = originY + Math.sin(endRad) * WEDGE_RAY_LEN
-    activeWedgePath = `M ${originX} ${originY} L ${x1} ${y1} L ${x2} ${y2} Z`
-  }
-
-  // Build active highlight arc on the circular ring (60deg arc aligned to active sector)
+  // Compact active arc on the small ring tightly around the cursor (zero full-screen rays or wedges!)
   let activeArcPath = ''
   if (activeSector) {
-    const startRad = ((activeSector.angleDeg - 28) * Math.PI) / 180
-    const endRad = ((activeSector.angleDeg + 28) * Math.PI) / 180
+    const startRad = ((activeSector.angleDeg - 26) * Math.PI) / 180
+    const endRad = ((activeSector.angleDeg + 26) * Math.PI) / 180
     const ax1 = originX + Math.cos(startRad) * RING_RADIUS
     const ay1 = originY + Math.sin(startRad) * RING_RADIUS
     const ax2 = originX + Math.cos(endRad) * RING_RADIUS
     const ay2 = originY + Math.sin(endRad) * RING_RADIUS
-    activeArcPath = `M ${ax1} ${ay1} A ${RING_RADIUS} ${RING_RADIUS} 0 0 1 ${ax2} ${ay2}`
+    activeArcPath = `M ${ax1.toFixed(1)} ${ay1.toFixed(1)} A ${RING_RADIUS} ${RING_RADIUS} 0 0 1 ${ax2.toFixed(1)} ${ay2.toFixed(1)}`
   }
 
-  const dividerAngles = [-120, -60, 0, 60, 120, 180]
+  // Clamp nucleus slip cleanly inside the BrilliantGraph-style outer membrane (r = 18)
+  const slipMag = Math.hypot(stickX, stickY)
+  const slipFactor = slipMag > 8 ? 8 / slipMag : 1
+  const nucX = originX + stickX * slipFactor
+  const nucY = originY + stickY * slipFactor
 
   return (
     <div
@@ -155,33 +148,8 @@ export function PenRadialMenu({
       data-has-selection={activeIdx !== null || undefined}
       onContextMenu={e => e.preventDefault()}
     >
-      {/* Full-screen angular sector rays + active chunk highlight + spinning completion ring */}
+      {/* Compact Procreate-inspired ring + BrilliantGraph nucleus-in-membrane hub */}
       <svg className="pen-radial-svg" aria-hidden="true">
-        {/* Active directional screen chunk */}
-        {activeWedgePath && (
-          <path className="pen-radial-wedge-fill" d={activeWedgePath} />
-        )}
-
-        {/* Full-screen sector split divider rays */}
-        {dividerAngles.map(deg => {
-          const rad = (deg * Math.PI) / 180
-          const x1 = originX + Math.cos(rad) * (RADIAL_DEADZONE + 8)
-          const y1 = originY + Math.sin(rad) * (RADIAL_DEADZONE + 8)
-          const x2 = originX + Math.cos(rad) * WEDGE_RAY_LEN
-          const y2 = originY + Math.sin(rad) * WEDGE_RAY_LEN
-          return (
-            <line
-              key={deg}
-              className="pen-radial-ray"
-              x1={x1}
-              y1={y1}
-              x2={x2}
-              y2={y2}
-            />
-          )
-        })}
-
-        {/* Subtle inner structural circle */}
         <circle
           className="pen-radial-ring-base"
           cx={originX}
@@ -189,70 +157,55 @@ export function PenRadialMenu({
           r={RING_RADIUS}
         />
 
-        {/* Signature spinning sweep-to-complete bright emerald ring */}
-        <g
-          className="pen-radial-spin-group"
-          style={{
-            transformOrigin: `${originX}px ${originY}px`,
-          }}
-        >
-          <circle
-            className="pen-radial-ring-sweep"
-            cx={originX}
-            cy={originY}
-            r={RING_RADIUS}
-            pathLength={1000}
-          />
-        </g>
-
-        {/* Crisp bright completion flash right when the circle closes */}
-        <circle
-          className="pen-radial-ring-flash"
-          cx={originX}
-          cy={originY}
-          r={RING_RADIUS}
-        />
-
-        {/* Active directional arc locked to the selected chunk */}
         {activeArcPath && (
           <path className="pen-radial-active-arc" d={activeArcPath} />
         )}
 
-        {/* Crisp directional needle from center hub toward active joystick angle */}
-        {pointerAngleRad !== null && activeIdx !== null && (
-          <line
-            className="pen-radial-needle"
-            x1={originX + Math.cos(pointerAngleRad) * 20}
-            y1={originY + Math.sin(pointerAngleRad) * 20}
-            x2={originX + Math.cos(pointerAngleRad) * (RING_RADIUS - 4)}
-            y2={originY + Math.sin(pointerAngleRad) * (RING_RADIUS - 4)}
+        {/* Reused BrilliantGraph outer translucent membrane + inner slipping nucleus */}
+        <g
+          className="pen-radial-nucleus-hub"
+          style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+          onPointerDown={e => {
+            e.stopPropagation()
+            if (state.latched) onCancel()
+          }}
+        >
+          <circle
+            cx={originX}
+            cy={originY}
+            r={19}
+            className="bg-drag-disc pen-radial-membrane"
           />
-        )}
+          <circle
+            cx={nucX}
+            cy={nucY}
+            r={activeSector ? 7.2 : 5.8}
+            fill={activeSector ? '#29cc57' : '#456dff'}
+            className="pen-radial-nucleus-core"
+          />
+        </g>
+
+        {/* Always-visible vivid colored cursor indicator so you never lose your pointer */}
+        <g className="pen-radial-cursor-dot">
+          <circle
+            cx={cursorX}
+            cy={cursorY}
+            r={6.5}
+            fill={activeSector ? '#29cc57' : '#456dff'}
+            fillOpacity={0.22}
+          />
+          <circle
+            cx={cursorX}
+            cy={cursorY}
+            r={3.5}
+            fill={activeSector ? '#29cc57' : '#456dff'}
+            stroke="#ffffff"
+            strokeWidth={1.4}
+          />
+        </g>
       </svg>
 
-      {/* Center Joystick Hub */}
-      <div
-        className="pen-radial-hub"
-        style={{ left: originX, top: originY }}
-        onPointerDown={e => {
-          e.stopPropagation()
-          if (state.latched) onCancel()
-        }}
-      >
-        <span
-          className="pen-radial-stick-dot"
-          style={{
-            transform: `translate(${stickX.toFixed(1)}px, ${stickY.toFixed(1)}px)`,
-          }}
-        />
-        {activeSector ? (
-          <span className="pen-radial-hub-label">{activeSector.label}</span>
-        ) : (
-          <span className="pen-radial-hub-hint">Tilt / Flick</span>
-        )}
-      </div>
-
-      {/* 6 Directional Radial Nodes */}
+      {/* 6 Compact Procreate-style Radial Tool Pills around the cursor */}
       {RADIAL_SECTORS.map((item, idx) => {
         const rad = (item.angleDeg * Math.PI) / 180
         const nx = originX + Math.cos(rad) * NODE_RADIUS
@@ -270,9 +223,9 @@ export function PenRadialMenu({
               {
                 left: nx,
                 top: ny,
-                '--node-delay': `${idx * 22}ms`,
-                '--from-x': `${-Math.cos(rad) * 34}px`,
-                '--from-y': `${-Math.sin(rad) * 34}px`,
+                '--node-delay': `${idx * 14}ms`,
+                '--from-x': `${-Math.cos(rad) * 18}px`,
+                '--from-y': `${-Math.sin(rad) * 18}px`,
               } as React.CSSProperties
             }
             onPointerDown={e => {

@@ -192,6 +192,7 @@ export function GeoLessonPlayer({
   voiceOn = true,
   semaShape = 'squircle',
   semaExpression = 'neutral',
+  penControlsCollapsed = true,
   formulasOpen,
   returnToLessonLabel,
   onClose,
@@ -212,6 +213,7 @@ export function GeoLessonPlayer({
   voiceOn?: boolean
   semaShape?: SemaShapeName
   semaExpression?: SemaExpressionName
+  penControlsCollapsed?: boolean
   formulasOpen: boolean
   returnToLessonLabel?: string
   onClose: () => void
@@ -337,6 +339,9 @@ export function GeoLessonPlayer({
       if ((e.key === 'p' || e.key === 'P') && penAllowed) {
         e.preventDefault()
         setPenWanted(v => !v)
+      } else if (e.key === '?') {
+        e.preventDefault()
+        setWalkthroughOpen(v => !v)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -839,6 +844,28 @@ export function GeoLessonPlayer({
               onPoke={() => onSound?.('lightweight-choice')}
             />
           </div>
+          {walkthroughSpec && (
+            <button
+              type="button"
+              className="lesson-nav-icon-btn lesson-walkthrough-nav-btn"
+              data-active={walkthroughOpen || undefined}
+              onClick={() => {
+                if (penOpen && formulasOpen) onCloseFormulas()
+                if (explanationOpen) setExplanationOpen(false)
+                setWalkthroughOpen(v => !v)
+                onSound?.('lightweight-choice')
+              }}
+              aria-label="Walk me through with Sema"
+              aria-pressed={walkthroughOpen}
+              title="Walk me through with Sema (?)"
+            >
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="9.5" />
+                <path d="M9.4 9.3a2.7 2.7 0 0 1 5.1 1.1c0 1.9-2.6 2.3-2.6 3.9" />
+                <circle cx="12" cy="17.2" r="0.9" fill="currentColor" stroke="none" />
+              </svg>
+            </button>
+          )}
           <button
             type="button"
             className="lesson-nav-icon-btn"
@@ -957,24 +984,10 @@ export function GeoLessonPlayer({
                   data-page-kind={page.kind}
                   data-is-check={isCheck}
                 >
-                  {/* Brilliant-native top-left editorial corner plate matching Level 1 heading grammar */}
-                  <div className="lesson-corner-plate" data-pen-ready={penAllowed || undefined}>
-                    <span className="lesson-corner-eyebrow">
-                      {lesson.id.startsWith('rescue-')
-                        ? 'Catch-Up'
-                        : `Level ${lesson.level}`}
+                  <div className="lesson-content">
+                    <div className="lesson-kicker-line">
+                      {lesson.id.startsWith('rescue-') ? 'Catch-Up' : `Level ${lesson.level}`}
                       {' · '}
-                      {isCheck
-                        ? 'Check'
-                        : page.kind === 'worked'
-                          ? 'Lesson'
-                          : page.kind === 'explore'
-                            ? 'Explore'
-                            : penAllowed
-                              ? 'Notebook'
-                              : 'Practice'}
-                    </span>
-                    <strong className="lesson-corner-title">
                       {isCheck
                         ? 'Mastery Check'
                         : page.kind === 'worked'
@@ -982,12 +995,9 @@ export function GeoLessonPlayer({
                           : page.kind === 'explore'
                             ? 'Interactive Lab'
                             : penAllowed
-                              ? 'Notebook Question'
-                              : 'Guided Question'}
-                    </strong>
-                  </div>
-
-                  <div className="lesson-content">
+                              ? 'Notebook'
+                              : 'Practice'}
+                    </div>
                     {returnToLessonLabel && onReturnToLesson && (
                       <button
                         type="button"
@@ -997,25 +1007,8 @@ export function GeoLessonPlayer({
                         ← Back to {returnToLessonLabel}
                       </button>
                     )}
-                    <div className="lesson-copy-row">
-                      <div className="lesson-copy">
-                        <RichText text={page.prompt} />
-                      </div>
-                      {walkthroughSpec && (
-                        <button
-                          type="button"
-                          className="lesson-walkthrough-trigger"
-                          aria-label="Walk me through with Sema"
-                          title="Walk me through with Sema"
-                          onClick={() => {
-                            if (penOpen && formulasOpen) onCloseFormulas()
-                            if (explanationOpen) setExplanationOpen(false)
-                            setWalkthroughOpen(true)
-                          }}
-                        >
-                          ?
-                        </button>
-                      )}
+                    <div className="lesson-copy">
+                      <RichText text={page.prompt} />
                     </div>
 
                     {page.kind === 'explore' && (
@@ -1456,6 +1449,8 @@ export function GeoLessonPlayer({
                   theme={theme}
                   flipped={penFlipped}
                   fullscreen={penFullscreen}
+                  isCorrect={state.evaluation === 'correct'}
+                  penControlsCollapsed={penControlsCollapsed}
                   worksheetSpec={worksheetSpec}
                   onToggleFlip={() => setPenFlipped(f => !f)}
                   onToggleFullscreen={() => {

@@ -8,6 +8,7 @@ export type SyntaxPrefs = {
   showCatchupPaths: boolean
   onboarded: boolean
   voiceOn: boolean
+  penControlsCollapsed: boolean
   semaShape: SemaShapeName
   semaExpression: SemaExpressionName
 }
@@ -17,6 +18,7 @@ const DEFAULT_PREFS: SyntaxPrefs = {
   showCatchupPaths: false,
   onboarded: false,
   voiceOn: true,
+  penControlsCollapsed: true,
   semaShape: 'squircle',
   semaExpression: 'neutral',
 }
@@ -58,6 +60,10 @@ export function loadPrefs(): SyntaxPrefs {
       showCatchupPaths: Boolean(parsed.showCatchupPaths ?? DEFAULT_PREFS.showCatchupPaths),
       onboarded: Boolean(parsed.onboarded ?? DEFAULT_PREFS.onboarded),
       voiceOn: parsed.voiceOn === undefined ? DEFAULT_PREFS.voiceOn : Boolean(parsed.voiceOn),
+      penControlsCollapsed:
+        parsed.penControlsCollapsed === undefined
+          ? DEFAULT_PREFS.penControlsCollapsed
+          : Boolean(parsed.penControlsCollapsed),
       semaShape: parsed.semaShape ?? DEFAULT_PREFS.semaShape,
       semaExpression: parsed.semaExpression ?? DEFAULT_PREFS.semaExpression,
     }

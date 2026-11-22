@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { Dialog } from '@base-ui/react/dialog'
+import { useEffect, useState } from 'react'
 import { Segmented, Toggle } from '../../settings/Controls'
 import { Sema } from '../mascot/Sema'
 import {
@@ -10,8 +9,17 @@ import {
 } from '../mascot/bloub'
 import type { SyntaxPrefs } from '../storage'
 
-export function SyntaxSettingsModal({
-  open,
+type SettingsSectionId = 'appearance' | 'learning' | 'sema' | 'sounds' | 'guide'
+
+const NAV_SECTIONS: { id: SettingsSectionId; label: string }[] = [
+  { id: 'appearance', label: 'Appearance' },
+  { id: 'learning', label: 'Learning & Pen' },
+  { id: 'sema', label: 'Sema Companion' },
+  { id: 'sounds', label: 'Sounds & Voice' },
+  { id: 'guide', label: 'Getting Started' },
+]
+
+export function SyntaxSettingsPage({
   onClose,
   theme,
   onChangeTheme,
@@ -21,7 +29,6 @@ export function SyntaxSettingsModal({
   onPatchPrefs,
   onReplayWelcome,
 }: {
-  open: boolean
   onClose: () => void
   theme: 'light' | 'dark'
   onChangeTheme: (t: 'light' | 'dark') => void
@@ -32,216 +39,264 @@ export function SyntaxSettingsModal({
   onReplayWelcome: () => void
 }) {
   const [previewAnim, setPreviewAnim] = useState<StateId>('idle')
+  const [activeSection, setActiveSection] = useState<SettingsSectionId>('appearance')
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  function scrollToSection(id: SettingsSectionId) {
+    setActiveSection(id)
+    const el = document.getElementById(`pref-${id}`)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
 
   return (
-    <Dialog.Root
-      open={open}
-      onOpenChange={v => {
-        if (!v) {
-          setPreviewAnim('idle')
-          onClose()
-        }
-      }}
-    >
-      <Dialog.Portal>
-        <Dialog.Backdrop className="syntax-settings-backdrop" />
-        <Dialog.Popup className="syntax-settings-popup" aria-label="Settings">
-          <div className="syntax-settings-bar">
-            <Dialog.Title className="syntax-settings-title">Preferences</Dialog.Title>
+    <main className="syntax-settings-page" aria-label="Settings">
+      <div className="settings-layout syntax-settings-grid">
+        <aside className="settings-nav syntax-settings-sidebar" aria-label="Settings sections">
+          <button
+            type="button"
+            className="syntax-settings-back-btn"
+            onClick={onClose}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M19 12H5" />
+              <path d="m12 19-7-7 7-7" />
+            </svg>
+            <span>Back to Unit 2</span>
+          </button>
+
+          <nav className="syntax-settings-nav-links">
+            {NAV_SECTIONS.map(sec => (
+              <a
+                key={sec.id}
+                href={`#pref-${sec.id}`}
+                aria-current={activeSection === sec.id ? 'page' : undefined}
+                onClick={e => {
+                  e.preventDefault()
+                  scrollToSection(sec.id)
+                }}
+              >
+                {sec.label}
+              </a>
+            ))}
+          </nav>
+        </aside>
+
+        <article className="preferences syntax-settings-article" data-ready="true">
+          <header className="syntax-settings-page-head">
             <button
               type="button"
-              className="syntax-settings-close"
-              aria-label="Close settings"
+              className="syntax-settings-mobile-back"
               onClick={onClose}
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
-                <path d="M18 6 6 18M6 6l12 12" />
-              </svg>
+              ← Back to Unit 2
             </button>
-          </div>
+            <h1>Preferences</h1>
+            <p>Customize Syntax, your pen studio defaults, and Sema.</p>
+          </header>
 
-          <div className="syntax-settings-scroll">
-            <article className="preferences syntax-settings-article" data-ready="true">
-              <section aria-labelledby="pref-appearance">
-                <h2 id="pref-appearance">Appearance</h2>
-                <div className="preference-rows">
-                  <div className="preference-row preference-choices">
-                    <p>Choose your preferred color mode</p>
-                    <Segmented
-                      label="Color mode"
-                      value={theme}
-                      onChange={onChangeTheme}
-                      options={[
-                        { value: 'light', label: 'Light' },
-                        { value: 'dark', label: 'Dark' },
-                      ]}
-                    />
-                  </div>
+          <section id="pref-appearance" aria-labelledby="pref-appearance-h">
+            <h2 id="pref-appearance-h">Appearance</h2>
+            <div className="preference-rows">
+              <div className="preference-row preference-choices">
+                <p>Choose your preferred color mode</p>
+                <Segmented
+                  label="Color mode"
+                  value={theme}
+                  onChange={onChangeTheme}
+                  options={[
+                    { value: 'light', label: 'Light' },
+                    { value: 'dark', label: 'Dark' },
+                  ]}
+                />
+              </div>
+            </div>
+          </section>
+
+          <hr />
+
+          <section id="pref-learning" aria-labelledby="pref-learning-h">
+            <h2 id="pref-learning-h">Learning &amp; Pen Workspace</h2>
+            <div className="preference-rows">
+              <div className="preference-row">
+                <div className="syntax-pref-copy">
+                  <p>Enable Draw Mode</p>
+                  <span>Draw a checkmark anywhere on the page to submit &amp; continue</span>
                 </div>
-              </section>
+                <Toggle
+                  label="Enable Draw Mode"
+                  checked={prefs.drawMode}
+                  onChange={v => onPatchPrefs({ drawMode: v })}
+                />
+              </div>
 
-              <hr />
-
-              <section aria-labelledby="pref-learning">
-                <h2 id="pref-learning">Learning &amp; Draw Mode</h2>
-                <div className="preference-rows">
-                  <div className="preference-row">
-                    <div className="syntax-pref-copy">
-                      <p>Enable Draw Mode</p>
-                      <span>Draw a checkmark anywhere on the page to submit &amp; continue</span>
-                    </div>
-                    <Toggle
-                      label="Enable Draw Mode"
-                      checked={prefs.drawMode}
-                      onChange={v => onPatchPrefs({ drawMode: v })}
-                    />
-                  </div>
-                  <div className="preference-row">
-                    <div className="syntax-pref-copy">
-                      <p>Show catch-up paths</p>
-                      <span>Display optional Grade 9/10 prerequisite chapters before core lessons</span>
-                    </div>
-                    <Toggle
-                      label="Show catch-up paths"
-                      checked={prefs.showCatchupPaths}
-                      onChange={v => onPatchPrefs({ showCatchupPaths: v })}
-                    />
-                  </div>
+              <div className="preference-row">
+                <div className="syntax-pref-copy">
+                  <p>Collapse pen controls by default</p>
+                  <span>Keep the top-left pen tip size &amp; color drawer tucked away until tapped</span>
                 </div>
-              </section>
+                <Toggle
+                  label="Collapse pen controls by default"
+                  checked={prefs.penControlsCollapsed}
+                  onChange={v => onPatchPrefs({ penControlsCollapsed: v })}
+                />
+              </div>
 
-              <hr />
-
-              <section aria-labelledby="pref-sema">
-                <h2 id="pref-sema">Sema Companion</h2>
-                <div className="sema-studio-card">
-                  <div className="sema-studio-stage">
-                    <Sema
-                      state={previewAnim}
-                      expression={prefs.semaExpression}
-                      shape={prefs.semaShape}
-                      size={104}
-                      interactive
-                      ariaLabel="Sema live studio preview"
-                    />
-                    <span className="sema-studio-hint">
-                      Poke or drag Sema · Active: <strong>{previewAnim}</strong>
-                    </span>
-                  </div>
-
-                  <div className="sema-studio-group">
-                    <span className="sema-studio-label">Shape ({SEMA_SHAPES.length})</span>
-                    <div className="sema-studio-chips">
-                      {SEMA_SHAPES.map(sh => (
-                        <button
-                          key={sh.id}
-                          type="button"
-                          className={`sema-chip${prefs.semaShape === sh.id ? ' is-active' : ''}`}
-                          onClick={() => {
-                            setPreviewAnim('idle')
-                            onPatchPrefs({ semaShape: sh.id })
-                          }}
-                        >
-                          {sh.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="sema-studio-group">
-                    <span className="sema-studio-label">Expression ({SEMA_EXPRESSIONS.length})</span>
-                    <div className="sema-studio-chips">
-                      {SEMA_EXPRESSIONS.map(ex => (
-                        <button
-                          key={ex.id}
-                          type="button"
-                          className={`sema-chip${prefs.semaExpression === ex.id ? ' is-active' : ''}`}
-                          onClick={() => {
-                            setPreviewAnim('idle')
-                            onPatchPrefs({ semaExpression: ex.id })
-                          }}
-                        >
-                          {ex.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="sema-studio-group">
-                    <span className="sema-studio-label">Test Animation ({SEMA_ANIMATIONS.length})</span>
-                    <div className="sema-studio-chips">
-                      {SEMA_ANIMATIONS.map(an => (
-                        <button
-                          key={an.id}
-                          type="button"
-                          className={`sema-chip is-anim${previewAnim === an.id ? ' is-active' : ''}`}
-                          onClick={() => setPreviewAnim(an.id)}
-                        >
-                          {an.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+              <div className="preference-row">
+                <div className="syntax-pref-copy">
+                  <p>Show catch-up paths</p>
+                  <span>Interweave optional Grade 9/10 prerequisite chapters alongside core lessons</span>
                 </div>
-              </section>
+                <Toggle
+                  label="Show catch-up paths"
+                  checked={prefs.showCatchupPaths}
+                  onChange={v => onPatchPrefs({ showCatchupPaths: v })}
+                />
+              </div>
+            </div>
+          </section>
 
-              <hr />
+          <hr />
 
-              <section aria-labelledby="pref-sounds">
-                <h2 id="pref-sounds">Sounds &amp; Narration</h2>
-                <div className="preference-rows">
-                  <div className="preference-row">
-                    <div className="syntax-pref-copy">
-                      <p>Enable Sema narration in walkthroughs</p>
-                      <span>Spoken guidance synced to Sema’s live animations</span>
-                    </div>
-                    <Toggle
-                      label="Enable Sema narration"
-                      checked={prefs.voiceOn}
-                      onChange={v => onPatchPrefs({ voiceOn: v })}
-                    />
-                  </div>
-                  <div className="preference-row">
-                    <div className="syntax-pref-copy">
-                      <p>Enable sound effects in lessons</p>
-                      <span>Subtle tactile audio for checks, hints, and completions</span>
-                    </div>
-                    <Toggle
-                      label="Enable sound effects"
-                      checked={soundOn}
-                      onChange={onChangeSound}
-                    />
-                  </div>
-                </div>
-              </section>
+          <section id="pref-sema" aria-labelledby="pref-sema-h">
+            <h2 id="pref-sema-h">Sema Companion</h2>
+            <div className="sema-studio-card">
+              <div className="sema-studio-stage">
+                <Sema
+                  state={previewAnim}
+                  expression={prefs.semaExpression}
+                  shape={prefs.semaShape}
+                  size={104}
+                  interactive
+                  ariaLabel="Sema live studio preview"
+                />
+                <span className="sema-studio-hint">
+                  Poke or drag Sema · Active: <strong>{previewAnim}</strong>
+                </span>
+              </div>
 
-              <hr />
-
-              <section aria-labelledby="pref-guide">
-                <h2 id="pref-guide">Getting Started</h2>
-                <div className="preference-rows">
-                  <div className="preference-row">
-                    <div className="syntax-pref-copy">
-                      <p>Welcome tour with Sema</p>
-                      <span>Re-open theme and Draw Mode setup anytime</span>
-                    </div>
+              <div className="sema-studio-group">
+                <span className="sema-studio-label">Shape ({SEMA_SHAPES.length})</span>
+                <div className="sema-studio-chips">
+                  {SEMA_SHAPES.map(sh => (
                     <button
+                      key={sh.id}
                       type="button"
-                      className="plain-button syntax-pref-btn"
+                      className={`sema-chip${prefs.semaShape === sh.id ? ' is-active' : ''}`}
                       onClick={() => {
-                        onClose()
-                        onReplayWelcome()
+                        setPreviewAnim('idle')
+                        onPatchPrefs({ semaShape: sh.id })
                       }}
                     >
-                      Replay tour
+                      {sh.label}
                     </button>
-                  </div>
+                  ))}
                 </div>
-              </section>
-            </article>
-          </div>
-        </Dialog.Popup>
-      </Dialog.Portal>
-    </Dialog.Root>
+              </div>
+
+              <div className="sema-studio-group">
+                <span className="sema-studio-label">Expression ({SEMA_EXPRESSIONS.length})</span>
+                <div className="sema-studio-chips">
+                  {SEMA_EXPRESSIONS.map(ex => (
+                    <button
+                      key={ex.id}
+                      type="button"
+                      className={`sema-chip${prefs.semaExpression === ex.id ? ' is-active' : ''}`}
+                      onClick={() => {
+                        setPreviewAnim('idle')
+                        onPatchPrefs({ semaExpression: ex.id })
+                      }}
+                    >
+                      {ex.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="sema-studio-group">
+                <span className="sema-studio-label">Test Animation ({SEMA_ANIMATIONS.length})</span>
+                <div className="sema-studio-chips">
+                  {SEMA_ANIMATIONS.map(an => (
+                    <button
+                      key={an.id}
+                      type="button"
+                      className={`sema-chip is-anim${previewAnim === an.id ? ' is-active' : ''}`}
+                      onClick={() => setPreviewAnim(an.id)}
+                    >
+                      {an.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <hr />
+
+          <section id="pref-sounds" aria-labelledby="pref-sounds-h">
+            <h2 id="pref-sounds-h">Sounds &amp; Narration</h2>
+            <div className="preference-rows">
+              <div className="preference-row">
+                <div className="syntax-pref-copy">
+                  <p>Enable Sema narration in walkthroughs</p>
+                  <span>Spoken guidance synced to Sema’s live animations</span>
+                </div>
+                <Toggle
+                  label="Enable Sema narration"
+                  checked={prefs.voiceOn}
+                  onChange={v => onPatchPrefs({ voiceOn: v })}
+                />
+              </div>
+              <div className="preference-row">
+                <div className="syntax-pref-copy">
+                  <p>Enable sound effects in lessons</p>
+                  <span>Subtle tactile audio for checks, hints, and completions</span>
+                </div>
+                <Toggle
+                  label="Enable sound effects"
+                  checked={soundOn}
+                  onChange={onChangeSound}
+                />
+              </div>
+            </div>
+          </section>
+
+          <hr />
+
+          <section id="pref-guide" aria-labelledby="pref-guide-h">
+            <h2 id="pref-guide-h">Getting Started</h2>
+            <div className="preference-rows">
+              <div className="preference-row">
+                <div className="syntax-pref-copy">
+                  <p>Welcome tour with Sema</p>
+                  <span>Re-open theme and Draw Mode setup anytime</span>
+                </div>
+                <button
+                  type="button"
+                  className="plain-button syntax-pref-btn"
+                  onClick={() => {
+                    onClose()
+                    onReplayWelcome()
+                  }}
+                >
+                  Replay tour
+                </button>
+              </div>
+            </div>
+          </section>
+        </article>
+      </div>
+    </main>
   )
 }

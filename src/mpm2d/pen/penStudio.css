@@ -492,8 +492,6 @@
   border-left: none;
   border-radius: 0 16px 16px 0;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), 0 3px 0 #e2e4e9;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   transform: translateX(-100%);
   opacity: 0;
   pointer-events: none;
@@ -838,7 +836,7 @@
 .pen-br-step-head {
   position: relative;
   z-index: 1;
-  padding: 24px 32px 18px 88px;
+  padding: 24px 32px 18px 104px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   pointer-events: none;
 }
@@ -1210,19 +1208,20 @@
 }
 
 /* --------------------------------------------------------------------------
-   6. Signature Right-Click / Stylus Barrel Radial Joystick Pie Menu
+   6. Compact Procreate-Style Radial Wheel + BrilliantGraph Nucleus Hub
    -------------------------------------------------------------------------- */
 .pen-radial-backdrop {
   position: fixed;
   inset: 0;
   z-index: 900;
-  background: rgba(20, 20, 20, 0.2);
+  background: rgba(20, 20, 20, 0.05);
   pointer-events: auto;
-  animation: pen-radial-fade 120ms ease-out;
+  cursor: none;
+  animation: pen-radial-fade 90ms ease-out;
 }
 
 .pen-radial-backdrop[data-theme='dark'] {
-  background: rgba(0, 0, 0, 0.48);
+  background: rgba(0, 0, 0, 0.16);
 }
 
 @keyframes pen-radial-fade {
@@ -1236,29 +1235,12 @@
   width: 100vw;
   height: 100vh;
   pointer-events: none;
-}
-
-.pen-radial-wedge-fill {
-  fill: rgba(41, 204, 87, 0.12);
-}
-
-.pen-radial-backdrop[data-theme='dark'] .pen-radial-wedge-fill {
-  fill: rgba(94, 217, 129, 0.14);
-}
-
-.pen-radial-ray {
-  stroke: rgba(20, 20, 20, 0.15);
-  stroke-width: 1;
-  stroke-dasharray: 4 6;
-}
-
-.pen-radial-backdrop[data-theme='dark'] .pen-radial-ray {
-  stroke: rgba(255, 255, 255, 0.16);
+  overflow: visible;
 }
 
 .pen-radial-ring-base {
   fill: none;
-  stroke: rgba(20, 20, 20, 0.14);
+  stroke: rgba(20, 20, 20, 0.12);
   stroke-width: 1.5;
 }
 
@@ -1266,128 +1248,53 @@
   stroke: rgba(255, 255, 255, 0.16);
 }
 
-.pen-radial-spin-group {
-  animation: pen-radial-spin 340ms cubic-bezier(0.2, 0.85, 0.25, 1) forwards;
-}
-
-@keyframes pen-radial-spin {
-  from { transform: rotate(-110deg); }
-  to { transform: rotate(0deg); }
-}
-
-.pen-radial-ring-sweep {
-  fill: none;
-  stroke: #29cc57;
-  stroke-width: 2.5;
-  stroke-linecap: round;
-  stroke-dasharray: 1000;
-  stroke-dashoffset: 1000;
-  animation: pen-radial-sweep 340ms cubic-bezier(0.2, 0.85, 0.25, 1) forwards;
-}
-
-@keyframes pen-radial-sweep {
-  to { stroke-dashoffset: 0; }
-}
-
-.pen-radial-ring-flash {
-  fill: none;
-  stroke: #5ed981;
-  stroke-width: 4;
-  opacity: 0;
-  animation: pen-radial-flash 260ms ease-out 300ms forwards;
-}
-
-@keyframes pen-radial-flash {
-  0% { opacity: 0; }
-  35% { opacity: 0.9; }
-  100% { opacity: 0; }
-}
-
 .pen-radial-active-arc {
   fill: none;
   stroke: #29cc57;
-  stroke-width: 4;
+  stroke-width: 3.5;
   stroke-linecap: round;
 }
 
-.pen-radial-needle {
-  stroke: #29cc57;
-  stroke-width: 2;
-  stroke-linecap: round;
+.pen-radial-membrane {
+  stroke: rgba(69, 109, 255, 0.25);
+  stroke-width: 1.5;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.12));
 }
 
-.pen-radial-hub {
-  position: fixed;
-  transform: translate(-50%, -50%);
-  width: 68px;
-  height: 68px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.96);
-  border: 2px solid #e2e4e9;
-  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.14);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  pointer-events: auto;
+.pen-radial-backdrop[data-theme='dark'] .pen-radial-membrane {
+  stroke: rgba(116, 145, 255, 0.32);
+  filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.45));
 }
 
-.pen-radial-backdrop[data-theme='dark'] .pen-radial-hub {
-  background: rgba(24, 24, 27, 0.96);
-  border-color: #3f414a;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.52);
-}
-
-.pen-radial-stick-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 999px;
-  background: #29cc57;
-  transition: transform 40ms linear;
-}
-
-.pen-radial-hub-label,
-.pen-radial-hub-hint {
-  font-size: 9.5px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  color: #141414;
-}
-
-.pen-radial-hub-hint {
-  color: #666666;
-}
-
-.pen-radial-backdrop[data-theme='dark'] .pen-radial-hub-label {
-  color: #ffffff;
+.pen-radial-nucleus-core {
+  transition: r 90ms ease, fill 90ms ease;
 }
 
 .pen-radial-node {
   position: fixed;
   transform: translate(-50%, -50%);
-  min-width: 66px;
-  height: 54px;
-  padding: 6px 10px;
-  border-radius: 14px;
-  border: 2px solid #e2e4e9;
-  background: rgba(255, 255, 255, 0.97);
+  min-width: 54px;
+  height: 44px;
+  padding: 5px 8px;
+  border-radius: 12px;
+  border: 1.5px solid #e2e4e9;
+  background: rgba(255, 255, 255, 0.96);
   color: #141414;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.13), 0 2px 0 #d7dae2;
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.12), 0 2px 0 #d7dae2;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
   cursor: pointer;
-  animation: pen-radial-node-pop 200ms cubic-bezier(0.2, 0.85, 0.25, 1) var(--node-delay, 0ms) backwards;
-  transition: background-color 90ms ease, border-color 90ms ease, color 90ms ease, transform 90ms ease;
+  animation: pen-radial-node-pop 150ms cubic-bezier(0.2, 0.85, 0.25, 1) var(--node-delay, 0ms) backwards;
+  transition: background-color 80ms ease, border-color 80ms ease, color 80ms ease, transform 80ms ease;
 }
 
 .pen-radial-backdrop[data-theme='dark'] .pen-radial-node {
-  background: rgba(28, 29, 34, 0.97);
+  background: rgba(28, 29, 34, 0.96);
   border-color: #3f414a;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 2px 0 #2d2f36;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.42), 0 2px 0 #2d2f36;
   color: #f0f1f5;
 }
 
@@ -1410,7 +1317,7 @@
 .pen-radial-node[data-selected] {
   background: #29cc57;
   border-color: #29cc57;
-  box-shadow: 0 10px 26px rgba(41, 204, 87, 0.36), 0 3px 0 #15b441;
+  box-shadow: 0 8px 20px rgba(41, 204, 87, 0.34), 0 2px 0 #15b441;
   color: #ffffff;
   transform: translate(-50%, -50%) scale(1.08);
 }
@@ -1420,12 +1327,12 @@
 }
 
 .pen-radial-node-label {
-  font-size: 10.5px;
+  font-size: 9.5px;
   font-weight: 700;
   line-height: 1;
 }
 
-/* Step pill wrapper with discreet delete button on hover */
+/* Step pill wrapper with crisp red delete badge on hover */
 .pen-br-step-dot-wrap {
   position: relative;
   display: inline-flex;
@@ -1435,91 +1342,173 @@
 
 .pen-br-step-del-btn {
   position: absolute;
-  top: -4px;
-  right: -4px;
-  width: 14px;
-  height: 14px;
+  top: -5px;
+  right: -5px;
+  width: 15px;
+  height: 15px;
   border-radius: 999px;
-  background: #52525b;
+  background: #ef4444;
   color: #ffffff;
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  border: 1.5px solid #ffffff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   opacity: 0;
-  transform: scale(0.7);
-  transition: opacity 120ms ease, transform 120ms cubic-bezier(0.2, 0.9, 0.3, 1), background-color 100ms ease;
+  transform: scale(0.72);
+  transition: opacity 110ms ease, transform 120ms cubic-bezier(0.2, 0.9, 0.3, 1), background-color 100ms ease;
   padding: 0;
-  z-index: 5;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  z-index: 6;
+  box-shadow: 0 2px 6px rgba(239, 68, 68, 0.38);
 }
 
 .pen-br-footer[data-theme='dark'] .pen-br-step-del-btn {
-  background: #3f3f46;
-  border-color: rgba(255, 255, 255, 0.25);
+  background: #ef4444;
+  border-color: #141414;
 }
 
-.pen-br-step-dot-wrap:hover .pen-br-step-del-btn {
+.pen-br-step-dot-wrap:hover .pen-br-step-del-btn,
+.pen-br-step-dot-wrap:focus-within .pen-br-step-del-btn {
   opacity: 1;
   transform: scale(1);
 }
 
 .pen-br-step-del-btn:hover {
-  background: #ef4444;
-  color: #ffffff;
-  transform: scale(1.1);
+  background: #dc2626;
+  transform: scale(1.14);
 }
 
 .pen-br-step-dot {
   position: relative;
 }
 
+/* Scratch pages: ONLY crisp dotted circular ring — NEVER a solid border or underline! */
 .pen-br-step-dot[data-custom] {
   width: 30px;
+  min-width: 30px;
+  height: 30px;
   padding: 0;
-  border-color: transparent;
-  background: rgba(127, 127, 127, 0.05);
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent;
 }
 
 .pen-br-step-dot[data-custom]:hover {
-  border-color: transparent;
   color: #456dff;
-  background: rgba(69, 109, 255, 0.07);
+  background: rgba(69, 109, 255, 0.08);
 }
 
 .pen-br-step-dot[data-custom][data-current] {
-  border-color: #456dff;
-  background: #eef2ff;
+  background: rgba(69, 109, 255, 0.12);
   color: #375ce3;
-  box-shadow: 0 2px 0 #375ce3;
-}
-
-.pen-br-footer[data-theme='dark'] .pen-br-step-dot[data-custom] {
-  background: rgba(255, 255, 255, 0.05);
 }
 
 .pen-br-footer[data-theme='dark'] .pen-br-step-dot[data-custom][data-current] {
-  background: #152459;
-  border-color: #5c7eff;
+  background: rgba(92, 126, 255, 0.22);
   color: #ffffff;
-  box-shadow: 0 2px 0 #3b5be0;
+}
+
+.pen-br-step-dot[data-custom][data-done] {
+  background: rgba(41, 204, 87, 0.12);
+  color: #15803d;
+}
+
+.pen-br-step-dot[data-custom][data-done][data-current] {
+  background: #29cc57;
+  color: #ffffff;
 }
 
 .pen-br-step-dot-ring {
   position: absolute;
-  inset: -2px;
-  width: calc(100% + 4px);
-  height: calc(100% + 4px);
+  inset: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
-  color: #b7bcc8;
+  color: #aeb4c2;
   transition: color 120ms ease;
 }
 
 .pen-br-footer[data-theme='dark'] .pen-br-step-dot-ring {
-  color: #555968;
+  color: #5b6070;
 }
 
-.pen-br-step-dot[data-custom]:hover .pen-br-step-dot-ring {
+.pen-br-step-dot[data-custom]:hover .pen-br-step-dot-ring,
+.pen-br-step-dot[data-custom][data-current] .pen-br-step-dot-ring {
   color: #456dff;
+}
+
+.pen-br-step-dot[data-custom][data-done] .pen-br-step-dot-ring {
+  color: #29cc57;
+}
+
+/* Outer perimeter Brilliant Green completion edge on Draw Mode section (zoom-independent!) */
+.pen-outer-complete-frame {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 55;
+  box-shadow:
+    inset 0 0 0 3px #29cc57,
+    inset 4px 0 0 0 #29cc57;
+  transition: box-shadow 200ms ease;
+}
+
+.pen-studio-root[data-flipped] .pen-outer-complete-frame {
+  box-shadow:
+    inset 0 0 0 3px #29cc57,
+    inset -4px 0 0 0 #29cc57;
+}
+
+/* Container-responsive pen topbar: zero maximize-button clipping at minimum split widths! */
+.pen-br-topbar-wrap {
+  container-type: inline-size;
+  overflow: visible;
+}
+
+.pen-br-topbar {
+  min-width: 0;
+  overflow: hidden;
+  padding: 0 10px;
+  gap: 6px;
+}
+
+@container (max-width: 470px) {
+  .pen-br-topbar {
+    padding: 0 6px;
+    gap: 4px;
+  }
+  .pen-br-chip {
+    padding: 0 8px;
+    gap: 4px;
+    font-size: 12px;
+  }
+  .pen-br-chip span {
+    display: none;
+  }
+  .pen-br-bar-group {
+    gap: 3px;
+  }
+  .pen-br-tool-btn {
+    width: 26px;
+    height: 26px;
+  }
+  .pen-br-icon-btn {
+    width: 28px;
+    height: 28px;
+  }
+}
+
+@container (max-width: 340px) {
+  .pen-br-tools {
+    gap: 1px;
+    padding: 2px;
+  }
+  .pen-br-tool-btn {
+    width: 24px;
+    height: 24px;
+  }
+  .pen-br-icon-btn {
+    width: 26px;
+    height: 26px;
+  }
 }

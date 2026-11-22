@@ -98,6 +98,7 @@ export function PenBrilliantChrome({
   flipped,
   planSteps,
   dimmed,
+  defaultDrawerCollapsed = true,
   canvasPointerEpoch,
   onSelectTool,
   onSelectColor,
@@ -125,6 +126,7 @@ export function PenBrilliantChrome({
   flipped: boolean
   planSteps: string[]
   dimmed: boolean
+  defaultDrawerCollapsed?: boolean
   canvasPointerEpoch: number
   onSelectTool: (t: PenToolId) => void
   onSelectColor: (c: PenColorId) => void
@@ -140,7 +142,11 @@ export function PenBrilliantChrome({
   onToggleFullscreen: () => void
   onExportPng: () => void
 }) {
-  const [drawerOpen, setDrawerOpen] = useState(true)
+  const [drawerOpen, setDrawerOpen] = useState(!defaultDrawerCollapsed)
+
+  useEffect(() => {
+    setDrawerOpen(!defaultDrawerCollapsed)
+  }, [defaultDrawerCollapsed])
   const [openMenu, setOpenMenu] = useState<'sheet' | 'plan' | null>(null)
   const [confirmClear, setConfirmClear] = useState(false)
   const topRef = useRef<HTMLDivElement>(null)
@@ -702,7 +708,7 @@ export function PenStepFooter({
                   aria-label={`${isCustom ? 'Scratch page' : 'Step'} ${idx + 1}${isDone ? ' (done)' : ''}`}
                   title={isCustom ? `Scratch page ${idx + 1}` : `Step ${idx + 1}`}
                 >
-                  {isCustom && idx !== stepIndex && (
+                  {isCustom && (
                     <svg className="pen-br-step-dot-ring" viewBox="0 0 30 30" aria-hidden="true">
                       <circle
                         cx="15"

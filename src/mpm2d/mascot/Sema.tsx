@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef } from 'react'
 import {
   BotEngine,
   DEMI_VIEWBOX,
@@ -35,10 +35,18 @@ export type SemaLookPoint = {
   y: number
 }
 
+export type SemaDragLaunchInfo = {
+  clientX: number
+  clientY: number
+  vx: number
+  vy: number
+}
+
+const SVG_NS = 'http://www.w3.org/2000/svg'
 const R = RAYON_BOULE // 100
 const VB = DEMI_VIEWBOX // 158
 
-// Sema's signature semicolon comma tail scaled for R = 100 coordinate space (anchored below body at y ≈ 108)
+// Sema's signature semicolon comma tail scaled for R = 100 coordinate space
 const TAIL_PATH =
   'M -17,108 C -17,97 17,97 17,108 C 17,131 6,152 -15,166 C -21,169 -26,163 -22,157 C -9,146 -3,133 -4,122 C -13,120 -17,115 -17,108 Z'
 
@@ -97,26 +105,151 @@ function clamp(v: number, lo: number, hi: number): number {
 }
 
 function detectDark(): boolean {
-  return (
-    typeof document !== 'undefined' &&
-    document.documentElement.getAttribute('data-theme') === 'dark'
-  )
+  if (typeof document === 'undefined') return false
+  return document.documentElement.getAttribute('data-theme') === 'dark'
+}
+
+function syncDotsGroup(
+  g: SVGGElement | null,
+  dots: BotFrame['dots'],
+  paper: string,
+  ink: string,
+) {
+  if (!g) return
+  if (dots.length === 0) {
+    if (g.childNodes.length > 0) g.textContent = ''
+    return
+  }
+  while (g.childNodes.length > dots.length) {
+    g.removeChild(g.lastChild!)
+  }
+  for (let i = 0; i < dots.length; i++) {
+    const dot = dots[i]!
+    const fill =
+      dot.color ?? (dot.depth === undefined ? ink : mixHex(paper, ink, dot.depth))
+    const wantTag = dot.d ? 'path' : 'circle'
+    let el = g.childNodes[i] as SVGElement | undefined
+    if (!el || el.tagName !== wantTag) {
+      const next = document.createElementNS(SVG_NS, wantTag)
+      if (el) g.replaceChild(next, el)
+      else g.appendChild(next)
+      el = next
+    }
+    el.setAttribute('fill', fill)
+    el.setAttribute('opacity', dot.opacity.toFixed(3))
+    if (dot.d) {
+      el.setAttribute('d', dot.d)
+      el.setAttribute(
+        'transform',
+        `translate(${dot.x.toFixed(2)} ${dot.y.toFixed(2)}) rotate(${(dot.rot ?? 0).toFixed(2)}) scale(${R})`,
+      )
+    } else {
+      el.setAttribute('cx', dot.x.toFixed(2))
+      el.setAttribute('cy', dot.y.toFixed(2))
+      el.setAttribute('r', dot.r.toFixed(2))
+    }
+  }
+}
+
+function syncArcs(
+  defsEl: SVGDefsElement | null,
+  backGroup: SVGGElement | null,
+  frontGroup: SVGGElement | null,
+  arcs: BotFrame['arcs'],
+  uid: string,
+  gradNodes: Map<string, SVGLinearGradientElement>,
+) {
+  if (!defsEl || !backGroup || !frontGroup) return
+  if (arcs.length === 0) {
+    if (backGroup.childNodes.length > 0) backGroup.textContent = ''
+    if (frontGroup.childNodes.length > 0) frontGroup.textContent = ''
+    if (gradNodes.size > 0) {
+      for (const node of gradNodes.values()) node.remove()
+      gradNodes.clear()
+    }
+    return
+  }
+
+  const seen = new Set<string>()
+  for (const arc of arcs) {
+    seen.add(arc.id)
+    let grad = gradNodes.get(arc.id)
+    if (!grad) {
+      grad = document.createElementNS(SVG_NS, 'linearGradient')
+      grad.setAttribute('id', `${uid}-${arc.id}`)
+      grad.setAttribute('gradientUnits', 'userSpaceOnUse')
+      defsEl.appendChild(grad)
+      gradNodes.set(arc.id, grad)
+    }
+    grad.setAttribute('x1', arc.grad.x1.toFixed(2))
+    grad.setAttribute('y1', arc.grad.y1.toFixed(2))
+    grad.setAttribute('x2', arc.grad.x2.toFixed(2))
+    grad.setAttribute('y2', arc.grad.y2.toFixed(2))
+
+    const stops = arc.grad.stops
+    while (grad.childNodes.length > stops.length) grad.removeChild(grad.lastChild!)
+    for (let i = 0; i < stops.length; i++) {
+      let stop = grad.childNodes[i] as SVGStopElement | undefined
+      if (!stop) {
+        stop = document.createElementNS(SVG_NS, 'stop')
+        grad.appendChild(stop)
+      }
+      stop.setAttribute('offset', String(i / Math.max(1, stops.length - 1)))
+      stop.setAttribute('stop-color', stops[i]!)
+    }
+  }
+
+  for (const [id, node] of gradNodes.entries()) {
+    if (!seen.has(id)) {
+      node.remove()
+      gradNodes.delete(id)
+    }
+  }
+
+  while (backGroup.childNodes.length > arcs.length) backGroup.removeChild(backGroup.lastChild!)
+  while (frontGroup.childNodes.length > arcs.length) frontGroup.removeChild(frontGroup.lastChild!)
+
+  for (let i = 0; i < arcs.length; i++) {
+    const arc = arcs[i]!
+    const strokeUrl = `url(#${uid}-${arc.id})`
+    let bp = backGroup.childNodes[i] as SVGPathElement | undefined
+    if (!bp) {
+      bp = document.createElementNS(SVG_NS, 'path')
+      backGroup.appendChild(bp)
+    }
+    bp.setAttribute('d', arc.back)
+    bp.setAttribute('stroke', strokeUrl)
+    bp.setAttribute('stroke-width', arc.width.toFixed(2))
+    bp.setAttribute('opacity', arc.opacity.toFixed(3))
+
+    let fp = frontGroup.childNodes[i] as SVGPathElement | undefined
+    if (!fp) {
+      fp = document.createElementNS(SVG_NS, 'path')
+      frontGroup.appendChild(fp)
+    }
+    fp.setAttribute('d', arc.front)
+    fp.setAttribute('stroke', strokeUrl)
+    fp.setAttribute('stroke-width', arc.width.toFixed(2))
+    fp.setAttribute('opacity', arc.opacity.toFixed(3))
+  }
 }
 
 export function Sema({
   state = 'idle',
   expression = 'neutral',
   shape = 'squircle',
-  size = 64,
-  interactive = true,
+  size = 56,
+  interactive = false,
   followCursor = true,
   lookAt = null,
   speakLevel = 0,
   showTail = true,
   accentColor,
-  className = '',
-  ariaLabel = 'Sema mascot',
+  className,
+  ariaLabel = 'Sema, your Syntax companion',
   onPoke,
+  dragLaunchThresholdPx,
+  onDragLaunch,
 }: {
   state?: SemaState
   expression?: SemaExpressionName
@@ -131,37 +264,50 @@ export function Sema({
   className?: string
   ariaLabel?: string
   onPoke?: () => void
+  /** If set, dragging Sema beyond this distance (px) breaks free and fires onDragLaunch */
+  dragLaunchThresholdPx?: number
+  onDragLaunch?: (info: SemaDragLaunchInfo) => void
 }) {
   const uid = useId().replace(/:/g, '')
-  const maskId = `sema-bloub-mask-${uid}`
+  const maskId = `sema-mask-${uid}`
 
-  const svgRef = useRef<SVGSVGElement>(null)
-  const rigRef = useRef<SVGGElement>(null)
-  const stretchRef = useRef<SVGGElement>(null)
-  const tailRef = useRef<SVGGElement>(null)
+  const svgRef = useRef<SVGSVGElement | null>(null)
+  const defsRef = useRef<SVGDefsElement | null>(null)
+  const rigRef = useRef<SVGGElement | null>(null)
+  const stretchRef = useRef<SVGGElement | null>(null)
+  const tailRef = useRef<SVGGElement | null>(null)
+  const tailPathRef = useRef<SVGPathElement | null>(null)
+  const bodyGroupRef = useRef<SVGGElement | null>(null)
+  const bodyPaperRef = useRef<SVGPathElement | null>(null)
+  const bodyMaskPathRef = useRef<SVGPathElement | null>(null)
+  const bodyFillRectRef = useRef<SVGRectElement | null>(null)
+  const eye0Ref = useRef<SVGPathElement | null>(null)
+  const eye1Ref = useRef<SVGPathElement | null>(null)
+  const notchRef = useRef<SVGCircleElement | null>(null)
+  const checkRef = useRef<SVGPathElement | null>(null)
+  const notifRef = useRef<SVGCircleElement | null>(null)
+  const dotsBehindRef = useRef<SVGGElement | null>(null)
+  const dotsFrontRef = useRef<SVGGElement | null>(null)
+  const arcsBackRef = useRef<SVGGElement | null>(null)
+  const arcsFrontRef = useRef<SVGGElement | null>(null)
 
   const engineRef = useRef<BotEngine | null>(null)
   if (!engineRef.current) {
-    const beh = resolveSemaBehavior(state)
-    engineRef.current = new BotEngine(
-      R,
-      beh.engineState,
-      resolveShapeRadii(shape),
-      resolveExpression(beh.expressionOverride ?? expression),
-    )
+    engineRef.current = new BotEngine(R)
   }
 
-  const [frame, setFrame] = useState<BotFrame>(() => engineRef.current!.sample(0))
-  const [isDark, setIsDark] = useState<boolean>(detectDark)
-
-  const statePropRef = useRef<SemaState>(state)
-  const exprPropRef = useRef<SemaExpressionName>(expression)
-  const shapePropRef = useRef<SemaShapeName>(shape)
+  // Live prop refs so animation loop runs with ZERO React re-renders
+  const statePropRef = useRef(state)
+  const exprPropRef = useRef(expression)
+  const shapePropRef = useRef(shape)
   const followRef = useRef(followCursor)
   const lookAtRef = useRef(lookAt)
   const speakLevelRef = useRef(speakLevel)
   const showTailRef = useRef(showTail)
+  const accentRef = useRef(accentColor)
   const onPokeRef = useRef(onPoke)
+  const dragLaunchThreshRef = useRef(dragLaunchThresholdPx)
+  const onDragLaunchRef = useRef(onDragLaunch)
 
   statePropRef.current = state
   exprPropRef.current = expression
@@ -170,16 +316,32 @@ export function Sema({
   lookAtRef.current = lookAt
   speakLevelRef.current = speakLevel
   showTailRef.current = showTail
+  accentRef.current = accentColor
   onPokeRef.current = onPoke
+  dragLaunchThreshRef.current = dragLaunchThresholdPx
+  onDragLaunchRef.current = onDragLaunch
 
-  // Interactive elastic drag + poke + trailing semicolon tail spring state
+  const isDarkRef = useRef<boolean>(detectDark())
+  const centerCacheRef = useRef<{ cx: number; cy: number; width: number; valid: boolean }>({
+    cx: 0,
+    cy: 0,
+    width: size,
+    valid: false,
+  })
+
   const physRef = useRef({
     clock: 0,
     dragging: false,
     pointerId: -1,
     startClientX: 0,
     startClientY: 0,
+    lastClientX: 0,
+    lastClientY: 0,
+    lastMoveTs: 0,
+    velX: 0,
+    velY: 0,
     maxDistPx: 0,
+    launchedDuringDrag: false,
     targetDx: 0,
     targetDy: 0,
     dx: 0,
@@ -202,12 +364,62 @@ export function Sema({
     pokeIndex: 0,
   })
 
-  // Track pointer for smooth cursor-following eye gaze
+  // Observe theme changes without polling inside rAF
   useEffect(() => {
+    isDarkRef.current = detectDark()
+    const obs = new MutationObserver(() => {
+      isDarkRef.current = detectDark()
+    })
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => obs.disconnect()
+  }, [])
+
+  // Cache SVG viewport rect ONLY on mount / resize (NEVER call getBoundingClientRect inside rAF!)
+  useEffect(() => {
+    const svg = svgRef.current
+    if (!svg) return
+    const updateCache = () => {
+      const rect = svg.getBoundingClientRect()
+      if (rect.width > 0 && rect.height > 0) {
+        centerCacheRef.current = {
+          cx: rect.left + rect.width * 0.5,
+          cy: rect.top + rect.height * 0.45,
+          width: rect.width,
+          valid: true,
+        }
+      }
+    }
+    updateCache()
+    const ro = new ResizeObserver(updateCache)
+    ro.observe(svg)
+    window.addEventListener('resize', updateCache, { passive: true })
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', updateCache)
+    }
+  }, [size])
+
+  // Track pointer for smooth cursor-following eye gaze (only attached when followCursor is enabled)
+  useEffect(() => {
+    if (!followCursor) return
+    let lastRectRefresh = 0
     const onMove = (e: PointerEvent) => {
       physRef.current.cursorX = e.clientX
       physRef.current.cursorY = e.clientY
       physRef.current.hasCursor = true
+      const now = performance.now()
+      if (now - lastRectRefresh > 450 && svgRef.current) {
+        lastRectRefresh = now
+        const rect = svgRef.current.getBoundingClientRect()
+        if (rect.width > 0 && rect.height > 0) {
+          centerCacheRef.current = {
+            cx: rect.left + rect.width * 0.5,
+            cy: rect.top + rect.height * 0.45,
+            width: rect.width,
+            valid: true,
+          }
+        }
+      }
     }
     const onLeave = () => {
       physRef.current.hasCursor = false
@@ -218,16 +430,28 @@ export function Sema({
       window.removeEventListener('pointermove', onMove)
       document.removeEventListener('pointerleave', onLeave)
     }
-  }, [])
+  }, [followCursor])
 
-  // Main 60fps animation loop powered by bloub's stateless BotEngine + Sema spring physics
+  // Zero-React-Re-render 60fps imperative SVG loop
   useEffect(() => {
     let raf = 0
     let lastTs = performance.now()
     let lookUpdateTimer = 0
-    let darkCheckTimer = 0
+    let lastEngineState: StateId | null = null
+    let lastExprKey: SemaExpressionName | null = null
+    let lastShapeKey: SemaShapeName | null = null
+    let lastBodyPath = ''
+    let lastInk = ''
+    let lastPaper = ''
+    const gradNodes = new Map<string, SVGLinearGradientElement>()
 
     const tick = (nowMs: number) => {
+      raf = requestAnimationFrame(tick)
+      if (document.hidden) {
+        lastTs = nowMs
+        return
+      }
+
       const dt = Math.min(0.05, Math.max(0.001, (nowMs - lastTs) * 0.001))
       lastTs = nowMs
 
@@ -235,14 +459,6 @@ export function Sema({
       p.clock += dt
       const clock = p.clock
       const engine = engineRef.current!
-
-      // Theme sync every ~150ms
-      darkCheckTimer += dt
-      if (darkCheckTimer > 0.15) {
-        darkCheckTimer = 0
-        const nextDark = detectDark()
-        setIsDark(prev => (prev === nextDark ? prev : nextDark))
-      }
 
       // Resolve effective state + expression (with temporary poke override)
       let activeState = statePropRef.current
@@ -255,16 +471,26 @@ export function Sema({
       }
 
       const beh = resolveSemaBehavior(activeState)
-      const targetExpr = resolveExpression(beh.expressionOverride ?? activeExpr)
-      const targetRadii = resolveShapeRadii(shapePropRef.current)
+      const nextExprKey = beh.expressionOverride ?? activeExpr
+      const nextShapeKey = shapePropRef.current
 
-      engine.setState(beh.engineState, clock)
-      engine.setExpression(targetExpr, clock)
-      engine.setShape(targetRadii, clock)
+      // Only push into BotEngine when inputs actually change
+      if (beh.engineState !== lastEngineState) {
+        engine.setState(beh.engineState, clock)
+        lastEngineState = beh.engineState
+      }
+      if (nextExprKey !== lastExprKey) {
+        engine.setExpression(resolveExpression(nextExprKey), clock)
+        lastExprKey = nextExprKey
+      }
+      if (nextShapeKey !== lastShapeKey) {
+        engine.setShape(resolveShapeRadii(nextShapeKey), clock)
+        lastShapeKey = nextShapeKey
+      }
 
-      // Gaze target (explicit lookAt, nod oscillation, drag follow, or cursor tracking)
+      // Gaze target (zero layout reads — uses cached center!)
       lookUpdateTimer += dt
-      if (lookUpdateTimer >= 0.032) {
+      if (lookUpdateTimer >= 0.04) {
         lookUpdateTimer = 0
         let lookYaw = 0
         let lookPitch = 0
@@ -282,17 +508,13 @@ export function Sema({
           lookYaw = 4
           lookPitch = 6 + Math.sin(clock * Math.PI * 2 * 1.45) * beh.nodPitchAmp
           lookMix = 0.85
-        } else if (followRef.current && p.hasCursor && svgRef.current) {
-          const rect = svgRef.current.getBoundingClientRect()
-          if (rect.width > 0 && rect.height > 0) {
-            const cx = rect.left + rect.width * 0.5
-            const cy = rect.top + rect.height * 0.45
-            const nx = clamp((p.cursorX - cx) / 260, -1, 1)
-            const ny = clamp((p.cursorY - cy) / 260, -1, 1)
-            lookYaw = nx * 30
-            lookPitch = -ny * 24
-            lookMix = 0.88
-          }
+        } else if (followRef.current && p.hasCursor && centerCacheRef.current.valid) {
+          const { cx, cy } = centerCacheRef.current
+          const nx = clamp((p.cursorX - cx) / 260, -1, 1)
+          const ny = clamp((p.cursorY - cy) / 260, -1, 1)
+          lookYaw = nx * 30
+          lookPitch = -ny * 24
+          lookMix = 0.88
         }
 
         if (lookMix > 0.01) {
@@ -302,9 +524,89 @@ export function Sema({
         }
       }
 
-      // Sample bloub BotEngine frame
-      const sampled = engine.sample(clock)
-      setFrame(sampled)
+      // Sample BotEngine frame & write directly to SVG DOM (zero React re-renders!)
+      const f = engine.sample(clock)
+      const isDark = isDarkRef.current
+      const paper = isDark ? '#171717' : '#ffffff'
+      const baseInk = accentRef.current ?? (isDark ? '#f2f2f2' : '#141414')
+      const ink = f.tintHex ?? baseInk
+
+      if (f.bodyPath !== lastBodyPath) {
+        lastBodyPath = f.bodyPath
+        bodyMaskPathRef.current?.setAttribute('d', f.bodyPath)
+        bodyPaperRef.current?.setAttribute('d', f.bodyPath)
+      }
+      if (paper !== lastPaper) {
+        lastPaper = paper
+        bodyPaperRef.current?.setAttribute('fill', paper)
+      }
+      if (ink !== lastInk) {
+        lastInk = ink
+        bodyFillRectRef.current?.setAttribute('fill', ink)
+        tailPathRef.current?.setAttribute('fill', ink)
+      }
+
+      bodyGroupRef.current?.setAttribute('opacity', f.bodyAlpha.toFixed(3))
+
+      // Eyes (up to 2)
+      const eyeRefs = [eye0Ref.current, eye1Ref.current]
+      for (let i = 0; i < 2; i++) {
+        const el = eyeRefs[i]
+        const eye = f.eyes[i]
+        if (!el) continue
+        if (eye && eye.alpha > 0.004) {
+          el.setAttribute('d', eye.d)
+          el.setAttribute('transform', eye.matrix)
+          el.setAttribute('opacity', eye.alpha.toFixed(3))
+          el.style.display = ''
+        } else {
+          el.style.display = 'none'
+        }
+      }
+
+      // Notification notch cutout + popped blue badge
+      if (notchRef.current) {
+        if (f.notch) {
+          notchRef.current.setAttribute('cx', f.notch.x.toFixed(2))
+          notchRef.current.setAttribute('cy', f.notch.y.toFixed(2))
+          notchRef.current.setAttribute('r', f.notch.r.toFixed(2))
+          notchRef.current.style.display = ''
+        } else {
+          notchRef.current.style.display = 'none'
+        }
+      }
+      if (notifRef.current) {
+        if (f.notif) {
+          notifRef.current.setAttribute('cx', f.notif.x.toFixed(2))
+          notifRef.current.setAttribute('cy', f.notif.y.toFixed(2))
+          notifRef.current.setAttribute('r', f.notif.r.toFixed(2))
+          notifRef.current.style.display = ''
+        } else {
+          notifRef.current.style.display = 'none'
+        }
+      }
+
+      // Checkbox cutout stroke draw
+      if (checkRef.current) {
+        if (f.checkDraw > 0.01) {
+          checkRef.current.setAttribute('stroke-dashoffset', ((1 - f.checkDraw) * 100).toFixed(2))
+          checkRef.current.style.display = ''
+        } else {
+          checkRef.current.style.display = 'none'
+        }
+      }
+
+      // Background & foreground dots
+      if (f.dotsBehind) {
+        syncDotsGroup(dotsBehindRef.current, f.dots, paper, ink)
+        syncDotsGroup(dotsFrontRef.current, [], paper, ink)
+      } else {
+        syncDotsGroup(dotsBehindRef.current, [], paper, ink)
+        syncDotsGroup(dotsFrontRef.current, f.dots, paper, ink)
+      }
+
+      // 3D occluded orbital arcs / comet ribbons
+      syncArcs(defsRef.current, arcsBackRef.current, arcsFrontRef.current, f.arcs, uid, gradNodes)
 
       // Elastic drag spring
       const kPos = p.dragging ? 240 : 195
@@ -318,7 +620,6 @@ export function Sema({
       p.pokeVy += ((1 - p.pokeScaleY) * 240 - p.pokeVy * 14) * dt
       p.pokeScaleY += p.pokeVy * dt
 
-      // Extra bobbing / speech motion layered cleanly on the SVG rig
       let extraY = 0
       let extraScaleY = 1
       if (beh.bobAmp && beh.bobFreq) {
@@ -334,7 +635,7 @@ export function Sema({
       const headY = p.dy + extraY
       const pullMag = Math.hypot(p.dx, p.dy)
       const pullAngleDeg = (Math.atan2(p.dy, p.dx) * 180) / Math.PI
-      const stretchAmt = Math.min(0.22, pullMag * 0.0042)
+      const stretchAmt = Math.min(0.24, pullMag * 0.0044)
       const stretchX = 1 + stretchAmt
       const stretchY = 1 / Math.sqrt(stretchX)
       const pokeSy = clamp(p.pokeScaleY, 0.74, 1.24) * extraScaleY
@@ -350,7 +651,7 @@ export function Sema({
       const targetRot = clamp((headX - p.tailX) * 0.7, -20, 20)
       p.tailRot += (targetRot - p.tailRot) * Math.min(1, dt * 11)
 
-      const wantsTail = showTailRef.current && sampled.baseBody && sampled.bodyAlpha > 0.6
+      const wantsTail = showTailRef.current && f.baseBody && f.bodyAlpha > 0.6
       const tailGoal = wantsTail ? 1 : 0
       p.tailAlpha += (tailGoal - p.tailAlpha) * Math.min(1, dt * 10)
 
@@ -360,18 +661,16 @@ export function Sema({
           `translate(${headX.toFixed(2)} ${headY.toFixed(2)}) scale(${pokeSx.toFixed(3)} ${pokeSy.toFixed(3)})`,
         )
       }
-
       if (stretchRef.current) {
         if (stretchAmt > 0.002) {
           stretchRef.current.setAttribute(
             'transform',
             `rotate(${pullAngleDeg.toFixed(1)}) scale(${stretchX.toFixed(3)} ${stretchY.toFixed(3)}) rotate(${(-pullAngleDeg).toFixed(1)})`,
           )
-        } else {
+        } else if (stretchRef.current.hasAttribute('transform')) {
           stretchRef.current.removeAttribute('transform')
         }
       }
-
       if (tailRef.current) {
         tailRef.current.setAttribute(
           'transform',
@@ -379,13 +678,15 @@ export function Sema({
         )
         tailRef.current.setAttribute('opacity', p.tailAlpha.toFixed(3))
       }
-
-      raf = requestAnimationFrame(tick)
     }
 
     raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [])
+    return () => {
+      cancelAnimationFrame(raf)
+      for (const node of gradNodes.values()) node.remove()
+      gradNodes.clear()
+    }
+  }, [uid])
 
   const handlePointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (!interactive) return
@@ -402,7 +703,13 @@ export function Sema({
     p.pointerId = e.pointerId
     p.startClientX = e.clientX
     p.startClientY = e.clientY
+    p.lastClientX = e.clientX
+    p.lastClientY = e.clientY
+    p.lastMoveTs = performance.now()
+    p.velX = 0
+    p.velY = 0
     p.maxDistPx = 0
+    p.launchedDuringDrag = false
     p.targetDx = 0
     p.targetDy = 0
     p.pokeVy -= 3.4
@@ -411,18 +718,48 @@ export function Sema({
   const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
     const p = physRef.current
     if (!p.dragging || e.pointerId !== p.pointerId) return
+    const now = performance.now()
+    const dtSec = Math.max(0.008, (now - p.lastMoveTs) * 0.001)
+    p.velX = p.velX * 0.55 + ((e.clientX - p.lastClientX) / dtSec) * 0.45
+    p.velY = p.velY * 0.55 + ((e.clientY - p.lastClientY) / dtSec) * 0.45
+    p.lastClientX = e.clientX
+    p.lastClientY = e.clientY
+    p.lastMoveTs = now
+
     const dxPx = e.clientX - p.startClientX
     const dyPx = e.clientY - p.startClientY
     const distPx = Math.hypot(dxPx, dyPx)
     if (distPx > p.maxDistPx) p.maxDistPx = distPx
 
-    const rect = svgRef.current?.getBoundingClientRect()
-    const unitScale = rect && rect.width > 0 ? (VB * 2) / rect.width : 4
+    // Live break-free launch when dragged far past threshold!
+    const thresh = dragLaunchThreshRef.current
+    if (thresh && onDragLaunchRef.current && distPx >= thresh * 1.45 && !p.launchedDuringDrag) {
+      p.launchedDuringDrag = true
+      p.dragging = false
+      p.pointerId = -1
+      p.targetDx = 0
+      p.targetDy = 0
+      try {
+        svgRef.current?.releasePointerCapture(e.pointerId)
+      } catch {
+        // ignore
+      }
+      onDragLaunchRef.current({
+        clientX: e.clientX,
+        clientY: e.clientY,
+        vx: p.velX || dxPx * 3,
+        vy: p.velY || dyPx * 3,
+      })
+      return
+    }
+
+    const width = centerCacheRef.current.width || size
+    const unitScale = width > 0 ? (VB * 2) / width : 4
     const rawX = dxPx * unitScale
     const rawY = dyPx * unitScale
     const rawMag = Math.hypot(rawX, rawY)
-    const maxPull = 54
-    const dampedMag = maxPull * Math.tanh(rawMag / 80)
+    const maxPull = thresh ? 76 : 54
+    const dampedMag = maxPull * Math.tanh(rawMag / 90)
     const factor = rawMag > 0.001 ? dampedMag / rawMag : 0
     p.targetDx = rawX * factor
     p.targetDy = rawY * factor
@@ -442,6 +779,21 @@ export function Sema({
       // ignore
     }
 
+    const dxPx = e.clientX - p.startClientX
+    const dyPx = e.clientY - p.startClientY
+    const distPx = Math.hypot(dxPx, dyPx)
+    const thresh = dragLaunchThreshRef.current
+
+    if (thresh && onDragLaunchRef.current && distPx >= thresh) {
+      onDragLaunchRef.current({
+        clientX: e.clientX,
+        clientY: e.clientY,
+        vx: p.velX || dxPx * 3,
+        vy: p.velY || dyPx * 3,
+      })
+      return
+    }
+
     if (p.maxDistPx < 7) {
       p.pokeScaleY = 0.78
       p.pokeVy = 5.6
@@ -453,27 +805,6 @@ export function Sema({
     } else {
       p.pokeVy += 2.8
     }
-  }
-
-  const paper = isDark ? '#171717' : '#ffffff'
-  const baseInk = accentColor ?? (isDark ? '#f2f2f2' : '#141414')
-  const ink = frame.tintHex ?? baseInk
-
-  const renderDot = (dot: BotFrame['dots'][number], key: string) => {
-    const fill =
-      dot.color ?? (dot.depth === undefined ? ink : mixHex(paper, ink, dot.depth))
-    if (dot.d) {
-      return (
-        <path
-          key={key}
-          d={dot.d}
-          fill={fill}
-          opacity={dot.opacity}
-          transform={`translate(${dot.x} ${dot.y}) rotate(${dot.rot ?? 0}) scale(${R})`}
-        />
-      )
-    }
-    return <circle key={key} cx={dot.x} cy={dot.y} r={dot.r} fill={fill} opacity={dot.opacity} />
   }
 
   const svgHeight = showTail ? Math.round(size * 1.12) : size
@@ -493,7 +824,7 @@ export function Sema({
       onPointerUp={finishDragOrPoke}
       onPointerCancel={finishDragOrPoke}
     >
-      <defs>
+      <defs ref={defsRef}>
         <mask
           id={maskId}
           maskUnits="userSpaceOnUse"
@@ -502,122 +833,54 @@ export function Sema({
           width={VB * 2}
           height={vbHeight}
         >
-          <path d={frame.bodyPath} fill="#ffffff" />
-          {frame.eyes.map((eye, i) => (
-            <path
-              key={i}
-              d={eye.d}
-              transform={eye.matrix}
-              opacity={eye.alpha}
-              fill="#000000"
-            />
-          ))}
-          {frame.notch && (
-            <circle cx={frame.notch.x} cy={frame.notch.y} r={frame.notch.r} fill="#000000" />
-          )}
-          {frame.checkDraw > 0.01 && (
-            <path
-              d={CHECKBOX_CUTOUT_PATH}
-              fill="none"
-              stroke="#000000"
-              strokeWidth="22"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              pathLength={100}
-              strokeDasharray="100"
-              strokeDashoffset={(1 - frame.checkDraw) * 100}
-            />
-          )}
+          <path ref={bodyMaskPathRef} d="" fill="#ffffff" />
+          <path ref={eye0Ref} d="" fill="#000000" style={{ display: 'none' }} />
+          <path ref={eye1Ref} d="" fill="#000000" style={{ display: 'none' }} />
+          <circle ref={notchRef} cx="0" cy="0" r="0" fill="#000000" style={{ display: 'none' }} />
+          <path
+            ref={checkRef}
+            d={CHECKBOX_CUTOUT_PATH}
+            fill="none"
+            stroke="#000000"
+            strokeWidth="22"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            pathLength={100}
+            strokeDasharray="100"
+            strokeDashoffset="100"
+            style={{ display: 'none' }}
+          />
         </mask>
-
-        {frame.arcs.map(arc => (
-          <linearGradient
-            key={arc.id}
-            id={`${uid}-${arc.id}`}
-            gradientUnits="userSpaceOnUse"
-            x1={arc.grad.x1}
-            y1={arc.grad.y1}
-            x2={arc.grad.x2}
-            y2={arc.grad.y2}
-          >
-            {arc.grad.stops.map((c, idx) => (
-              <stop
-                key={idx}
-                offset={idx / Math.max(1, arc.grad.stops.length - 1)}
-                stopColor={c}
-              />
-            ))}
-          </linearGradient>
-        ))}
       </defs>
 
-      {/* Sema's trailing ';' semicolon comma tail (fades out cleanly on icon morphs) */}
       {showTail && (
         <g ref={tailRef}>
-          <path d={TAIL_PATH} fill={ink} />
+          <path ref={tailPathRef} d={TAIL_PATH} fill="#141414" />
         </g>
       )}
 
-      {/* Main animated bloub rig + elastic drag/poke transform */}
       <g ref={rigRef}>
         <g ref={stretchRef}>
-          {/* Back half of 3D orbital rings / comet ribbons (occluded by body) */}
-          {frame.arcs.length > 0 && (
-            <g fill="none" strokeLinecap="round">
-              {frame.arcs.map(arc => (
-                <path
-                  key={`b-${arc.id}`}
-                  d={arc.back}
-                  stroke={`url(#${uid}-${arc.id})`}
-                  strokeWidth={arc.width}
-                  opacity={arc.opacity}
-                />
-              ))}
-            </g>
-          )}
+          <g ref={arcsBackRef} fill="none" strokeLinecap="round" />
+          <g ref={dotsBehindRef} />
 
-          {/* Background burst particles */}
-          {frame.dotsBehind && frame.dots.length > 0 && (
-            <g>{frame.dots.map((dot, i) => renderDot(dot, `db-${i}`))}</g>
-          )}
-
-          {/* Opaque body backing + masked silhouette (so orbital rings don't bleed through cutout eyes) */}
-          <g opacity={frame.bodyAlpha}>
-            <path d={frame.bodyPath} fill={paper} />
+          <g ref={bodyGroupRef} opacity="1">
+            <path ref={bodyPaperRef} d="" fill="#ffffff" />
             <g mask={`url(#${maskId})`}>
-              <rect x={-VB} y={-VB} width={VB * 2} height={vbHeight} fill={ink} />
+              <rect ref={bodyFillRectRef} x={-VB} y={-VB} width={VB * 2} height={vbHeight} fill="#141414" />
             </g>
           </g>
 
-          {/* Foreground dots (thinking dots, exclamation dot / italic teardrop) */}
-          {!frame.dotsBehind && frame.dots.length > 0 && (
-            <g>{frame.dots.map((dot, i) => renderDot(dot, `df-${i}`))}</g>
-          )}
-
-          {/* Popped blue notification badge */}
-          {frame.notif && (
-            <circle
-              cx={frame.notif.x}
-              cy={frame.notif.y}
-              r={frame.notif.r}
-              fill={NOTIF_BLUE}
-            />
-          )}
-
-          {/* Front half of 3D orbital rings / comet ribbons */}
-          {frame.arcs.length > 0 && (
-            <g fill="none" strokeLinecap="round">
-              {frame.arcs.map(arc => (
-                <path
-                  key={`f-${arc.id}`}
-                  d={arc.front}
-                  stroke={`url(#${uid}-${arc.id})`}
-                  strokeWidth={arc.width}
-                  opacity={arc.opacity}
-                />
-              ))}
-            </g>
-          )}
+          <g ref={dotsFrontRef} />
+          <circle
+            ref={notifRef}
+            cx="0"
+            cy="0"
+            r="0"
+            fill={NOTIF_BLUE}
+            style={{ display: 'none' }}
+          />
+          <g ref={arcsFrontRef} fill="none" strokeLinecap="round" />
         </g>
       </g>
     </svg>

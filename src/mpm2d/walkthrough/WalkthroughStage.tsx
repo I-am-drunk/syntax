@@ -576,10 +576,16 @@ function Alg3SolveB({ progress }: { progress: number }) {
 
 function GenericStepStage({ beat, progress }: { beat: WalkthroughBeat; progress: number }) {
   const lines = beat.mathLines ?? []
-  const revealCount = Math.max(1, Math.ceil(progress * lines.length))
+  const revealCount =
+    lines.length <= 1
+      ? 1
+      : Math.min(lines.length, Math.max(1, Math.floor(progress * lines.length) + 1))
 
   return (
     <div className="wt-generic-stage">
+      <div className="wt-generic-banner">
+        <span className="wt-generic-pill">{beat.title}</span>
+      </div>
       {beat.scene && (
         <div className="wt-generic-graph">
           <BrilliantGraph mode="display" scene={beat.scene} animateDrawIn />
@@ -594,8 +600,17 @@ function GenericStepStage({ beat, progress }: { beat: WalkthroughBeat; progress:
               <div
                 key={i}
                 className={`wt-generic-line${visible ? ' is-shown' : ''}${active ? ' is-active' : ''}`}
+                style={{
+                  opacity: visible ? (active ? 1 : 0.72) : 0.14,
+                  transform: visible ? 'translateY(0)' : 'translateY(6px)',
+                }}
               >
-                <MathText text={line} />
+                <span className="wt-generic-step-dot" aria-hidden="true">
+                  {i + 1}
+                </span>
+                <span className="wt-generic-step-text">
+                  <MathText text={line} />
+                </span>
               </div>
             )
           })}

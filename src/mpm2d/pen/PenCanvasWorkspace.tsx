@@ -145,6 +145,8 @@ const CLOSED_RADIAL: RadialMenuState = {
   open: false,
   originX: 0,
   originY: 0,
+  cursorX: 0,
+  cursorY: 0,
   activeIdx: null,
   stickX: 0,
   stickY: 0,
@@ -158,6 +160,8 @@ export function PenCanvasWorkspace({
   theme,
   flipped,
   fullscreen,
+  isCorrect = false,
+  penControlsCollapsed = true,
   worksheetSpec,
   onToggleFlip,
   onToggleFullscreen,
@@ -167,6 +171,8 @@ export function PenCanvasWorkspace({
   theme: 'light' | 'dark'
   flipped: boolean
   fullscreen: boolean
+  isCorrect?: boolean
+  penControlsCollapsed?: boolean
   worksheetSpec: WorksheetSpec
   onToggleFlip: () => void
   onToggleFullscreen: () => void
@@ -293,8 +299,9 @@ export function PenCanvasWorkspace({
         lastW = w
         const editor = editorRef.current
         if (editor) {
+          editor.updateViewportScreenBounds(vp)
           const cam = editor.getCamera()
-          const wasAtBaseFit = cam.z <= prevFitZoom * 1.06
+          const wasAtBaseFit = cam.z <= prevFitZoom * 1.08
           editor.setCameraOptions(buildStepCameraOptions(Math.max(nextBaseH, sheetHeightRef.current)))
           if (wasAtBaseFit) {
             editor.setCamera({ x: 0, y: Math.min(0, cam.y), z: fitZoom }, { immediate: true })
@@ -524,11 +531,15 @@ export function PenCanvasWorkspace({
       const fitToWidthTop = () => {
         const vp = viewportRef.current
         if (!vp || vp.clientWidth <= 40) return
+        editor.updateViewportScreenBounds(vp)
         const fitZoom = vp.clientWidth / SHEET_WIDTH
+        const nextBaseH = Math.max(MIN_SHEET_HEIGHT, Math.ceil(vp.clientHeight / fitZoom))
+        editor.setCameraOptions(buildStepCameraOptions(Math.max(nextBaseH, sheetHeightRef.current)))
         editor.setCamera({ x: 0, y: 0, z: fitZoom }, { immediate: true })
       }
       fitToWidthTop()
-      requestAnimationFrame(fitToWidthTop)
+      const rafFit = requestAnimationFrame(fitToWidthTop)
+      const tFit = window.setTimeout(fitToWidthTop, 110)
 
       editor.focus()
 
@@ -567,7 +578,7 @@ export function PenCanvasWorkspace({
       syncFromEditor()
 
       return () => {
-        unsubSideEffects?.()
+                unsubSideEffects?.()
         unsubStore?.()
         editor.off('event', onEditorEvent)
         if (editorRef.current === editor) editorRef.current = null
@@ -618,7 +629,7 @@ export function PenCanvasWorkspace({
         e.stopPropagation()
 
         const rect = vp.getBoundingClientRect()
-        const margin = 128
+        const margin = 86
         const originX = Math.max(
           rect.left + margin,
           Math.min(rect.right - margin, e.clientX),
@@ -632,6 +643,8 @@ export function PenCanvasWorkspace({
           open: true,
           originX,
           originY,
+          cursorX: e.clientX,
+          cursorY: e.clientY,
           activeIdx: null,
           stickX: 0,
           stickY: 0,
@@ -673,7 +686,15 @@ export function PenCanvasWorkspace({
 
       setRadial(prev =>
         prev.open
-          ? { ...prev, activeIdx, stickX, stickY, pointerAngleRad }
+          ? {
+              ...prev,
+              cursorX: e.clientX,
+              cursorY: e.clientY,
+              activeIdx,
+              stickX,
+              stickY,
+              pointerAngleRad,
+            }
           : prev,
       )
     }
@@ -801,16 +822,26 @@ export function PenCanvasWorkspace({
     ],
   )
 
+  const showGreenPerimeter = Boolean(activeField.checked || isCorrect)
+
   return (
     <div
       className="pen-studio-root"
       data-theme={theme}
+      data-flipped={flipped || undefined}
+      data-completed={showGreenPerimeter || undefined}
       data-radial-open={radial.open || undefined}
       data-stroking={isStroking || undefined}
     >
+      {/* Outer perimeter Brilliant Green completion edge (stays crisp at ANY canvas zoom!) */}
+      {showGreenPerimeter && (
+        <div className="pen-outer-complete-frame" aria-hidden="true" />
+      )}
+
       {/* Top Brilliant Bar + Top-Left Collapsible Pull-In / Pull-Out Brush Drawer */}
       <PenBrilliantChrome
         theme={theme}
+        defaultDrawerCollapsed={penControlsCollapsed}
         activeTool={activeTool}
         activeColor={activeColor}
         activeSize={activeSize}

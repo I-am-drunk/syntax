@@ -10,7 +10,7 @@ import { GeoLessonPlayer } from './GeoLessonPlayer'
 import { FormulaSheetModal } from './components/FormulaSheetModal'
 import { DivergingLevelPath, type PathLessonStat } from './components/DivergingLevelPath'
 import { OnboardingModal } from './components/OnboardingModal'
-import { SyntaxSettingsModal } from './components/SyntaxSettingsModal'
+import { SyntaxSettingsPage } from './components/SyntaxSettingsModal'
 import { TopBarSema } from './mascot/TopBarSema'
 import { loadPrefs, savePrefs, type SyntaxPrefs } from './storage'
 import { assetUrl } from './assetUrl'
@@ -82,6 +82,36 @@ function readLessonFromHash(): string | null {
   return ALL_LESSONS.some(l => l.id === id) ? id : null
 }
 
+function clearLessonResume(lessonId: string) {
+  try {
+    const raw = localStorage.getItem(RESUME_KEY)
+    if (!raw) return
+    const map = JSON.parse(raw) as Record<string, { pageIndex: number; furthest: number }>
+    delete map[lessonId]
+    localStorage.setItem(RESUME_KEY, JSON.stringify(map))
+  } catch {
+    // ignore
+  }
+}
+
+function SettingsNavIcon() {
+  return (
+    <svg className="nav-svg-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  )
+}
+
+function RedoOutlineIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+      <path d="M3 3v5h5" />
+    </svg>
+  )
+}
+
 function FormulasNavIcon() {
   return (
     <svg className="nav-svg-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -97,17 +127,6 @@ function FilterIcon() {
       <line x1="4" y1="6" x2="20" y2="6" />
       <line x1="7" y1="12" x2="17" y2="12" />
       <line x1="10" y1="18" x2="14" y2="18" />
-    </svg>
-  )
-}
-
-function DrawModeIcon() {
-  return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M12 19l7-7 3 3-7 7-3-3z" />
-      <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z" />
-      <path d="M2 2l7.586 7.586" />
-      <circle cx="11" cy="11" r="2" />
     </svg>
   )
 }
@@ -253,15 +272,26 @@ export function CourseShell() {
     if (!scroller) return
 
     let raf = 0
-    const syncNavFromScroll = () => {
-      if (Date.now() < navLockUntilRef.current) return
+    let confTop = 0
+    let confBottom = 0
+    let triggerLine = 220
+
+    const measure = () => {
       const confEl = levelSectionRefs.current.get(3)
       if (!confEl) return
-      const scrollerRect = scroller.getBoundingClientRect()
-      const confRect = confEl.getBoundingClientRect()
-      const relTop = confRect.top - scrollerRect.top
-      const relBottom = confRect.bottom - scrollerRect.top
-      const triggerLine = Math.min(260, scrollerRect.height * 0.38)
+      const sRect = scroller.getBoundingClientRect()
+      const cRect = confEl.getBoundingClientRect()
+      confTop = cRect.top - sRect.top + scroller.scrollTop
+      confBottom = cRect.bottom - sRect.top + scroller.scrollTop
+      triggerLine = Math.min(260, sRect.height * 0.38)
+    }
+
+    const syncNavFromScroll = () => {
+      raf = 0
+      if (Date.now() < navLockUntilRef.current || confBottom <= confTop) return
+      const st = scroller.scrollTop
+      const relTop = confTop - st
+      const relBottom = confBottom - st
       const inConference = relTop <= triggerLine && relBottom > 120
       setActiveNav(prev => {
         const next = inConference ? 'conference' : 'course'
@@ -270,16 +300,21 @@ export function CourseShell() {
     }
 
     const onScroll = () => {
-      cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(syncNavFromScroll)
+      if (!raf) raf = requestAnimationFrame(syncNavFromScroll)
     }
 
+    const onResize = () => {
+      measure()
+      onScroll()
+    }
+
+    measure()
     scroller.addEventListener('scroll', onScroll, { passive: true })
-    window.addEventListener('resize', onScroll, { passive: true })
+    window.addEventListener('resize', onResize, { passive: true })
     return () => {
-      cancelAnimationFrame(raf)
+      if (raf) cancelAnimationFrame(raf)
       scroller.removeEventListener('scroll', onScroll)
-      window.removeEventListener('resize', onScroll)
+      window.removeEventListener('resize', onResize)
     }
   }, [activeLessonId, virtualReviewLesson, prefs.showCatchupPaths])
 
@@ -498,6 +533,7 @@ export function CourseShell() {
           voiceOn={prefs.voiceOn}
           semaShape={prefs.semaShape}
           semaExpression={prefs.semaExpression}
+          penControlsCollapsed={prefs.penControlsCollapsed}
           formulasOpen={formulasOpen}
           returnToLessonLabel={returnLessonObj?.shortTitle}
           onClose={closeLesson}
@@ -527,102 +563,132 @@ export function CourseShell() {
   return (
     <>
       <Toaster position="bottom-center" theme={theme} />
-      <header className="app-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <header className="app-header" data-settings-open={settingsOpen || undefined}>
+        <div className="brand-lockup" data-settings-open={settingsOpen || undefined}>
           <a
             className="wordmark"
             href="#top"
-            aria-label="Syntax Analytic Geometry"
+            aria-label={settingsOpen ? 'Syntax — Back to Unit 2' : 'Syntax Analytic Geometry'}
             onClick={e => {
               e.preventDefault()
-              jumpToCourse()
+              if (settingsOpen) {
+                emitSound('lightweight-choice')
+                setSettingsOpen(false)
+              } else {
+                jumpToCourse()
+              }
             }}
           >
             Syntax
           </a>
           <TopBarSema
             enableRoaming={prefs.onboarded && !formulasOpen && !settingsOpen}
+            dockedIntoLogo={settingsOpen}
             scrollContainerRef={outlineScrollRef}
             shape={prefs.semaShape}
             expression={prefs.semaExpression}
             hasNotification={validMissedIds.length > 0}
             onPoke={() => emitSound('lightweight-choice')}
+            onLogoClick={() => {
+              emitSound('lightweight-choice')
+              setSettingsOpen(false)
+            }}
           />
         </div>
 
-        <nav className="primary-nav" aria-label="Main navigation">
-          <a
-            href="#course"
-            aria-label="Unit 2"
-            aria-current={currentNavKey === 'course' ? 'page' : undefined}
-            onClick={e => {
-              e.preventDefault()
-              jumpToCourse()
-            }}
+        <nav
+          className="primary-nav"
+          aria-label="Main navigation"
+          data-settings-open={settingsOpen || undefined}
+        >
+          <div className="primary-nav-course-items" aria-hidden={settingsOpen || undefined}>
+            <a
+              href="#course"
+              aria-label="Unit 2"
+              tabIndex={settingsOpen ? -1 : 0}
+              aria-current={!settingsOpen && currentNavKey === 'course' ? 'page' : undefined}
+              onClick={e => {
+                e.preventDefault()
+                if (settingsOpen) setSettingsOpen(false)
+                jumpToCourse()
+              }}
+            >
+              <span className="icon icon-topics" aria-hidden="true" />
+              <span>Unit 2</span>
+              {!settingsOpen && currentNavKey === 'course' && (
+                <motion.span
+                  layoutId="primary-nav-indicator"
+                  className="primary-nav-indicator"
+                  transition={{ type: 'spring', stiffness: 460, damping: 36 }}
+                />
+              )}
+            </a>
+            <a
+              href="#conference"
+              aria-label="Conference"
+              tabIndex={settingsOpen ? -1 : 0}
+              aria-current={!settingsOpen && currentNavKey === 'conference' ? 'page' : undefined}
+              onClick={e => {
+                e.preventDefault()
+                if (settingsOpen) setSettingsOpen(false)
+                jumpToLevel(3)
+              }}
+            >
+              <span className="icon icon-you" aria-hidden="true" />
+              <span>Conference</span>
+              {!settingsOpen && currentNavKey === 'conference' && (
+                <motion.span
+                  layoutId="primary-nav-indicator"
+                  className="primary-nav-indicator"
+                  transition={{ type: 'spring', stiffness: 460, damping: 36 }}
+                />
+              )}
+            </a>
+            <button
+              type="button"
+              className="primary-nav-btn"
+              tabIndex={settingsOpen ? -1 : 0}
+              aria-label="Playbook & Formulas (F)"
+              aria-current={!settingsOpen && currentNavKey === 'playbook' ? 'page' : undefined}
+              onClick={() => {
+                if (settingsOpen) setSettingsOpen(false)
+                setFormulasOpen(true)
+              }}
+            >
+              <FormulasNavIcon />
+              <span className="primary-nav-label">Playbook</span>
+              {!settingsOpen && currentNavKey === 'playbook' && (
+                <motion.span
+                  layoutId="primary-nav-indicator"
+                  className="primary-nav-indicator"
+                  transition={{ type: 'spring', stiffness: 460, damping: 36 }}
+                />
+              )}
+            </button>
+          </div>
+
+          {/* Pixar wipe-in Settings nav tab (slides right-to-left from Playbook, dims & hides course tabs behind it) */}
+          <div
+            className="primary-nav-settings-wiper"
+            aria-hidden={!settingsOpen || undefined}
           >
-            <span className="icon icon-topics" aria-hidden="true" />
-            <span>Unit 2</span>
-            {currentNavKey === 'course' && (
-              <motion.span
-                layoutId="primary-nav-indicator"
-                className="primary-nav-indicator"
-                transition={{ type: 'spring', stiffness: 460, damping: 36 }}
-              />
-            )}
-          </a>
-          <a
-            href="#conference"
-            aria-label="Conference"
-            aria-current={currentNavKey === 'conference' ? 'page' : undefined}
-            onClick={e => {
-              e.preventDefault()
-              jumpToLevel(3)
-            }}
-          >
-            <span className="icon icon-you" aria-hidden="true" />
-            <span>Conference</span>
-            {currentNavKey === 'conference' && (
-              <motion.span
-                layoutId="primary-nav-indicator"
-                className="primary-nav-indicator"
-                transition={{ type: 'spring', stiffness: 460, damping: 36 }}
-              />
-            )}
-          </a>
-          <button
-            type="button"
-            className="primary-nav-btn"
-            aria-label="Playbook & Formulas (F)"
-            aria-current={currentNavKey === 'playbook' ? 'page' : undefined}
-            onClick={() => setFormulasOpen(true)}
-          >
-            <FormulasNavIcon />
-            <span className="primary-nav-label">Playbook</span>
-            {currentNavKey === 'playbook' && (
-              <motion.span
-                layoutId="primary-nav-indicator"
-                className="primary-nav-indicator"
-                transition={{ type: 'spring', stiffness: 460, damping: 36 }}
-              />
-            )}
-          </button>
+            <button
+              type="button"
+              className="primary-nav-settings-tab"
+              tabIndex={settingsOpen ? 0 : -1}
+              aria-current={settingsOpen ? 'page' : undefined}
+              onClick={() => {
+                window.scrollTo({ top: 0, behavior: 'smooth' })
+              }}
+            >
+              <SettingsNavIcon />
+              <span>Settings</span>
+              <span className="primary-nav-settings-underline" aria-hidden="true" />
+            </button>
+          </div>
         </nav>
 
         <div className="header-actions">
-          <button
-            type="button"
-            className={`header-draw-btn${prefs.drawMode ? ' is-active' : ''}`}
-            aria-pressed={prefs.drawMode}
-            aria-label={prefs.drawMode ? 'Disable Draw Mode' : 'Enable Draw Mode'}
-            title={prefs.drawMode ? 'Draw Mode ON' : 'Draw Mode OFF'}
-            onClick={() => {
-              emitSound('toggle-on')
-              setPrefs(p => ({ ...p, drawMode: !p.drawMode }))
-            }}
-          >
-            <DrawModeIcon />
-            <span>Draw</span>
-          </button>
 
           <button
             type="button"
@@ -663,9 +729,13 @@ export function CourseShell() {
                   <Menu.Group className="menu-group">
                     <Menu.Item
                       className="menu-item"
-                      onClick={() => setSettingsOpen(true)}
+                      onClick={() => {
+                        emitSound('toggle-on')
+                        setFormulasOpen(false)
+                        setSettingsOpen(v => !v)
+                      }}
                     >
-                      Settings
+                      {settingsOpen ? 'Back to Unit 2' : 'Settings'}
                     </Menu.Item>
                     <Menu.Item
                       className="menu-item"
@@ -720,6 +790,21 @@ export function CourseShell() {
         </div>
       </header>
 
+      {settingsOpen ? (
+        <SyntaxSettingsPage
+          onClose={() => {
+            emitSound('lightweight-choice')
+            setSettingsOpen(false)
+          }}
+          theme={theme}
+          onChangeTheme={setTheme}
+          soundOn={soundOn}
+          onChangeSound={setSoundOn}
+          prefs={prefs}
+          onPatchPrefs={patch => setPrefs(p => ({ ...p, ...patch }))}
+          onReplayWelcome={() => setPrefs(p => ({ ...p, onboarded: false }))}
+        />
+      ) : (
       <main ref={outlineScrollRef} className="course-outline">
         <aside className="course-summary">
           <img
@@ -794,53 +879,54 @@ export function CourseShell() {
                 key={lvl.level}
                 aria-labelledby={`level-${lvl.level}`}
               >
-                <div className="outline-level-heading" id={`level-${lvl.level}`}>
-                  <span>{lvl.label}</span>
-                  <h2>{lvl.title}</h2>
-                </div>
-
-                {/* Non-sticky Level 1 mini square filter button matching Level 1 bar style */}
-                {lvl.level === 1 && (
-                  <div className="level1-filter-anchor" ref={filterWrapRef}>
-                    <button
-                      type="button"
-                      className={`level1-filter-square${prefs.showCatchupPaths ? ' is-active' : ''}`}
-                      aria-label="Filter catch-up paths"
-                      aria-expanded={filterOpen}
-                      title="Filter catch-up paths"
-                      onClick={() => {
-                        emitSound('lightweight-choice')
-                        setFilterOpen(v => !v)
-                      }}
-                    >
-                      <FilterIcon />
-                      <span className="level1-filter-square-label">Filter</span>
-                    </button>
-
-                    {filterOpen && (
-                      <div className="level1-filter-popover" role="dialog" aria-label="Path filter">
-                        <label className="header-filter-toggle">
-                          <span className="header-filter-copy">
-                            <strong>Show catch-up paths</strong>
-                            <span>Optional Grade 9/10 prerequisite chapters</span>
-                          </span>
-                          <input
-                            type="checkbox"
-                            className="visually-hidden"
-                            checked={prefs.showCatchupPaths}
-                            onChange={() => {
-                              emitSound('toggle-on')
-                              setPrefs(p => ({ ...p, showCatchupPaths: !p.showCatchupPaths }))
-                            }}
-                          />
-                          <span
-                            className={`header-switch${prefs.showCatchupPaths ? ' is-on' : ''}`}
-                          />
-                        </label>
-                      </div>
-                    )}
+                <div className="outline-level-sticky-row">
+                  <div className="outline-level-heading" id={`level-${lvl.level}`}>
+                    <span>{lvl.label}</span>
+                    <h2>{lvl.title}</h2>
                   </div>
-                )}
+
+                  {lvl.level === 1 && (
+                    <div className="level1-filter-anchor" ref={filterWrapRef}>
+                      <button
+                        type="button"
+                        className={`level1-filter-square${prefs.showCatchupPaths ? ' is-active' : ''}`}
+                        aria-label="Filter catch-up paths"
+                        aria-expanded={filterOpen}
+                        title="Filter catch-up paths"
+                        onClick={() => {
+                          emitSound('lightweight-choice')
+                          setFilterOpen(v => !v)
+                        }}
+                      >
+                        <FilterIcon />
+                        <span className="level1-filter-square-label">Filter</span>
+                      </button>
+
+                      {filterOpen && (
+                        <div className="level1-filter-popover" role="dialog" aria-label="Path filter">
+                          <label className="header-filter-toggle">
+                            <span className="header-filter-copy">
+                              <strong>Show catch-up paths</strong>
+                              <span>Interweave Grade 9/10 prerequisite path</span>
+                            </span>
+                            <input
+                              type="checkbox"
+                              className="visually-hidden"
+                              checked={prefs.showCatchupPaths}
+                              onChange={() => {
+                                emitSound('toggle-on')
+                                setPrefs(p => ({ ...p, showCatchupPaths: !p.showCatchupPaths }))
+                              }}
+                            />
+                            <span
+                              className={`header-switch${prefs.showCatchupPaths ? ' is-on' : ''}`}
+                            />
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 <DivergingLevelPath
                   levelNumber={lvl.level}
@@ -866,22 +952,66 @@ export function CourseShell() {
               </section>
             )
           })}
+          {/* Authentic Brilliant Sticky Bottom Action Card (Start / Resume / Review) */}
+          {(() => {
+            const sel = ALL_LESSONS.find(l => l.id === selectedId) ?? UNIT2_LESSONS[0]!
+            const selStat = progress.completed[sel.id]
+            const selDone = Boolean(selStat)
+            const selResume = resumeMap[sel.id]
+            const selInProgress = Boolean(selResume) && !selDone
+            const selIsCatchup = CATCHUP_BY_ID.has(sel.id)
+            const totalPages = sel.pages.length + sel.checks.length
+            const ctaText = selDone ? 'Review' : selInProgress ? 'Resume' : 'Start'
+            return (
+              <div className={`outline-action${selIsCatchup ? ' is-catchup' : ''}`}>
+                <div className="outline-action-meta">
+                  <span className="outline-action-eyebrow">
+                    {selIsCatchup ? 'Catch-Up Refresher' : `Level ${sel.level} · Lesson ${sel.number}`}
+                  </span>
+                  {selInProgress && selResume && (
+                    <span className="outline-action-progress">
+                      Page {Math.min(selResume.pageIndex + 1, totalPages)} of {totalPages}
+                    </span>
+                  )}
+                  {selDone && selStat && selStat.total > 0 && (
+                    <span className="outline-action-progress is-done">
+                      {selStat.correct}/{selStat.total} checks
+                    </span>
+                  )}
+                </div>
+                <h2>{sel.title}</h2>
+                <div className="outline-course-actions">
+                  <button
+                    type="button"
+                    className={`course-button${selIsCatchup ? ' is-catchup-cta' : ''}`}
+                    onClick={() => openLesson(sel.id)}
+                  >
+                    {ctaText}
+                  </button>
+                  {(selInProgress || selDone) && (
+                    <button
+                      type="button"
+                      className="outline-redo"
+                      aria-label="Start lesson from beginning"
+                      title="Start over from page 1"
+                      onClick={() => {
+                        clearLessonResume(sel.id)
+                        setResumeMap(loadResumeMap())
+                        openLesson(sel.id)
+                      }}
+                    >
+                      <RedoOutlineIcon />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })()}
         </div>
       </main>
+      )}
 
       <FormulaSheetModal open={formulasOpen} onClose={() => setFormulasOpen(false)} />
-
-      <SyntaxSettingsModal
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        theme={theme}
-        onChangeTheme={setTheme}
-        soundOn={soundOn}
-        onChangeSound={setSoundOn}
-        prefs={prefs}
-        onPatchPrefs={patch => setPrefs(p => ({ ...p, ...patch }))}
-        onReplayWelcome={() => setPrefs(p => ({ ...p, onboarded: false }))}
-      />
 
       <OnboardingModal
         open={!prefs.onboarded}

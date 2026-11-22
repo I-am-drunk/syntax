@@ -175,27 +175,7 @@ export function MathPackageWorksheet({
         )}
       </header>
 
-      {/* Animated Brilliant Green completion perimeter when marked Done */}
-      {field.checked && (
-        <svg
-          className="pen-br-led-svg"
-          width={SHEET_WIDTH}
-          height={sheetH}
-          viewBox={`0 0 ${SHEET_WIDTH} ${sheetH}`}
-          aria-hidden="true"
-        >
-          <rect
-            className="pen-br-led-rect"
-            x="2"
-            y="2"
-            width={SHEET_WIDTH - 4}
-            height={sheetH - 4}
-            rx="12"
-            ry="12"
-            pathLength={1000}
-          />
-        </svg>
-      )}
+
 
       {/* Razor-sharp bottom-edge resize highlight (ONLY appears near bottom edge) */}
       <svg

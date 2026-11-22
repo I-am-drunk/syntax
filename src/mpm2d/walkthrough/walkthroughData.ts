@@ -222,6 +222,109 @@ export function getWalkthroughForPage(
     }
   }
 
+  const splitMathLines = (raw?: string): string[] => {
+    if (!raw) return []
+    const parts = raw
+      .split(/\s*(?:;|\n|⇒|→)\s*/)
+      .map(s => s.trim())
+      .filter(Boolean)
+    return parts.length > 0 ? parts : [raw.trim()]
+  }
+
+  // Interactive explore labs: guide what to drag and what invariant to discover
+  if (page.kind === 'explore') {
+    const cleanPrompt = page.prompt.replace(/\*\*/g, '').replace(/\n+/g, ' ').trim()
+    const beats: WalkthroughBeat[] = [
+      {
+        id: `exp-1-${page.id}`,
+        stepIndex: 0,
+        title: 'What to test in this interactive lab',
+        caption: cleanPrompt,
+        durationSec: 6.0,
+        mode: 'generic-step',
+        mathLines: [
+          'Drag the handles on the interactive canvas',
+          'Watch which geometric value stays invariant as you move',
+        ],
+        cues: [
+          { at: 0.0, semaX: 16, semaY: 24, lookX: 0.8, lookY: 0.4, semaState: 'speaking', tag: 'Explore first' },
+          { at: 0.52, semaX: 82, semaY: 36, lookX: -0.8, lookY: 0.3, semaState: 'guiding', tag: 'Spot the pattern' },
+          { at: 0.85, semaX: 76, semaY: 72, lookX: -0.7, lookY: -0.3, semaState: 'nodding', tag: 'Lock the rule in' },
+        ],
+      },
+      {
+        id: `exp-2-${page.id}`,
+        stepIndex: 1,
+        title: 'Turn the pattern into a fast strategy',
+        caption: 'Before clicking Continue, summarize the rule in one sentence so you can recognize it instantly in practice problems.',
+        durationSec: 5.5,
+        mode: 'generic-step',
+        mathLines: [
+          'Notice: What changes when you drag?',
+          'Notice: What relationship stays true every time?',
+        ],
+        cues: [
+          { at: 0.0, semaX: 18, semaY: 26, lookX: 0.8, lookY: 0.4, semaState: 'speaking', tag: 'Key takeaway' },
+          { at: 0.6, semaX: 80, semaY: 66, lookX: -0.8, lookY: -0.2, semaState: 'nodding', tag: 'Ready for practice' },
+        ],
+      },
+    ]
+    return {
+      pageId: page.id,
+      title: 'Interactive Lab Guide',
+      steps: [
+        { id: 'ex-1', stepNum: 1, label: 'Explore', equation: 'Drag & observe the pattern' },
+        { id: 'ex-2', stepNum: 2, label: 'Takeaway', equation: 'Lock in the geometric rule' },
+      ],
+      lenses: [{ id: 'visual', label: 'Lab Guide', beats }],
+      rescueLessonId,
+      rescueMessage:
+        'Need a quick prerequisite refresher before practicing this concept?',
+    }
+  }
+
+  // Conference plan-order pages: walk through the optimal strategy step by step
+  if (page.kind === 'plan-order' && page.validPlans.length > 0) {
+    const primaryPlan = page.validPlans[0]!
+    const blockById = new Map(page.pool.map(b => [b.id, b.text]))
+    const steps: WalkthroughStepItem[] = primaryPlan.steps.map((id, i) => ({
+      id: `pl-${id}`,
+      stepNum: i + 1,
+      label: `Move ${i + 1}`,
+      equation: blockById.get(id) ?? id,
+    }))
+    const beats: WalkthroughBeat[] = primaryPlan.steps.map((id, i) => {
+      const txt = blockById.get(id) ?? id
+      return {
+        id: `plb-${id}`,
+        stepIndex: i,
+        title: `Plan Step ${i + 1}: ${primaryPlan.name}`,
+        caption: i === primaryPlan.steps.length - 1 ? primaryPlan.explanation : `Why this step comes #${i + 1}: it produces the exact piece you need for the next move.`,
+        durationSec: 6.0,
+        mode: 'generic-step',
+        scene: page.scene,
+        mathLines: [
+          `Step ${i + 1}: ${txt}`,
+          ...(i > 0 ? [`Builds directly from Step ${i}`] : ['Start from the given coordinates & target']),
+        ],
+        cues: [
+          { at: 0.0, semaX: 16, semaY: 22, lookX: 0.8, lookY: 0.4, semaState: 'speaking', tag: `Move ${i + 1}` },
+          { at: 0.5, semaX: 82, semaY: 32, lookX: -0.8, lookY: 0.4, semaState: 'guiding', tag: 'Check dependencies' },
+          { at: 0.84, semaX: 78, semaY: 74, lookX: -0.8, lookY: -0.3, semaState: 'nodding', tag: 'Next move unlocked' },
+        ],
+      }
+    })
+    return {
+      pageId: page.id,
+      title: `Conference Plan · ${primaryPlan.name}`,
+      steps,
+      lenses: [{ id: 'visual', label: 'Strategy', beats }],
+      rescueLessonId,
+      rescueMessage:
+        'Want a quick refresher on the prerequisite formulas used in this plan?',
+    }
+  }
+
   // Multi-step pages: expose every sub-step with its actual goal & expression
   if (page.kind === 'multi-step') {
     const steps: WalkthroughStepItem[] = page.steps.map((st, i) => ({
@@ -238,7 +341,10 @@ export function getWalkthroughForPage(
       durationSec: 6.5,
       mode: 'generic-step',
       scene: st.solvedScene ?? st.scene,
-      mathLines: [st.ledgerResult],
+      mathLines: [
+        `Goal: ${st.label}`,
+        ...splitMathLines(st.ledgerResult),
+      ],
       cues: [
         { at: 0.0, semaX: 16, semaY: 22, lookX: 0.8, lookY: 0.4, semaState: 'speaking', tag: st.label },
         { at: 0.45, semaX: 82, semaY: 28, lookX: -0.8, lookY: 0.4, semaState: 'guiding', tag: 'Focus here' },
@@ -256,30 +362,33 @@ export function getWalkthroughForPage(
     }
   }
 
-  // Any page with an explanation gets a flying-Sema walkthrough
+  // Any page with an explanation gets a structured flying-Sema walkthrough
   const expl = 'explanation' in page ? page.explanation : undefined
   if (expl && expl.steps.length > 0) {
     const steps: WalkthroughStepItem[] = expl.steps.map((s, i) => ({
       id: `es-${i}`,
       stepNum: i + 1,
       label: `Step ${i + 1}`,
-      equation: s.math ?? s.text.slice(0, 42),
+      equation: s.math ?? s.text.slice(0, 44),
     }))
-    const beats: WalkthroughBeat[] = expl.steps.map((s, i) => ({
-      id: `eb-${i}`,
-      stepIndex: i,
-      title: `Step ${i + 1}`,
-      caption: s.text,
-      durationSec: 6.2,
-      mode: 'generic-step',
-      scene: s.scene,
-      mathLines: s.math ? [s.math] : undefined,
-      cues: [
-        { at: 0.0, semaX: 16, semaY: 24, lookX: 0.8, lookY: 0.4, semaState: 'speaking', tag: `Step ${i + 1}` },
-        { at: 0.48, semaX: 82, semaY: 32, lookX: -0.8, lookY: 0.4, semaState: 'guiding', tag: 'Check this' },
-        { at: 0.82, semaX: 78, semaY: 74, lookX: -0.8, lookY: -0.3, semaState: 'nodding', tag: 'Locked in' },
-      ],
-    }))
+    const beats: WalkthroughBeat[] = expl.steps.map((s, i) => {
+      const mLines = splitMathLines(s.math)
+      return {
+        id: `eb-${i}`,
+        stepIndex: i,
+        title: `Step ${i + 1} of ${expl.steps.length}`,
+        caption: s.text,
+        durationSec: 6.4,
+        mode: 'generic-step',
+        scene: s.scene ?? ('scene' in page ? page.scene : undefined),
+        mathLines: mLines.length > 0 ? mLines : [s.text],
+        cues: [
+          { at: 0.0, semaX: 16, semaY: 24, lookX: 0.8, lookY: 0.4, semaState: 'speaking', tag: `Step ${i + 1}` },
+          { at: 0.48, semaX: 82, semaY: 32, lookX: -0.8, lookY: 0.4, semaState: 'guiding', tag: 'Check the math' },
+          { at: 0.82, semaX: 78, semaY: 74, lookX: -0.8, lookY: -0.3, semaState: 'nodding', tag: mLines[mLines.length - 1]?.slice(0, 24) ?? 'Locked in' },
+        ],
+      }
+    })
     return {
       pageId: page.id,
       title: 'Guided walkthrough',
@@ -291,5 +400,42 @@ export function getWalkthroughForPage(
     }
   }
 
-  return null
+  // Universal fallback so ? ("Walk me through with Sema") is always available on every page
+  const fallbackPrompt = page.prompt.replace(/\*\*/g, '').replace(/\n+/g, ' ').trim()
+  const fallbackScene = 'scene' in page ? page.scene : undefined
+  return {
+    pageId: page.id,
+    title: 'Guided walkthrough',
+    steps: [{ id: 'fb-1', stepNum: 1, label: 'Strategy', equation: 'Break the prompt down step by step' }],
+    lenses: [
+      {
+        id: 'visual',
+        label: 'Walkthrough',
+        beats: [
+          {
+            id: `fb-${page.id}`,
+            stepIndex: 0,
+            title: 'Read the givens & target first',
+            caption: fallbackPrompt,
+            durationSec: 6.0,
+            mode: 'generic-step',
+            scene: fallbackScene,
+            mathLines: [
+              '1. List the given points or equation',
+              '2. Pick the matching Unit 2 formula from your Playbook',
+              '3. Substitute carefully and double-check signs',
+            ],
+            cues: [
+              { at: 0.0, semaX: 16, semaY: 24, lookX: 0.8, lookY: 0.4, semaState: 'speaking', tag: 'Start here' },
+              { at: 0.5, semaX: 82, semaY: 36, lookX: -0.8, lookY: 0.4, semaState: 'guiding', tag: 'Pick formula' },
+              { at: 0.85, semaX: 78, semaY: 74, lookX: -0.8, lookY: -0.3, semaState: 'nodding', tag: 'Check signs' },
+            ],
+          },
+        ],
+      },
+    ],
+    rescueLessonId,
+    rescueMessage:
+      'Need a quick 3-minute refresher on the prerequisite move behind this question?',
+  }
 }
