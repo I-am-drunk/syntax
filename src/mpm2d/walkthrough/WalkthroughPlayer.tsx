@@ -1,44 +1,52 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { useEffect, useRef, useState } from 'react'
 import { Sema, type SemaExpressionName, type SemaShapeName, type SemaState } from '../mascot/Sema'
 import { assetUrl } from '../assetUrl'
 import { CATCHUP_BY_ID } from '../data/catchupCourses'
+import { BrilliantGraph } from '../graph/BrilliantGraph'
+import { MathText } from '../components/MathText'
 import { WinBoxWindow } from '../components/WinBoxWindow'
-import { WalkthroughStage } from './WalkthroughStage'
-import type { WalkthroughCue, WalkthroughSpec } from './walkthroughData'
+import type { WalkthroughSpec } from './walkthroughData'
+import { SemaStageRuntime } from './SemaStageRuntime'
+import type { SemaPromptDisplayMode, SemaTrack } from './semaTrackTypes'
 import './walkthrough.css'
 
-function activeCueForProgress(cues: WalkthroughCue[], progress: number): WalkthroughCue {
-  let chosen = cues[0] ?? {
-    at: 0,
-    semaX: 18,
-    semaY: 22,
-    lookX: 0.7,
-    lookY: 0.4,
-    semaState: 'speaking' as const,
-  }
-  for (const cue of cues) {
-    if (progress >= cue.at) chosen = cue
-  }
-  return chosen
+const PLAYBACK_RATES = [0.75, 1, 1.25, 1.5] as const
+const PROMPT_MODE_STORAGE_KEY = "mpm2d-sema-prompt-mode-v1"
+const PROMPT_MODES: { id: SemaPromptDisplayMode; label: string; title: string }[] = [
+  { id: "callout", label: "Tags", title: "Sema callout tags (click to switch to speech bubbles)" },
+  { id: "bubble", label: "Say", title: "Sema speech bubbles (click to switch to live CC subtitles)" },
+  { id: "subtitle", label: "CC", title: "Word-synced subtitles (click to show All)" },
+  { id: "all", label: "All", title: "Tags + Sema speech + live CC (click to hide prompts)" },
+  { id: "off", label: "Quiet", title: "Prompts hidden (click to show Sema tags)" },
+]
+const TRACK_CACHE = new Map<string, SemaTrack>()
+
+function useDocumentTheme(): 'light' | 'dark' {
+  const read = (): 'light' | 'dark' =>
+    typeof document !== 'undefined' &&
+    (document.documentElement.getAttribute('data-theme') === 'dark' ||
+      document.body.getAttribute('data-theme') === 'dark')
+      ? 'dark'
+      : 'light'
+
+  const [theme, setTheme] = useState<'light' | 'dark'>(read)
+
+  useEffect(() => {
+    const update = () => setTheme(read())
+    const obs = new MutationObserver(update)
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    obs.observe(document.body, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => obs.disconnect()
+  }, [])
+
+  return theme
 }
 
-const stageVariants = {
-  enter: (dir: number) => ({
-    x: dir >= 0 ? 30 : -30,
-    opacity: 0,
-    scale: 0.985,
-  }),
-  center: {
-    x: 0,
-    opacity: 1,
-    scale: 1,
-  },
-  exit: (dir: number) => ({
-    x: dir >= 0 ? -30 : 30,
-    opacity: 0,
-    scale: 0.985,
-  }),
+function formatClock(sec: number): string {
+  const safe = Math.max(0, Math.floor(sec))
+  const m = Math.floor(safe / 60)
+  const s = safe % 60
+  return `${m}:${s.toString().padStart(2, '0')}`
 }
 
 export function WalkthroughContent({
@@ -65,113 +73,153 @@ export function WalkthroughContent({
   onClose: () => void
   onLaunchRescue: (rescueLessonId: string) => void
 }) {
+  const theme = useDocumentTheme()
   const [lensIndex, setLensIndex] = useState(0)
   const [beatIndex, setBeatIndex] = useState(0)
-  const [stepDir, setStepDir] = useState(1)
   const [progress, setProgress] = useState(0)
+  const [duration, setDuration] = useState(10)
   const [playing, setPlaying] = useState(true)
+  const [rateIndex, setRateIndex] = useState(1)
   const [showRescue, setShowRescue] = useState(false)
   const [scrubbing, setScrubbing] = useState(false)
+  const [semaTrack, setSemaTrack] = useState<SemaTrack | null>(null)
+  const [promptMode, setPromptMode] = useState<SemaPromptDisplayMode>(() => {
+    try {
+      const saved = window.localStorage.getItem(PROMPT_MODE_STORAGE_KEY) as SemaPromptDisplayMode | null
+      if (saved && PROMPT_MODES.some(m => m.id === saved)) return saved
+    } catch {
+      // ignore storage errors
+    }
+    return "callout"
+  })
 
-  const audioRef = useRef<HTMLAudioElement | null>(null)
-  const trackRef = useRef<HTMLDivElement>(null)
-  const progressRef = useRef(0)
-  progressRef.current = progress
-  const prevSemaXRef = useRef(18)
+  const cyclePromptMode = () => {
+    setPromptMode(cur => {
+      const idx = PROMPT_MODES.findIndex(m => m.id === cur)
+      const next = PROMPT_MODES[(idx + 1) % PROMPT_MODES.length]!.id
+      try {
+        window.localStorage.setItem(PROMPT_MODE_STORAGE_KEY, next)
+      } catch {
+        // ignore storage errors
+      }
+      return next
+    })
+  }
+
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const trackRef = useRef<HTMLDivElement | null>(null)
+  const pendingSeekRef = useRef<number | null>(null)
 
   const lens = spec.lenses[lensIndex] ?? spec.lenses[0]!
   const beat = lens.beats[beatIndex] ?? lens.beats[0]!
-  const hasVoiceClip = Boolean(beat.audioPath)
-  const voiceActive = hasVoiceClip && soundOn && voiceOn
+  const videoPath =
+    theme === 'dark'
+      ? (beat.videoDark ?? beat.videoLight ?? null)
+      : (beat.videoLight ?? beat.videoDark ?? null)
+  const videoSrc = videoPath ? assetUrl(videoPath) : null
+  const isManimVideo = Boolean(videoSrc)
+  const trackUrl = beat.trackPath ? assetUrl(beat.trackPath) : null
 
+  useEffect(() => {
+    if (!trackUrl) {
+      setSemaTrack(null)
+      return
+    }
+    const cached = TRACK_CACHE.get(trackUrl)
+    if (cached) {
+      setSemaTrack(cached)
+      return
+    }
+    let cancelled = false
+    fetch(trackUrl)
+      .then(r => (r.ok ? r.json() : null))
+      .then((data: SemaTrack | null) => {
+        if (!cancelled && data && Array.isArray(data.keyframes)) {
+          TRACK_CACHE.set(trackUrl, data)
+          setSemaTrack(data)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setSemaTrack(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [trackUrl])
+  const voiceActive = soundOn && voiceOn
+  const playbackRate = PLAYBACK_RATES[rateIndex] ?? 1
+
+  // Reset on page switch
   useEffect(() => {
     setLensIndex(0)
     setBeatIndex(0)
-    setStepDir(1)
     setProgress(0)
     setPlaying(true)
     setShowRescue(false)
+    pendingSeekRef.current = null
   }, [spec.pageId])
 
+  // Sync mute & playback rate live without reloading video
   useEffect(() => {
-    let raf = 0
-    let lastTs = performance.now()
-    let audio: HTMLAudioElement | null = null
-    let usingAudio = false
+    const v = videoRef.current
+    if (!v) return
+    v.muted = !voiceActive
+    v.playbackRate = playbackRate
+  }, [voiceActive, playbackRate, videoSrc])
 
-    const stopAudio = () => {
-      if (audio) {
-        audio.pause()
-        audio.src = ''
-        audio = null
+  // Preserve exact timestamp when user toggles Light <-> Dark theme mid-video
+  const prevThemeRef = useRef(theme)
+  useEffect(() => {
+    if (prevThemeRef.current !== theme) {
+      prevThemeRef.current = theme
+      const v = videoRef.current
+      if (v && Number.isFinite(v.currentTime) && v.currentTime > 0) {
+        pendingSeekRef.current = v.currentTime
       }
-      audioRef.current = null
     }
+  }, [theme])
 
-    if (voiceActive && beat.audioPath) {
-      audio = new Audio(assetUrl(beat.audioPath))
-      audio.preload = 'auto'
-      audioRef.current = audio
-      audio.addEventListener('loadedmetadata', () => {
-        if (audio && Number.isFinite(audio.duration)) {
-          audio.currentTime = progressRef.current * audio.duration
+  // Sync play/pause with <video> element
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v || !isManimVideo) return
+    if (playing && !scrubbing) {
+      v.play().catch(() => {
+        // Autoplay with audio may be blocked until gesture; retry muted if needed
+        if (!v.muted) {
+          v.muted = true
+          v.play().catch(() => {})
         }
-      }, { once: true })
-      if (playing && !scrubbing) {
-        usingAudio = true
-        audio.play().catch(() => {
-          usingAudio = false
-        })
-      }
+      })
+    } else {
+      v.pause()
     }
+  }, [playing, scrubbing, isManimVideo, videoSrc])
 
-    const tick = (now: number) => {
-      const dt = Math.min(0.05, Math.max(0, (now - lastTs) * 0.001))
-      lastTs = now
-
-      if (playing && !scrubbing) {
-        if (usingAudio && audio && Number.isFinite(audio.duration) && audio.duration > 0.2 && !audio.paused) {
-          const p = Math.min(1, audio.currentTime / audio.duration)
-          setProgress(p)
-          if (audio.ended || p >= 0.998) {
-            setProgress(1)
-            setPlaying(false)
-            return
-          }
-        } else {
-          const next = progressRef.current + dt / Math.max(2, beat.durationSec)
-          if (next >= 1) {
-            setProgress(1)
-            setPlaying(false)
-            return
-          }
-          setProgress(next)
+  // Smooth 60fps progress bar tracking
+  useEffect(() => {
+    if (!isManimVideo) {
+      setDuration(beat.durationSec)
+      return
+    }
+    let raf = 0
+    const tick = () => {
+      const v = videoRef.current
+      if (v && Number.isFinite(v.duration) && v.duration > 0.1) {
+        setDuration(v.duration)
+        if (!scrubbing) {
+          setProgress(Math.min(1, Math.max(0, v.currentTime / v.duration)))
         }
       }
       raf = requestAnimationFrame(tick)
     }
-
-    if (playing && !scrubbing) raf = requestAnimationFrame(tick)
-    return () => {
-      cancelAnimationFrame(raf)
-      stopAudio()
-    }
-  }, [beat.id, beat.audioPath, beat.durationSec, playing, scrubbing, voiceActive])
-
-  const cue = useMemo(() => activeCueForProgress(beat.cues, progress), [beat.cues, progress])
-  const rescueLesson = CATCHUP_BY_ID.get(spec.rescueLessonId)
-
-  // Compute subtle flight banking tilt as Sema glides horizontally across the stage
-  const bankTilt = useMemo(() => {
-    const dx = cue.semaX - prevSemaXRef.current
-    prevSemaXRef.current = cue.semaX
-    return Math.max(-13, Math.min(13, dx * 0.24))
-  }, [cue.semaX])
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [isManimVideo, scrubbing, beat.durationSec, videoSrc])
 
   const selectBeat = (nextIdx: number) => {
     const clamped = Math.max(0, Math.min(lens.beats.length - 1, nextIdx))
-    if (clamped === beatIndex) return
-    setStepDir(clamped > beatIndex ? 1 : -1)
+    pendingSeekRef.current = null
     setBeatIndex(clamped)
     setProgress(0)
     setPlaying(true)
@@ -179,22 +227,40 @@ export function WalkthroughContent({
 
   const switchLens = (nextLensIdx: number) => {
     const nextLens = spec.lenses[nextLensIdx]
-    if (!nextLens || nextLensIdx === lensIndex) return
-    const targetBeat = Math.min(beatIndex, nextLens.beats.length - 1)
-    setStepDir(nextLensIdx > lensIndex ? 1 : -1)
+    if (!nextLens) return
+    pendingSeekRef.current = null
     setLensIndex(nextLensIdx)
-    setBeatIndex(targetBeat)
+    setBeatIndex(Math.min(beatIndex, nextLens.beats.length - 1))
     setProgress(0)
     setPlaying(true)
   }
 
-  const handleReplay = () => {
-    seek(0)
-    setPlaying(true)
+  const seekToClientX = (clientX: number) => {
+    const el = trackRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const frac = Math.max(0, Math.min(1, (clientX - rect.left) / Math.max(1, rect.width)))
+    const totalBeats = lens.beats.length
+    const scaled = frac * totalBeats
+    const targetBeat = Math.min(totalBeats - 1, Math.floor(scaled))
+    const beatFrac = Math.max(0, Math.min(0.995, scaled - targetBeat))
+
+    if (targetBeat !== beatIndex) {
+      pendingSeekRef.current = beatFrac * duration
+      setBeatIndex(targetBeat)
+    } else {
+      const v = videoRef.current
+      if (v && Number.isFinite(v.duration) && v.duration > 0.1) {
+        v.currentTime = beatFrac * v.duration
+      }
+    }
+    setProgress(beatFrac)
   }
 
-  const handleTogglePlay = () => {
+  const togglePlay = () => {
+    const v = videoRef.current
     if (progress >= 0.99) {
+      if (v) v.currentTime = 0
       setProgress(0)
       setPlaying(true)
     } else {
@@ -202,58 +268,23 @@ export function WalkthroughContent({
     }
   }
 
-  const seekToClientX = (clientX: number) => {
-    const rect = trackRef.current?.getBoundingClientRect()
-    if (!rect || rect.width <= 0) return
-    seek((clientX - rect.left) / rect.width)
-  }
+  const rescueCourse = CATCHUP_BY_ID.get(spec.rescueLessonId)
 
-  const seek = (fraction: number) => {
-    const val = Math.max(0, Math.min(1, fraction))
-    setProgress(val)
-    if (audioRef.current && Number.isFinite(audioRef.current.duration) && audioRef.current.duration > 0) {
-      audioRef.current.currentTime = val * audioRef.current.duration
-    }
-  }
+  const semaState: SemaState = showRescue
+    ? 'nudge'
+    : progress >= 0.98
+      ? 'celebrate'
+      : playing
+        ? 'speaking'
+        : 'idle'
 
-  const onTrackPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    e.currentTarget.setPointerCapture(e.pointerId)
-    setScrubbing(true)
-    seekToClientX(e.clientX)
-  }
-
-  const onTrackPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!scrubbing) return
-    seekToClientX(e.clientX)
-  }
-
-  const onTrackPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!scrubbing) return
-    try {
-      e.currentTarget.releasePointerCapture(e.pointerId)
-    } catch {
-      // ignore
-    }
-    setScrubbing(false)
-  }
-
-  const isFinalBeatDone = !playing && progress >= 0.99 && beatIndex === lens.beats.length - 1
-  const semaActiveState: SemaState = showRescue
-    ? 'notify'
-    : isFinalBeatDone
-      ? 'checkbox'
-      : !playing && progress >= 0.99
-        ? 'nodding'
-        : !playing
-          ? 'idle'
-          : cue.semaState
-  const semaActiveExpression: SemaExpressionName | undefined = showRescue
+  const semaExpression: SemaExpressionName | undefined = showRescue
     ? 'curious'
-    : !playing && progress >= 0.99
+    : progress >= 0.98
       ? 'proud'
       : !playing
         ? 'attentive'
-        : undefined
+        : 'happy'
 
   return (
     <div className={`wt-shell${inline ? ' is-inline' : ''}${floating ? ' is-floating' : ''}${playing ? ' is-playing' : ''}`}>
@@ -280,7 +311,6 @@ export function WalkthroughContent({
                     className={`wt-lens-tab${active ? ' is-active' : ''}`}
                     onClick={() => switchLens(idx)}
                   >
-
                     <span className="wt-lens-tab-label">{l.label}</span>
                   </button>
                 )
@@ -288,67 +318,76 @@ export function WalkthroughContent({
             </div>
           )}
 
-          {hasVoiceClip && (
+          {isManimVideo && semaTrack && (
             <button
               type="button"
-              className={`wt-icon-btn${voiceActive ? ' is-on' : ''}`}
-              aria-label={voiceOn ? 'Mute Sema voice' : 'Enable Sema voice'}
-              title={voiceOn ? 'Voice on' : 'Voice muted'}
-              onClick={onToggleVoice}
+              className={`wt-prompt-mode-btn${promptMode !== "off" ? " is-on" : ""}`}
+              title={PROMPT_MODES.find(m => m.id === promptMode)?.title}
+              onClick={cyclePromptMode}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-                {voiceActive ? (
-                  <>
-                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-                    <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-                  </>
-                ) : (
-                  <>
-                    <line x1="23" y1="9" x2="17" y2="15" />
-                    <line x1="17" y1="9" x2="23" y2="15" />
-                  </>
-                )}
-              </svg>
+              {PROMPT_MODES.find(m => m.id === promptMode)?.label ?? "Tags"}
             </button>
           )}
 
-          {rescueLesson && (
+          {isManimVideo && (
             <button
               type="button"
-              className={`wt-top-stuck-btn${showRescue ? " is-open" : ""}`}
-              aria-expanded={showRescue}
-              onClick={() => setShowRescue(v => !v)}
+              className="wt-speed-btn"
+              title="Playback speed"
+              onClick={() => setRateIndex(i => (i + 1) % PLAYBACK_RATES.length)}
             >
-              <span>Still stuck?</span>
-              <svg
-                className="wt-top-stuck-chevron"
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
+              {playbackRate}×
             </button>
           )}
+
+          <button
+            type="button"
+            className={`wt-icon-btn${voiceActive ? ' is-on' : ''}`}
+            aria-label={voiceActive ? 'Mute voiceover' : 'Unmute voiceover'}
+            title={
+              !soundOn
+                ? 'Sound is muted in the top bar'
+                : voiceOn
+                  ? 'Mute Andrew voiceover'
+                  : 'Unmute Andrew voiceover'
+            }
+            onClick={onToggleVoice}
+          >
+            {voiceActive ? (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+              </svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                <line x1="23" y1="9" x2="17" y2="15" />
+                <line x1="17" y1="9" x2="23" y2="15" />
+              </svg>
+            )}
+          </button>
 
           {onToggleFloat && (
             <button
               type="button"
-              className={`wt-icon-btn${floating ? " is-on" : ""}`}
-              aria-label={floating ? "Dock walkthrough to side panel" : "Pop out as draggable floating window"}
-              title={floating ? "Dock to side panel" : "Pop out as draggable window"}
+              className="wt-icon-btn"
+              aria-label={floating ? 'Dock walkthrough into lesson panel' : 'Pop walkthrough into floating window'}
+              title={floating ? 'Dock into lesson panel' : 'Float window'}
               onClick={onToggleFloat}
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="3" />
-                <rect x="11" y="7" width="7" height="6" rx="1.2" fill="currentColor" fillOpacity="0.22" />
-              </svg>
+              {floating ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4" width="18" height="16" rx="2.5" />
+                  <line x1="9" y1="4" x2="9" y2="20" />
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2.5" />
+                  <path d="M14 3v6h7" />
+                  <path d="M10 14 21 3" />
+                </svg>
+              )}
             </button>
           )}
 
@@ -367,239 +406,245 @@ export function WalkthroughContent({
         </div>
       </header>
 
-      <AnimatePresence initial={false}>
-        {showRescue && rescueLesson && (
-          <motion.div
-            key="wt-top-rescue"
-            initial={{ opacity: 0, height: 0, y: -8 }}
-            animate={{ opacity: 1, height: "auto", y: 0 }}
-            exit={{ opacity: 0, height: 0, y: -8 }}
-            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-            className="wt-top-rescue-wrap"
-          >
-            <div className="wt-rescue-card is-top-dropdown">
-              <div className="wt-rescue-copy">
-                <strong>Catch-Up · {rescueLesson.title}</strong>
-                <p>{spec.rescueMessage}</p>
-              </div>
-              <button
-                type="button"
-                className="wt-rescue-launch"
-                onClick={() => onLaunchRescue(rescueLesson.id)}
-              >
-                Start catch-up ({rescueLesson.minutes} min) →
-              </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {spec.steps.length > 1 && (
-        <div className="wt-current-step">
-          <span className="wt-current-step-badge">Step {beat.stepIndex + 1}</span>
-          <span className="wt-current-step-label">{spec.steps[beat.stepIndex]?.label ?? beat.title}</span>
-          {spec.steps[beat.stepIndex]?.equation && (
-            <span className="wt-current-step-eq">· {spec.steps[beat.stepIndex]?.equation}</span>
-          )}
-        </div>
-      )}
-
-      {/* Animated Stage with directional slide transitions + Flying Sema Choreography */}
-      <div className="wt-stage-frame">
-        <AnimatePresence mode="wait" custom={stepDir} initial={false}>
-          <motion.div
-            key={`${lens.id}:${beat.id}`}
-            custom={stepDir}
-            variants={stageVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={{ type: 'spring', stiffness: 320, damping: 30, mass: 0.8 }}
-            className="wt-stage-slide"
-          >
-            <WalkthroughStage beat={beat} progress={progress} />
-          </motion.div>
-        </AnimatePresence>
-
-        {/* Flying Sema with velocity bank, breathing hover, and soft floor halo */}
-        <motion.div
-          className="wt-flying-sema"
-          animate={{
-            left: `${cue.semaX}%`,
-            top: `${cue.semaY}%`,
-            rotate: [bankTilt, bankTilt * 0.35, 0],
-            scale: playing ? 1 : 0.96,
-          }}
-          transition={{
-            left: { type: 'spring', stiffness: 165, damping: 20, mass: 0.78 },
-            top: { type: 'spring', stiffness: 165, damping: 20, mass: 0.78 },
-            rotate: { duration: 0.55, ease: 'easeOut' },
-            scale: { duration: 0.2 },
-          }}
-        >
-          <motion.div
-            className="wt-sema-float-bob"
-            animate={playing ? { y: [0, -4, 0] } : { y: 0 }}
-            transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-          >
-            <Sema
-              state={semaActiveState}
-              expression={semaActiveExpression}
-              shape={semaShape}
-              size={52}
-              interactive
-              followCursor={false}
-              lookAt={{ x: cue.lookX, y: cue.lookY }}
-              speakLevel={playing ? 0.78 : 0}
-              ariaLabel="Sema guiding this step"
-            />
-            <span className="wt-sema-halo" aria-hidden="true" />
-          </motion.div>
-        </motion.div>
+      {/* Step selector strip */}
+      <div className="wt-steps-bar" role="tablist" aria-label="Problem steps">
+        {spec.steps.map((st, idx) => {
+          const active = beat.stepIndex === idx
+          const matchingBeatIdx = lens.beats.findIndex(b => b.stepIndex === idx)
+          return (
+            <button
+              key={st.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              className={`wt-step-chip${active ? ' is-active' : ''}`}
+              onClick={() => selectBeat(matchingBeatIdx >= 0 ? matchingBeatIdx : idx)}
+            >
+              <span className="wt-step-num">{st.stepNum}</span>
+              <span className="wt-step-meta">
+                <span className="wt-step-label">{st.label}</span>
+                <span className="wt-step-eq">{st.equation}</span>
+              </span>
+            </button>
+          )
+        })}
       </div>
 
-      {/* Sleek Brilliant Caption & Custom Interactive Segmented Timeline */}
-      <div className="wt-caption-bar">
-        <AnimatePresence mode="wait" custom={stepDir} initial={false}>
-          <motion.div
-            key={`cap-${lens.id}:${beat.id}`}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.18, ease: 'easeOut' }}
-            className="wt-caption-text"
-          >
-            <strong>{beat.title}</strong>
-            <ul className="wt-caption-bullets">
-              {beat.caption
-                .split(/(?<=[.!?])\s+/)
-                .map(s => s.trim())
-                .filter(Boolean)
-                .map((sentence, idx) => (
-                  <li key={idx}>{sentence}</li>
-                ))}
-            </ul>
-          </motion.div>
-        </AnimatePresence>
+      {/* Main Manim Community Video Stage */}
+      <div className={`wt-stage-frame${isManimVideo ? ' is-manim-video' : ''}`}>
+        {isManimVideo && videoSrc ? (
+          <div className="wt-video-wrap" onClick={togglePlay}>
+            <video
+              ref={videoRef}
+              key={videoSrc}
+              className="wt-manim-video"
+              src={videoSrc}
+              playsInline
+              preload="auto"
+              muted={!voiceActive}
+              onLoadedMetadata={e => {
+                const v = e.currentTarget
+                v.muted = !voiceActive
+                v.playbackRate = playbackRate
+                if (Number.isFinite(v.duration)) setDuration(v.duration)
+                if (pendingSeekRef.current !== null) {
+                  v.currentTime = Math.min(v.duration - 0.05, Math.max(0, pendingSeekRef.current))
+                  pendingSeekRef.current = null
+                }
+                if (playing) {
+                  v.play().catch(() => {
+                    v.muted = true
+                    v.play().catch(() => {})
+                  })
+                }
+              }}
+              onEnded={() => {
+                if (beatIndex < lens.beats.length - 1) {
+                  selectBeat(beatIndex + 1)
+                } else {
+                  setProgress(1)
+                  setPlaying(false)
+                }
+              }}
+            />
+            {!playing && (
+              <button
+                type="button"
+                className="wt-video-center-play"
+                aria-label="Play walkthrough video"
+                onClick={e => {
+                  e.stopPropagation()
+                  togglePlay()
+                }}
+              >
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                  <polygon points="7,4 20,12 7,20" />
+                </svg>
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="wt-static-fallback">
+            {beat.scene && (
+              <div className="wt-fallback-graph">
+                <BrilliantGraph mode="display" scene={beat.scene} />
+              </div>
+            )}
+            <div className="wt-fallback-lines">
+              {(beat.mathLines ?? [beat.caption]).map((line, i) => (
+                <div key={i} className="wt-fallback-line">
+                  <MathText text={line} />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
 
-        <div className="wt-controls-row">
+      {/* Caption bar with Sema companion + interactive Manim timeline scrubber */}
+      <div className="wt-caption-card">
+        <div className="wt-caption-top">
+          {!semaTrack && (
+            <div className="wt-caption-sema">
+              <Sema
+                state={semaState}
+                expression={semaExpression}
+                shape={semaShape}
+                size={38}
+                interactive
+                followCursor={false}
+                speakLevel={playing && isManimVideo ? 0.8 : 0}
+                ariaLabel="Sema walkthrough companion"
+              />
+            </div>
+          )}
+          <div className="wt-caption-copy">
+            <div className="wt-caption-title">{beat.title}</div>
+            <p className="wt-caption-body">{beat.caption}</p>
+          </div>
+        </div>
+
+        <div className="wt-player-controls">
           <button
             type="button"
-            className="wt-ctrl-btn is-play"
+            className="wt-play-btn"
             aria-label={playing ? 'Pause' : 'Play'}
-            onClick={handleTogglePlay}
+            onClick={togglePlay}
           >
             {playing ? (
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
                 <rect x="6" y="4" width="4.5" height="16" rx="1.2" />
                 <rect x="13.5" y="4" width="4.5" height="16" rx="1.2" />
               </svg>
             ) : (
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-                <polygon points="7 4 20 12 7 20 7 4" />
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="6,4 20,12 6,20" />
               </svg>
             )}
           </button>
 
           <button
             type="button"
-            className="wt-ctrl-btn"
-            aria-label="Replay step"
-            title="Replay step"
-            onClick={handleReplay}
+            className="wt-step-nav-btn"
+            aria-label="Previous step"
+            disabled={beatIndex === 0}
+            onClick={() => selectBeat(beatIndex - 1)}
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="1 4 1 10 7 10" />
-              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
             </svg>
           </button>
 
-          {/* Custom Brilliant interactive timeline bar (zero native range input) */}
           <div
             ref={trackRef}
             className={`wt-timeline-track${scrubbing ? ' is-scrubbing' : ''}`}
             role="slider"
-            tabIndex={0}
-            aria-label="Walkthrough progress"
+            aria-label="Walkthrough timeline"
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-valuenow={Math.round(progress * 100)}
-            onPointerDown={onTrackPointerDown}
-            onPointerMove={onTrackPointerMove}
-            onPointerUp={onTrackPointerUp}
-            onPointerCancel={onTrackPointerUp}
-            onKeyDown={e => {
-              const destination = ({
-                ArrowRight: progress + 0.08,
-                ArrowLeft: progress - 0.08,
-                Home: 0,
-                End: 1,
-              } as Record<string, number>)[e.key]
-              if (destination === undefined) return
-              e.preventDefault()
-              e.stopPropagation()
-              seek(destination)
+            aria-valuenow={Math.round(((beatIndex + progress) / lens.beats.length) * 100)}
+            tabIndex={0}
+            onPointerDown={e => {
+              e.currentTarget.setPointerCapture(e.pointerId)
+              setScrubbing(true)
+              seekToClientX(e.clientX)
+            }}
+            onPointerMove={e => {
+              if (!scrubbing) return
+              seekToClientX(e.clientX)
+            }}
+            onPointerUp={e => {
+              if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+                e.currentTarget.releasePointerCapture(e.pointerId)
+              }
+              setScrubbing(false)
             }}
           >
-            <div className="wt-timeline-rail">
-              <div
-                className="wt-timeline-fill"
-                style={{ width: `${Math.round(progress * 1000) / 10}%` }}
-              />
-              {beat.cues.slice(1).map((c, idx) => (
-                <span
-                  key={idx}
-                  className="wt-timeline-tick"
-                  style={{ left: `${Math.round(c.at * 100)}%` }}
-                />
-              ))}
-              <span
-                className="wt-timeline-thumb"
-                style={{ left: `${Math.round(progress * 1000) / 10}%` }}
-              />
-            </div>
+            {lens.beats.map((b, idx) => {
+              const fillPct = idx < beatIndex ? 100 : idx === beatIndex ? progress * 100 : 0
+              return (
+                <div key={b.id} className="wt-timeline-seg">
+                  <div className="wt-timeline-fill" style={{ width: `${fillPct}%` }} />
+                </div>
+              )
+            })}
+            <span
+              className="wt-timeline-thumb"
+              style={{
+                left: `${((beatIndex + progress) / Math.max(1, lens.beats.length)) * 100}%`,
+              }}
+            />
           </div>
 
-          <div className="wt-step-nav">
-            <button
-              type="button"
-              className="wt-ctrl-btn"
-              disabled={beatIndex === 0}
-              aria-label="Previous step"
-              onClick={() => selectBeat(beatIndex - 1)}
-            >
-              ‹
-            </button>
-            <span className="wt-step-counter">
-              {beatIndex + 1}/{lens.beats.length}
-            </span>
-            <button
-              type="button"
-              className="wt-ctrl-btn"
-              disabled={beatIndex >= lens.beats.length - 1}
-              aria-label="Next step"
-              onClick={() => selectBeat(beatIndex + 1)}
-            >
-              ›
-            </button>
-          </div>
+          <span className="wt-time-readout">
+            {formatClock(progress * duration)} / {formatClock(duration)}
+          </span>
+
+          <button
+            type="button"
+            className="wt-step-nav-btn"
+            aria-label="Next step"
+            disabled={beatIndex >= lens.beats.length - 1}
+            onClick={() => selectBeat(beatIndex + 1)}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </button>
         </div>
       </div>
 
-      {!floating && (
-        <footer className="wt-footer">
-          <span className="wt-footer-hint">
-            Tip: drag the timeline or switch Visual / Algebra anytime
-          </span>
+      {/* Still stuck? Rescue bridge */}
+      {showRescue && rescueCourse && (
+        <div className="wt-rescue-card">
+          <div className="wt-rescue-text">
+            <strong>{rescueCourse.title}</strong>
+            <span>{spec.rescueMessage}</span>
+          </div>
           <button
             type="button"
-            className="wt-primary-btn"
-            onClick={onClose}
+            className="wt-rescue-cta"
+            onClick={() => onLaunchRescue(rescueCourse.id)}
           >
-            Got it, let me try
+            Start {rescueCourse.minutes}-min catch-up →
           </button>
-        </footer>
+        </div>
       )}
+
+      {/* Footer actions */}
+      <footer className="wt-footer">
+        <button
+          type="button"
+          className="wt-btn-secondary"
+          onClick={() => setShowRescue(v => !v)}
+        >
+          {showRescue ? 'Hide catch-up' : 'Still stuck?'}
+        </button>
+
+        <button type="button" className="wt-btn-primary" onClick={onClose}>
+          Got it, let me try
+        </button>
+      </footer>
     </div>
   )
 }
@@ -634,8 +679,8 @@ export function WalkthroughModal({
       id="syntax-walkthrough-winbox"
       eyebrow="Guided walkthrough"
       title={spec.title}
-      defaultWidth={656}
-      defaultHeight={620}
+      defaultWidth={688}
+      defaultHeight={632}
       minWidth={320}
       minHeight={360}
       onClose={onClose}
