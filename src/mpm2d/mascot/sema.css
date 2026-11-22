@@ -125,3 +125,105 @@
     transform: translateX(-50%) scale(1) translateY(0);
   }
 }
+
+/* Sema Live Customizer Studio inside Settings */
+.sema-studio-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 18px;
+  border: 2px solid var(--border, #e2e4ea);
+  background: var(--secondary, #f8f9fc);
+}
+
+:root[data-theme='dark'] .sema-studio-card {
+  background: #191c25;
+  border-color: #2b303e;
+}
+
+.sema-studio-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 0 6px;
+  min-height: 150px;
+}
+
+.sema-studio-hint {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted, #6c7280);
+}
+
+.sema-studio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sema-studio-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted, #6c7280);
+}
+
+.sema-studio-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sema-chip {
+  appearance: none;
+  padding: 6px 11px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border, #dcdfe8);
+  background: var(--surface, #ffffff);
+  color: var(--text, #141414);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease, transform 90ms ease;
+}
+
+:root[data-theme='dark'] .sema-chip {
+  background: #14171f;
+  border-color: #2e3444;
+  color: #e6e8f0;
+}
+
+.sema-chip:hover {
+  border-color: #7139cc;
+}
+
+.sema-chip:active {
+  transform: translateY(1px);
+}
+
+.sema-chip.is-active {
+  border-color: #7139cc;
+  background: #7139cc;
+  color: #ffffff;
+}
+
+.sema-chip.is-anim.is-active {
+  border-color: #456dff;
+  background: #456dff;
+  color: #ffffff;
+}
+
+/* Subtle reactive Sema buddy inside Lesson nav bar */
+.lesson-sema-buddy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 36px;
+  flex-shrink: 0;
+}

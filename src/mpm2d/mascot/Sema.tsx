@@ -1,15 +1,32 @@
-import { useEffect, useId, useRef } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import {
-  HEAD_RADIUS,
-  SemaEngine,
-  clamp,
-  lerp,
-  squircleHeadPath,
-  type SemaState,
-} from './semaEngine'
+  BotEngine,
+  DEMI_VIEWBOX,
+  NOTIF_BLUE,
+  RAYON_BOULE,
+  mixHex,
+  resolveExpression,
+  resolveShapeRadii,
+  type BotFrame,
+  type SemaExpressionName,
+  type SemaShapeName,
+  type StateId,
+} from './bloub'
 import './sema.css'
 
-export type { SemaState }
+export type { SemaExpressionName, SemaShapeName, StateId }
+
+/** Full set of supported Sema states: all 16 bloub morph animations + Sema legacy shorthand states */
+export type SemaState =
+  | StateId
+  | 'speaking'
+  | 'guiding'
+  | 'nodding'
+  | 'bobbing'
+  | 'nudge'
+  | 'celebrate'
+  | 'focus'
+  | 'spinner'
 
 export type SemaLookPoint = {
   /** Normalized -1..1 horizontal target relative to Sema center */
@@ -18,87 +35,146 @@ export type SemaLookPoint = {
   y: number
 }
 
-const HEAD_PATH = squircleHeadPath(HEAD_RADIUS, 2.55)
+const R = RAYON_BOULE // 100
+const VB = DEMI_VIEWBOX // 158
 
-// Classic expressive semicolon comma tail path anchored around (0, 74)
+// Sema's signature semicolon comma tail scaled for R = 100 coordinate space (anchored below body at y ≈ 108)
 const TAIL_PATH =
-  'M -12,68 C -12,60 12,60 12,68 C 12,84 4,99 -10,109 C -14,111 -18,107 -15,103 C -6,95 -2,86 -3,78 C -9,77 -12,73 -12,68 Z'
+  'M -17,108 C -17,97 17,97 17,108 C 17,131 6,152 -15,166 C -21,169 -26,163 -22,157 C -9,146 -3,133 -4,122 C -13,120 -17,115 -17,108 Z'
 
-const POKE_CYCLE: SemaState[] = ['wink', 'celebrate', 'nodding', 'bobbing']
+// Crisp checkmark cutout stroke in R = 100 coordinate space (punched through mask during 'checkbox' state)
+const CHECKBOX_CUTOUT_PATH = 'M -42,4 L -12,34 L 46,-28'
 
-function resolveEyeColor(
-  tint: 'default' | 'blue' | 'green' | 'amber',
-  isDark: boolean,
-): string {
-  switch (tint) {
-    case 'blue':
-      return isDark ? '#7491ff' : '#456dff'
-    case 'green':
-      return '#29cc57'
-    case 'amber':
-      return isDark ? '#f9d25c' : '#e0a810'
+type ResolvedBehavior = {
+  engineState: StateId
+  expressionOverride?: SemaExpressionName
+  bobAmp?: number
+  bobFreq?: number
+  nodPitchAmp?: number
+  speakBounce?: boolean
+}
+
+function resolveSemaBehavior(state: SemaState): ResolvedBehavior {
+  switch (state) {
+    case 'speaking':
+      return { engineState: 'idle', expressionOverride: 'attentive', speakBounce: true }
+    case 'guiding':
+      return { engineState: 'idle', expressionOverride: 'curious', bobAmp: 3.5, bobFreq: 2.0 }
+    case 'nodding':
+      return { engineState: 'idle', expressionOverride: 'proud', nodPitchAmp: 12 }
+    case 'bobbing':
+      return { engineState: 'idle', expressionOverride: 'happy', bobAmp: 5.5, bobFreq: 2.3 }
+    case 'nudge':
+      return { engineState: 'notify' }
+    case 'celebrate':
+      return { engineState: 'checkbox' }
+    case 'focus':
+      return { engineState: 'idle', expressionOverride: 'attentive' }
+    case 'spinner':
+      return { engineState: 'thinking' }
     default:
-      return isDark ? '#141414' : '#ffffff'
+      return { engineState: state }
   }
+}
+
+type PokeReaction = { state: StateId; expression?: SemaExpressionName; dur: number }
+
+const POKE_REACTIONS: PokeReaction[] = [
+  { state: 'wink', dur: 1.35 },
+  { state: 'checkbox', dur: 1.45 },
+  { state: 'idle', expression: 'laughing', dur: 1.35 },
+  { state: 'notify', dur: 1.55 },
+  { state: 'wide', dur: 1.3 },
+  { state: 'swirl', expression: 'excited', dur: 1.35 },
+  { state: 'idle', expression: 'curious', dur: 1.3 },
+  { state: 'orbit', dur: 1.9 },
+  { state: 'idle', expression: 'proud', dur: 1.3 },
+  { state: 'play', dur: 1.45 },
+]
+
+function clamp(v: number, lo: number, hi: number): number {
+  return v < lo ? lo : v > hi ? hi : v
+}
+
+function detectDark(): boolean {
+  return (
+    typeof document !== 'undefined' &&
+    document.documentElement.getAttribute('data-theme') === 'dark'
+  )
 }
 
 export function Sema({
   state = 'idle',
+  expression = 'neutral',
+  shape = 'squircle',
   size = 64,
   interactive = true,
   followCursor = true,
   lookAt = null,
   speakLevel = 0,
+  showTail = true,
+  accentColor,
   className = '',
   ariaLabel = 'Sema mascot',
   onPoke,
 }: {
   state?: SemaState
+  expression?: SemaExpressionName
+  shape?: SemaShapeName
   size?: number
   interactive?: boolean
   followCursor?: boolean
   lookAt?: SemaLookPoint | null
   speakLevel?: number
+  showTail?: boolean
+  accentColor?: string
   className?: string
   ariaLabel?: string
   onPoke?: () => void
 }) {
   const uid = useId().replace(/:/g, '')
-  const maskId = `sema-mask-${uid}`
+  const maskId = `sema-bloub-mask-${uid}`
 
   const svgRef = useRef<SVGSVGElement>(null)
-  const headRigRef = useRef<SVGGElement>(null)
-  const stretchRigRef = useRef<SVGGElement>(null)
-  const tailRigRef = useRef<SVGGElement>(null)
-  const eyeBgRef = useRef<SVGPathElement>(null)
-  const bodyFillRef = useRef<SVGRectElement>(null)
-  const tailFillRef = useRef<SVGPathElement>(null)
-  const eye0Ref = useRef<SVGPathElement>(null)
-  const eye1Ref = useRef<SVGPathElement>(null)
-  const arc0Ref = useRef<SVGPathElement>(null)
-  const arc1Ref = useRef<SVGPathElement>(null)
-  const sparkleGroupRef = useRef<SVGGElement>(null)
+  const rigRef = useRef<SVGGElement>(null)
+  const stretchRef = useRef<SVGGElement>(null)
+  const tailRef = useRef<SVGGElement>(null)
 
-  const engineRef = useRef<SemaEngine | null>(null)
+  const engineRef = useRef<BotEngine | null>(null)
   if (!engineRef.current) {
-    engineRef.current = new SemaEngine()
+    const beh = resolveSemaBehavior(state)
+    engineRef.current = new BotEngine(
+      R,
+      beh.engineState,
+      resolveShapeRadii(shape),
+      resolveExpression(beh.expressionOverride ?? expression),
+    )
   }
 
+  const [frame, setFrame] = useState<BotFrame>(() => engineRef.current!.sample(0))
+  const [isDark, setIsDark] = useState<boolean>(detectDark)
+
   const statePropRef = useRef<SemaState>(state)
+  const exprPropRef = useRef<SemaExpressionName>(expression)
+  const shapePropRef = useRef<SemaShapeName>(shape)
   const followRef = useRef(followCursor)
   const lookAtRef = useRef(lookAt)
   const speakLevelRef = useRef(speakLevel)
+  const showTailRef = useRef(showTail)
   const onPokeRef = useRef(onPoke)
 
   statePropRef.current = state
+  exprPropRef.current = expression
+  shapePropRef.current = shape
   followRef.current = followCursor
   lookAtRef.current = lookAt
   speakLevelRef.current = speakLevel
+  showTailRef.current = showTail
   onPokeRef.current = onPoke
 
-  // Interactive spring physics & pointer tracking refs (zero React re-renders per frame)
+  // Interactive elastic drag + poke + trailing semicolon tail spring state
   const physRef = useRef({
-    // Drag / tether spring (SVG coordinate units)
+    clock: 0,
     dragging: false,
     pointerId: -1,
     startClientX: 0,
@@ -110,256 +186,198 @@ export function Sema({
     dy: 0,
     vx: 0,
     vy: 0,
-    // Poke squash spring
     pokeScaleY: 1,
     pokeVy: 0,
-    // Trailing comma tail spring (120ms follow-through)
     tailX: 0,
     tailY: 0,
     tailVx: 0,
     tailVy: 0,
     tailRot: 0,
-    // Cursor tracking
+    tailAlpha: 1,
     cursorX: 0,
     cursorY: 0,
-    cursorActive: false,
-    cursorLastMove: 0,
-    // Poke reaction override
-    pokeIndex: 0,
-    overrideState: null as SemaState | null,
+    hasCursor: false,
+    overrideReaction: null as PokeReaction | null,
     overrideUntil: 0,
+    pokeIndex: 0,
   })
 
+  // Track pointer for smooth cursor-following eye gaze
   useEffect(() => {
-    const onPointerMove = (e: PointerEvent) => {
-      const p = physRef.current
-      p.cursorX = e.clientX
-      p.cursorY = e.clientY
-      p.cursorActive = true
-      p.cursorLastMove = performance.now() * 0.001
+    const onMove = (e: PointerEvent) => {
+      physRef.current.cursorX = e.clientX
+      physRef.current.cursorY = e.clientY
+      physRef.current.hasCursor = true
     }
-    const onPointerLeave = () => {
-      physRef.current.cursorActive = false
+    const onLeave = () => {
+      physRef.current.hasCursor = false
     }
-    window.addEventListener('pointermove', onPointerMove, { passive: true })
-    document.addEventListener('pointerleave', onPointerLeave)
+    window.addEventListener('pointermove', onMove, { passive: true })
+    document.addEventListener('pointerleave', onLeave)
     return () => {
-      window.removeEventListener('pointermove', onPointerMove)
-      document.removeEventListener('pointerleave', onPointerLeave)
+      window.removeEventListener('pointermove', onMove)
+      document.removeEventListener('pointerleave', onLeave)
     }
   }, [])
 
+  // Main 60fps animation loop powered by bloub's stateless BotEngine + Sema spring physics
   useEffect(() => {
     let raf = 0
-    let lastTime = performance.now() * 0.001
-    const startTime = lastTime
+    let lastTs = performance.now()
+    let lookUpdateTimer = 0
+    let darkCheckTimer = 0
 
     const tick = (nowMs: number) => {
-      const now = nowMs * 0.001
-      const dt = Math.min(0.05, Math.max(0.001, now - lastTime))
-      lastTime = now
-      const t = now - startTime
+      const dt = Math.min(0.05, Math.max(0.001, (nowMs - lastTs) * 0.001))
+      lastTs = nowMs
 
-      const engine = engineRef.current!
       const p = physRef.current
+      p.clock += dt
+      const clock = p.clock
+      const engine = engineRef.current!
 
-      // Determine active state (respect temporary poke reaction)
-      let desiredState = statePropRef.current
-      if (p.overrideState && now < p.overrideUntil) {
-        desiredState = p.overrideState
-      } else {
-        p.overrideState = null
-      }
-      if (engine.state !== desiredState) {
-        engine.setState(desiredState, t)
+      // Theme sync every ~150ms
+      darkCheckTimer += dt
+      if (darkCheckTimer > 0.15) {
+        darkCheckTimer = 0
+        const nextDark = detectDark()
+        setIsDark(prev => (prev === nextDark ? prev : nextDark))
       }
 
-      // Compute gaze target: priority = drag pull > explicit lookAt prop > cursor tracking
-      const svg = svgRef.current
-      if (p.dragging && (Math.abs(p.targetDx) > 2 || Math.abs(p.targetDy) > 2)) {
-        engine.setLookTarget(
-          clamp(p.targetDx * 1.15, -40, 40),
-          clamp(-p.targetDy * 0.95, -32, 32),
-          true,
-          dt,
-        )
-      } else if (lookAtRef.current) {
-        engine.setLookTarget(
-          lookAtRef.current.x * 36,
-          -lookAtRef.current.y * 28,
-          true,
-          dt,
-        )
-      } else if (followRef.current && p.cursorActive && now - p.cursorLastMove < 3.5 && svg) {
-        const rect = svg.getBoundingClientRect()
-        if (rect.width > 0 && rect.height > 0) {
-          const cx = rect.left + rect.width * 0.5
-          const cy = rect.top + rect.height * 0.44
-          const rx = (p.cursorX - cx) / Math.max(120, rect.width * 3.2)
-          const ry = (p.cursorY - cy) / Math.max(120, rect.height * 3.2)
-          const dist = Math.hypot(rx, ry)
-          const clamped = Math.min(1, dist)
-          const nx = dist > 0.001 ? (rx / dist) * clamped : 0
-          const ny = dist > 0.001 ? (ry / dist) * clamped : 0
-          engine.setLookTarget(nx * 36, -ny * 26, true, dt)
+      // Resolve effective state + expression (with temporary poke override)
+      let activeState = statePropRef.current
+      let activeExpr = exprPropRef.current
+      if (p.overrideReaction && clock < p.overrideUntil) {
+        activeState = p.overrideReaction.state
+        if (p.overrideReaction.expression) activeExpr = p.overrideReaction.expression
+      } else if (p.overrideReaction && clock >= p.overrideUntil) {
+        p.overrideReaction = null
+      }
+
+      const beh = resolveSemaBehavior(activeState)
+      const targetExpr = resolveExpression(beh.expressionOverride ?? activeExpr)
+      const targetRadii = resolveShapeRadii(shapePropRef.current)
+
+      engine.setState(beh.engineState, clock)
+      engine.setExpression(targetExpr, clock)
+      engine.setShape(targetRadii, clock)
+
+      // Gaze target (explicit lookAt, nod oscillation, drag follow, or cursor tracking)
+      lookUpdateTimer += dt
+      if (lookUpdateTimer >= 0.032) {
+        lookUpdateTimer = 0
+        let lookYaw = 0
+        let lookPitch = 0
+        let lookMix = 0
+
+        if (p.dragging) {
+          lookYaw = clamp((p.dx / 44) * 32, -34, 34)
+          lookPitch = clamp((-p.dy / 44) * 26, -28, 28)
+          lookMix = 0.95
+        } else if (lookAtRef.current) {
+          lookYaw = clamp(lookAtRef.current.x * 34, -36, 36)
+          lookPitch = clamp(-lookAtRef.current.y * 28, -30, 30)
+          lookMix = 0.92
+        } else if (beh.nodPitchAmp) {
+          lookYaw = 4
+          lookPitch = 6 + Math.sin(clock * Math.PI * 2 * 1.45) * beh.nodPitchAmp
+          lookMix = 0.85
+        } else if (followRef.current && p.hasCursor && svgRef.current) {
+          const rect = svgRef.current.getBoundingClientRect()
+          if (rect.width > 0 && rect.height > 0) {
+            const cx = rect.left + rect.width * 0.5
+            const cy = rect.top + rect.height * 0.45
+            const nx = clamp((p.cursorX - cx) / 260, -1, 1)
+            const ny = clamp((p.cursorY - cy) / 260, -1, 1)
+            lookYaw = nx * 30
+            lookPitch = -ny * 24
+            lookMix = 0.88
+          }
         }
-      } else {
-        engine.setLookTarget(0, 0, false, dt)
-      }
 
-      // Integrate drag elastic tether spring
-      if (p.dragging) {
-        const followRate = 1 - Math.exp(-dt * 24)
-        p.dx = lerp(p.dx, p.targetDx, followRate)
-        p.dy = lerp(p.dy, p.targetDy, followRate)
-        p.vx = (p.targetDx - p.dx) * 8
-        p.vy = (p.targetDy - p.dy) * 8
-      } else {
-        // Juicy damped harmonic snapback
-        const k = 280
-        const c = 15
-        const ax = -k * p.dx - c * p.vx
-        const ay = -k * p.dy - c * p.vy
-        p.vx += ax * dt
-        p.vy += ay * dt
-        p.dx += p.vx * dt
-        p.dy += p.vy * dt
-        if (Math.abs(p.dx) < 0.02 && Math.abs(p.vx) < 0.02) {
-          p.dx = 0
-          p.vx = 0
-        }
-        if (Math.abs(p.dy) < 0.02 && Math.abs(p.vy) < 0.02) {
-          p.dy = 0
-          p.vy = 0
+        if (lookMix > 0.01) {
+          engine.setLook({ yaw: lookYaw, pitch: lookPitch, mix: lookMix, spin: 0, wander: 0.12 }, clock)
+        } else {
+          engine.setLook(null, clock)
         }
       }
 
-      // Integrate poke vertical squash-and-bounce spring
-      {
-        const k = 320
-        const c = 14
-        const acc = -k * (p.pokeScaleY - 1) - c * p.pokeVy
-        p.pokeVy += acc * dt
-        p.pokeScaleY += p.pokeVy * dt
-        if (Math.abs(p.pokeScaleY - 1) < 0.001 && Math.abs(p.pokeVy) < 0.001) {
-          p.pokeScaleY = 1
-          p.pokeVy = 0
-        }
+      // Sample bloub BotEngine frame
+      const sampled = engine.sample(clock)
+      setFrame(sampled)
+
+      // Elastic drag spring
+      const kPos = p.dragging ? 240 : 195
+      const dPos = p.dragging ? 20 : 12.5
+      p.vx += ((p.targetDx - p.dx) * kPos - p.vx * dPos) * dt
+      p.vy += ((p.targetDy - p.dy) * kPos - p.vy * dPos) * dt
+      p.dx += p.vx * dt
+      p.dy += p.vy * dt
+
+      // Squash & stretch poke spring
+      p.pokeVy += ((1 - p.pokeScaleY) * 240 - p.pokeVy * 14) * dt
+      p.pokeScaleY += p.pokeVy * dt
+
+      // Extra bobbing / speech motion layered cleanly on the SVG rig
+      let extraY = 0
+      let extraScaleY = 1
+      if (beh.bobAmp && beh.bobFreq) {
+        extraY += Math.sin(clock * Math.PI * 2 * beh.bobFreq) * beh.bobAmp
+      }
+      if (beh.speakBounce && speakLevelRef.current > 0.05) {
+        const pulse = Math.sin(clock * 14) * 0.5 + 0.5
+        extraScaleY += pulse * 0.045 * speakLevelRef.current
+        extraY -= pulse * 3.5 * speakLevelRef.current
       }
 
-      // Sample 3D eye & pose engine
-      const frame = engine.sample(t, speakLevelRef.current)
-
-      // Total head translation
-      const headX = frame.offX + p.dx
-      const headY = frame.offY + p.dy
-
-      // Trailing ';' comma tail follows head with softer spring (~120ms elastic lag)
-      {
-        const tk = 125
-        const tc = 11.5
-        const tax = tk * (headX * 0.85 - p.tailX) - tc * p.tailVx
-        const tay = tk * (headY * 0.72 - p.tailY) - tc * p.tailVy
-        p.tailVx += tax * dt
-        p.tailVy += tay * dt
-        p.tailX += p.tailVx * dt
-        p.tailY += p.tailVy * dt
-        const desiredRot = clamp((headX - p.tailX) * 1.4 + frame.headRot * 0.65, -24, 24)
-        p.tailRot = lerp(p.tailRot, desiredRot, 1 - Math.exp(-dt * 14))
-      }
-
-      // Elastic pull stretch (volume-preserving along drag/velocity vector)
+      const headX = p.dx
+      const headY = p.dy + extraY
       const pullMag = Math.hypot(p.dx, p.dy)
-      const stretchAmt = clamp(pullMag / 145, 0, 0.22)
-      const pullAngleDeg = pullMag > 0.5 ? (Math.atan2(p.dy, p.dx) * 180) / Math.PI : 0
+      const pullAngleDeg = (Math.atan2(p.dy, p.dx) * 180) / Math.PI
+      const stretchAmt = Math.min(0.22, pullMag * 0.0042)
       const stretchX = 1 + stretchAmt
-      const stretchY = 1 / (1 + stretchAmt * 0.82)
-
-      // Poke volume preservation
-      const pokeSy = clamp(p.pokeScaleY, 0.74, 1.24)
+      const stretchY = 1 / Math.sqrt(stretchX)
+      const pokeSy = clamp(p.pokeScaleY, 0.74, 1.24) * extraScaleY
       const pokeSx = 1 / Math.sqrt(pokeSy)
 
-      const totalSx = frame.sx * pokeSx
-      const totalSy = frame.sy * pokeSy
+      // Trailing semicolon tail spring
+      const tailTargetX = headX * 0.72
+      const tailTargetY = headY * 0.72
+      p.tailVx += ((tailTargetX - p.tailX) * 135 - p.tailVx * 10.5) * dt
+      p.tailVy += ((tailTargetY - p.tailY) * 135 - p.tailVy * 10.5) * dt
+      p.tailX += p.tailVx * dt
+      p.tailY += p.tailVy * dt
+      const targetRot = clamp((headX - p.tailX) * 0.7, -20, 20)
+      p.tailRot += (targetRot - p.tailRot) * Math.min(1, dt * 11)
 
-      // Theme detection (fast attribute check)
-      const isDark =
-        typeof document !== 'undefined' &&
-        document.documentElement.getAttribute('data-theme') === 'dark'
-      const bodyColor = isDark ? '#f2f2f2' : '#141414'
-      const eyeColor = resolveEyeColor(frame.tint, isDark)
+      const wantsTail = showTailRef.current && sampled.baseBody && sampled.bodyAlpha > 0.6
+      const tailGoal = wantsTail ? 1 : 0
+      p.tailAlpha += (tailGoal - p.tailAlpha) * Math.min(1, dt * 10)
 
-      if (bodyFillRef.current) bodyFillRef.current.setAttribute('fill', bodyColor)
-      if (tailFillRef.current) tailFillRef.current.setAttribute('fill', bodyColor)
-      if (eyeBgRef.current) eyeBgRef.current.setAttribute('fill', eyeColor)
-
-      if (headRigRef.current) {
-        headRigRef.current.setAttribute(
+      if (rigRef.current) {
+        rigRef.current.setAttribute(
           'transform',
-          `translate(${headX.toFixed(2)} ${headY.toFixed(2)}) rotate(${frame.headRot.toFixed(2)}) scale(${totalSx.toFixed(3)} ${totalSy.toFixed(3)})`,
+          `translate(${headX.toFixed(2)} ${headY.toFixed(2)}) scale(${pokeSx.toFixed(3)} ${pokeSy.toFixed(3)})`,
         )
       }
 
-      if (stretchRigRef.current) {
+      if (stretchRef.current) {
         if (stretchAmt > 0.002) {
-          stretchRigRef.current.setAttribute(
+          stretchRef.current.setAttribute(
             'transform',
             `rotate(${pullAngleDeg.toFixed(1)}) scale(${stretchX.toFixed(3)} ${stretchY.toFixed(3)}) rotate(${(-pullAngleDeg).toFixed(1)})`,
           )
         } else {
-          stretchRigRef.current.removeAttribute('transform')
+          stretchRef.current.removeAttribute('transform')
         }
       }
 
-      if (tailRigRef.current) {
-        tailRigRef.current.setAttribute(
+      if (tailRef.current) {
+        tailRef.current.setAttribute(
           'transform',
-          `translate(${p.tailX.toFixed(2)} ${p.tailY.toFixed(2)}) rotate(${p.tailRot.toFixed(2)} 0 74)`,
+          `translate(${p.tailX.toFixed(2)} ${p.tailY.toFixed(2)}) rotate(${p.tailRot.toFixed(2)} 0 112)`,
         )
-      }
-
-      // Update 3D spherical eyes inside mask
-      const eyeRefs = [eye0Ref.current, eye1Ref.current]
-      for (let i = 0; i < 2; i++) {
-        const el = eyeRefs[i]
-        if (!el) continue
-        const eye = frame.eyes[i]
-        if (eye && eye.alpha > 0.01) {
-          el.setAttribute('d', eye.d)
-          el.setAttribute('transform', eye.matrix)
-          el.setAttribute('opacity', eye.alpha.toFixed(3))
-        } else {
-          el.setAttribute('opacity', '0')
-        }
-      }
-
-      // Update eye-morphed orbital spinner arcs inside mask
-      const arcRefs = [arc0Ref.current, arc1Ref.current]
-      for (let i = 0; i < 2; i++) {
-        const el = arcRefs[i]
-        if (!el) continue
-        const arc = frame.spinnerArcs[i]
-        if (arc && arc.opacity > 0.01) {
-          el.setAttribute('d', arc.d)
-          el.setAttribute('stroke-width', String(arc.strokeWidth))
-          el.setAttribute('opacity', arc.opacity.toFixed(3))
-        } else {
-          el.setAttribute('opacity', '0')
-        }
-      }
-
-      // Celebrate sparkles
-      if (sparkleGroupRef.current) {
-        if (frame.sparkle > 0.02) {
-          const pulse = 0.72 + 0.28 * Math.sin(frame.sparklePhase * 7.5)
-          sparkleGroupRef.current.setAttribute('opacity', (frame.sparkle * pulse).toFixed(3))
-          sparkleGroupRef.current.setAttribute(
-            'transform',
-            `translate(${headX.toFixed(2)} ${headY.toFixed(2)}) scale(${(0.88 + 0.14 * pulse).toFixed(3)})`,
-          )
-        } else {
-          sparkleGroupRef.current.setAttribute('opacity', '0')
-        }
+        tailRef.current.setAttribute('opacity', p.tailAlpha.toFixed(3))
       }
 
       raf = requestAnimationFrame(tick)
@@ -387,8 +405,7 @@ export function Sema({
     p.maxDistPx = 0
     p.targetDx = 0
     p.targetDy = 0
-    // Tiny tactile squish on grab
-    p.pokeVy -= 3.2
+    p.pokeVy -= 3.4
   }
 
   const handlePointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -399,14 +416,13 @@ export function Sema({
     const distPx = Math.hypot(dxPx, dyPx)
     if (distPx > p.maxDistPx) p.maxDistPx = distPx
 
-    // Convert screen pixels to SVG units with smooth asymptotic rubber-band resistance
     const rect = svgRef.current?.getBoundingClientRect()
-    const unitScale = rect && rect.width > 0 ? 196 / rect.width : 2.2
+    const unitScale = rect && rect.width > 0 ? (VB * 2) / rect.width : 4
     const rawX = dxPx * unitScale
     const rawY = dyPx * unitScale
     const rawMag = Math.hypot(rawX, rawY)
-    const maxPull = 38
-    const dampedMag = maxPull * Math.tanh(rawMag / 58)
+    const maxPull = 54
+    const dampedMag = maxPull * Math.tanh(rawMag / 80)
     const factor = rawMag > 0.001 ? dampedMag / rawMag : 0
     p.targetDx = rawX * factor
     p.targetDy = rawY * factor
@@ -427,26 +443,48 @@ export function Sema({
     }
 
     if (p.maxDistPx < 7) {
-      // Crisp poke reaction!
-      p.pokeScaleY = 0.8
-      p.pokeVy = 5.4
-      const nextMood = POKE_CYCLE[p.pokeIndex % POKE_CYCLE.length]!
+      p.pokeScaleY = 0.78
+      p.pokeVy = 5.6
+      const reaction = POKE_REACTIONS[p.pokeIndex % POKE_REACTIONS.length]!
       p.pokeIndex += 1
-      p.overrideState = nextMood
-      p.overrideUntil = performance.now() * 0.001 + 1.15
+      p.overrideReaction = reaction
+      p.overrideUntil = p.clock + reaction.dur
       onPokeRef.current?.()
     } else {
-      // Release flick bounce
-      p.pokeVy += 2.6
+      p.pokeVy += 2.8
     }
   }
+
+  const paper = isDark ? '#171717' : '#ffffff'
+  const baseInk = accentColor ?? (isDark ? '#f2f2f2' : '#141414')
+  const ink = frame.tintHex ?? baseInk
+
+  const renderDot = (dot: BotFrame['dots'][number], key: string) => {
+    const fill =
+      dot.color ?? (dot.depth === undefined ? ink : mixHex(paper, ink, dot.depth))
+    if (dot.d) {
+      return (
+        <path
+          key={key}
+          d={dot.d}
+          fill={fill}
+          opacity={dot.opacity}
+          transform={`translate(${dot.x} ${dot.y}) rotate(${dot.rot ?? 0}) scale(${R})`}
+        />
+      )
+    }
+    return <circle key={key} cx={dot.x} cy={dot.y} r={dot.r} fill={fill} opacity={dot.opacity} />
+  }
+
+  const svgHeight = showTail ? Math.round(size * 1.12) : size
+  const vbHeight = showTail ? VB * 2 + 34 : VB * 2
 
   return (
     <svg
       ref={svgRef}
       width={size}
-      height={Math.round(size * 1.16)}
-      viewBox="-98 -96 196 228"
+      height={svgHeight}
+      viewBox={`${-VB} ${-VB} ${VB * 2} ${vbHeight}`}
       className={`sema-svg${interactive ? ' is-interactive' : ''}${className ? ` ${className}` : ''}`}
       role="img"
       aria-label={ariaLabel}
@@ -459,58 +497,128 @@ export function Sema({
         <mask
           id={maskId}
           maskUnits="userSpaceOnUse"
-          x="-98"
-          y="-96"
-          width="196"
-          height="228"
+          x={-VB}
+          y={-VB}
+          width={VB * 2}
+          height={vbHeight}
         >
-          <path d={HEAD_PATH} fill="#ffffff" />
-          <path ref={eye0Ref} fill="#000000" opacity="0" />
-          <path ref={eye1Ref} fill="#000000" opacity="0" />
-          <path
-            ref={arc0Ref}
-            fill="none"
-            stroke="#000000"
-            strokeLinecap="round"
-            strokeWidth="12"
-            opacity="0"
-          />
-          <path
-            ref={arc1Ref}
-            fill="none"
-            stroke="#000000"
-            strokeLinecap="round"
-            strokeWidth="12"
-            opacity="0"
-          />
+          <path d={frame.bodyPath} fill="#ffffff" />
+          {frame.eyes.map((eye, i) => (
+            <path
+              key={i}
+              d={eye.d}
+              transform={eye.matrix}
+              opacity={eye.alpha}
+              fill="#000000"
+            />
+          ))}
+          {frame.notch && (
+            <circle cx={frame.notch.x} cy={frame.notch.y} r={frame.notch.r} fill="#000000" />
+          )}
+          {frame.checkDraw > 0.01 && (
+            <path
+              d={CHECKBOX_CUTOUT_PATH}
+              fill="none"
+              stroke="#000000"
+              strokeWidth="22"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              pathLength={100}
+              strokeDasharray="100"
+              strokeDashoffset={(1 - frame.checkDraw) * 100}
+            />
+          )}
         </mask>
+
+        {frame.arcs.map(arc => (
+          <linearGradient
+            key={arc.id}
+            id={`${uid}-${arc.id}`}
+            gradientUnits="userSpaceOnUse"
+            x1={arc.grad.x1}
+            y1={arc.grad.y1}
+            x2={arc.grad.x2}
+            y2={arc.grad.y2}
+          >
+            {arc.grad.stops.map((c, idx) => (
+              <stop
+                key={idx}
+                offset={idx / Math.max(1, arc.grad.stops.length - 1)}
+                stopColor={c}
+              />
+            ))}
+          </linearGradient>
+        ))}
       </defs>
 
-      {/* Trailing ';' comma tail on elastic follow-through spring */}
-      <g ref={tailRigRef}>
-        <path ref={tailFillRef} d={TAIL_PATH} fill="#141414" />
-      </g>
-
-      {/* Sema squircle head with masked 3D spherical eyes + eye-to-spinner morph */}
-      <g ref={headRigRef}>
-        <g ref={stretchRigRef}>
-          <path ref={eyeBgRef} d={HEAD_PATH} fill="#ffffff" />
-          <g mask={`url(#${maskId})`}>
-            <rect ref={bodyFillRef} x="-98" y="-96" width="196" height="228" fill="#141414" />
-          </g>
+      {/* Sema's trailing ';' semicolon comma tail (fades out cleanly on icon morphs) */}
+      {showTail && (
+        <g ref={tailRef}>
+          <path d={TAIL_PATH} fill={ink} />
         </g>
-      </g>
+      )}
 
-      {/* Crisp geometric sparkles for celebrate */}
-      <g ref={sparkleGroupRef} opacity="0" pointerEvents="none">
-        <path
-          d="M 56,-62 L 60,-53 L 69,-49 L 60,-45 L 56,-36 L 52,-45 L 43,-49 L 52,-53 Z"
-          fill="#29cc57"
-        />
-        <path
-          d="M -58,-52 L -55,-46 L -49,-43 L -55,-40 L -58,-34 L -61,-40 L -67,-43 L -61,-46 Z"
-          fill="#456dff"
-        />
+      {/* Main animated bloub rig + elastic drag/poke transform */}
+      <g ref={rigRef}>
+        <g ref={stretchRef}>
+          {/* Back half of 3D orbital rings / comet ribbons (occluded by body) */}
+          {frame.arcs.length > 0 && (
+            <g fill="none" strokeLinecap="round">
+              {frame.arcs.map(arc => (
+                <path
+                  key={`b-${arc.id}`}
+                  d={arc.back}
+                  stroke={`url(#${uid}-${arc.id})`}
+                  strokeWidth={arc.width}
+                  opacity={arc.opacity}
+                />
+              ))}
+            </g>
+          )}
+
+          {/* Background burst particles */}
+          {frame.dotsBehind && frame.dots.length > 0 && (
+            <g>{frame.dots.map((dot, i) => renderDot(dot, `db-${i}`))}</g>
+          )}
+
+          {/* Opaque body backing + masked silhouette (so orbital rings don't bleed through cutout eyes) */}
+          <g opacity={frame.bodyAlpha}>
+            <path d={frame.bodyPath} fill={paper} />
+            <g mask={`url(#${maskId})`}>
+              <rect x={-VB} y={-VB} width={VB * 2} height={vbHeight} fill={ink} />
+            </g>
+          </g>
+
+          {/* Foreground dots (thinking dots, exclamation dot / italic teardrop) */}
+          {!frame.dotsBehind && frame.dots.length > 0 && (
+            <g>{frame.dots.map((dot, i) => renderDot(dot, `df-${i}`))}</g>
+          )}
+
+          {/* Popped blue notification badge */}
+          {frame.notif && (
+            <circle
+              cx={frame.notif.x}
+              cy={frame.notif.y}
+              r={frame.notif.r}
+              fill={NOTIF_BLUE}
+            />
+          )}
+
+          {/* Front half of 3D orbital rings / comet ribbons */}
+          {frame.arcs.length > 0 && (
+            <g fill="none" strokeLinecap="round">
+              {frame.arcs.map(arc => (
+                <path
+                  key={`f-${arc.id}`}
+                  d={arc.front}
+                  stroke={`url(#${uid}-${arc.id})`}
+                  strokeWidth={arc.width}
+                  opacity={arc.opacity}
+                />
+              ))}
+            </g>
+          )}
+        </g>
       </g>
     </svg>
   )

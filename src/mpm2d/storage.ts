@@ -1,3 +1,5 @@
+import type { SemaExpressionName, SemaShapeName } from './mascot/bloub'
+
 const PREFS_KEY = 'syntax.mpm2d.prefs.v1'
 const COOKIE_NAME = 'syntax_mpm2d_prefs'
 
@@ -6,6 +8,8 @@ export type SyntaxPrefs = {
   showCatchupPaths: boolean
   onboarded: boolean
   voiceOn: boolean
+  semaShape: SemaShapeName
+  semaExpression: SemaExpressionName
 }
 
 const DEFAULT_PREFS: SyntaxPrefs = {
@@ -13,6 +17,8 @@ const DEFAULT_PREFS: SyntaxPrefs = {
   showCatchupPaths: false,
   onboarded: false,
   voiceOn: true,
+  semaShape: 'squircle',
+  semaExpression: 'neutral',
 }
 
 function readCookie(name: string): string | null {
@@ -52,6 +58,8 @@ export function loadPrefs(): SyntaxPrefs {
       showCatchupPaths: Boolean(parsed.showCatchupPaths ?? DEFAULT_PREFS.showCatchupPaths),
       onboarded: Boolean(parsed.onboarded ?? DEFAULT_PREFS.onboarded),
       voiceOn: parsed.voiceOn === undefined ? DEFAULT_PREFS.voiceOn : Boolean(parsed.voiceOn),
+      semaShape: parsed.semaShape ?? DEFAULT_PREFS.semaShape,
+      semaExpression: parsed.semaExpression ?? DEFAULT_PREFS.semaExpression,
     }
   } catch {
     return { ...DEFAULT_PREFS }

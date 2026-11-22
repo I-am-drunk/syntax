@@ -1,5 +1,13 @@
+import { useState } from 'react'
 import { Dialog } from '@base-ui/react/dialog'
 import { Segmented, Toggle } from '../../settings/Controls'
+import { Sema } from '../mascot/Sema'
+import {
+  SEMA_ANIMATIONS,
+  SEMA_EXPRESSIONS,
+  SEMA_SHAPES,
+  type StateId,
+} from '../mascot/bloub'
 import type { SyntaxPrefs } from '../storage'
 
 export function SyntaxSettingsModal({
@@ -23,11 +31,16 @@ export function SyntaxSettingsModal({
   onPatchPrefs: (patch: Partial<SyntaxPrefs>) => void
   onReplayWelcome: () => void
 }) {
+  const [previewAnim, setPreviewAnim] = useState<StateId>('idle')
+
   return (
     <Dialog.Root
       open={open}
       onOpenChange={v => {
-        if (!v) onClose()
+        if (!v) {
+          setPreviewAnim('idle')
+          onClose()
+        }
       }}
     >
       <Dialog.Portal>
@@ -86,7 +99,7 @@ export function SyntaxSettingsModal({
                   <div className="preference-row">
                     <div className="syntax-pref-copy">
                       <p>Show catch-up paths</p>
-                      <span>Display optional Grade 9/10 prerequisite tracks before lessons</span>
+                      <span>Display optional Grade 9/10 prerequisite chapters before core lessons</span>
                     </div>
                     <Toggle
                       label="Show catch-up paths"
@@ -99,8 +112,83 @@ export function SyntaxSettingsModal({
 
               <hr />
 
+              <section aria-labelledby="pref-sema">
+                <h2 id="pref-sema">Sema Companion</h2>
+                <div className="sema-studio-card">
+                  <div className="sema-studio-stage">
+                    <Sema
+                      state={previewAnim}
+                      expression={prefs.semaExpression}
+                      shape={prefs.semaShape}
+                      size={104}
+                      interactive
+                      ariaLabel="Sema live studio preview"
+                    />
+                    <span className="sema-studio-hint">
+                      Poke or drag Sema · Active: <strong>{previewAnim}</strong>
+                    </span>
+                  </div>
+
+                  <div className="sema-studio-group">
+                    <span className="sema-studio-label">Shape ({SEMA_SHAPES.length})</span>
+                    <div className="sema-studio-chips">
+                      {SEMA_SHAPES.map(sh => (
+                        <button
+                          key={sh.id}
+                          type="button"
+                          className={`sema-chip${prefs.semaShape === sh.id ? ' is-active' : ''}`}
+                          onClick={() => {
+                            setPreviewAnim('idle')
+                            onPatchPrefs({ semaShape: sh.id })
+                          }}
+                        >
+                          {sh.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="sema-studio-group">
+                    <span className="sema-studio-label">Expression ({SEMA_EXPRESSIONS.length})</span>
+                    <div className="sema-studio-chips">
+                      {SEMA_EXPRESSIONS.map(ex => (
+                        <button
+                          key={ex.id}
+                          type="button"
+                          className={`sema-chip${prefs.semaExpression === ex.id ? ' is-active' : ''}`}
+                          onClick={() => {
+                            setPreviewAnim('idle')
+                            onPatchPrefs({ semaExpression: ex.id })
+                          }}
+                        >
+                          {ex.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="sema-studio-group">
+                    <span className="sema-studio-label">Test Animation ({SEMA_ANIMATIONS.length})</span>
+                    <div className="sema-studio-chips">
+                      {SEMA_ANIMATIONS.map(an => (
+                        <button
+                          key={an.id}
+                          type="button"
+                          className={`sema-chip is-anim${previewAnim === an.id ? ' is-active' : ''}`}
+                          onClick={() => setPreviewAnim(an.id)}
+                        >
+                          {an.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <hr />
+
               <section aria-labelledby="pref-sounds">
-                <h2 id="pref-sounds">Sounds &amp; Sema</h2>
+                <h2 id="pref-sounds">Sounds &amp; Narration</h2>
                 <div className="preference-rows">
                   <div className="preference-row">
                     <div className="syntax-pref-copy">

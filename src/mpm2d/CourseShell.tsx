@@ -496,6 +496,8 @@ export function CourseShell() {
           soundOn={soundOn}
           drawMode={prefs.drawMode}
           voiceOn={prefs.voiceOn}
+          semaShape={prefs.semaShape}
+          semaExpression={prefs.semaExpression}
           formulasOpen={formulasOpen}
           returnToLessonLabel={returnLessonObj?.shortTitle}
           onClose={closeLesson}
@@ -541,6 +543,9 @@ export function CourseShell() {
           <TopBarSema
             enableRoaming={prefs.onboarded && !formulasOpen && !settingsOpen}
             scrollContainerRef={outlineScrollRef}
+            shape={prefs.semaShape}
+            expression={prefs.semaExpression}
+            hasNotification={validMissedIds.length > 0}
             onPoke={() => emitSound('lightweight-choice')}
           />
         </div>
@@ -882,6 +887,7 @@ export function CourseShell() {
         open={!prefs.onboarded}
         theme={theme}
         drawMode={prefs.drawMode}
+        semaShape={prefs.semaShape}
         onSelectTheme={setTheme}
         onSelectDrawMode={next => setPrefs(p => ({ ...p, drawMode: next }))}
         onFinish={() => setPrefs(p => ({ ...p, onboarded: true }))}

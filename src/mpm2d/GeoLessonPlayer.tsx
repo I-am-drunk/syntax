@@ -18,6 +18,7 @@ import { buildWorksheetSpec } from './pen/worksheetModel'
 import { CheckmarkGate } from './checkmark/CheckmarkGate'
 import { getWalkthroughForPage } from './walkthrough/walkthroughData'
 import { WalkthroughContent, WalkthroughModal } from './walkthrough/WalkthroughPlayer'
+import { Sema, type SemaExpressionName, type SemaShapeName, type SemaState } from './mascot/Sema'
 
 const PenCanvasWorkspace = lazy(() => import('./pen/PenCanvasWorkspace'))
 
@@ -189,6 +190,8 @@ export function GeoLessonPlayer({
   soundOn = true,
   drawMode = false,
   voiceOn = true,
+  semaShape = 'squircle',
+  semaExpression = 'neutral',
   formulasOpen,
   returnToLessonLabel,
   onClose,
@@ -207,6 +210,8 @@ export function GeoLessonPlayer({
   soundOn?: boolean
   drawMode?: boolean
   voiceOn?: boolean
+  semaShape?: SemaShapeName
+  semaExpression?: SemaExpressionName
   formulasOpen: boolean
   returnToLessonLabel?: string
   onClose: () => void
@@ -724,6 +729,31 @@ export function GeoLessonPlayer({
     ? ({ '--pen-split': `${Math.round(splitRatio * 1000) / 10}%` } as React.CSSProperties)
     : undefined
 
+  const lessonSema: { state: SemaState; expression: SemaExpressionName } = (() => {
+    if (state.evaluation === 'correct') {
+      return { state: 'checkbox', expression: 'proud' }
+    }
+    if (state.evaluation === 'incorrect-retry') {
+      return state.attempts >= 2
+        ? { state: 'notify', expression: 'confused' }
+        : { state: 'idle', expression: 'confused' }
+    }
+    if (state.evaluation === 'incorrect') {
+      return { state: 'idle', expression: 'sad' }
+    }
+    if (
+      isProblem &&
+      state.evaluation === 'unsubmitted' &&
+      (state.mathValue.trim().length > 0 || state.subInputs.some(v => v.trim().length > 0))
+    ) {
+      return { state: 'thinking', expression: 'attentive' }
+    }
+    if (page.kind === 'worked' || page.kind === 'explore') {
+      return { state: 'idle', expression: 'curious' }
+    }
+    return { state: 'idle', expression: semaExpression }
+  })()
+
   return (
     <main
       className="lesson-shell"
@@ -798,6 +828,17 @@ export function GeoLessonPlayer({
         </nav>
 
         <div className="lesson-nav-actions">
+          <div className="lesson-sema-buddy">
+            <Sema
+              size={30}
+              interactive
+              shape={semaShape}
+              state={lessonSema.state}
+              expression={lessonSema.expression}
+              ariaLabel="Sema lesson companion"
+              onPoke={() => onSound?.('lightweight-choice')}
+            />
+          </div>
           <button
             type="button"
             className="lesson-nav-icon-btn"
@@ -883,6 +924,7 @@ export function GeoLessonPlayer({
                   soundOn={soundOn}
                   voiceOn={voiceOn}
                   drawMode={drawMode}
+                  semaShape={semaShape}
                   inline
                   onToggleVoice={() => onToggleVoice?.()}
                   onClose={() => setWalkthroughOpen(false)}
@@ -1436,6 +1478,7 @@ export function GeoLessonPlayer({
           soundOn={soundOn}
           voiceOn={voiceOn}
           drawMode={drawMode}
+          semaShape={semaShape}
           onToggleVoice={() => onToggleVoice?.()}
           onClose={() => setWalkthroughOpen(false)}
           onLaunchRescue={rescueId => {

@@ -1,20 +1,44 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Sema, type SemaLookPoint, type SemaState } from './Sema'
+import {
+  Sema,
+  type SemaExpressionName,
+  type SemaLookPoint,
+  type SemaShapeName,
+  type SemaState,
+} from './Sema'
 
 type RoamPhase = 'docked' | 'roaming' | 'returning'
 
+const SLEEPY_AFTER_MS = 25_000
 const IDLE_TRIGGER_MS = 45_000
 const HOVER_DELAY_MS = 380
 const SEMA_SIZE = 34
-const SEMA_HEIGHT = Math.round(SEMA_SIZE * 1.16)
+const SEMA_HEIGHT = Math.round(SEMA_SIZE * 1.12)
+
+const BOUNCE_REACTIONS: { state: SemaState; expression: SemaExpressionName }[] = [
+  { state: 'idle', expression: 'surprised' },
+  { state: 'wink', expression: 'happy' },
+  { state: 'idle', expression: 'laughing' },
+  { state: 'swirl', expression: 'excited' },
+  { state: 'wide', expression: 'curious' },
+  { state: 'orbit', expression: 'proud' },
+  { state: 'checkbox', expression: 'happy' },
+  { state: 'play', expression: 'excited' },
+]
 
 export function TopBarSema({
   enableRoaming = true,
+  shape = 'squircle',
+  expression = 'neutral',
+  hasNotification = false,
   scrollContainerRef,
   onPoke,
 }: {
   enableRoaming?: boolean
+  shape?: SemaShapeName
+  expression?: SemaExpressionName
+  hasNotification?: boolean
   scrollContainerRef?: React.RefObject<HTMLElement | null>
   onPoke?: () => void
 }) {
@@ -23,7 +47,9 @@ export function TopBarSema({
 
   const [phase, setPhase] = useState<RoamPhase>('docked')
   const [hoverBubble, setHoverBubble] = useState(false)
+  const [isSleepy, setIsSleepy] = useState(false)
   const [roamState, setRoamState] = useState<SemaState>('idle')
+  const [roamExpr, setRoamExpr] = useState<SemaExpressionName>('happy')
   const [roamLook, setRoamLook] = useState<SemaLookPoint | null>(null)
 
   const phaseRef = useRef<RoamPhase>('docked')
@@ -41,6 +67,7 @@ export function TopBarSema({
   }
 
   const handlePointerEnter = () => {
+    setIsSleepy(false)
     window.clearTimeout(hoverTimerRef.current)
     hoverTimerRef.current = window.setTimeout(() => {
       setHoverBubble(true)
@@ -61,18 +88,20 @@ export function TopBarSema({
       vy: 78 + Math.random() * 22,
     }
     clearHover()
-    setRoamState('bobbing')
+    setIsSleepy(false)
+    setRoamState('idle')
+    setRoamExpr('excited')
     setPhase('roaming')
   }
 
   const recallToDock = () => {
     if (phaseRef.current !== 'roaming') return
     clearHover()
-    setRoamState('wink')
+    setRoamState('swirl')
+    setRoamExpr('happy')
     setPhase('returning')
   }
 
-  // If roaming is disabled (e.g., modal/lesson opens), dock immediately
   useEffect(() => {
     if (!enableRoaming && phaseRef.current !== 'docked') {
       setPhase('docked')
@@ -81,17 +110,18 @@ export function TopBarSema({
     }
   }, [enableRoaming])
 
-  // Global idle & scroll/click tracker
   useEffect(() => {
     if (!enableRoaming) return
     lastActivityRef.current = Date.now()
 
     const bumpActivity = () => {
       lastActivityRef.current = Date.now()
+      setIsSleepy(false)
     }
 
     const onScrollOrWheel = () => {
       lastActivityRef.current = Date.now()
+      setIsSleepy(false)
       if (phaseRef.current === 'roaming') {
         recallToDock()
       }
@@ -99,6 +129,7 @@ export function TopBarSema({
 
     const onPointerDown = (e: PointerEvent) => {
       lastActivityRef.current = Date.now()
+      setIsSleepy(false)
       if (phaseRef.current === 'roaming') {
         const host = roamHostRef.current
         if (!host || !host.contains(e.target as Node)) {
@@ -117,8 +148,11 @@ export function TopBarSema({
     const idleCheck = window.setInterval(() => {
       if (phaseRef.current !== 'docked') return
       if (document.hidden) return
-      if (Date.now() - lastActivityRef.current >= IDLE_TRIGGER_MS) {
+      const idleMs = Date.now() - lastActivityRef.current
+      if (idleMs >= IDLE_TRIGGER_MS) {
         launchRoaming()
+      } else if (idleMs >= SLEEPY_AFTER_MS) {
+        setIsSleepy(true)
       }
     }, 1000)
 
@@ -132,14 +166,11 @@ export function TopBarSema({
     }
   }, [enableRoaming, scrollContainerRef])
 
-  // Roaming / returning physics loop (DVD Pong bounce + spring return to top bar)
   useEffect(() => {
     if (phase === 'docked') return
     let raf = 0
     let lastTs = performance.now()
     let lookUpdateAcc = 0
-
-    const bounceMoods: SemaState[] = ['wink', 'celebrate', 'nudge', 'bobbing']
     let bounceIdx = 0
 
     const step = (now: number) => {
@@ -155,7 +186,7 @@ export function TopBarSema({
 
         const minX = 16
         const maxX = Math.max(minX + 10, window.innerWidth - SEMA_SIZE - 16)
-        const minY = 72 // Keep cleanly below top bar
+        const minY = 72
         const maxY = Math.max(minY + 10, window.innerHeight - SEMA_HEIGHT - 16)
 
         let bounced = false
@@ -180,13 +211,17 @@ export function TopBarSema({
         }
 
         if (bounced) {
-          const mood = bounceMoods[bounceIdx % bounceMoods.length]!
+          const r = BOUNCE_REACTIONS[bounceIdx % BOUNCE_REACTIONS.length]!
           bounceIdx += 1
-          setRoamState(mood)
+          setRoamState(r.state)
+          setRoamExpr(r.expression)
           window.clearTimeout(moodTimerRef.current)
           moodTimerRef.current = window.setTimeout(() => {
-            if (phaseRef.current === 'roaming') setRoamState('bobbing')
-          }, 720)
+            if (phaseRef.current === 'roaming') {
+              setRoamState('idle')
+              setRoamExpr('happy')
+            }
+          }, 950)
         }
 
         lookUpdateAcc += dt
@@ -242,6 +277,14 @@ export function TopBarSema({
     }
   }, [])
 
+  const dockedState: SemaState =
+    !hoverBubble && !isSleepy && hasNotification ? 'notify' : 'idle'
+  const dockedExpression: SemaExpressionName = hoverBubble
+    ? 'happy'
+    : isSleepy
+      ? 'sleepy'
+      : expression
+
   return (
     <>
       <div
@@ -256,10 +299,12 @@ export function TopBarSema({
         {phase === 'docked' ? (
           <div className="sema-bubble-anchor">
             <Sema
-              state="idle"
+              state={dockedState}
+              expression={dockedExpression}
+              shape={shape}
               size={SEMA_SIZE}
               interactive
-              ariaLabel="Sema — hover to say hi, drag to stretch, double-click to roam"
+              ariaLabel="Sema — hover to say hi, poke for expressions, drag to stretch, double-click to roam"
               onPoke={() => {
                 clearHover()
                 onPoke?.()
@@ -288,7 +333,9 @@ export function TopBarSema({
             <div className="sema-bubble-anchor">
               <Sema
                 state={roamState}
-                size={SEMA_SIZE + 6}
+                expression={roamExpr}
+                shape={shape}
+                size={SEMA_SIZE + 8}
                 interactive
                 followCursor={false}
                 lookAt={roamLook}

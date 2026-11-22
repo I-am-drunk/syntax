@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Dialog } from '@base-ui/react/dialog'
-import { Sema } from '../mascot/Sema'
+import { Sema, type SemaExpressionName, type SemaShapeName, type SemaState } from '../mascot/Sema'
 import { assetUrl } from '../assetUrl'
 import { CATCHUP_BY_ID } from '../data/catchupCourses'
 import { WalkthroughStage } from './WalkthroughStage'
@@ -46,6 +46,7 @@ export function WalkthroughContent({
   soundOn,
   voiceOn,
   drawMode = false,
+  semaShape = 'squircle',
   inline = false,
   onToggleVoice,
   onClose,
@@ -55,6 +56,7 @@ export function WalkthroughContent({
   soundOn: boolean
   voiceOn: boolean
   drawMode?: boolean
+  semaShape?: SemaShapeName
   inline?: boolean
   onToggleVoice: () => void
   onClose: () => void
@@ -224,13 +226,23 @@ export function WalkthroughContent({
     setScrubbing(false)
   }
 
-  const semaActiveState = showRescue
-    ? 'nudge'
+  const isFinalBeatDone = !playing && progress >= 0.99 && beatIndex === lens.beats.length - 1
+  const semaActiveState: SemaState = showRescue
+    ? 'notify'
+    : isFinalBeatDone
+      ? 'checkbox'
+      : !playing && progress >= 0.99
+        ? 'nodding'
+        : !playing
+          ? 'idle'
+          : cue.semaState
+  const semaActiveExpression: SemaExpressionName | undefined = showRescue
+    ? 'curious'
     : !playing && progress >= 0.99
-      ? 'nodding'
+      ? 'proud'
       : !playing
-        ? 'idle'
-        : cue.semaState
+        ? 'attentive'
+        : undefined
 
   return (
     <div className={`wt-shell${inline ? ' is-inline' : ''}`}>
@@ -371,6 +383,8 @@ export function WalkthroughContent({
           >
             <Sema
               state={semaActiveState}
+              expression={semaActiveExpression}
+              shape={semaShape}
               size={52}
               interactive
               followCursor={false}
@@ -540,6 +554,7 @@ export function WalkthroughModal({
   soundOn,
   voiceOn,
   drawMode = false,
+  semaShape = 'squircle',
   onToggleVoice,
   onClose,
   onLaunchRescue,
@@ -549,6 +564,7 @@ export function WalkthroughModal({
   soundOn: boolean
   voiceOn: boolean
   drawMode?: boolean
+  semaShape?: SemaShapeName
   onToggleVoice: () => void
   onClose: () => void
   onLaunchRescue: (rescueLessonId: string) => void
@@ -570,6 +586,7 @@ export function WalkthroughModal({
               soundOn={soundOn}
               voiceOn={voiceOn}
               drawMode={drawMode}
+              semaShape={semaShape}
               onToggleVoice={onToggleVoice}
               onClose={onClose}
               onLaunchRescue={onLaunchRescue}
