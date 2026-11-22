@@ -67,6 +67,8 @@ export function TopBarSema({
   const [roamState, setRoamState] = useState<SemaState>('idle')
   const [roamExpr, setRoamExpr] = useState<SemaExpressionName>('happy')
   const [roamLook, setRoamLook] = useState<SemaLookPoint | null>(null)
+  const [roamBubblePlacement, setRoamBubblePlacement] = useState<'top' | 'bottom'>('top')
+  const roamBubblePlacementRef = useRef<'top' | 'bottom'>('top')
   const [scrolling, setScrolling] = useState(false)
   const scrollingRef = useRef(false)
 
@@ -74,6 +76,7 @@ export function TopBarSema({
   const moodTimerRef = useRef<number>(0)
   const scrollEndTimerRef = useRef<number>(0)
   const lastActivityRef = useRef<number>(Date.now())
+  const pokeCountRef = useRef<number>(0)
 
   // Center coordinates (cx, cy) of Sema in viewport space
   const posRef = useRef({ x: 140, y: 32, vx: 132, vy: 94 })
@@ -227,6 +230,13 @@ export function TopBarSema({
       host.style.transform = `translate3d(${tx.toFixed(1)}px, ${ty.toFixed(1)}px, 0)`
     }
 
+    const syncBubblePlacement = (cy: number) => {
+      const next = cy < 142 ? 'bottom' : 'top'
+      if (next === roamBubblePlacementRef.current) return
+      roamBubblePlacementRef.current = next
+      setRoamBubblePlacement(next)
+    }
+
     const step = (now: number) => {
       const dt = Math.min(0.05, Math.max(0.001, (now - lastTs) * 0.001))
       lastTs = now
@@ -286,6 +296,7 @@ export function TopBarSema({
           setRoamLook({ x: (p.vx / mag) * 0.72, y: (p.vy / mag) * 0.62 })
         }
 
+        syncBubblePlacement(p.y)
         applyHostTransform(p.x, p.y)
       } else if (phaseRef.current === 'returning') {
         const rect = dockRef.current?.getBoundingClientRect()
@@ -296,6 +307,7 @@ export function TopBarSema({
         p.x += (tx - p.x) * k
         p.y += (ty - p.y) * k
 
+        syncBubblePlacement(p.y)
         applyHostTransform(p.x, p.y)
 
         if (Math.hypot(tx - p.x, ty - p.y) < 2.4) {
@@ -395,7 +407,12 @@ export function TopBarSema({
                 onPoke={() => {
                   clearHover()
                   onPoke?.()
-                  if (enableRoaming && Math.floor(Math.random() * 16) === 0) {
+                  pokeCountRef.current += 1
+                  if (
+                    enableRoaming &&
+                    pokeCountRef.current > 2 &&
+                    Math.floor(Math.random() * 6) === 0
+                  ) {
                     launchRoaming()
                   }
                 }}
@@ -473,7 +490,7 @@ export function TopBarSema({
                   ariaLabel="Roaming Sema"
                 />
                 {hoverBubble && (
-                  <span className="sema-speech-bubble" data-placement="top" aria-hidden="true">
+                  <span className="sema-speech-bubble" data-placement={roamBubblePlacement} aria-hidden="true">
                     Catch me!
                   </span>
                 )}

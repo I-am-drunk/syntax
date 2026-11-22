@@ -4,22 +4,39 @@ import { Sema, type SemaExpressionName, type SemaShapeName, type SemaState } fro
 import { assetUrl } from '../assetUrl'
 import { CATCHUP_BY_ID } from '../data/catchupCourses'
 import { WalkthroughStage } from './WalkthroughStage'
-import type { WalkthroughCue, WalkthroughSpec } from './walkthroughData'
+import { interpolateSemaCues } from './animationEngine'
+import type { WalkthroughSpec } from './walkthroughData'
+import { WinBoxWindow } from '../components/WinBoxWindow'
 import './walkthrough.css'
 
-function activeCueForProgress(cues: WalkthroughCue[], progress: number): WalkthroughCue {
-  let chosen = cues[0] ?? {
-    at: 0,
-    semaX: 18,
-    semaY: 22,
-    lookX: 0.7,
-    lookY: 0.4,
-    semaState: 'speaking' as const,
-  }
-  for (const cue of cues) {
-    if (progress >= cue.at) chosen = cue
-  }
-  return chosen
+function normalizeMathForSpeech(raw: string): string {
+  return raw
+    .replace(/m⊥/g, 'm perpendicular')
+    .replace(/⊥/g, ' perpendicular ')
+    .replace(/∥/g, ' parallel ')
+    .replace(/△/g, 'triangle ')
+    .replace(/√(\d+)/g, 'square root of $1')
+    .replace(/√/g, 'square root of ')
+    .replace(/−/g, ' minus ')
+    .replace(/→/g, ', which gives ')
+    .replace(/≈/g, ' approximately ')
+    .replace(/Δx/g, 'delta x')
+    .replace(/Δy/g, 'delta y')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function pickBestSpeechVoice(): SpeechSynthesisVoice | null {
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return null
+  const voices = window.speechSynthesis.getVoices()
+  if (!voices.length) return null
+  return (
+    voices.find(v => /Andrew|Guy|Aria|Samantha|Google US English/i.test(v.name) && /en/i.test(v.lang)) ??
+    voices.find(v => /en-US/i.test(v.lang)) ??
+    voices.find(v => /^en/i.test(v.lang)) ??
+    voices[0] ??
+    null
+  )
 }
 
 const stageVariants = {
@@ -78,11 +95,11 @@ export function WalkthroughContent({
   const trackRef = useRef<HTMLDivElement>(null)
   const progressRef = useRef(0)
   progressRef.current = progress
-  const prevSemaXRef = useRef(18)
 
   const lens = spec.lenses[lensIndex] ?? spec.lenses[0]!
   const beat = lens.beats[beatIndex] ?? lens.beats[0]!
-  const hasVoiceClip = Boolean(beat.audioPath)
+  const hasSpeechSupport = typeof window !== 'undefined' && 'speechSynthesis' in window
+  const hasVoiceClip = Boolean(beat.audioPath) || hasSpeechSupport
   const voiceActive = hasVoiceClip && soundOn && voiceOn
 
   useEffect(() => {
@@ -99,6 +116,18 @@ export function WalkthroughContent({
     let lastTs = performance.now()
     let audio: HTMLAudioElement | null = null
     let usingAudio = false
+    let usingSpeech = false
+
+    const stopSpeech = () => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        try {
+          window.speechSynthesis.cancel()
+        } catch {
+          // ignore
+        }
+      }
+      usingSpeech = false
+    }
 
     const stopAudio = () => {
       if (audio) {
@@ -107,6 +136,25 @@ export function WalkthroughContent({
         audio = null
       }
       audioRef.current = null
+      stopSpeech()
+    }
+
+    const startSpeechFallback = () => {
+      if (!voiceActive || !playing || scrubbing || !hasSpeechSupport) return
+      if (progressRef.current > 0.88) return
+      try {
+        window.speechSynthesis.cancel()
+        const text = normalizeMathForSpeech(`${beat.title}. ${beat.caption}`)
+        const utt = new SpeechSynthesisUtterance(text)
+        const v = pickBestSpeechVoice()
+        if (v) utt.voice = v
+        utt.rate = 1.0
+        utt.pitch = 1.02
+        usingSpeech = true
+        window.speechSynthesis.speak(utt)
+      } catch {
+        usingSpeech = false
+      }
     }
 
     if (voiceActive && beat.audioPath) {
@@ -118,12 +166,19 @@ export function WalkthroughContent({
           audio.currentTime = progressRef.current * audio.duration
         }
       }, { once: true })
+      audio.addEventListener('error', () => {
+        usingAudio = false
+        startSpeechFallback()
+      }, { once: true })
       if (playing && !scrubbing) {
         usingAudio = true
         audio.play().catch(() => {
           usingAudio = false
+          startSpeechFallback()
         })
       }
+    } else if (voiceActive && !beat.audioPath && playing && !scrubbing) {
+      startSpeechFallback()
     }
 
     const tick = (now: number) => {
@@ -144,6 +199,7 @@ export function WalkthroughContent({
           if (next >= 1) {
             setProgress(1)
             setPlaying(false)
+            if (usingSpeech) stopSpeech()
             return
           }
           setProgress(next)
@@ -157,17 +213,11 @@ export function WalkthroughContent({
       cancelAnimationFrame(raf)
       stopAudio()
     }
-  }, [beat.id, beat.audioPath, beat.durationSec, playing, scrubbing, voiceActive])
+  }, [beat.id, beat.audioPath, beat.title, beat.caption, beat.durationSec, playing, scrubbing, voiceActive, hasSpeechSupport])
 
-  const cue = useMemo(() => activeCueForProgress(beat.cues, progress), [beat.cues, progress])
+  const cue = useMemo(() => interpolateSemaCues(beat.cues, progress), [beat.cues, progress])
   const rescueLesson = CATCHUP_BY_ID.get(spec.rescueLessonId)
-
-  // Compute subtle flight banking tilt as Sema glides horizontally across the stage
-  const bankTilt = useMemo(() => {
-    const dx = cue.semaX - prevSemaXRef.current
-    prevSemaXRef.current = cue.semaX
-    return Math.max(-13, Math.min(13, dx * 0.24))
-  }, [cue.semaX])
+  const bankTilt = cue.bankTilt
 
   const selectBeat = (nextIdx: number) => {
     const clamped = Math.max(0, Math.min(lens.beats.length - 1, nextIdx))
@@ -254,27 +304,20 @@ export function WalkthroughContent({
       ? 'proud'
       : !playing
         ? 'attentive'
-        : undefined
+        : cue.expression
 
   return (
     <div className={`wt-shell${inline ? ' is-inline' : ''}${floating ? ' is-floating' : ''}${playing ? ' is-playing' : ''}`}>
-      <header
-        className={`wt-header${onDragStart ? " is-draggable" : ""}`}
-        onPointerDown={onDragStart}
-      >
+      <header className="wt-header">
         <div className="wt-header-left">
-          {onDragStart && (
-            <span className="wt-drag-grip" aria-hidden="true" title="Drag window anywhere">
-              ⋮⋮
-            </span>
-          )}
-          <h2 className="wt-title">
-            <span className="wt-eyebrow">Guided walkthrough · </span>
-            {spec.title}
+          <h2 className="wt-title" title={`Guided walkthrough · ${spec.title}`}>
+            <span className="wt-eyebrow">Guided walkthrough</span>
+            <span className="wt-eyebrow-sep" aria-hidden="true">·</span>
+            <span className="wt-title-main">{spec.title}</span>
           </h2>
         </div>
 
-        <div className="wt-header-right" onPointerDown={e => e.stopPropagation()}>
+        <div className="wt-header-right">
           {spec.lenses.length > 1 && (
             <div className="wt-lens-tabs" role="tablist" aria-label="Walkthrough lens">
               {spec.lenses.map((l, idx) => {
@@ -288,13 +331,6 @@ export function WalkthroughContent({
                     className={`wt-lens-tab${active ? ' is-active' : ''}`}
                     onClick={() => switchLens(idx)}
                   >
-                    {active && (
-                      <motion.span
-                        layoutId="wt-lens-pill"
-                        className="wt-lens-pill"
-                        transition={{ type: 'spring', stiffness: 460, damping: 36 }}
-                      />
-                    )}
                     <span className="wt-lens-tab-label">{l.label}</span>
                   </button>
                 )
@@ -366,16 +402,18 @@ export function WalkthroughContent({
             </button>
           )}
 
-          <button
-            type="button"
-            className="wt-icon-btn"
-            aria-label="Close walkthrough"
-            onClick={onClose}
-          >
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round">
-              <path d="M18 6 6 18M6 6l12 12" />
-            </svg>
-          </button>
+          {!floating && (
+            <button
+              type="button"
+              className="wt-icon-btn"
+              aria-label="Close walkthrough"
+              onClick={onClose}
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
+          )}
         </div>
       </header>
 
@@ -433,41 +471,38 @@ export function WalkthroughContent({
           </motion.div>
         </AnimatePresence>
 
-        {/* Flying Sema with velocity bank, breathing hover, and soft floor halo */}
-        <motion.div
+        {/* Reactive Flying Sema continuously interpolated along keyframes + live speech callout */}
+        <div
           className="wt-flying-sema"
-          animate={{
-            left: `${cue.semaX}%`,
-            top: `${cue.semaY}%`,
-            rotate: [bankTilt, bankTilt * 0.35, 0],
-            scale: playing ? 1 : 0.96,
-          }}
-          transition={{
-            left: { type: 'spring', stiffness: 165, damping: 20, mass: 0.78 },
-            top: { type: 'spring', stiffness: 165, damping: 20, mass: 0.78 },
-            rotate: { duration: 0.55, ease: 'easeOut' },
-            scale: { duration: 0.2 },
+          style={{
+            left: `${cue.semaX.toFixed(2)}%`,
+            top: `${cue.semaY.toFixed(2)}%`,
+            transform: `translate(-50%, -50%) rotate(${bankTilt.toFixed(2)}deg) scale(${playing ? 1 : 0.95})`,
           }}
         >
-          <motion.div
-            className="wt-sema-float-bob"
-            animate={playing ? { y: [0, -4, 0] } : { y: 0 }}
-            transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-          >
+          {cue.tag && (
+            <span
+              key={`${beat.id}-tag-${cue.cueIndex}`}
+              className={`wt-sema-tag${cue.semaX > 55 ? ' is-left' : ' is-right'}`}
+            >
+              {cue.tag}
+            </span>
+          )}
+          <div className={`wt-sema-float-bob${playing ? ' is-bobbing' : ''}`}>
             <Sema
               state={semaActiveState}
               expression={semaActiveExpression}
               shape={semaShape}
-              size={52}
+              size={54}
               interactive
               followCursor={false}
               lookAt={{ x: cue.lookX, y: cue.lookY }}
-              speakLevel={playing ? 0.78 : 0}
+              speakLevel={playing ? 0.85 : 0}
               ariaLabel="Sema guiding this step"
             />
             <span className="wt-sema-halo" aria-hidden="true" />
-          </motion.div>
-        </motion.div>
+          </div>
+        </div>
       </div>
 
       {/* Sleek Brilliant Caption & Custom Interactive Segmented Timeline */}
@@ -639,46 +674,18 @@ export function WalkthroughModal({
   onClose: () => void
   onLaunchRescue: (rescueLessonId: string) => void
 }) {
-  const [offset, setOffset] = useState({ x: 0, y: 0 })
-  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null)
-
-  const handleDragStart = (e: React.PointerEvent) => {
-    if (e.button !== 0) return
-    e.preventDefault()
-    dragRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      origX: offset.x,
-      origY: offset.y,
-    }
-    const onMove = (ev: PointerEvent) => {
-      const d = dragRef.current
-      if (!d) return
-      const nx = Math.max(-window.innerWidth * 0.44, Math.min(window.innerWidth * 0.44, d.origX + (ev.clientX - d.startX)))
-      const ny = Math.max(-window.innerHeight * 0.42, Math.min(window.innerHeight * 0.42, d.origY + (ev.clientY - d.startY)))
-      setOffset({ x: nx, y: ny })
-    }
-    const onUp = () => {
-      dragRef.current = null
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
-      window.removeEventListener('pointercancel', onUp)
-    }
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-    window.addEventListener('pointercancel', onUp)
-  }
-
   if (!spec || !open) return null
 
   return (
-    <div
-      className="wt-floating-window"
-      role="dialog"
-      aria-label={`Guided walkthrough: ${spec.title}`}
-      style={{
-        transform: `translate3d(calc(-50% + ${Math.round(offset.x)}px), calc(-50% + ${Math.round(offset.y)}px), 0)`,
-      }}
+    <WinBoxWindow
+      id="syntax-walkthrough-winbox"
+      eyebrow="Guided walkthrough"
+      title={spec.title}
+      defaultWidth={656}
+      defaultHeight={620}
+      minWidth={320}
+      minHeight={360}
+      onClose={onClose}
     >
       <WalkthroughContent
         spec={spec}
@@ -688,11 +695,10 @@ export function WalkthroughModal({
         semaShape={semaShape}
         floating
         onToggleFloat={onToggleFloat}
-        onDragStart={handleDragStart}
         onToggleVoice={onToggleVoice}
         onClose={onClose}
         onLaunchRescue={onLaunchRescue}
       />
-    </div>
+    </WinBoxWindow>
   )
 }

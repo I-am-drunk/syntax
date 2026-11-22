@@ -5,11 +5,9 @@ import './checkmark.css'
 
 export type CheckmarkGateVisualState = 'ready' | 'disabled' | 'correct' | 'wrong'
 
-/**
- * Clean single-stroke normal checkmark path (viewBox 0 0 280 86).
- * Rendered as a crisp dotted normal checkmark (never a hollow bubble outline).
- */
 const DOTTED_CHECKMARK_STROKE = 'M 105 46 L 128 69 L 176 19'
+const STILLNESS_HOLD_MS = 2000
+const STILLNESS_MOVE_TOLERANCE_PX = 10
 
 function drawInkStroke(
   ctx: CanvasRenderingContext2D,
@@ -21,10 +19,9 @@ function drawInkStroke(
   ctx.save()
   ctx.globalAlpha = alpha
   ctx.strokeStyle = color
+  ctx.lineWidth = 4.6
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
-  ctx.lineWidth = 5.5
-
   ctx.beginPath()
   ctx.moveTo(pts[0]!.x, pts[0]!.y)
   for (let i = 1; i < pts.length - 1; i++) {
@@ -50,11 +47,9 @@ export function CheckmarkGate({
   onReject,
 }: {
   label?: string
-  /** Deprecated prop kept optional for backwards compatibility; never displayed as "Tap to check" */
   fallbackLabel?: string
   disabled?: boolean
   visualState?: CheckmarkGateVisualState
-  /** Optional container ref (kept for compatibility; window-wide capture excludes pen canvas & dialogs) */
   screenGestureContainerRef?: React.RefObject<HTMLElement | null>
   enableScreenGesture?: boolean
   onTrigger: () => void
@@ -63,12 +58,15 @@ export function CheckmarkGate({
   const [isDrawing, setIsDrawing] = useState(false)
   const [rejectShake, setRejectShake] = useState(false)
   const [hintText, setHintText] = useState<string | null>(null)
+  const [holdProgress, setHoldProgress] = useState<number | null>(null)
 
   const gateRef = useRef<HTMLDivElement>(null)
   const overlayCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const pointsRef = useRef<StrokePoint[]>([])
   const activePointerRef = useRef<number | null>(null)
   const fadeRafRef = useRef<number>(0)
+  const holdRafRef = useRef<number>(0)
+  const holdCleanupRef = useRef<(() => void) | null>(null)
   const shakeTimerRef = useRef<number>(0)
 
   const disabledRef = useRef(disabled)
@@ -124,13 +122,96 @@ export function CheckmarkGate({
     [ensureCanvasSize],
   )
 
+  const cancelStillnessHold = useCallback(
+    (reason?: string, strokeToFade?: StrokePoint[]) => {
+      cancelAnimationFrame(holdRafRef.current)
+      holdRafRef.current = 0
+      if (holdCleanupRef.current) {
+        holdCleanupRef.current()
+        holdCleanupRef.current = null
+      }
+      setHoldProgress(null)
+      if (strokeToFade && strokeToFade.length >= 2) {
+        dissolveStroke(strokeToFade, '#9aa1b2', 220)
+      }
+      if (reason) {
+        setHintText(reason)
+      }
+    },
+    [dissolveStroke],
+  )
+
   const getInkColor = () => {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
     return isDark ? '#f2f2f2' : '#141414'
   }
 
+  const startStillnessHold = useCallback(
+    (pts: StrokePoint[], anchorX: number, anchorY: number) => {
+      cancelStillnessHold()
+      setHintText(null)
+      setHoldProgress(0)
+
+      const startTs = performance.now()
+      let settled = false
+
+      const onPointerMoveCheck = (ev: PointerEvent) => {
+        if (settled) return
+        const dist = Math.hypot(ev.clientX - anchorX, ev.clientY - anchorY)
+        if (dist > STILLNESS_MOVE_TOLERANCE_PX) {
+          settled = true
+          cancelStillnessHold('Cursor moved — hold still for 2s after drawing ✓', pts)
+        }
+      }
+
+      const onPointerDownCheck = () => {
+        if (settled) return
+        settled = true
+        cancelStillnessHold(undefined, pts)
+      }
+
+      window.addEventListener('pointermove', onPointerMoveCheck, { passive: true })
+      window.addEventListener('pointerdown', onPointerDownCheck, { passive: true })
+
+      holdCleanupRef.current = () => {
+        window.removeEventListener('pointermove', onPointerMoveCheck)
+        window.removeEventListener('pointerdown', onPointerDownCheck)
+      }
+
+      const tick = (now: number) => {
+        if (settled) return
+        const elapsed = now - startTs
+        const frac = Math.min(1, elapsed / STILLNESS_HOLD_MS)
+        setHoldProgress(frac)
+
+        // Keep green checkmark illuminated during the 2-second stillness lock-in
+        const ctx = ensureCanvasSize()
+        if (ctx) {
+          ctx.clearRect(0, 0, window.innerWidth, window.innerHeight)
+          drawInkStroke(ctx, pts, '#29cc57', 0.92)
+        }
+
+        if (frac >= 1) {
+          settled = true
+          if (holdCleanupRef.current) {
+            holdCleanupRef.current()
+            holdCleanupRef.current = null
+          }
+          setHoldProgress(null)
+          dissolveStroke(pts, '#29cc57', 240)
+          onTriggerRef.current()
+          return
+        }
+        holdRafRef.current = requestAnimationFrame(tick)
+      }
+
+      holdRafRef.current = requestAnimationFrame(tick)
+    },
+    [cancelStillnessHold, dissolveStroke, ensureCanvasSize],
+  )
+
   const finishStroke = useCallback(
-    (source: 'gate' | 'screen') => {
+    (source: 'gate' | 'screen', releaseX?: number, releaseY?: number) => {
       const pts = pointsRef.current.slice()
       pointsRef.current = []
       activePointerRef.current = null
@@ -143,9 +224,14 @@ export function CheckmarkGate({
 
       const res = recognizeCheckmark(pts)
       if (res.ok) {
-        dissolveStroke(pts, '#29cc57', 220)
-        setHintText(null)
-        onTriggerRef.current()
+        if (disabledRef.current) {
+          // Always let user draw anywhere even before answering; gently prompt for an answer
+          dissolveStroke(pts, '#456dff', 300)
+          setHintText('Enter or select an answer first, then draw ✓')
+          return
+        }
+        const lastPt = pts[pts.length - 1]!
+        startStillnessHold(pts, releaseX ?? lastPt.x, releaseY ?? lastPt.y)
       } else {
         dissolveStroke(pts, getInkColor(), 260)
         if (source === 'gate') {
@@ -159,26 +245,31 @@ export function CheckmarkGate({
         }
       }
     },
-    [clearCanvas, dissolveStroke],
+    [clearCanvas, dissolveStroke, startStillnessHold],
   )
 
   useEffect(() => {
     return () => {
       cancelAnimationFrame(fadeRafRef.current)
+      cancelAnimationFrame(holdRafRef.current)
+      if (holdCleanupRef.current) holdCleanupRef.current()
       window.clearTimeout(shakeTimerRef.current)
     }
   }, [])
 
   useEffect(() => {
-    if (visualState === 'correct') setHintText(null)
-  }, [visualState])
+    if (visualState === 'correct') {
+      setHintText(null)
+      cancelStillnessHold()
+    }
+  }, [visualState, cancelStillnessHold])
 
-  // Pointer handlers on the footer checkmark pad itself
+  // Pointer handlers on the footer checkmark pad itself (always drawable in Draw Mode)
   const onGatePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (disabled) return
     if (e.button !== 0 && e.pointerType === 'mouse') return
     e.preventDefault()
     e.stopPropagation()
+    cancelStillnessHold()
     try {
       e.currentTarget.setPointerCapture(e.pointerId)
     } catch {
@@ -214,11 +305,10 @@ export function CheckmarkGate({
     } catch {
       // ignore
     }
-    finishStroke('gate')
+    finishStroke('gate', e.clientX, e.clientY)
   }
 
-  // Page-wide draw-anywhere checkmark capture (works anywhere on the lesson page,
-  // excluding only active inputs, buttons/choices, draggable graph handles, dialogs, and the right tldraw pen pane)
+  // Page-wide draw-anywhere capture (always active in Draw Mode even before an answer is entered!)
   useEffect(() => {
     if (!enableScreenGesture) return
     let screenPtrId: number | null = null
@@ -228,20 +318,19 @@ export function CheckmarkGate({
       if (!(target instanceof Element)) return true
       return Boolean(
         target.closest(
-          'button, a, input, textarea, select, label, [role="button"], [role="dialog"], [role="slider"], [data-pen-workspace], .pen-workspace-surface, .workspace-splitter, .chk-gate-wrap, .br-choice-opt, .br-plan-card, .br-graph-handle, [data-draggable-handle], .sema-svg, .lesson-navigation',
+          'button, a, input, textarea, select, label, [role="button"], [role="dialog"], [role="slider"], [data-pen-workspace], .pen-workspace-surface, .workspace-splitter, .chk-gate-wrap, .br-choice-opt, .br-plan-card, .br-graph-handle, [data-draggable-handle], .sema-svg, .lesson-navigation, .winbox',
         ),
       )
     }
 
     const onDown = (e: PointerEvent) => {
-      if (disabledRef.current) return
       if (e.button !== 0 && e.pointerType === 'mouse') return
       if (isExcludedTarget(e.target)) return
-      // Also verify we're not inside the pen workspace surface if split is open
       const container = screenGestureContainerRef?.current
       if (container && e.target instanceof Element && e.target.closest('.pen-workspace-surface')) {
         return
       }
+      cancelStillnessHold()
       screenPtrId = e.pointerId
       startedDrawing = false
       pointsRef.current = [{ x: e.clientX, y: e.clientY, t: performance.now() }]
@@ -256,7 +345,6 @@ export function CheckmarkGate({
         if (Math.hypot(e.clientX - first.x, e.clientY - first.y) < 12) return
         startedDrawing = true
         setIsDrawing(true)
-        // Clear any accidental text selection while drawing a checkmark across prompt text
         window.getSelection?.()?.removeAllRanges()
       }
       const last = pts[pts.length - 1]!
@@ -274,7 +362,7 @@ export function CheckmarkGate({
       screenPtrId = null
       if (startedDrawing) {
         startedDrawing = false
-        finishStroke('screen')
+        finishStroke('screen', e.clientX, e.clientY)
       } else {
         pointsRef.current = []
       }
@@ -290,18 +378,19 @@ export function CheckmarkGate({
       window.removeEventListener('pointerup', onUp)
       window.removeEventListener('pointercancel', onUp)
     }
-  }, [enableScreenGesture, screenGestureContainerRef, ensureCanvasSize, finishStroke])
+  }, [enableScreenGesture, screenGestureContainerRef, ensureCanvasSize, finishStroke, cancelStillnessHold])
 
   const isCorrect = visualState === 'correct'
   const isWrong = visualState === 'wrong'
+  const isHolding = holdProgress !== null
 
   return (
     <div className="chk-gate-wrap">
       <div
         ref={gateRef}
-        className={`chk-gate${disabled ? ' is-disabled' : ''}${isDrawing ? ' is-drawing' : ''}${
-          isCorrect ? ' is-correct' : ''
-        }${isWrong ? ' is-wrong' : ''}${rejectShake ? ' is-shake' : ''}`}
+        className={`chk-gate${disabled ? ' is-awaiting-answer' : ''}${isDrawing ? ' is-drawing' : ''}${
+          isHolding ? ' is-holding' : ''
+        }${isCorrect ? ' is-correct' : ''}${isWrong ? ' is-wrong' : ''}${rejectShake ? ' is-shake' : ''}`}
         role="group"
         aria-label={label}
         onPointerDown={onGatePointerDown}
@@ -309,7 +398,6 @@ export function CheckmarkGate({
         onPointerUp={onGatePointerUp}
         onPointerCancel={onGatePointerUp}
       >
-        {/* Subtle green perimeter sweep on correct check */}
         <svg className="chk-led-svg" viewBox="0 0 320 84" preserveAspectRatio="none" aria-hidden="true">
           <rect
             className="chk-led-rect"
@@ -323,21 +411,39 @@ export function CheckmarkGate({
           />
         </svg>
 
-        {/* Clean single-stroke dotted normal checkmark guide (fades while drawing) */}
         <svg className="chk-guide-svg" viewBox="0 0 280 86" aria-hidden="true">
           <path className="chk-dotted-guide" d={DOTTED_CHECKMARK_STROKE} />
           <path className="chk-solid-check" d={DOTTED_CHECKMARK_STROKE} pathLength={100} />
         </svg>
       </div>
 
+      {/* 2-second stillness green progress bar right below the checkmark box */}
+      {isHolding && (
+        <div className="chk-hold-progress-wrap" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(holdProgress * 100)}>
+          <div className="chk-hold-progress-track">
+            <div
+              className="chk-hold-progress-fill"
+              style={{ width: `${Math.round(holdProgress * 1000) / 10}%` }}
+            />
+          </div>
+          <span className="chk-hold-progress-label">
+            Hold still ({Math.max(0, (2 - holdProgress * 2)).toFixed(1)}s) — Complete the step
+          </span>
+        </div>
+      )}
+
       <div className="chk-gate-subrow">
         {hintText ? (
           <span className="chk-gate-hint">{hintText}</span>
-        ) : (
+        ) : !isHolding ? (
           <span className={`chk-gate-instruction${isCorrect ? ' is-correct' : ''}`}>
-            {isDrawing ? 'Release to check…' : label}
+            {isDrawing
+              ? 'Release, then hold cursor still for 2s…'
+              : disabled
+                ? 'Draw anywhere · enter an answer to submit'
+                : label}
           </span>
-        )}
+        ) : null}
       </div>
 
       {typeof document !== 'undefined' &&

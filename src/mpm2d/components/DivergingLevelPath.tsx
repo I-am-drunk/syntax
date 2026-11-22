@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import type { GeoLesson } from '../pageTypes'
 import type { CatchupLesson } from '../data/catchupCourses'
 import './divergingPath.css'
@@ -9,8 +9,25 @@ export type PathLessonStat = {
   tier: 'none' | 'attempted' | 'good' | 'mastered'
 }
 
-type NodeTone = 'done' | 'active' | 'ready' | 'catchup' | 'trophy-done' | 'trophy-locked'
-type GlyphKind = 'done' | 'slope' | 'midpoint' | 'triangle' | 'circle' | 'proof' | 'catchup' | 'trophy'
+type NodeTone =
+  | 'done'
+  | 'resumable'
+  | 'active'
+  | 'ready'
+  | 'catchup'
+  | 'catchup-done'
+  | 'trophy-done'
+  | 'trophy-locked'
+
+type GlyphKind =
+  | 'done'
+  | 'slope'
+  | 'midpoint'
+  | 'triangle'
+  | 'circle'
+  | 'proof'
+  | 'catchup'
+  | 'trophy'
 
 function glyphForLesson(lesson: GeoLesson, isDone: boolean): GlyphKind {
   if (isDone) return 'done'
@@ -30,7 +47,7 @@ function MedallionGlyph({ kind }: { kind: GlyphKind }) {
           d="M 35 43 L 44 52 L 62 33"
           fill="none"
           stroke="currentColor"
-          strokeWidth="5.2"
+          strokeWidth="5.4"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
@@ -99,25 +116,23 @@ function MedallionGlyph({ kind }: { kind: GlyphKind }) {
 }
 
 /**
- * Crisp, anti-aliased Brilliant-evolved 3D circular medallion node.
- * Built with pure vector geometry (shapeRendering="geometricPrecision") so edges
- * stay razor-sharp on 1x, 2x, and 3x displays with zero raster aliasing.
+ * Duolingo / Coddy / Brilliant 3D tactile medallion node.
+ * No broken half-blue semicircle arcs: completed and resumable lessons color
+ * the entire 3D medallion blue (#456dff face, #2b4bc4 pedestal).
  */
 function BrilliantNodeMedallion({
   tone,
   glyph,
   selected,
   compact = false,
-  inProgress = false,
 }: {
   tone: NodeTone
   glyph: GlyphKind
   selected: boolean
   compact?: boolean
-  inProgress?: boolean
 }) {
-  const w = compact ? 74 : 88
-  const h = compact ? 68 : 80
+  const w = compact ? 78 : 88
+  const h = compact ? 70 : 80
   return (
     <span className={`br-medallion is-${tone}${selected ? ' is-selected' : ''}${compact ? ' is-compact' : ''}`}>
       <svg
@@ -128,7 +143,7 @@ function BrilliantNodeMedallion({
         shapeRendering="geometricPrecision"
         aria-hidden="true"
       >
-        {/* Active selection halo ring (Brilliant signature current indicator) */}
+        {/* Full symmetric selection / current halo ring */}
         {(selected || tone === 'active') && (
           <ellipse
             className="br-med-halo"
@@ -137,22 +152,7 @@ function BrilliantNodeMedallion({
             rx="43.5"
             ry="34.5"
             fill="none"
-            strokeWidth="3"
-          />
-        )}
-        {/* Subtle Brilliant progress arc when a lesson is in progress */}
-        {inProgress && !selected && tone !== 'active' && (
-          <ellipse
-            className="br-med-progress-arc"
-            cx="48"
-            cy="46"
-            rx="43.5"
-            ry="34.5"
-            fill="none"
-            stroke="#456dff"
-            strokeWidth="3"
-            strokeLinecap="round"
-            strokeDasharray="112 136"
+            strokeWidth="3.2"
           />
         )}
 
@@ -225,6 +225,15 @@ function cubicPath(x1: number, y1: number, x2: number, y2: number): string {
   return `M ${x1.toFixed(1)} ${y1.toFixed(1)} C ${x1.toFixed(1)} ${midY.toFixed(1)}, ${x2.toFixed(1)} ${midY.toFixed(1)}, ${x2.toFixed(1)} ${y2.toFixed(1)}`
 }
 
+/**
+ * Duolingo / Coddy single-stream winding S-curve path.
+ * When "Show catch-up paths" is enabled, catch-up stepping-stone nodes are
+ * woven directly into the winding S-curve sequence right above the lesson
+ * they unlock, producing a single clean, rhythmic Duolingo/Coddy S-curve
+ * instead of overlapping dual-column spaghetti lines.
+ */
+const WINDING_OFFSETS = [0, 58, 0, -58]
+
 export function DivergingLevelPath({
   levelNumber,
   lessons,
@@ -252,7 +261,6 @@ export function DivergingLevelPath({
   onOpen: (lessonId: string) => void
   registerNodeRef: (lessonId: string, el: HTMLButtonElement | null) => void
 }) {
-  const [hoveredRoute, setHoveredRoute] = useState<'main' | 'catchup' | null>(null)
   const hasInterwovenCatchups = showCatchupPaths && catchups.length > 0
 
   const layout = useMemo(() => {
@@ -277,50 +285,30 @@ export function DivergingLevelPath({
     const nodes: PlacedNode[] = []
     const curves: PathCurve[] = []
 
-    const mainCoords: Array<{ id: string; x: number; y: number; done: boolean }> = []
-    let prevCatchupCoord: { x: number; y: number; done: boolean } | undefined
+    let seqIndex = 0
     let cursorY = 58
+    let prevNode: { id: string; x: number; y: number; done: boolean; route: 'main' | 'catchup' } | null = null
 
     lessons.forEach((lesson, idx) => {
       const st = getStat(lesson.id)
       const isDone = st?.tier === 'mastered' || st?.tier === 'good'
+      const isAttempted = st?.tier === 'attempted' || (st?.total ?? 0) > 0
+      const resume = hasResume(lesson.id) || isAttempted
       const isActive = idx === firstUnfinishedIdx || (firstUnfinishedIdx === -1 && idx === lessons.length - 1)
-      const resume = hasResume(lesson.id)
 
       const attachedCatchups = catchupsByTarget.get(lesson.id) ?? []
 
-      // If interwoven catch-ups precede this main lesson, branch them cleanly along the right lane
+      // Weave any prerequisite catch-up stepping stones seamlessly into the Duolingo S-curve right before the lesson
       if (hasInterwovenCatchups && attachedCatchups.length > 0) {
-        const anchorPrev = mainCoords[mainCoords.length - 1]
-        const mx = idx % 2 === 0 ? 122 : 154
-        let previous: { x: number; y: number; done: boolean } | undefined =
-          anchorPrev ?? prevCatchupCoord
-        let firstCatchupCoord: { x: number; y: number; done: boolean } | undefined
-
-        // If this is the very first lesson in the level (no preceding main node), draw a top fork from the level entry spine!
-        if (!anchorPrev) {
-          const entryX = center
-          const entryY = 12
-          const firstCx = 300
-          const firstCy = cursorY + 8
-          curves.push({
-            id: `c-entry-${lesson.id}`,
-            route: 'catchup',
-            d: cubicPath(entryX, entryY, firstCx, firstCy),
-            done: false,
-          })
-        }
-
-        attachedCatchups.forEach((c, cIdx) => {
+        attachedCatchups.forEach(c => {
           const cst = getStat(c.id)
           const cDone = cst?.tier === 'mastered' || cst?.tier === 'good'
-          const cx = cIdx % 2 === 0 ? 300 : 272
-          const cy = cursorY + 8
-          cursorY += 108
-
-          if (!firstCatchupCoord) {
-            firstCatchupCoord = { x: cx, y: cy, done: cDone }
-          }
+          const cResume = hasResume(c.id) || cst?.tier === 'attempted'
+          const offset = WINDING_OFFSETS[seqIndex % WINDING_OFFSETS.length]! * flip
+          seqIndex += 1
+          const cx = center + offset
+          const cy = cursorY
+          cursorY += 124
 
           nodes.push({
             id: c.id,
@@ -331,119 +319,67 @@ export function DivergingLevelPath({
             shortTitle: c.shortTitle,
             subtitle: c.subtitle,
             eyebrow: `Catch-up · ~${c.minutes} min`,
-            ctaLabel: cDone ? 'Review' : hasResume(c.id) ? 'Continue' : 'Start catch-up',
-            tone: cDone ? 'done' : 'catchup',
+            ctaLabel: cDone ? 'Review' : cResume ? 'Continue' : 'Start catch-up',
+            tone: cDone || cResume ? 'catchup-done' : 'catchup',
             glyph: cDone ? 'done' : 'catchup',
             stat: cst,
-            inProgress: hasResume(c.id) && !cDone,
+            inProgress: Boolean(cResume && !cDone),
             compact: true,
           })
 
-          if (previous) {
+          if (prevNode) {
             curves.push({
-              id: `c-in-${c.id}`,
+              id: `seg-${prevNode.id}-${c.id}`,
               route: 'catchup',
-              d: cubicPath(previous.x, previous.y, cx, cy),
-              done: cDone,
+              d: cubicPath(prevNode.x, prevNode.y, cx, cy),
+              done: prevNode.done && (cDone || cResume),
             })
           }
-          // Also connect continuity along the catchup spine if there was an earlier catchup spur
-          if (cIdx === 0 && prevCatchupCoord && anchorPrev) {
-            curves.push({
-              id: `c-spine-${c.id}`,
-              route: 'catchup',
-              d: cubicPath(prevCatchupCoord.x, prevCatchupCoord.y, cx, cy),
-              done: prevCatchupCoord.done && cDone,
-            })
-          }
-          previous = { x: cx, y: cy, done: cDone }
-          prevCatchupCoord = { x: cx, y: cy, done: cDone }
+          prevNode = { id: c.id, x: cx, y: cy, done: Boolean(cDone || cResume), route: 'catchup' }
         })
-
-        // Place main lesson on the left-center spine right below its catch-up spur, and merge back in!
-        const my = cursorY + 6
-        cursorY += 126
-
-        // If this is the very first main lesson in the level, also connect it up to the level entry fork!
-        if (!anchorPrev) {
-          curves.push({
-            id: `m-entry-${lesson.id}`,
-            route: 'main',
-            d: cubicPath(center, 12, mx, my),
-            done: isDone,
-          })
-        }
-
-        nodes.push({
-          id: lesson.id,
-          route: 'main',
-          x: mx,
-          y: my,
-          title: lesson.title,
-          shortTitle: lesson.shortTitle,
-          subtitle: lesson.subtitle,
-          eyebrow: `Lesson ${lesson.number}`,
-          ctaLabel: isDone ? 'Review' : resume ? 'Continue' : 'Start',
-          tone: isDone ? 'done' : isActive ? 'active' : 'ready',
-          glyph: glyphForLesson(lesson, isDone),
-          stat: st,
-          inProgress: resume && !isDone,
-        })
-
-        // Merge catch-up spur back into the supported main lesson
-        if (previous) {
-          curves.push({
-            id: `c-merge-${lesson.id}`,
-            route: 'catchup',
-            d: cubicPath(previous.x, previous.y, mx, my),
-            done: previous.done && isDone,
-          })
-        }
-
-        if (anchorPrev) {
-          curves.push({
-            id: `m-${anchorPrev.id}-${lesson.id}`,
-            route: 'main',
-            d: cubicPath(anchorPrev.x, anchorPrev.y, mx, my),
-            done: anchorPrev.done && (isDone || isActive),
-          })
-        }
-        mainCoords.push({ id: lesson.id, x: mx, y: my, done: isDone })
-      } else {
-        // Pure clean winding main course path
-        const pattern = [0, 56, 0, -56]
-        const offset = lessons.length <= 1 ? 0 : pattern[idx % 4]! * flip
-        const mx = hasInterwovenCatchups ? (idx % 2 === 0 ? 122 : 154) : center + offset
-        const my = cursorY
-        cursorY += 132
-
-        nodes.push({
-          id: lesson.id,
-          route: 'main',
-          x: mx,
-          y: my,
-          title: lesson.title,
-          shortTitle: lesson.shortTitle,
-          subtitle: lesson.subtitle,
-          eyebrow: `Lesson ${lesson.number}`,
-          ctaLabel: isDone ? 'Review' : resume ? 'Continue' : 'Start',
-          tone: isDone ? 'done' : isActive ? 'active' : 'ready',
-          glyph: glyphForLesson(lesson, isDone),
-          stat: st,
-          inProgress: resume && !isDone,
-        })
-
-        const prevMain = mainCoords[mainCoords.length - 1]
-        if (prevMain) {
-          curves.push({
-            id: `m-${prevMain.id}-${lesson.id}`,
-            route: 'main',
-            d: cubicPath(prevMain.x, prevMain.y, mx, my),
-            done: prevMain.done && (isDone || isActive),
-          })
-        }
-        mainCoords.push({ id: lesson.id, x: mx, y: my, done: isDone })
       }
+
+      const offset = lessons.length <= 1 && !hasInterwovenCatchups
+        ? 0
+        : WINDING_OFFSETS[seqIndex % WINDING_OFFSETS.length]! * flip
+      seqIndex += 1
+      const mx = center + offset
+      const my = cursorY
+      cursorY += 132
+
+      const tone: NodeTone = isDone
+        ? 'done'
+        : resume
+          ? 'resumable'
+          : isActive
+            ? 'active'
+            : 'ready'
+
+      nodes.push({
+        id: lesson.id,
+        route: 'main',
+        x: mx,
+        y: my,
+        title: lesson.title,
+        shortTitle: lesson.shortTitle,
+        subtitle: lesson.subtitle,
+        eyebrow: `Lesson ${lesson.number}`,
+        ctaLabel: isDone ? 'Review' : resume ? 'Continue' : 'Start',
+        tone,
+        glyph: glyphForLesson(lesson, isDone),
+        stat: st,
+        inProgress: Boolean(resume && !isDone),
+      })
+
+      if (prevNode) {
+        curves.push({
+          id: `seg-${prevNode.id}-${lesson.id}`,
+          route: prevNode.route === 'catchup' ? 'catchup' : 'main',
+          d: cubicPath(prevNode.x, prevNode.y, mx, my),
+          done: prevNode.done && (isDone || resume || isActive),
+        })
+      }
+      prevNode = { id: lesson.id, x: mx, y: my, done: Boolean(isDone || resume), route: 'main' }
     })
 
     // Level Mastery Trophy node at the bottom of levels with >= 2 lessons
@@ -452,24 +388,16 @@ export function DivergingLevelPath({
         const st = getStat(l.id)
         return st?.tier === 'mastered' || st?.tier === 'good'
       })
-      const tx = hasInterwovenCatchups ? 142 : center
+      const tx = center
       const ty = cursorY + 4
       cursorY += 116
-      const prevMain = mainCoords[mainCoords.length - 1]
-      if (prevMain) {
+      const lastNode = nodes[nodes.length - 1]
+      if (lastNode) {
         curves.push({
           id: `m-trophy-${levelNumber}`,
           route: 'main',
-          d: cubicPath(prevMain.x, prevMain.y, tx, ty),
+          d: cubicPath(lastNode.x, lastNode.y, tx, ty),
           done: allMastered,
-        })
-      }
-      if (hasInterwovenCatchups && prevCatchupCoord) {
-        curves.push({
-          id: `c-trophy-${levelNumber}`,
-          route: 'catchup',
-          d: cubicPath(prevCatchupCoord.x, prevCatchupCoord.y, tx, ty),
-          done: allMastered && prevCatchupCoord.done,
         })
       }
       nodes.push({
@@ -494,30 +422,18 @@ export function DivergingLevelPath({
     return { width: W, height: Math.max(160, cursorY + 12), nodes, curves }
   }, [lessons, catchups, hasInterwovenCatchups, levelNumber, getStat, hasResume])
 
-  // Determine which route is currently spotlighted when interwoven catch-up paths are ON:
-  // - If user hovers a route, spotlight that route and gray out the other.
-  // - If a popover is open, keep that node's route spotlighted.
-  // - Otherwise when Filter ("Show catch-up paths") is ON, highlight Catch-up by default and gray Main until hovered!
-  const selectedNode = layout.nodes.find(n => n.id === selectedId)
-  const activeRouteFocus: 'main' | 'catchup' | null = !hasInterwovenCatchups
-    ? null
-    : hoveredRoute ?? selectedNode?.route ?? 'main'
-
   return (
     <div
       className="br-journey-stage"
       data-interwoven={hasInterwovenCatchups || undefined}
-      data-route-focus={activeRouteFocus ?? undefined}
       style={{ height: layout.height }}
-      onPointerLeave={() => setHoveredRoute(null)}
     >
-      {/* Crisp vector SVG ribbons connecting nodes */}
+      {/* Crisp 1:1 Duolingo / Coddy SVG track connecting nodes */}
       <svg
         className="br-journey-svg"
         width={layout.width}
         height={layout.height}
         viewBox={`0 0 ${layout.width} ${layout.height}`}
-        preserveAspectRatio="none"
         fill="none"
         shapeRendering="geometricPrecision"
         aria-hidden="true"
@@ -526,13 +442,12 @@ export function DivergingLevelPath({
           <path
             key={c.id}
             d={c.d}
-            vectorEffect="non-scaling-stroke"
             className={`br-journey-curve is-${c.route}${c.done ? ' is-done' : ''}`}
           />
         ))}
       </svg>
 
-      {/* Positioned Brilliant 3D Medallion Nodes */}
+      {/* Positioned 3D Medallion Nodes */}
       {layout.nodes.map(item => {
         const isSelected = selectedId === item.id
 
@@ -541,13 +456,10 @@ export function DivergingLevelPath({
             key={item.id}
             className={`br-journey-node-wrap is-${item.route}${isSelected ? ' is-open' : ''}`}
             style={{ left: `${(item.x / layout.width) * 100}%`, top: item.y }}
-            onPointerEnter={() => {
-              if (hasInterwovenCatchups) setHoveredRoute(item.route)
-            }}
-            onFocus={() => {
-              if (hasInterwovenCatchups) setHoveredRoute(item.route)
-            }}
           >
+            {item.route === 'catchup' && (
+              <span className="br-catchup-pill-tag">Catch-Up</span>
+            )}
             <button
               ref={el => {
                 if (!item.isTrophy) registerNodeRef(item.id, el)
@@ -582,7 +494,6 @@ export function DivergingLevelPath({
                 glyph={item.glyph}
                 selected={isSelected}
                 compact={item.compact}
-                inProgress={item.inProgress}
               />
             </button>
 

@@ -769,8 +769,7 @@ export function Sema({
     const distPx = Math.hypot(dxPx, dyPx)
     const thresh = dragLaunchThreshRef.current
 
-    const droppedOnPage = e.clientY >= 72
-    if (thresh && onDragLaunchRef.current && (distPx >= thresh || droppedOnPage)) {
+    if (thresh && onDragLaunchRef.current && distPx >= thresh) {
       onDragLaunchRef.current({
         clientX: e.clientX,
         clientY: e.clientY,

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Frac, Sqrt } from './MathText'
+import { WinBoxWindow } from './WinBoxWindow'
 
 type SheetTab = 'formulas' | 'lines' | 'shapes' | 'plans' | 'traps'
 
@@ -237,15 +238,17 @@ export function FormulaSheetContent({
           >
             Print
           </button>
-          <button
-            type="button"
-            className="fm-close"
-            onClick={onClose}
-            aria-label={closeLabel}
-            title={closeLabel}
-          >
-            {compact ? '← Problem' : '✕'}
-          </button>
+          {!floating && (
+            <button
+              type="button"
+              className="fm-close"
+              onClick={onClose}
+              aria-label={closeLabel}
+              title={closeLabel}
+            >
+              {compact ? '← Problem' : '✕'}
+            </button>
+          )}
         </div>
       </header>
 
@@ -486,35 +489,6 @@ export function FormulaSheetModal({
   onToggleFloat?: () => void
 }) {
   const [floating, setFloating] = useState(true)
-  const [offset, setOffset] = useState({ x: 0, y: 0 })
-  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null)
-
-  const handleDragStart = (e: React.PointerEvent) => {
-    if (e.button !== 0) return
-    e.preventDefault()
-    dragRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      origX: offset.x,
-      origY: offset.y,
-    }
-    const onMove = (ev: PointerEvent) => {
-      const d = dragRef.current
-      if (!d) return
-      const nx = Math.max(-window.innerWidth * 0.44, Math.min(window.innerWidth * 0.44, d.origX + (ev.clientX - d.startX)))
-      const ny = Math.max(-window.innerHeight * 0.42, Math.min(window.innerHeight * 0.42, d.origY + (ev.clientY - d.startY)))
-      setOffset({ x: nx, y: ny })
-    }
-    const onUp = () => {
-      dragRef.current = null
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', onUp)
-      window.removeEventListener('pointercancel', onUp)
-    }
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', onUp)
-    window.addEventListener('pointercancel', onUp)
-  }
 
   if (!open) return null
 
@@ -532,20 +506,21 @@ export function FormulaSheetModal({
   }
 
   return (
-    <div
-      className="wt-floating-window fm-floating-window"
-      role="dialog"
-      aria-label="Unit 2 Playbook"
-      style={{
-        transform: `translate3d(calc(-50% + ${Math.round(offset.x)}px), calc(-50% + ${Math.round(offset.y)}px), 0)`,
-      }}
+    <WinBoxWindow
+      id="syntax-playbook-winbox"
+      eyebrow="MPM2D Reference"
+      title="Unit 2 Playbook"
+      defaultWidth={670}
+      defaultHeight={630}
+      minWidth={310}
+      minHeight={340}
+      onClose={onClose}
     >
       <FormulaSheetContent
         onClose={onClose}
         floating
         onToggleFloat={onToggleFloat ?? (dockable ? () => setFloating(false) : undefined)}
-        onDragStart={handleDragStart}
       />
-    </div>
+    </WinBoxWindow>
   )
 }

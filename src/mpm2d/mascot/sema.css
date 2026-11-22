@@ -232,7 +232,8 @@
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 65;
+  /* Stay above the sticky header for the entire catch-and-return flight. */
+  z-index: 420;
   pointer-events: none;
   will-change: transform;
   contain: layout style;

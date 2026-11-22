@@ -85,24 +85,94 @@ export function MathPackageWorksheet({
       if (e.button !== 0) return
       e.stopPropagation()
       e.preventDefault()
+      let currentExtra = field.extraHeight
+      let lastClientY = e.clientY
+      let lastClientX = e.clientX
       dragRef.current = {
         startClientY: e.clientY,
         startExtra: field.extraHeight,
       }
       setIsResizing(true)
 
+      const syncCameraToBottom = (nextExtra: number) => {
+        const container = editor.getContainer()
+        if (!container) return
+        const rect = container.getBoundingClientRect()
+        const cam = editor.getCamera()
+        const zoom = cam.z || 1
+        const nextSheetH = Math.max(baseHeight, baseHeight + nextExtra)
+        const prevOpts = editor.getCameraOptions()
+        if (prevOpts.constraints) {
+          editor.setCameraOptions({
+            ...prevOpts,
+            constraints: {
+              ...prevOpts.constraints,
+              bounds: {
+                ...prevOpts.constraints.bounds,
+                h: Math.max(nextSheetH, prevOpts.constraints.bounds.h),
+              },
+            },
+          })
+        }
+        // Keep the bottom resize bar locked right at the top of the bottom footer
+        // so it NEVER slides off-screen while dragging down!
+        const minCamY = Math.min(0, rect.height / zoom - nextSheetH)
+        if (cam.y > minCamY) {
+          editor.setCamera({ x: cam.x, y: minCamY, z: zoom }, { immediate: true })
+        }
+      }
+
+      // Smooth auto-extend while holding cursor near/below the bottom bar
+      let autoRaf = 0
+      let prevTs = performance.now()
+      const autoTick = (now: number) => {
+        if (!dragRef.current) return
+        const dt = Math.min(0.05, Math.max(0.008, (now - prevTs) / 1000))
+        prevTs = now
+        const container = editor.getContainer()
+        if (container) {
+          const rect = container.getBoundingClientRect()
+          const overshoot = lastClientY - (rect.bottom - 26)
+          if (overshoot > 0) {
+            const zoom = editor.getZoomLevel() || 1
+            const speedPx = Math.min(540, 140 + overshoot * 4.2)
+            const deltaPage = (speedPx * dt) / zoom
+            const nextExtra = clampExtraHeight(currentExtra + deltaPage)
+            if (nextExtra !== currentExtra) {
+              currentExtra = nextExtra
+              onChangeExtraHeight(field.id, nextExtra)
+              syncCameraToBottom(nextExtra)
+              const pt = editor.screenToPage({
+                x: lastClientX,
+                y: Math.min(lastClientY, rect.bottom - 6),
+              })
+              setPointerPage({ x: pt.x, y: Math.max(baseHeight, baseHeight + nextExtra) })
+            }
+          }
+        }
+        autoRaf = requestAnimationFrame(autoTick)
+      }
+      autoRaf = requestAnimationFrame(autoTick)
+
       const onMove = (ev: PointerEvent) => {
         const drag = dragRef.current
         if (!drag) return
+        const dyPx = ev.clientY - lastClientY
+        lastClientY = ev.clientY
+        lastClientX = ev.clientX
         const zoom = editor.getZoomLevel() || 1
-        const pageDeltaY = (ev.clientY - drag.startClientY) / zoom
-        const nextExtra = clampExtraHeight(drag.startExtra + pageDeltaY)
-        onChangeExtraHeight(field.id, nextExtra)
+        const nextExtra = clampExtraHeight(currentExtra + dyPx / zoom)
+        if (nextExtra !== currentExtra) {
+          currentExtra = nextExtra
+          onChangeExtraHeight(field.id, nextExtra)
+          syncCameraToBottom(nextExtra)
+        }
         const pt = editor.screenToPage({ x: ev.clientX, y: ev.clientY })
-        setPointerPage({ x: pt.x, y: pt.y })
+        setPointerPage({ x: pt.x, y: Math.max(baseHeight, baseHeight + currentExtra) })
       }
 
       const onUp = () => {
+        if (autoRaf) cancelAnimationFrame(autoRaf)
         dragRef.current = null
         setIsResizing(false)
         window.removeEventListener('pointermove', onMove)
@@ -114,7 +184,7 @@ export function MathPackageWorksheet({
       window.addEventListener('pointerup', onUp)
       window.addEventListener('pointercancel', onUp)
     },
-    [editor, field.extraHeight, field.id, onChangeExtraHeight],
+    [baseHeight, editor, field.extraHeight, field.id, onChangeExtraHeight],
   )
 
   // Bottom-edge-only razor-sharp cursor highlight (bends cleanly around bottom corners, zero blur)

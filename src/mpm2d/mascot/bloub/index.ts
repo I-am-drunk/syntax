@@ -45,6 +45,7 @@ export type SemaExpressionName =
   | 'sleepy'
 
 export type SemaShapeName =
+  | 'classic'
   | 'squircle'
   | 'circle'
   | 'pebble'
@@ -74,6 +75,7 @@ const EXPR_EN_TO_FR: Record<SemaExpressionName, ExpressionId> = {
 }
 
 const SHAPE_EN_TO_FR: Record<SemaShapeName, ShapeId> = {
+  classic: 'sema',
   squircle: 'squircle',
   circle: 'cercle',
   pebble: 'galet',
@@ -104,6 +106,7 @@ export const SEMA_EXPRESSIONS: { id: SemaExpressionName; label: string }[] = [
 ]
 
 export const SEMA_SHAPES: { id: SemaShapeName; label: string }[] = [
+  { id: 'classic', label: 'Original Sema' },
   { id: 'circle', label: 'Circle' },
   { id: 'squircle', label: 'Squircle' },
   { id: 'pebble', label: 'Pebble' },

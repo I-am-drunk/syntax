@@ -1,0 +1,176 @@
+/* WinBox custom theme for Syntax MPM2D (Light & Dark) */
+.winbox.syntax-winbox {
+  background: #f4f6fb;
+  border-radius: 18px;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  box-shadow:
+    0 26px 68px rgba(15, 23, 42, 0.22),
+    0 6px 20px rgba(15, 23, 42, 0.1);
+  overflow: hidden;
+  font-family: var(--font-sans, 'Inter', -apple-system, BlinkMacSystemFont, sans-serif);
+  z-index: 940;
+}
+
+.winbox.syntax-winbox.focus {
+  border-color: rgba(69, 109, 255, 0.42);
+  box-shadow:
+    0 30px 76px rgba(15, 23, 42, 0.28),
+    0 8px 24px rgba(69, 109, 255, 0.12);
+}
+
+[data-theme='dark'] .winbox.syntax-winbox,
+.winbox.syntax-winbox.is-dark {
+  background: #181c26;
+  border-color: rgba(255, 255, 255, 0.13);
+  box-shadow:
+    0 30px 76px rgba(0, 0, 0, 0.62),
+    0 6px 22px rgba(0, 0, 0, 0.42);
+}
+
+[data-theme='dark'] .winbox.syntax-winbox.focus,
+.winbox.syntax-winbox.is-dark.focus {
+  border-color: rgba(116, 145, 255, 0.48);
+}
+
+.winbox.syntax-winbox.max {
+  border-radius: 0;
+  border: none;
+}
+
+.winbox.syntax-winbox .wb-header {
+  height: 40px;
+  line-height: 40px;
+  background: linear-gradient(180deg, #f9fafd 0%, #eff2f9 100%);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  color: #141824;
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px 0 14px;
+  user-select: none;
+}
+
+[data-theme='dark'] .winbox.syntax-winbox .wb-header,
+.winbox.syntax-winbox.is-dark .wb-header {
+  background: linear-gradient(180deg, #1d222e 0%, #151923 100%);
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+  color: #f2f4fa;
+}
+
+.winbox.syntax-winbox .wb-drag {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  padding-left: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: grab;
+}
+
+.winbox.syntax-winbox .wb-drag:active {
+  cursor: grabbing;
+}
+
+.winbox.syntax-winbox .wb-title {
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* Eyebrow truncates FIRST when window is narrow so the main title stays readable! */
+.winbox.syntax-winbox .wb-title-eyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: #456dff;
+  flex: 0 3 auto;
+  min-width: 24px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+[data-theme='dark'] .winbox.syntax-winbox .wb-title-eyebrow,
+.winbox.syntax-winbox.is-dark .wb-title-eyebrow {
+  color: #7c97ff;
+}
+
+.winbox.syntax-winbox .wb-title-sep {
+  color: rgba(127, 127, 127, 0.55);
+  flex-shrink: 0;
+  font-weight: 600;
+}
+
+.winbox.syntax-winbox .wb-title-main {
+  font-size: 13.5px;
+  font-weight: 750;
+  color: inherit;
+  flex: 1 0 auto;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.winbox.syntax-winbox .wb-control {
+  float: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 28px;
+  flex-shrink: 0;
+  margin-left: 6px;
+}
+
+.winbox.syntax-winbox .wb-control * {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  opacity: 0.72;
+  filter: invert(0.82);
+  transition: background-color 140ms ease, opacity 140ms ease;
+}
+
+[data-theme='dark'] .winbox.syntax-winbox .wb-control *,
+.winbox.syntax-winbox.is-dark .wb-control * {
+  filter: none;
+}
+
+.winbox.syntax-winbox .wb-control *:hover {
+  opacity: 1;
+  background-color: rgba(127, 127, 127, 0.16);
+}
+
+.winbox.syntax-winbox .wb-control .wb-close:hover {
+  background-color: rgba(239, 68, 68, 0.18);
+}
+
+.winbox.syntax-winbox .wb-body {
+  top: 40px;
+  background: var(--surface-card, #ffffff);
+  color: var(--text-primary, #141414);
+  border-radius: 0 0 17px 17px;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+[data-theme='dark'] .winbox.syntax-winbox .wb-body,
+.winbox.syntax-winbox.is-dark .wb-body {
+  background: #14171f;
+  color: #f2f3f7;
+}
+
+.winbox.syntax-winbox.min {
+  border-radius: 12px 12px 0 0;
+  height: 40px !important;
+}

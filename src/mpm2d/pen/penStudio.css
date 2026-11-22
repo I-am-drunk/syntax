@@ -466,7 +466,7 @@
    -------------------------------------------------------------------------- */
 .pen-br-brush-dock {
   position: absolute;
-  top: 62px;
+  top: 84px;
   left: 0;
   z-index: 30;
   display: flex;
@@ -782,8 +782,9 @@
   transition: box-shadow 180ms ease;
 }
 
+/* Only the outer Draw Mode divider half (.pen-outer-complete-frame) shows the green line */
 .pen-br-sheet[data-checked] {
-  box-shadow: inset 0 0 0 2.5px #29cc57;
+  box-shadow: none;
 }
 
 .pen-br-sheet[data-theme='dark'] {
@@ -843,7 +844,7 @@
 .pen-br-step-head {
   position: relative;
   z-index: 1;
-  padding: 24px 32px 18px 104px;
+  padding: 24px 32px 18px 84px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   pointer-events: none;
 }
@@ -1143,12 +1144,12 @@
   background: transparent;
   color: #7a7e8a;
   cursor: pointer;
-  opacity: 0;
-  transform: scale(0.84);
-  pointer-events: none;
+  opacity: 0.42;
+  transform: scale(0.96);
+  pointer-events: auto;
   transition:
-    opacity 150ms ease 900ms,
-    transform 150ms cubic-bezier(0.2, 0.9, 0.3, 1) 900ms,
+    opacity 160ms ease,
+    transform 160ms cubic-bezier(0.2, 0.9, 0.3, 1),
     border-color 110ms ease,
     color 110ms ease,
     background-color 110ms ease;
@@ -1388,7 +1389,7 @@
   padding: 0;
   z-index: 6;
   box-shadow: 0 2px 6px rgba(239, 68, 68, 0.38);
-  transition-delay: 950ms, 950ms, 0ms;
+  transition-delay: 220ms, 220ms, 0ms;
 }
 
 .pen-br-footer[data-theme='dark'] .pen-br-step-del-btn {
@@ -1503,43 +1504,12 @@
   gap: 6px;
 }
 
-@container (max-width: 470px) {
+@container (max-width: 430px) {
   .pen-br-topbar {
-    padding: 0 6px;
-    gap: 4px;
-  }
-  .pen-br-chip {
     padding: 0 8px;
-    gap: 4px;
-    font-size: 12px;
+    gap: 6px;
   }
   .pen-br-chip span {
     display: none;
-  }
-  .pen-br-bar-group {
-    gap: 3px;
-  }
-  .pen-br-tool-btn {
-    width: 26px;
-    height: 26px;
-  }
-  .pen-br-icon-btn {
-    width: 28px;
-    height: 28px;
-  }
-}
-
-@container (max-width: 340px) {
-  .pen-br-tools {
-    gap: 1px;
-    padding: 2px;
-  }
-  .pen-br-tool-btn {
-    width: 24px;
-    height: 24px;
-  }
-  .pen-br-icon-btn {
-    width: 26px;
-    height: 26px;
   }
 }

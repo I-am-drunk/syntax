@@ -1276,3 +1276,108 @@
   font-size: 12px;
   color: var(--text-muted, #686f7e);
 }
+
+/* Eyebrow truncates FIRST ("Guided walkthrough" -> "...") so the lesson title stays readable */
+.wt-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.wt-eyebrow {
+  flex: 0 4 auto;
+  min-width: 18px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wt-eyebrow-sep {
+  flex-shrink: 0;
+  color: rgba(127, 127, 127, 0.55);
+  font-weight: 700;
+}
+
+.wt-title-main {
+  flex: 1 1 auto;
+  min-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* When inside WinBoxWindow, hide duplicate title text in inner header so toolbar stays super spacious */
+.wt-shell.is-floating .wt-header {
+  justify-content: flex-end;
+  padding-bottom: 4px;
+}
+
+.wt-shell.is-floating .wt-header-left {
+  display: none;
+}
+
+/* Pure CSS lens tab active state (zero layoutId drag lag) */
+.wt-lens-tab {
+  position: relative;
+  transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+
+.wt-lens-tab.is-active {
+  background: var(--surface-card, #ffffff);
+  color: var(--text-primary, #141414);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.14);
+}
+
+[data-theme='dark'] .wt-lens-tab.is-active {
+  background: #272d3b;
+  color: #ffffff;
+}
+
+/* Reactive Sema smooth floating bob & synchronized live callout pill */
+.wt-sema-float-bob.is-bobbing {
+  animation: wt-sema-bob 2.1s ease-in-out infinite;
+}
+
+@keyframes wt-sema-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4.5px); }
+}
+
+.wt-sema-tag {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(20, 24, 34, 0.9);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+  animation: wt-tag-pop 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  z-index: 4;
+}
+
+[data-theme='dark'] .wt-sema-tag {
+  background: rgba(242, 244, 250, 0.94);
+  color: #141824;
+}
+
+.wt-sema-tag.is-right {
+  left: calc(100% + 6px);
+}
+
+.wt-sema-tag.is-left {
+  right: calc(100% + 6px);
+}
+
+@keyframes wt-tag-pop {
+  from { opacity: 0; transform: translateY(-50%) scale(0.88); }
+  to { opacity: 1; transform: translateY(-50%) scale(1); }
+}

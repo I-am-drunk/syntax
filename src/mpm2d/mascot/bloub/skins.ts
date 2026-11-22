@@ -25,6 +25,7 @@ import {
  * rendrait `radii` en lecture seule, alors que le moteur le passe tel quel.
  */
 export type ShapeId =
+  | 'sema'
   | 'cercle'
   | 'galet'
   | 'squircle'
@@ -77,6 +78,8 @@ const droplet = normalize(
 const capsule = profileFromPolygon(hullOfCircles(-0.42, 0, 0.62, 0.42, 0, 0.62), 0, 0)
 
 export const SHAPES: BotShape[] = [
+  // Original Sema superellipse (n=2.55) from semaEngine.ts with classic Sema circle size
+  { id: 'sema', radii: normalize(superellipseProfile(2.55), 1.07) },
   { id: 'cercle', radii: new Array(PROFILE_SAMPLES).fill(1) },
   { id: 'galet', radii: pebble },
   // 1.15 et pas 1.02 : sur une superellipse le rayon maximal est la diagonale,
