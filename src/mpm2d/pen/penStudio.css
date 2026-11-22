@@ -1471,6 +1471,55 @@
   transform: scale(1.1);
 }
 
+.pen-br-step-dot {
+  position: relative;
+}
+
 .pen-br-step-dot[data-custom] {
-  border-style: dashed;
+  width: 30px;
+  padding: 0;
+  border-color: transparent;
+  background: rgba(127, 127, 127, 0.05);
+}
+
+.pen-br-step-dot[data-custom]:hover {
+  border-color: transparent;
+  color: #456dff;
+  background: rgba(69, 109, 255, 0.07);
+}
+
+.pen-br-step-dot[data-custom][data-current] {
+  border-color: #456dff;
+  background: #eef2ff;
+  color: #375ce3;
+  box-shadow: 0 2px 0 #375ce3;
+}
+
+.pen-br-footer[data-theme='dark'] .pen-br-step-dot[data-custom] {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.pen-br-footer[data-theme='dark'] .pen-br-step-dot[data-custom][data-current] {
+  background: #152459;
+  border-color: #5c7eff;
+  color: #ffffff;
+  box-shadow: 0 2px 0 #3b5be0;
+}
+
+.pen-br-step-dot-ring {
+  position: absolute;
+  inset: -2px;
+  width: calc(100% + 4px);
+  height: calc(100% + 4px);
+  pointer-events: none;
+  color: #b7bcc8;
+  transition: color 120ms ease;
+}
+
+.pen-br-footer[data-theme='dark'] .pen-br-step-dot-ring {
+  color: #555968;
+}
+
+.pen-br-step-dot[data-custom]:hover .pen-br-step-dot-ring {
+  color: #456dff;
 }

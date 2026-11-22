@@ -130,13 +130,29 @@
   color: var(--text);
 }
 
-.primary-nav-btn[aria-current]::after {
-  content: '';
-  height: 2px;
-  background: currentColor;
-  bottom: 0;
+.primary-nav a[aria-current]::after {
+  display: none;
+}
+
+.primary-nav-indicator {
   position: absolute;
-  inset-inline: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2.5px;
+  border-radius: 2px 2px 0 0;
+  background: var(--text, currentColor);
+  pointer-events: none;
+}
+
+.app-header .header-actions {
+  gap: 6px;
+}
+
+@media (max-width: 768px) {
+  .app-header .header-actions {
+    gap: 4px;
+  }
 }
 
 .nav-svg-icon {
@@ -2268,64 +2284,67 @@
   width: 64px;
 }
 
-/* Splitter snap tension feedback (hold at limit, keep dragging to snap close or full-screen) */
-.workspace-splitter[data-tension='close'] .workspace-splitter-bar {
-  background: #f59e0b;
-  height: calc(64px + var(--splitter-tension, 0) * 34px);
-  width: calc(3px + var(--splitter-tension, 0) * 2.5px);
-}
-
+/* Splitter snap tension feedback — calm Brilliant neutral surface, zero colored borders */
+.workspace-splitter[data-tension='close'] .workspace-splitter-bar,
 .workspace-splitter[data-tension='fullscreen'] .workspace-splitter-bar {
-  background: #10b981;
-  height: calc(64px + var(--splitter-tension, 0) * 34px);
-  width: calc(3px + var(--splitter-tension, 0) * 2.5px);
+  background: var(--text);
+  height: calc(64px + var(--splitter-tension, 0) * 32px);
+  width: calc(3px + var(--splitter-tension, 0) * 2px);
 }
 
 .workspace-splitter[data-orientation='horizontal'][data-tension] .workspace-splitter-bar {
-  width: calc(64px + var(--splitter-tension, 0) * 34px);
-  height: calc(3px + var(--splitter-tension, 0) * 2.5px);
+  width: calc(64px + var(--splitter-tension, 0) * 32px);
+  height: calc(3px + var(--splitter-tension, 0) * 2px);
 }
 
 .workspace-splitter-cue {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(-50%, -38px);
-  display: inline-block;
-  padding: 3px 8px;
-  border-radius: 6px;
-  background: #18181b;
-  color: #f4f4f5;
-  font-size: 11px;
-  font-weight: 600;
+  transform: translate(-50%, -44px);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: var(--surface, #ffffff);
+  color: var(--text, #141414);
+  font-size: 12px;
+  font-weight: 700;
   letter-spacing: -0.01em;
   white-space: nowrap;
   pointer-events: none;
   z-index: 65;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
-  line-height: 1.25;
+  border: 2px solid var(--border, #e5e5e5);
+  box-shadow: 0 2px 0 var(--border, #e5e5e5), 0 8px 20px rgba(0, 0, 0, 0.08);
+  line-height: 1.2;
+}
+
+:root[data-theme='dark'] .workspace-splitter-cue {
+  background: #1f222b;
+  color: #f2f3f7;
+  border-color: #343845;
+  box-shadow: 0 2px 0 #14161c, 0 10px 24px rgba(0, 0, 0, 0.36);
 }
 
 .workspace-splitter[data-fullscreen] .workspace-splitter-cue-fs {
   top: 50%;
-  left: calc(100% + 8px);
+  left: calc(100% + 10px);
   transform: translateY(-50%);
-  background: #18181b;
-  color: #ffffff;
-  border-color: rgba(69, 109, 255, 0.35);
 }
 
-.workspace-splitter-cue-close {
-  background: #18181b;
-  border-color: rgba(245, 158, 11, 0.35);
-  color: #fef3c7;
-}
-
+.workspace-splitter-cue-close,
 .workspace-splitter-cue-fullscreen {
-  background: #18181b;
-  border-color: rgba(16, 185, 129, 0.35);
-  color: #d1fae5;
+  background: var(--surface, #ffffff);
+  color: var(--text, #141414);
+  border-color: var(--border, #e5e5e5);
+}
+
+:root[data-theme='dark'] .workspace-splitter-cue-close,
+:root[data-theme='dark'] .workspace-splitter-cue-fullscreen {
+  background: #1f222b;
+  color: #f2f3f7;
+  border-color: #343845;
 }
 
 /* Snap-to-Full-Screen Drawing Studio */
@@ -3013,4 +3032,143 @@
 /* Give Draw Mode extra bottom padding in scrollable lesson page so CheckmarkGate never overlaps choices */
 .lesson-shell .lesson-page:has(+ .lesson-footer.is-draw-mode) {
   padding-bottom: 186px !important;
+}
+
+/* ==========================================================================
+   Brilliant-Native Top-Left Editorial Corner Plate (Lesson / Notebook Header)
+   ========================================================================== */
+
+.lesson-page {
+  position: relative;
+}
+
+.lesson-corner-plate {
+  position: absolute;
+  top: 20px;
+  left: 24px;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 14px 10px;
+  border-radius: 16px;
+  background: var(--surface, #ffffff);
+  border: 2px solid #b689ff;
+  box-shadow: 0 3px 0 #b689ff;
+  pointer-events: none;
+  user-select: none;
+}
+
+.lesson-corner-plate[data-pen-ready] {
+  border-color: #7c97ff;
+  box-shadow: 0 3px 0 #7c97ff;
+}
+
+:root[data-theme='dark'] .lesson-corner-plate {
+  background: #1a1d25;
+  border-color: #8c5be0;
+  box-shadow: 0 3px 0 #5b32a3;
+}
+
+:root[data-theme='dark'] .lesson-corner-plate[data-pen-ready] {
+  border-color: #5c7eff;
+  box-shadow: 0 3px 0 #3652bf;
+}
+
+.lesson-corner-eyebrow {
+  display: block;
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  color: #7139cc;
+}
+
+.lesson-corner-plate[data-pen-ready] .lesson-corner-eyebrow {
+  color: #3d62e6;
+}
+
+:root[data-theme='dark'] .lesson-corner-eyebrow {
+  color: #c29fff;
+}
+
+:root[data-theme='dark'] .lesson-corner-plate[data-pen-ready] .lesson-corner-eyebrow {
+  color: #8ea6ff;
+}
+
+.lesson-corner-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--text, #141414);
+}
+
+@media (max-width: 1080px) {
+  .lesson-corner-plate {
+    position: static;
+    align-self: flex-start;
+    margin: 0 auto 14px;
+    width: fit-content;
+  }
+}
+
+.lesson-workspace[data-pen-open] .lesson-corner-plate {
+  position: static;
+  width: fit-content;
+  margin: 0 0 14px;
+}
+
+/* Polished top-right ? Walkthrough trigger button */
+.lesson-copy-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.lesson-copy-row .lesson-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.lesson-walkthrough-trigger {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  border: 2px solid var(--border, #e2e4ea);
+  background: var(--surface, #ffffff);
+  color: var(--text, #141414);
+  box-shadow: 0 2px 0 var(--border, #e2e4ea);
+  font-size: 15px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin-top: 2px;
+  transition: transform 90ms ease, box-shadow 90ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.lesson-walkthrough-trigger:hover {
+  border-color: #456dff;
+  color: #456dff;
+  box-shadow: 0 2px 0 rgba(69, 109, 255, 0.35);
+}
+
+.lesson-walkthrough-trigger:active {
+  transform: translateY(2px);
+  box-shadow: 0 0 0 transparent;
+}
+
+:root[data-theme='dark'] .lesson-walkthrough-trigger {
+  background: #1b1f29;
+  border-color: #323747;
+  color: #f2f3f7;
+  box-shadow: 0 2px 0 #11131a;
+}
+
+.menu-popup {
+  border: 1px solid var(--border);
 }

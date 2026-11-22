@@ -25,6 +25,12 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
     completionRiveColor: 0,
     pages: [
       {
+        id: 'rc-read-0',
+        kind: 'explore',
+        prompt: 'Drag the points on the graph below and watch how the **slope m** and **perpendicular line** react live.',
+        exploration: 'slope-perp',
+      },
+      {
         id: 'rc-read-1',
         kind: 'worked',
         source: 'Catch-Up · Prerequisite',
@@ -255,6 +261,12 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
     completionRiveColor: 0,
     pages: [
       {
+        id: 'rc-slp-0',
+        kind: 'explore',
+        prompt: 'Drag the line to test positive, negative, and perpendicular slopes — watch the product **m₁ · m₂ = −1** hold.',
+        exploration: 'slope-perp',
+      },
+      {
         id: 'rc-slp-1',
         kind: 'worked',
         source: 'Catch-Up · Prerequisite',
@@ -344,6 +356,38 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
     completionRiveColor: 0,
     pages: [
       {
+        id: 'rc-b-0',
+        kind: 'choice',
+        prompt: 'A line with slope **m = 2** passes through **(3, 1)**. Which equation plugs these values into **y = mx + b** correctly?',
+        scene: {
+          xMin: -2,
+          xMax: 6,
+          yMin: -6,
+          yMax: 4,
+          points: [{ id: 'p0', x: 3, y: 1, label: '(3, 1)', color: 'amber' }],
+        },
+        options: [
+          { id: 'a', label: '3 = 2(1) + b', hint: 'Watch the order: in (3, 1), x = 3 and y = 1.' },
+          { id: 'b', label: '1 = 2(3) + b' },
+          { id: 'c', label: '1 = 3(2) − b', hint: 'y = mx + b always adds b.' },
+          { id: 'd', label: '2 = 1(3) + b', hint: '2 is the slope m, not y.' },
+        ],
+        correctId: 'b',
+        explanation: {
+          steps: [
+            {
+              text: 'Replace y with 1, m with 2, and x with 3: 1 = 2(3) + b → 1 = 6 + b → b = −5.',
+              math: '1 = 2(3) + b  →  b = −5',
+              scene: {
+                xMin: -2, xMax: 6, yMin: -6, yMax: 4,
+                lines: [{ a: 2, b: -1, c: -5, color: 'teal', label: 'y = 2x − 5' }],
+                points: [{ id: 'p0', x: 3, y: 1, label: '(3, 1)', color: 'amber' }],
+              },
+            },
+          ],
+        },
+      },
+      {
         id: 'rc-b-1',
         kind: 'worked',
         source: 'Catch-Up · Prerequisite',
@@ -427,6 +471,12 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
     completionColor: '#456dff',
     completionRiveColor: 0,
     pages: [
+      {
+        id: 'rc-rad-0',
+        kind: 'explore',
+        prompt: 'Drag the point on the circle and watch **x² + y² = r²** stay locked as Δx and Δy trade off.',
+        exploration: 'length-circle',
+      },
       {
         id: 'rc-rad-1',
         kind: 'worked',
@@ -602,6 +652,12 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
     completionColor: '#456dff',
     completionRiveColor: 0,
     pages: [
+      {
+        id: 'rc-voc-0',
+        kind: 'explore',
+        prompt: 'Drag any corner of the triangle and watch how the **midpoint** and **median** track the opposite side automatically.',
+        exploration: 'median',
+      },
       {
         id: 'rc-voc-1',
         kind: 'worked',

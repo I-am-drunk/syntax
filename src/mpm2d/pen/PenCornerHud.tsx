@@ -699,9 +699,23 @@ export function PenStepFooter({
                   data-done={isDone || undefined}
                   data-custom={isCustom || undefined}
                   onClick={() => onSelectStep(idx)}
-                  aria-label={`Step ${idx + 1}${isDone ? ' (done)' : ''}`}
+                  aria-label={`${isCustom ? 'Scratch page' : 'Step'} ${idx + 1}${isDone ? ' (done)' : ''}`}
                   title={isCustom ? `Scratch page ${idx + 1}` : `Step ${idx + 1}`}
                 >
+                  {isCustom && idx !== stepIndex && (
+                    <svg className="pen-br-step-dot-ring" viewBox="0 0 30 30" aria-hidden="true">
+                      <circle
+                        cx="15"
+                        cy="15"
+                        r="13.5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.75"
+                        strokeDasharray="3.6 3.47"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  )}
                   <span>{idx + 1}</span>
                 </button>
                 {isCustom && onDeleteStep && (

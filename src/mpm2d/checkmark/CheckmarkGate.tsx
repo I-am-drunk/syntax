@@ -6,24 +6,10 @@ import './checkmark.css'
 export type CheckmarkGateVisualState = 'ready' | 'disabled' | 'correct' | 'wrong'
 
 /**
- * Exact hollow bubble-letter checkmark silhouette (viewBox 0 0 280 124).
- * Left down-stroke starts at mid-left (78, 66), dips to sharp valley (118, 106),
- * and sweeps dramatically up-right to (206, 18) — ~2.35x arm asymmetry so it reads
- * unmistakably as a checkmark, never a V.
+ * Clean single-stroke normal checkmark path (viewBox 0 0 280 86).
+ * Rendered as a crisp dotted normal checkmark (never a hollow bubble outline).
  */
-const BUBBLE_CHECKMARK_OUTLINE =
-  'M 70 72 ' +
-  'C 64 66 64 56 70 50 ' +
-  'C 76 44 86 44 92 50 ' +
-  'L 118 76 ' +
-  'L 188 12 ' +
-  'C 194 6 204 6 210 12 ' +
-  'C 216 18 216 28 210 34 ' +
-  'L 129 109 ' +
-  'C 123 115 113 115 107 109 ' +
-  'Z'
-
-const SOLID_CHECKMARK_STROKE = 'M 81 62 L 118 96 L 199 21'
+const DOTTED_CHECKMARK_STROKE = 'M 105 46 L 128 69 L 176 19'
 
 function drawInkStroke(
   ctx: CanvasRenderingContext2D,
@@ -37,7 +23,7 @@ function drawInkStroke(
   ctx.strokeStyle = color
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
-  ctx.lineWidth = 6.5
+  ctx.lineWidth = 5.5
 
   ctx.beginPath()
   ctx.moveTo(pts[0]!.x, pts[0]!.y)
@@ -55,8 +41,7 @@ function drawInkStroke(
 }
 
 export function CheckmarkGate({
-  label = 'Check',
-  fallbackLabel = 'Tap to check',
+  label = 'Draw a checkmark anywhere to check',
   disabled = false,
   visualState = 'ready',
   screenGestureContainerRef,
@@ -65,10 +50,11 @@ export function CheckmarkGate({
   onReject,
 }: {
   label?: string
+  /** Deprecated prop kept optional for backwards compatibility; never displayed as "Tap to check" */
   fallbackLabel?: string
   disabled?: boolean
   visualState?: CheckmarkGateVisualState
-  /** Optional container ref (left lesson pane) for screen-wide draw-to-check */
+  /** Optional container ref (kept for compatibility; window-wide capture excludes pen canvas & dialogs) */
   screenGestureContainerRef?: React.RefObject<HTMLElement | null>
   enableScreenGesture?: boolean
   onTrigger: () => void
@@ -113,17 +99,14 @@ export function CheckmarkGate({
 
   const clearCanvas = useCallback(() => {
     cancelAnimationFrame(fadeRafRef.current)
-    const canvas = overlayCanvasRef.current
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
+    const ctx = ensureCanvasSize()
     if (ctx) {
-      ctx.setTransform(1, 0, 0, 1, 0, 0)
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      ctx.clearRect(0, 0, window.innerWidth, window.innerHeight)
     }
-  }, [])
+  }, [ensureCanvasSize])
 
   const dissolveStroke = useCallback(
-    (pts: StrokePoint[], color: string, durationMs: number) => {
+    (pts: StrokePoint[], color: string, durationMs = 260) => {
       cancelAnimationFrame(fadeRafRef.current)
       const start = performance.now()
       const step = (now: number) => {
@@ -167,7 +150,7 @@ export function CheckmarkGate({
         dissolveStroke(pts, getInkColor(), 260)
         if (source === 'gate') {
           setRejectShake(true)
-          setHintText('Draw a checkmark (short down, long up-right)')
+          setHintText('Sketch a short downstroke, then a longer up-right stroke')
           window.clearTimeout(shakeTimerRef.current)
           shakeTimerRef.current = window.setTimeout(() => {
             setRejectShake(false)
@@ -186,14 +169,13 @@ export function CheckmarkGate({
     }
   }, [])
 
-  // Reset hint when visual state changes
   useEffect(() => {
     if (visualState === 'correct') setHintText(null)
   }, [visualState])
 
-  // Pointer handlers on the bubble-checkmark gate itself (captures pointer so fast upstrokes never clip)
+  // Pointer handlers on the footer checkmark pad itself
   const onGatePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (disabled || visualState === 'correct') return
+    if (disabled) return
     if (e.button !== 0 && e.pointerType === 'mouse') return
     e.preventDefault()
     e.stopPropagation()
@@ -235,18 +217,18 @@ export function CheckmarkGate({
     finishStroke('gate')
   }
 
-  // Screen-wide draw-to-check on empty space of the left lesson surface (NEVER touches right tldraw pane)
+  // Page-wide draw-anywhere checkmark capture (works anywhere on the lesson page,
+  // excluding only active inputs, buttons/choices, draggable graph handles, dialogs, and the right tldraw pen pane)
   useEffect(() => {
-    if (!enableScreenGesture || !screenGestureContainerRef?.current) return
-    const el = screenGestureContainerRef.current
+    if (!enableScreenGesture) return
     let screenPtrId: number | null = null
     let startedDrawing = false
 
-    const isInteractiveTarget = (target: EventTarget | null): boolean => {
+    const isExcludedTarget = (target: EventTarget | null): boolean => {
       if (!(target instanceof Element)) return true
       return Boolean(
         target.closest(
-          'button, a, input, textarea, select, label, [role="button"], [data-pen-workspace], .chk-gate-wrap, .br-graph, .br-choice-opt, .br-plan-card, .sema-svg',
+          'button, a, input, textarea, select, label, [role="button"], [role="dialog"], [role="slider"], [data-pen-workspace], .pen-workspace-surface, .workspace-splitter, .chk-gate-wrap, .br-choice-opt, .br-plan-card, .br-graph-handle, [data-draggable-handle], .sema-svg, .lesson-navigation',
         ),
       )
     }
@@ -254,7 +236,12 @@ export function CheckmarkGate({
     const onDown = (e: PointerEvent) => {
       if (disabledRef.current) return
       if (e.button !== 0 && e.pointerType === 'mouse') return
-      if (isInteractiveTarget(e.target)) return
+      if (isExcludedTarget(e.target)) return
+      // Also verify we're not inside the pen workspace surface if split is open
+      const container = screenGestureContainerRef?.current
+      if (container && e.target instanceof Element && e.target.closest('.pen-workspace-surface')) {
+        return
+      }
       screenPtrId = e.pointerId
       startedDrawing = false
       pointsRef.current = [{ x: e.clientX, y: e.clientY, t: performance.now() }]
@@ -269,14 +256,16 @@ export function CheckmarkGate({
         if (Math.hypot(e.clientX - first.x, e.clientY - first.y) < 12) return
         startedDrawing = true
         setIsDrawing(true)
+        // Clear any accidental text selection while drawing a checkmark across prompt text
+        window.getSelection?.()?.removeAllRanges()
       }
       const last = pts[pts.length - 1]!
-      if (Math.hypot(e.clientX - last.x, e.clientY - last.y) < 2.5) return
+      if (Math.hypot(e.clientX - last.x, e.clientY - last.y) < 2.4) return
       pts.push({ x: e.clientX, y: e.clientY, t: performance.now() })
       const ctx = ensureCanvasSize()
       if (ctx) {
         ctx.clearRect(0, 0, window.innerWidth, window.innerHeight)
-        drawInkStroke(ctx, pts, getInkColor(), 0.85)
+        drawInkStroke(ctx, pts, getInkColor(), 0.88)
       }
     }
 
@@ -291,12 +280,12 @@ export function CheckmarkGate({
       }
     }
 
-    el.addEventListener('pointerdown', onDown)
+    window.addEventListener('pointerdown', onDown)
     window.addEventListener('pointermove', onMove, { passive: true })
     window.addEventListener('pointerup', onUp)
     window.addEventListener('pointercancel', onUp)
     return () => {
-      el.removeEventListener('pointerdown', onDown)
+      window.removeEventListener('pointerdown', onDown)
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
       window.removeEventListener('pointercancel', onUp)
@@ -314,49 +303,40 @@ export function CheckmarkGate({
           isCorrect ? ' is-correct' : ''
         }${isWrong ? ' is-wrong' : ''}${rejectShake ? ' is-shake' : ''}`}
         role="group"
-        aria-label={`${label}: draw a checkmark`}
+        aria-label={label}
         onPointerDown={onGatePointerDown}
         onPointerMove={onGatePointerMove}
         onPointerUp={onGatePointerUp}
         onPointerCancel={onGatePointerUp}
       >
-        {/* Green LED perimeter sweep overlay on correct check */}
-        <svg className="chk-led-svg" viewBox="0 0 280 124" preserveAspectRatio="none" aria-hidden="true">
+        {/* Subtle green perimeter sweep on correct check */}
+        <svg className="chk-led-svg" viewBox="0 0 320 84" preserveAspectRatio="none" aria-hidden="true">
           <rect
             className="chk-led-rect"
             x="2"
             y="2"
-            width="276"
-            height="120"
-            rx="20"
-            ry="20"
+            width="316"
+            height="80"
+            rx="16"
+            ry="16"
             pathLength={100}
           />
         </svg>
 
-        {/* Unmistakable giant bubble-letter hollow checkmark guide (vanishes cleanly on draw) */}
-        <svg className="chk-guide-svg" viewBox="0 0 280 124" aria-hidden="true">
-          <path className="chk-bubble-outline" d={BUBBLE_CHECKMARK_OUTLINE} />
-          <path className="chk-solid-check" d={SOLID_CHECKMARK_STROKE} pathLength={100} />
+        {/* Clean single-stroke dotted normal checkmark guide (fades while drawing) */}
+        <svg className="chk-guide-svg" viewBox="0 0 280 86" aria-hidden="true">
+          <path className="chk-dotted-guide" d={DOTTED_CHECKMARK_STROKE} />
+          <path className="chk-solid-check" d={DOTTED_CHECKMARK_STROKE} pathLength={100} />
         </svg>
-
-        <span className="chk-gate-caption">
-          {isCorrect ? 'Checked' : isDrawing ? '' : label}
-        </span>
       </div>
 
       <div className="chk-gate-subrow">
         {hintText ? (
           <span className="chk-gate-hint">{hintText}</span>
         ) : (
-          <button
-            type="button"
-            className="chk-tap-fallback"
-            disabled={disabled}
-            onClick={() => onTrigger()}
-          >
-            {fallbackLabel}
-          </button>
+          <span className={`chk-gate-instruction${isCorrect ? ' is-correct' : ''}`}>
+            {isDrawing ? 'Release to check…' : label}
+          </span>
         )}
       </div>
 

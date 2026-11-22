@@ -62,7 +62,12 @@ export function OnboardingModal({
                 animate={{ y: 0, scale: 1, opacity: 1 }}
                 transition={{ type: 'spring', stiffness: 220, damping: 16 }}
               >
-                <Sema state="bobbing" size={84} interactive ariaLabel="Sema greeting you" />
+                <div className="sema-bubble-anchor">
+                  <div className="sema-speech-bubble" data-placement="top" aria-hidden="true">
+                    Hi, I’m Sema
+                  </div>
+                  <Sema state="bobbing" size={84} interactive ariaLabel="Sema greeting you" />
+                </div>
               </motion.div>
               <Dialog.Title className="ob-title">Welcome to Syntax</Dialog.Title>
               <p className="ob-copy">

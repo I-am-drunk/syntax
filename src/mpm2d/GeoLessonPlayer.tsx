@@ -798,24 +798,6 @@ export function GeoLessonPlayer({
         </nav>
 
         <div className="lesson-nav-actions">
-          {onToggleDrawMode && (
-            <button
-              type="button"
-              className="lesson-nav-icon-btn"
-              data-active={drawMode || undefined}
-              onClick={() => {
-                onToggleDrawMode()
-                onSound?.('toggle-on')
-              }}
-              aria-label={drawMode ? 'Disable Draw-a-Checkmark Mode' : 'Enable Draw-a-Checkmark Mode'}
-              aria-pressed={drawMode}
-              title={drawMode ? 'Draw Mode ON (draw checkmarks)' : 'Draw Mode OFF (tap/keyboard)'}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M4 13.5 L9.5 19 L20 6" />
-              </svg>
-            </button>
-          )}
           <button
             type="button"
             className="lesson-nav-icon-btn"
@@ -900,6 +882,7 @@ export function GeoLessonPlayer({
                   spec={walkthroughSpec}
                   soundOn={soundOn}
                   voiceOn={voiceOn}
+                  drawMode={drawMode}
                   inline
                   onToggleVoice={() => onToggleVoice?.()}
                   onClose={() => setWalkthroughOpen(false)}
@@ -932,6 +915,36 @@ export function GeoLessonPlayer({
                   data-page-kind={page.kind}
                   data-is-check={isCheck}
                 >
+                  {/* Brilliant-native top-left editorial corner plate matching Level 1 heading grammar */}
+                  <div className="lesson-corner-plate" data-pen-ready={penAllowed || undefined}>
+                    <span className="lesson-corner-eyebrow">
+                      {lesson.id.startsWith('rescue-')
+                        ? 'Catch-Up'
+                        : `Level ${lesson.level}`}
+                      {' · '}
+                      {isCheck
+                        ? 'Check'
+                        : page.kind === 'worked'
+                          ? 'Lesson'
+                          : page.kind === 'explore'
+                            ? 'Explore'
+                            : penAllowed
+                              ? 'Notebook'
+                              : 'Practice'}
+                    </span>
+                    <strong className="lesson-corner-title">
+                      {isCheck
+                        ? 'Mastery Check'
+                        : page.kind === 'worked'
+                          ? 'Worked Example'
+                          : page.kind === 'explore'
+                            ? 'Interactive Lab'
+                            : penAllowed
+                              ? 'Notebook Question'
+                              : 'Guided Question'}
+                    </strong>
+                  </div>
+
                   <div className="lesson-content">
                     {returnToLessonLabel && onReturnToLesson && (
                       <button
@@ -1303,21 +1316,12 @@ export function GeoLessonPlayer({
                       key={`chk-${page.id}-${state.activeSubStep}-${state.evaluation}`}
                       label={
                         isProblem && state.evaluation === 'unsubmitted'
-                          ? 'Draw ✓ to check'
+                          ? 'Draw a checkmark anywhere to check'
                           : state.evaluation === 'incorrect-retry'
-                            ? 'Draw ✓ to retry'
+                            ? 'Draw a checkmark anywhere to try again'
                             : pageIndex === allPages.length - 1
-                              ? 'Draw ✓ to finish'
-                              : 'Draw ✓ to continue'
-                      }
-                      fallbackLabel={
-                        isProblem && state.evaluation === 'unsubmitted'
-                          ? 'Tap to check'
-                          : state.evaluation === 'incorrect-retry'
-                            ? 'Tap to try again'
-                            : pageIndex === allPages.length - 1
-                              ? 'Tap to finish'
-                              : 'Tap to continue'
+                              ? 'Draw a checkmark anywhere to finish'
+                              : 'Draw a checkmark anywhere to continue'
                       }
                       disabled={isProblem && state.evaluation === 'unsubmitted' && !canCheck}
                       visualState={
@@ -1431,6 +1435,7 @@ export function GeoLessonPlayer({
           open={walkthroughOpen}
           soundOn={soundOn}
           voiceOn={voiceOn}
+          drawMode={drawMode}
           onToggleVoice={() => onToggleVoice?.()}
           onClose={() => setWalkthroughOpen(false)}
           onLaunchRescue={rescueId => {

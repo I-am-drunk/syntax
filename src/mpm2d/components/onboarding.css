@@ -57,7 +57,8 @@
 }
 
 .ob-sema-stage {
-  height: 102px;
+  height: 138px;
+  padding-top: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
