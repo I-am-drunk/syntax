@@ -1,811 +1,543 @@
-import { BrilliantGraph } from '../graph/BrilliantGraph'
+import { BrilliantGraph } from '../graph'
 import { MathText } from '../components/MathText'
-import {
-  GRAPH_COLORS,
-  easeInOut,
-  easeOut,
-  getStagePlugin,
-  lerp,
-  registerStagePlugin,
-  seg,
-  type AlgebraTimelineConfig,
-  type GraphTimelineConfig,
-  type GraphTrack,
-} from './animationEngine'
 import type { WalkthroughBeat } from './walkthroughData'
 
-/* ============================================================================
-   Built-in Plugin #1: 'graph-timeline' (Declarative Animation Graph System)
-   ============================================================================ */
-
-const SVG_W = 420
-const SVG_H = 270
-const PAD_L = 34
-const PAD_R = 22
-const PAD_T = 20
-const PAD_B = 26
-
-function createMapper(bounds: GraphTimelineConfig['bounds']) {
-  const { xMin, xMax, yMin, yMax } = bounds
-  const innerW = SVG_W - PAD_L - PAD_R
-  const innerH = SVG_H - PAD_T - PAD_B
-  const mx = (x: number) => PAD_L + ((x - xMin) / (xMax - xMin)) * innerW
-  const my = (y: number) => PAD_T + ((yMax - y) / (yMax - yMin)) * innerH
-  return { mx, my, xMin, xMax, yMin, yMax }
+function clamp(v: number, lo = 0, hi = 1): number {
+  return v < lo ? lo : v > hi ? hi : v
 }
 
-function GridBase({ bounds }: { bounds: GraphTimelineConfig['bounds'] }) {
-  const { mx, my, xMin, xMax, yMin, yMax } = createMapper(bounds)
-  const spanX = xMax - xMin
-  const spanY = yMax - yMin
-  const stepX = bounds.step ?? (spanX > 12 ? 2 : 1)
-  const stepY = bounds.step ?? (spanY > 12 ? 2 : 1)
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t
+}
 
-  const xs: number[] = []
-  for (let x = Math.ceil(xMin / stepX) * stepX; x <= xMax; x += stepX) xs.push(x)
-  const ys: number[] = []
-  for (let y = Math.ceil(yMin / stepY) * stepY; y <= yMax; y += stepY) ys.push(y)
+function easeInOut(t: number): number {
+  const x = clamp(t)
+  return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2
+}
 
-  const hasXAxis = yMin <= 0 && yMax >= 0
-  const hasYAxis = xMin <= 0 && xMax >= 0
-  const xAxisY = hasXAxis ? my(0) : SVG_H - PAD_B
-  const yAxisX = hasYAxis ? mx(0) : PAD_L
+function easeOut(t: number): number {
+  const x = 1 - clamp(t)
+  return 1 - x * x * x
+}
+
+function seg(progress: number, start: number, end: number): number {
+  return clamp((progress - start) / Math.max(0.001, end - start))
+}
+
+// Coordinate mapper for custom live-animated Visual Lens SVG (viewBox 0 0 420 270)
+// Math domain: x in [-5, 8] (span 13), y in [-5, 5] (span 10)
+const GY0 = 18
+const GH = 234
+const X_MIN = -5
+const X_MAX = 8
+const Y_MIN = -5
+const Y_MAX = 5
+const GW = GH * (X_MAX - X_MIN) / (Y_MAX - Y_MIN)
+const GX0 = (420 - GW) / 2
+
+function mx(x: number): number {
+  return GX0 + ((x - X_MIN) / (X_MAX - X_MIN)) * GW
+}
+function my(y: number): number {
+  return GY0 + ((Y_MAX - y) / (Y_MAX - Y_MIN)) * GH
+}
+
+function GridBase() {
+  const vLines: number[] = []
+  for (let x = -4; x <= 7; x++) vLines.push(x)
+  const hLines: number[] = []
+  for (let y = -4; y <= 4; y++) hLines.push(y)
 
   return (
-    <g>
-      {xs.map(x => (
+    <g className="wt-grid">
+      {vLines.map(x => (
         <line
-          key={`gx-${x}`}
+          key={`vx-${x}`}
           x1={mx(x)}
-          y1={PAD_T}
+          y1={GY0}
           x2={mx(x)}
-          y2={SVG_H - PAD_B}
-          className="wt-grid-line"
+          y2={GY0 + GH}
+          className={x === 0 ? 'wt-axis' : 'wt-grid-line'}
         />
       ))}
-      {ys.map(y => (
+      {hLines.map(y => (
         <line
-          key={`gy-${y}`}
-          x1={PAD_L}
+          key={`hy-${y}`}
+          x1={GX0}
           y1={my(y)}
-          x2={SVG_W - PAD_R}
+          x2={GX0 + GW}
           y2={my(y)}
-          className="wt-grid-line"
+          className={y === 0 ? 'wt-axis' : 'wt-grid-line'}
         />
       ))}
-      {hasXAxis && (
-        <line x1={PAD_L - 8} y1={xAxisY} x2={SVG_W - PAD_R + 8} y2={xAxisY} className="wt-axis-line" />
-      )}
-      {hasYAxis && (
-        <line x1={yAxisX} y1={PAD_T - 8} x2={yAxisX} y2={SVG_H - PAD_B + 8} className="wt-axis-line" />
-      )}
-      {xs.map(x => {
-        if (x === 0 && hasYAxis) return null
-        if (spanX > 8 && Math.abs(x) % (stepX * 2) !== 0) return null
-        return (
-          <text
-            key={`tx-${x}`}
-            x={mx(x)}
-            y={Math.min(SVG_H - 8, xAxisY + 14)}
-            textAnchor="middle"
-            className="wt-axis-tick"
-          >
-            {x}
-          </text>
-        )
-      })}
-      {ys.map(y => {
-        if (y === 0 && hasXAxis) return null
-        if (spanY > 8 && Math.abs(y) % (stepY * 2) !== 0) return null
-        return (
-          <text
-            key={`ty-${y}`}
-            x={Math.max(18, yAxisX - 8)}
-            y={my(y) + 3.5}
-            textAnchor="end"
-            className="wt-axis-tick"
-          >
-            {y}
-          </text>
-        )
-      })}
+      {/* Crisp subtle axis numbers */}
+      <text x={mx(6)} y={my(0) + 14} className="wt-axis-num" textAnchor="middle">6</text>
+      <text x={mx(-3)} y={my(0) + 14} className="wt-axis-num" textAnchor="middle">−3</text>
+      <text x={mx(0) - 8} y={my(-3) + 4} className="wt-axis-num" textAnchor="end">−3</text>
+      <text x={mx(0) - 8} y={my(3) + 4} className="wt-axis-num" textAnchor="end">3</text>
     </g>
   )
 }
 
-function renderGraphTrack(
-  track: GraphTrack,
-  progress: number,
-  bounds: GraphTimelineConfig['bounds'],
-) {
-  const { mx, my, xMin, xMax } = createMapper(bounds)
+function Vis1PlotSlope({ progress }: { progress: number }) {
+  const lineDraw = easeOut(seg(progress, 0.04, 0.34))
+  const triRun = easeOut(seg(progress, 0.34, 0.54))
+  const triRise = easeOut(seg(progress, 0.52, 0.74))
+  const badgePop = easeOut(seg(progress, 0.72, 0.88))
 
-  switch (track.type) {
-    case 'polygon': {
-      const t = easeOut(seg(progress, track.fromT, track.toT))
-      if (t <= 0.01) return null
-      const color = GRAPH_COLORS[track.color ?? 'blue']
-      const pts = track.vertices.map(([x, y]) => `${mx(x).toFixed(1)},${my(y).toFixed(1)}`).join(' ')
-      return (
-        <polygon
-          key={track.id}
-          points={pts}
-          fill={color}
-          fillOpacity={(track.fillOpacity ?? 0.1) * t}
-          stroke={color}
-          strokeWidth="2.4"
-          strokeLinejoin="round"
-          opacity={t}
-        />
-      )
-    }
+  // Line y = -3x - 3 from (-2.67, 5) to (0.67, -5)
+  const x1 = mx(-2.67)
+  const y1 = my(5)
+  const x2 = mx(0.67)
+  const y2 = my(-5)
 
-    case 'line-draw': {
-      const t = easeInOut(seg(progress, track.fromT, track.toT))
-      if (t <= 0.005) return null
-      const x1 = mx(track.from[0])
-      const y1 = my(track.from[1])
-      const x2 = lerp(x1, mx(track.to[0]), t)
-      const y2 = lerp(y1, my(track.to[1]), t)
-      const dimT = track.dimAfterT !== undefined ? easeOut(seg(progress, track.dimAfterT, track.dimAfterT + 0.18)) : 0
-      const op = lerp(1, track.dimOpacity ?? 0.34, dimT)
-      return (
-        <line
-          key={track.id}
-          x1={x1}
-          y1={y1}
-          x2={x2}
-          y2={y2}
-          stroke={GRAPH_COLORS[track.color ?? 'blue']}
-          strokeWidth={track.strokeWidth ?? 3.6}
-          strokeDasharray={track.dashed ? '6 5' : undefined}
-          strokeLinecap="round"
-          opacity={op}
-        />
-      )
-    }
+  // Rise/run triangle: (-1, 0) -> (0, 0) -> (0, -3)
+  const tx0 = mx(-1)
+  const ty0 = my(0)
+  const tx1 = mx(0)
+  const ty1 = my(0)
+  const ty2 = my(-3)
 
-    case 'segment-draw': {
-      const t = easeInOut(seg(progress, track.fromT, track.toT))
-      if (t <= 0.005) return null
-      const x1 = mx(track.from[0])
-      const y1 = my(track.from[1])
-      const x2 = lerp(x1, mx(track.to[0]), t)
-      const y2 = lerp(y1, my(track.to[1]), t)
-      const color = GRAPH_COLORS[track.color ?? 'teal']
-      const midX = (x1 + mx(track.to[0])) * 0.5
-      const midY = (y1 + my(track.to[1])) * 0.5
-      const dx = mx(track.to[0]) - x1
-      const dy = my(track.to[1]) - y1
-      const len = Math.hypot(dx, dy) || 1
-      const nx = -dy / len
-      const ny = dx / len
-      return (
-        <g key={track.id}>
-          <line
-            x1={x1}
-            y1={y1}
-            x2={x2}
-            y2={y2}
-            stroke={color}
-            strokeWidth={track.strokeWidth ?? 3.4}
-            strokeLinecap="round"
-          />
-          {track.ticks && t > 0.85 && (
-            <line
-              x1={midX - nx * 6}
-              y1={midY - ny * 6}
-              x2={midX + nx * 6}
-              y2={midY + ny * 6}
-              stroke={color}
-              strokeWidth="2.4"
-              strokeLinecap="round"
-              opacity={(t - 0.85) / 0.15}
-            />
-          )}
-          {track.label && t > 0.8 && (
-            <text
-              x={midX + nx * 14}
-              y={midY + ny * 14 + 4}
-              textAnchor="middle"
-              className="wt-callout-teal"
-              opacity={(t - 0.8) / 0.2}
-            >
-              {track.label}
-            </text>
-          )}
-        </g>
-      )
-    }
-
-    case 'slope-triangle': {
-      const runT = easeOut(seg(progress, track.runFromT, track.runToT))
-      const riseT = easeOut(seg(progress, track.riseFromT, track.riseToT))
-      if (runT <= 0.01) return null
-      const x0 = mx(track.from[0])
-      const y0 = my(track.from[1])
-      const x1 = mx(track.from[0] + track.dx)
-      const y1 = my(track.from[1] + track.dy)
-      const color = GRAPH_COLORS[track.color ?? 'amber']
-      return (
-        <g key={track.id}>
-          <line
-            x1={x0}
-            y1={y0}
-            x2={lerp(x0, x1, runT)}
-            y2={y0}
-            stroke={color}
-            strokeWidth="3"
-            strokeDasharray="5 4"
-            strokeLinecap="round"
-          />
-          {runT > 0.45 && (
-            <text
-              x={(x0 + x1) * 0.5}
-              y={track.dy < 0 ? y0 - 9 : y0 + 16}
-              textAnchor="middle"
-              className="wt-callout-amber"
-              opacity={Math.min(1, (runT - 0.45) / 0.4)}
-            >
-              {track.runLabel}
-            </text>
-          )}
-          {riseT > 0.01 && (
-            <>
-              <line
-                x1={x1}
-                y1={y0}
-                x2={x1}
-                y2={lerp(y0, y1, riseT)}
-                stroke={color}
-                strokeWidth="3"
-                strokeDasharray="5 4"
-                strokeLinecap="round"
-              />
-              {riseT > 0.45 && (
-                <text
-                  x={x1 + (track.dx >= 0 ? 10 : -10)}
-                  y={(y0 + y1) * 0.5 + 4}
-                  textAnchor={track.dx >= 0 ? 'start' : 'end'}
-                  className="wt-callout-amber"
-                  opacity={Math.min(1, (riseT - 0.45) / 0.4)}
-                >
-                  {track.riseLabel}
-                </text>
-              )}
-            </>
-          )}
-        </g>
-      )
-    }
-
-    case 'line-rotate': {
-      const rotT = easeInOut(seg(progress, track.fromT, track.toT))
-      const sqT =
-        track.rightAngleFromT !== undefined && track.rightAngleToT !== undefined
-          ? easeOut(seg(progress, track.rightAngleFromT, track.rightAngleToT))
-          : easeOut(seg(progress, track.toT - 0.06, Math.min(1, track.toT + 0.14)))
-
-      const px = mx(track.pivot[0])
-      const py = my(track.pivot[1])
-      const dxScreen = mx(track.pivot[0] + 1) - px
-      const dyScreen = my(track.pivot[1] + track.baseSlope) - py
-      const baseAngleRad = Math.atan2(dyScreen, dxScreen)
-      const baseAngleDeg = (baseAngleRad * 180) / Math.PI
-      const currentRotDeg = track.rotateDeg * rotT
-      const arm = track.armLengthPx ?? 240
-      const color = GRAPH_COLORS[track.color ?? 'teal']
-
-      // Sweeping sector arc around pivot
-      const arcR = 32
-      const aStart = baseAngleRad - Math.PI
-      const aEnd = aStart + ((track.rotateDeg * Math.PI) / 180) * rotT
-      const sx = px + Math.cos(aStart) * arcR
-      const sy = py + Math.sin(aStart) * arcR
-      const ex = px + Math.cos(aEnd) * arcR
-      const ey = py + Math.sin(aEnd) * arcR
-      const sweepFlag = track.rotateDeg < 0 ? 0 : 1
-
-      // Right-angle square aligned to rotated axes
-      const signRad = track.rotateDeg < 0 ? -Math.PI / 2 : Math.PI / 2
-      const u1x = Math.cos(baseAngleRad)
-      const u1y = Math.sin(baseAngleRad)
-      const u2x = Math.cos(baseAngleRad + signRad)
-      const u2y = Math.sin(baseAngleRad + signRad)
-      const sz = 14
-
-      return (
-        <g key={track.id}>
-          {rotT > 0.04 && (
-            <path
-              d={`M ${px} ${py} L ${sx} ${sy} A ${arcR} ${arcR} 0 0 ${sweepFlag} ${ex} ${ey} Z`}
-              fill={color}
-              opacity={0.14 + 0.12 * rotT}
-            />
-          )}
-          <g transform={`translate(${px}, ${py}) rotate(${baseAngleDeg + currentRotDeg})`}>
-            <line
-              x1={-arm}
-              y1="0"
-              x2={arm}
-              y2="0"
-              stroke={color}
-              strokeWidth="3.8"
-              strokeLinecap="round"
-            />
-          </g>
-          {sqT > 0.02 && (
-            <path
-              d={`M ${px - u1x * sz} ${py - u1y * sz} L ${px - u1x * sz + u2x * sz} ${py - u1y * sz + u2y * sz} L ${px + u2x * sz} ${py + u2y * sz}`}
-              fill="none"
-              stroke="#29cc57"
-              strokeWidth="2.6"
-              strokeLinejoin="round"
-              opacity={sqT}
-            />
-          )}
-          <circle cx={px} cy={py} r="5.5" fill={color} />
-        </g>
-      )
-    }
-
-    case 'line-glide': {
-      const slideT = easeInOut(seg(progress, track.fromT, track.toT))
-      const lockT = easeOut(seg(progress, track.lockFromT, track.lockToT))
-      const bVal = lerp(track.fromB, track.toB, slideT)
-      const yLeft = track.slope * xMin + bVal
-      const yRight = track.slope * xMax + bVal
-      const bx = mx(0)
-      const by = my(bVal)
-      const px = mx(track.targetPoint[0])
-      const py = my(track.targetPoint[1])
-      const baseColor = GRAPH_COLORS[track.color ?? 'teal']
-      const activeColor = lockT > 0.2 ? '#29cc57' : baseColor
-
-      return (
-        <g key={track.id}>
-          {/* Elevator guide on y-axis */}
-          <line
-            x1={bx}
-            y1={my(track.fromB)}
-            x2={bx}
-            y2={my(track.toB)}
-            stroke={baseColor}
-            strokeWidth="2"
-            strokeDasharray="4 4"
-            opacity="0.45"
-          />
-          <line
-            x1={mx(xMin)}
-            y1={my(yLeft)}
-            x2={mx(xMax)}
-            y2={my(yRight)}
-            stroke={activeColor}
-            strokeWidth="3.8"
-            strokeLinecap="round"
-          />
-          <circle cx={bx} cy={by} r="6" fill={activeColor} />
-          <text x={bx - 12} y={by + 4} textAnchor="end" className="wt-callout-teal">
-            b = {bVal >= 0 ? bVal.toFixed(1) : `−${Math.abs(bVal).toFixed(1)}`}
-          </text>
-          {lockT > 0.02 && (
-            <circle
-              cx={px}
-              cy={py}
-              r={6 + lockT * 20}
-              fill="none"
-              stroke="#29cc57"
-              strokeWidth="2.5"
-              opacity={1 - lockT}
-            />
-          )}
-          <circle cx={px} cy={py} r={6.5 + Math.sin(lockT * Math.PI) * 2.5} fill="#f59e0b" />
-          <text x={px} y={py - 12} className="wt-point-label" textAnchor="middle">
-            {track.targetLabel}
-          </text>
-        </g>
-      )
-    }
-
-    case 'midpoint-sweep': {
-      const t = easeInOut(seg(progress, track.fromT, track.toT))
-      const lockT = easeOut(seg(progress, track.lockFromT, track.lockToT))
-      const ax = mx(track.a[0])
-      const ay = my(track.a[1])
-      const bx = mx(track.b[0])
-      const by = my(track.b[1])
-      const midX = (ax + bx) * 0.5
-      const midY = (ay + by) * 0.5
-      const p1x = lerp(ax, midX, t)
-      const p1y = lerp(ay, midY, t)
-      const p2x = lerp(bx, midX, t)
-      const p2y = lerp(by, midY, t)
-      const color = GRAPH_COLORS[track.color ?? 'blue']
-
-      return (
-        <g key={track.id}>
-          <line x1={ax} y1={ay} x2={bx} y2={by} stroke={color} strokeWidth="2.4" opacity="0.28" strokeDasharray="5 4" />
-          <line x1={ax} y1={ay} x2={p1x} y2={p1y} stroke={color} strokeWidth="3.8" strokeLinecap="round" />
-          <line x1={bx} y1={by} x2={p2x} y2={p2y} stroke={color} strokeWidth="3.8" strokeLinecap="round" />
-
-          <circle cx={ax} cy={ay} r="5.5" fill={color} />
-          <text x={ax} y={ay - 11} textAnchor="middle" className="wt-point-label">{track.labelA}</text>
-          <circle cx={bx} cy={by} r="5.5" fill={color} />
-          <text x={bx} y={by + 18} textAnchor="middle" className="wt-point-label">{track.labelB}</text>
-
-          {/* Converging midpoint probes */}
-          {t > 0.02 && t < 0.99 && (
-            <>
-              <circle cx={p1x} cy={p1y} r="5" fill="#f59e0b" />
-              <circle cx={p2x} cy={p2y} r="5" fill="#f59e0b" />
-            </>
-          )}
-
-          {/* Midpoint collision & lock-in */}
-          {lockT > 0.02 && (
-            <>
-              <circle
-                cx={midX}
-                cy={midY}
-                r={6 + lockT * 18}
-                fill="none"
-                stroke="#29cc57"
-                strokeWidth="2.4"
-                opacity={1 - lockT}
-              />
-              <circle cx={midX} cy={midY} r={6.5 * lockT} fill="#f59e0b" stroke="#ffffff" strokeWidth="2" />
-              {track.labelM && (
-                <text x={midX + 12} y={midY - 8} textAnchor="start" className="wt-callout-amber" opacity={lockT}>
-                  {track.labelM}
-                </text>
-              )}
-            </>
-          )}
-        </g>
-      )
-    }
-
-    case 'distance-triangle': {
-      const legT = easeInOut(seg(progress, track.fromT, track.toT))
-      const hypT = easeOut(seg(progress, track.hypFromT, track.hypToT))
-      const ax = mx(track.a[0])
-      const ay = my(track.a[1])
-      const bx = mx(track.b[0])
-      const by = my(track.b[1])
-      const color = GRAPH_COLORS[track.color ?? 'blue']
-
-      return (
-        <g key={track.id}>
-          {legT > 0.02 && (
-            <>
-              <polygon
-                points={`${ax},${ay} ${bx},${ay} ${bx},${by}`}
-                fill="#f59e0b"
-                fillOpacity={0.1 * legT}
-              />
-              <line
-                x1={ax}
-                y1={ay}
-                x2={lerp(ax, bx, Math.min(1, legT * 1.4))}
-                y2={ay}
-                stroke="#f59e0b"
-                strokeWidth="3"
-                strokeDasharray="5 4"
-                strokeLinecap="round"
-              />
-              <line
-                x1={bx}
-                y1={ay}
-                x2={bx}
-                y2={lerp(ay, by, seg(legT, 0.35, 1))}
-                stroke="#f59e0b"
-                strokeWidth="3"
-                strokeDasharray="5 4"
-                strokeLinecap="round"
-              />
-              {legT > 0.5 && (
-                <text x={(ax + bx) * 0.5} y={ay + 17} textAnchor="middle" className="wt-callout-amber">
-                  {track.dxLabel}
-                </text>
-              )}
-              {legT > 0.75 && (
-                <text x={bx + 10} y={(ay + by) * 0.5 + 4} textAnchor="start" className="wt-callout-amber">
-                  {track.dyLabel}
-                </text>
-              )}
-            </>
-          )}
-
-          {hypT > 0.01 && (
-            <>
-              <line
-                x1={ax}
-                y1={ay}
-                x2={lerp(ax, bx, hypT)}
-                y2={lerp(ay, by, hypT)}
-                stroke={color}
-                strokeWidth="4"
-                strokeLinecap="round"
-              />
-              {hypT > 0.6 && (
-                <text
-                  x={(ax + bx) * 0.5 - 14}
-                  y={(ay + by) * 0.5 - 8}
-                  textAnchor="end"
-                  className="wt-callout-teal"
-                  opacity={(hypT - 0.6) / 0.4}
-                >
-                  {track.hypLabel}
-                </text>
-              )}
-            </>
-          )}
-        </g>
-      )
-    }
-
-    case 'point': {
-      const t = easeOut(seg(progress, track.fromT, track.toT))
-      if (t <= 0.01) return null
-      const cx = mx(track.at[0])
-      const cy = my(track.at[1])
-      const r = (track.radius ?? 5.5) * t
-      const pulseT = track.pulseAtT !== undefined ? easeOut(seg(progress, track.pulseAtT, track.pulseAtT + 0.2)) : 0
-      const color = GRAPH_COLORS[track.color ?? 'blue']
-      return (
-        <g key={track.id} opacity={t}>
-          {pulseT > 0.01 && pulseT < 0.99 && (
-            <circle cx={cx} cy={cy} r={r + pulseT * 18} fill="none" stroke={color} strokeWidth="2.4" opacity={1 - pulseT} />
-          )}
-          <circle cx={cx} cy={cy} r={r} fill={color} />
-          {track.label && (
-            <text
-              x={cx + (track.labelDx ?? 10)}
-              y={cy + (track.labelDy ?? -8)}
-              className="wt-point-label"
-            >
-              {track.label}
-            </text>
-          )}
-        </g>
-      )
-    }
-
-    case 'badge': {
-      const t = easeOut(seg(progress, track.fromT, track.toT))
-      if (t <= 0.01) return null
-      const cx = mx(track.at[0])
-      const cy = my(track.at[1])
-      const w = track.width ?? 138
-      const tone = track.tone ?? 'blue'
-      let labelText = track.text
-      if (track.phases && track.phases.length > 0) {
-        for (const p of track.phases) {
-          if (progress >= p.at) labelText = p.text
-        }
-      }
-      const bgClass =
-        tone === 'green'
-          ? 'wt-badge-bg-green'
-          : tone === 'teal'
-            ? 'wt-badge-bg-teal'
-            : 'wt-badge-bg'
-      const textClass =
-        tone === 'green'
-          ? 'wt-badge-green'
-          : tone === 'teal'
-            ? 'wt-badge-teal'
-            : 'wt-badge-blue'
-
-      return (
-        <g
-          key={track.id}
-          transform={`translate(${cx}, ${cy}) scale(${0.75 + 0.25 * t})`}
-          opacity={t}
-        >
-          <rect x={-w / 2} y="-17" width={w} height="34" rx="10" className={bgClass} />
-          <text x="0" y="5" textAnchor="middle" className={textClass}>
-            {labelText}
-          </text>
-        </g>
-      )
-    }
-  }
-}
-
-function GraphTimelineStage({ config, progress }: { config: GraphTimelineConfig; progress: number }) {
   return (
-    <svg className="wt-graph-svg" viewBox={`0 0 ${SVG_W} ${SVG_H}`} aria-label={config.ariaLabel}>
-      <GridBase bounds={config.bounds} />
-      {config.tracks.map(track => renderGraphTrack(track, progress, config.bounds))}
+    <svg className="wt-graph-svg" viewBox="0 0 420 270" aria-label="Plotting y = -3x - 3">
+      <GridBase />
+
+      {/* Given line drawing in */}
+      <line
+        x1={x1}
+        y1={y1}
+        x2={x2}
+        y2={y2}
+        stroke="#456dff"
+        strokeWidth="3.5"
+        strokeLinecap="round"
+        pathLength={100}
+        strokeDasharray="100"
+        strokeDashoffset={100 * (1 - lineDraw)}
+      />
+
+      {/* Shaded slope triangle */}
+      {triRise > 0.05 && (
+        <polygon
+          points={`${tx0},${ty0} ${tx1},${ty1} ${tx1},${ty2}`}
+          fill="rgba(69, 109, 255, 0.14)"
+          opacity={triRise}
+        />
+      )}
+
+      {/* Run +1 */}
+      {triRun > 0.01 && (
+        <g>
+          <line
+            x1={tx0}
+            y1={ty0}
+            x2={lerp(tx0, tx1, triRun)}
+            y2={ty1}
+            stroke="#f59e0b"
+            strokeWidth="3"
+            strokeDasharray="5 3"
+          />
+          <text x={(tx0 + tx1) * 0.5} y={ty0 - 8} className="wt-callout-amber" textAnchor="middle" opacity={triRun}>
+            run +1
+          </text>
+        </g>
+      )}
+
+      {/* Rise -3 */}
+      {triRise > 0.01 && (
+        <g>
+          <line
+            x1={tx1}
+            y1={ty1}
+            x2={tx1}
+            y2={lerp(ty1, ty2, triRise)}
+            stroke="#ef4444"
+            strokeWidth="3"
+            strokeDasharray="5 3"
+          />
+          <text x={tx1 + 10} y={(ty1 + ty2) * 0.5 + 4} className="wt-callout-red" opacity={triRise}>
+            rise −3
+          </text>
+        </g>
+      )}
+
+      {/* Key points */}
+      <circle cx={mx(-1)} cy={my(0)} r={5 * lineDraw} fill="#456dff" />
+      <circle cx={mx(0)} cy={my(-3)} r={5.5 * lineDraw} fill="#456dff" />
+      <circle cx={mx(6)} cy={my(1)} r={6 * lineDraw} fill="#f59e0b" />
+      <text x={mx(6)} y={my(1) - 11} className="wt-point-label" textAnchor="middle" opacity={lineDraw}>
+        P(6, 1)
+      </text>
+
+      {/* Slope badge */}
+      <g
+        transform={`translate(${mx(2.8)}, ${my(-2.6)}) scale(${0.7 + 0.3 * badgePop})`}
+        opacity={badgePop}
+      >
+        <rect x="-46" y="-16" width="92" height="32" rx="10" className="wt-badge-bg" />
+        <text x="0" y="5" textAnchor="middle" className="wt-badge-blue">m = −3</text>
+      </g>
     </svg>
   )
 }
 
-/* ============================================================================
-   Built-in Plugin #2: 'algebra-timeline' (Declarative Equation Choreography)
-   ============================================================================ */
+function Vis2Rotate90({ progress }: { progress: number }) {
+  const rotT = easeInOut(seg(progress, 0.08, 0.54))
+  const sqPop = easeOut(seg(progress, 0.52, 0.72))
+  const triPop = easeOut(seg(progress, 0.64, 0.88))
 
-function AlgebraTimelineStage({
-  config,
-  progress,
-}: {
-  config: AlgebraTimelineConfig
-  progress: number
-}) {
-  let activeHint = config.hints[0]?.text ?? ''
-  for (const h of config.hints) {
-    if (progress >= h.at) activeHint = h.text
-  }
+  // Pivot intersection of y = -3x - 3 and y = 1/3 x - 1 is (-0.6, -1.2)
+  const px = mx(-0.6)
+  const py = my(-1.2)
 
-  const resT = config.resultPill
-    ? easeOut(seg(progress, config.resultPill.fromT, config.resultPill.toT))
-    : 0
+  // Original line direction in SVG coords (note y is flipped in SVG!)
+  // Math vector (1, -3) -> SVG vector (+dx, +dy) = (scaleX*1, scaleY*3)
+  const scaleX = GW / (X_MAX - X_MIN)
+  const scaleY = GH / (Y_MAX - Y_MIN)
+  const baseAngleRad = Math.atan2(3 * scaleY, 1 * scaleX) // ~+71.5 deg in SVG
+  const baseAngleDeg = (baseAngleRad * 180) / Math.PI
+  // Rotating counterclockwise by 90 deg in math = subtracting 90 deg in SVG screen coords!
+  const currentRotDeg = -90 * rotT
+
+  // Sweeping 90-degree green sector arc around pivot
+  const arcR = 32
+  const aStart = baseAngleRad - Math.PI // pointing up-left along blue line
+  const aEnd = aStart - (Math.PI / 2) * rotT
+  const sx = px + Math.cos(aStart) * arcR
+  const sy = py + Math.sin(aStart) * arcR
+  const ex = px + Math.cos(aEnd) * arcR
+  const ey = py + Math.sin(aEnd) * arcR
+
+  // Right-angle square aligned to rotated axes
+  const u1x = Math.cos(baseAngleRad)
+  const u1y = Math.sin(baseAngleRad)
+  const u2x = Math.cos(baseAngleRad - Math.PI / 2)
+  const u2y = Math.sin(baseAngleRad - Math.PI / 2)
+  const sz = 14
 
   return (
-    <div className="wt-alg-stage" aria-label={config.ariaLabel}>
-      {activeHint && <div className="wt-alg-hint">{activeHint}</div>}
+    <svg className="wt-graph-svg" viewBox="0 0 420 270" aria-label="Rotating line 90 degrees">
+      <GridBase />
 
-      {/* 2D Choreographed Math Token Stage (parabolic arcs, orbital flips, smooth glides) */}
-      {config.tokens && config.tokens.length > 0 && (
-        <div className="wt-alg-canvas">
-          {config.fracBars?.map(bar => {
-            const bt = easeOut(seg(progress, bar.fromT, bar.toT))
-            return (
-              <span
-                key={bar.id}
-                className="wt-frac-bar"
-                style={{
-                  transform: `translate(${bar.x}px, ${bar.y}px) scaleX(${bt})`,
-                  opacity: bt,
-                }}
-              />
-            )
-          })}
+      {/* Original blue line dimmed slightly as rotation proceeds */}
+      <line
+        x1={mx(-2.67)}
+        y1={my(5)}
+        x2={mx(0.67)}
+        y2={my(-5)}
+        stroke="#456dff"
+        strokeWidth="3"
+        opacity={lerp(0.95, 0.35, rotT)}
+      />
 
-          {config.tokens.map(tok => {
-            const moveT = easeInOut(seg(progress, tok.fromT, tok.toT))
-            let x = tok.to ? lerp(tok.from[0], tok.to[0], moveT) : tok.from[0]
-            let y = tok.to ? lerp(tok.from[1], tok.to[1], moveT) : tok.from[1]
-            if (tok.arcHeight) {
-              y -= Math.sin(moveT * Math.PI) * tok.arcHeight
-            }
-
-            if (tok.orbit) {
-              const ot = easeInOut(seg(progress, tok.orbit.fromT, tok.orbit.toT))
-              const rad = (lerp(tok.orbit.fromDeg, tok.orbit.toDeg, ot) * Math.PI) / 180
-              const fadeScale = tok.fadeIn ? easeOut(seg(progress, tok.fadeIn[0], tok.fadeIn[1])) : 1
-              x = tok.orbit.cx + Math.sin(rad) * tok.orbit.rx
-              y = lerp(tok.from[1], tok.orbit.cy - Math.cos(rad) * tok.orbit.ry, fadeScale)
-            }
-
-            let opacity = 1
-            if (tok.fadeIn) {
-              opacity *= easeOut(seg(progress, tok.fadeIn[0], tok.fadeIn[1]))
-            }
-            if (tok.fadeOut) {
-              opacity *= 1 - easeOut(seg(progress, tok.fadeOut[0], tok.fadeOut[1]))
-            }
-
-            let rotateDeg = 0
-            let scale = 1
-            if (tok.spin) {
-              const st = easeInOut(seg(progress, tok.spin.fromT, tok.spin.toT))
-              rotateDeg = lerp(tok.spin.fromDeg, tok.spin.toDeg, st)
-              if (tok.spin.scalePulse) {
-                scale = 1 + Math.sin(st * Math.PI) * tok.spin.scalePulse
-              }
-            }
-
-            const flipped = tok.flipAt !== undefined && progress >= tok.flipAt
-            const label = flipped && tok.altText ? tok.altText : tok.text
-            const tone = flipped && tok.altTone ? tok.altTone : tok.tone
-            const isSpot =
-              tok.spotAt !== undefined &&
-              progress >= tok.spotAt[0] &&
-              progress <= tok.spotAt[1]
-
-            return (
-              <span
-                key={tok.id}
-                className={`wt-tok is-${tone}${isSpot ? ' is-spot' : ''}`}
-                style={{
-                  transform: `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) rotate(${rotateDeg.toFixed(1)}deg) scale(${scale.toFixed(3)})`,
-                  opacity: Number(opacity.toFixed(3)),
-                }}
-              >
-                {label}
-              </span>
-            )
-          })}
-        </div>
+      {/* Sweeping green 90° sector */}
+      {rotT > 0.02 && (
+        <path
+          d={`M ${px} ${py} L ${sx} ${sy} A ${arcR} ${arcR} 0 0 0 ${ex} ${ey} Z`}
+          fill="rgba(41, 204, 87, 0.22)"
+          stroke="#29cc57"
+          strokeWidth="1.8"
+        />
       )}
 
-      {/* Multi-row animated algebra derivation stack */}
-      {config.rows && config.rows.length > 0 && (
-        <div className="wt-alg-stack">
-          {config.rows.map(row => {
-            const t = easeOut(seg(progress, row.fromT, row.toT))
-            return (
-              <div
-                key={row.id}
-                className={`wt-alg-row${row.isFinal ? ' is-final' : ''}`}
-                style={{
-                  opacity: row.isFinal ? t : lerp(0.18, 1, t),
-                  transform: row.isFinal
-                    ? `scale(${0.92 + 0.08 * t})`
-                    : `translateY(${(1 - t) * 10}px)`,
-                }}
-              >
-                {row.chips.map((c, idx) => {
-                  if (c.kind === 'result') {
-                    return (
-                      <span key={idx} className={`wt-result-pill is-${c.tone ?? 'green'}`}>
-                        {c.text}
-                      </span>
-                    )
-                  }
-                  if (c.kind === 'sym') {
-                    return (
-                      <span key={idx} className="wt-sym">
-                        {c.text}
-                      </span>
-                    )
-                  }
-                  const pulsing =
-                    c.pulseWindow &&
-                    progress >= c.pulseWindow[0] &&
-                    progress <= c.pulseWindow[1]
-                  return (
-                    <span
-                      key={idx}
-                      className={`wt-chip is-${c.tone ?? 'blue'}${pulsing ? ' is-pulse' : ''}`}
-                    >
-                      {c.text}
-                    </span>
-                  )
-                })}
-              </div>
-            )
-          })}
-        </div>
+      {/* Live rotating teal line around pivot! */}
+      <g transform={`translate(${px} ${py}) rotate(${baseAngleDeg + currentRotDeg})`}>
+        <line x1="-260" y1="0" x2="260" y2="0" stroke="#0d9488" strokeWidth="3.6" strokeLinecap="round" />
+      </g>
+
+      {/* Crisp 90° right-angle corner snapping in */}
+      {sqPop > 0.05 && (
+        <polyline
+          points={`${px + u1x * sz},${py + u1y * sz} ${px + (u1x + u2x) * sz},${py + (u1y + u2y) * sz} ${px + u2x * sz},${py + u2y * sz}`}
+          fill="none"
+          stroke="#29cc57"
+          strokeWidth="2.6"
+          opacity={sqPop}
+        />
       )}
 
-      {config.resultPill && (
-        <div
-          className="wt-alg-result"
-          style={{
-            opacity: resT,
-            transform: `translateY(${(1 - resT) * 10}px)`,
-          }}
-        >
-          <span className={`wt-result-pill is-${config.resultPill.tone}`}>
-            {config.resultPill.text}
-          </span>
-        </div>
+      {/* Perpendicular rise +1, run +3 triangle on the teal line */}
+      {triPop > 0.05 && (
+        <g opacity={triPop}>
+          <line x1={mx(0)} y1={my(-1)} x2={mx(3)} y2={my(-1)} stroke="#f59e0b" strokeWidth="2.6" strokeDasharray="5 3" />
+          <line x1={mx(3)} y1={my(-1)} x2={mx(3)} y2={my(0)} stroke="#29cc57" strokeWidth="2.6" strokeDasharray="5 3" />
+          <text x={mx(1.5)} y={my(-1) + 16} className="wt-callout-amber" textAnchor="middle">run +3</text>
+          <text x={mx(3) + 8} y={my(-0.5) + 4} className="wt-callout-green">rise +1</text>
+        </g>
       )}
+
+      {/* Pivot dot & P(6, 1) */}
+      <circle cx={px} cy={py} r="5.5" fill="#29cc57" />
+      <circle cx={mx(6)} cy={my(1)} r="5.5" fill="#f59e0b" opacity="0.6" />
+
+      {/* Live angle / slope badge */}
+      <g transform={`translate(${mx(4.2)}, ${my(2.8)})`}>
+        <rect x="-58" y="-17" width="116" height="34" rx="10" className="wt-badge-bg" />
+        <text x="0" y="5" textAnchor="middle" className="wt-badge-teal">
+          {rotT < 0.8 ? `Rotating ${Math.round(rotT * 90)}°` : 'm⊥ = +1/3'}
+        </text>
+      </g>
+    </svg>
+  )
+}
+
+function Vis3SlideToP({ progress }: { progress: number }) {
+  const slideT = easeInOut(seg(progress, 0.12, 0.66))
+  const lockT = easeOut(seg(progress, 0.66, 0.92))
+
+  // Glide b smoothly from +2.4 down to -1.0 (locks right onto P(6, 1) since 1/3(6) - 1 = 1!)
+  const bVal = lerp(2.4, -1.0, slideT)
+  const yLeft = (1 / 3) * X_MIN + bVal
+  const yRight = (1 / 3) * X_MAX + bVal
+
+  const px = mx(6)
+  const py = my(1)
+  const bx = mx(0)
+  const by = my(bVal)
+
+  return (
+    <svg className="wt-graph-svg" viewBox="0 0 420 270" aria-label="Sliding perpendicular line onto P(6, 1)">
+      <GridBase />
+
+      {/* Dim reference line y = -3x - 3 */}
+      <line
+        x1={mx(-2.67)}
+        y1={my(5)}
+        x2={mx(0.67)}
+        y2={my(-5)}
+        stroke="#456dff"
+        strokeWidth="2.5"
+        opacity="0.28"
+      />
+
+      {/* Vertical elevator guide on y-axis */}
+      <line
+        x1={bx}
+        y1={my(2.4)}
+        x2={bx}
+        y2={my(-1)}
+        stroke="#0d9488"
+        strokeWidth="2"
+        strokeDasharray="4 4"
+        opacity="0.45"
+      />
+
+      {/* Gliding perpendicular teal line */}
+      <line
+        x1={mx(X_MIN)}
+        y1={my(yLeft)}
+        x2={mx(X_MAX)}
+        y2={my(yRight)}
+        stroke={lockT > 0.2 ? '#29cc57' : '#0d9488'}
+        strokeWidth="3.8"
+        strokeLinecap="round"
+      />
+
+      {/* Moving y-intercept bead */}
+      <circle cx={bx} cy={by} r="6" fill={lockT > 0.2 ? '#29cc57' : '#0d9488'} />
+      <text x={bx - 12} y={by + 4} textAnchor="end" className="wt-callout-teal">
+        b = {bVal >= 0 ? bVal.toFixed(1) : `−${Math.abs(bVal).toFixed(1)}`}
+      </text>
+
+      {/* Target point P(6, 1) with celebratory lock-on ripple */}
+      {lockT > 0.02 && (
+        <circle
+          cx={px}
+          cy={py}
+          r={6 + lockT * 20}
+          fill="none"
+          stroke="#29cc57"
+          strokeWidth="2.5"
+          opacity={1 - lockT}
+        />
+      )}
+      <circle cx={px} cy={py} r={6.5 + Math.sin(lockT * Math.PI) * 2.5} fill="#f59e0b" />
+      <text x={px} y={py - 12} className="wt-point-label" textAnchor="middle">P(6, 1)</text>
+
+      {/* Final locked equation badge */}
+      <g
+        transform={`translate(${mx(2.4)}, ${my(-3.4)}) scale(${0.75 + 0.25 * lockT})`}
+        opacity={lockT}
+      >
+        <rect x="-76" y="-18" width="152" height="36" rx="11" className="wt-badge-bg-green" />
+        <text x="0" y="5" textAnchor="middle" className="wt-badge-green">y = 1/3 x − 1</text>
+      </g>
+    </svg>
+  )
+}
+
+function Alg1IsolateY({ progress }: { progress: number }) {
+  const moveT = easeInOut(seg(progress, 0.22, 0.62))
+  const spotT = easeOut(seg(progress, 0.66, 0.88))
+
+  const equation = moveT < 0.15 ? '3x + y = −3' : moveT < 0.85
+    ? '3x + y − 3x = −3 − 3x'
+    : 'y = −3x − 3'
+
+  return (
+    <div className="wt-alg-stage" aria-label="Isolating y from 3x + y = -3">
+      <div className="wt-alg-hint">
+        {moveT < 0.15
+          ? 'Start in standard form'
+          : moveT < 0.85
+            ? 'Subtract 3x from both sides'
+            : 'Read slope m right in front of x'}
+      </div>
+
+      <div className="wt-alg-canvas">
+        <span className="wt-flow-equation"><MathText text={equation} /></span>
+      </div>
+
+      <div
+        className="wt-alg-result"
+        style={{
+          opacity: spotT,
+          transform: `translateY(${(1 - spotT) * 10}px)`,
+        }}
+      >
+        <span className="wt-result-pill is-blue">Slope m = −3</span>
+      </div>
     </div>
   )
 }
 
-// Register built-in course animation plugins once on module load
-registerStagePlugin<GraphTimelineConfig>({
-  id: 'graph-timeline',
-  label: 'Animation Graph System',
-  description: 'Declarative coordinate-plane animation engine (lines, rotations, glides, midpoints, triangles)',
-  render: (config, progress) => <GraphTimelineStage config={config} progress={progress} />,
-})
+function Alg2FlipNegate({ progress }: { progress: number }) {
+  const fracT = easeOut(seg(progress, 0.06, 0.28))
+  const orbitT = easeInOut(seg(progress, 0.30, 0.68))
+  const signT = easeInOut(seg(progress, 0.70, 0.90))
 
-registerStagePlugin<AlgebraTimelineConfig>({
-  id: 'algebra-timeline',
-  label: 'Animation Algebra System',
-  description: 'Declarative 2D equation token choreography (parabolic arcs, orbital flips, step stacks)',
-  render: (config, progress) => <AlgebraTimelineStage config={config} progress={progress} />,
-})
+  // True 180° circular orbital swap around the fraction bar!
+  const theta = orbitT * Math.PI
+  const orbitR = 26
+  const numX = Math.sin(theta) * orbitR * 1.1
+  const numY = -Math.cos(theta) * orbitR
+  const denX = -Math.sin(theta) * orbitR * 1.1
+  const denY = Math.cos(theta) * orbitR
 
-/* ============================================================================
-   Universal Generic Stage (for dynamically generated page walkthroughs)
-   ============================================================================ */
+  const signFlipped = signT > 0.5
+  const signSpin = signT * 180
+
+  return (
+    <div className="wt-alg-stage" aria-label="Taking the negative reciprocal of -3">
+      <div className="wt-alg-hint">
+        {orbitT < 0.08
+          ? 'Write −3 as a fraction over 1'
+          : signT < 0.1
+            ? 'Flip numerator and denominator 180°'
+            : 'Switch the sign from negative to positive'}
+      </div>
+
+      <div className="wt-alg-canvas">
+        <span className="wt-tok is-ink" style={{ transform: 'translate(-108px, 0px)' }}>
+          {signT > 0.3 ? 'm⊥ =' : 'm ='}
+        </span>
+
+        {/* Animated sign token (- spins into +) */}
+        <span
+          className={`wt-tok ${signFlipped ? 'is-green' : 'is-amber'}`}
+          style={{
+            transform: `translate(-28px, 0px) rotate(${signSpin}deg) scale(${1 + Math.sin(signT * Math.PI) * 0.28})`,
+          }}
+        >
+          {signFlipped ? '+' : '−'}
+        </span>
+
+        {/* Fraction bar */}
+        <span
+          className="wt-frac-bar"
+          style={{
+            transform: `translate(32px, 0px) scaleX(${fracT})`,
+            opacity: fracT,
+          }}
+        />
+
+        {/* Orbiting '3' (starts on top, swings to bottom) */}
+        <span
+          className="wt-tok is-blue"
+          style={{
+            transform: `translate(${32 + numX}px, ${lerp(0, numY, fracT)}px)`,
+          }}
+        >
+          3
+        </span>
+
+        {/* Orbiting '1' (appears underneath, swings to top!) */}
+        <span
+          className="wt-tok is-teal"
+          style={{
+            transform: `translate(${32 + denX}px, ${denY}px)`,
+            opacity: fracT,
+          }}
+        >
+          1
+        </span>
+      </div>
+
+      <div
+        className="wt-alg-result"
+        style={{
+          opacity: easeOut(seg(progress, 0.78, 0.95)),
+          transform: `translateY(${(1 - easeOut(seg(progress, 0.78, 0.95))) * 10}px)`,
+        }}
+      >
+        <span className="wt-result-pill is-green">m⊥ = +1/3</span>
+      </div>
+    </div>
+  )
+}
+
+function Alg3SolveB({ progress }: { progress: number }) {
+  const subT = easeOut(seg(progress, 0.08, 0.34))
+  const multT = easeInOut(seg(progress, 0.38, 0.64))
+  const solveT = easeOut(seg(progress, 0.68, 0.90))
+
+  return (
+    <div className="wt-alg-stage" aria-label="Substituting P(6, 1) into y = mx + b">
+      <div className="wt-alg-hint">
+        {multT < 0.1
+          ? 'Drop P(6, 1) and m⊥ = 1/3 into y = mx + b'
+          : solveT < 0.1
+            ? 'Multiply (1/3)(6) = 2'
+            : 'Subtract 2 from both sides → b = −1'}
+      </div>
+
+      <div className="wt-alg-stack">
+        {/* Line 1: Substitution */}
+        <div className="wt-alg-row" style={{ opacity: lerp(0.35, 1, subT), transform: `translateY(${(1 - subT) * 8}px)` }}>
+          <span className="wt-chip is-amber">1</span>
+          <span className="wt-sym">=</span>
+          <span className={`wt-chip is-teal ${multT > 0.1 && multT < 0.85 ? 'is-pulse' : ''}`}>(1/3)(6)</span>
+          <span className="wt-sym">+ b</span>
+        </div>
+
+        {/* Line 2: Simplified multiplication */}
+        <div
+          className="wt-alg-row"
+          style={{
+            opacity: multT,
+            transform: `translateY(${(1 - multT) * 10}px)`,
+          }}
+        >
+          <span className="wt-chip is-amber">1</span>
+          <span className="wt-sym">=</span>
+          <span className="wt-chip is-blue">2</span>
+          <span className="wt-sym">+ b</span>
+        </div>
+
+        {/* Line 3: Solved b and final equation */}
+        <div
+          className="wt-alg-row is-final"
+          style={{
+            opacity: solveT,
+            transform: `scale(${0.92 + 0.08 * solveT})`,
+          }}
+        >
+          <span className="wt-result-pill is-green">b = −1 &nbsp;→&nbsp; y = 1/3 x − 1</span>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 function GenericStepStage({ beat, progress }: { beat: WalkthroughBeat; progress: number }) {
   const lines = beat.mathLines ?? []
@@ -860,11 +592,20 @@ export function WalkthroughStage({
   beat: WalkthroughBeat
   progress: number
 }) {
-  if (beat.stage) {
-    const plugin = getStagePlugin(beat.stage.plugin)
-    if (plugin) {
-      return <>{plugin.render(beat.stage.config, progress)}</>
-    }
+  switch (beat.mode) {
+    case 'l1p3-vis-1':
+      return <Vis1PlotSlope progress={progress} />
+    case 'l1p3-vis-2':
+      return <Vis2Rotate90 progress={progress} />
+    case 'l1p3-vis-3':
+      return <Vis3SlideToP progress={progress} />
+    case 'l1p3-alg-1':
+      return <Alg1IsolateY progress={progress} />
+    case 'l1p3-alg-2':
+      return <Alg2FlipNegate progress={progress} />
+    case 'l1p3-alg-3':
+      return <Alg3SolveB progress={progress} />
+    default:
+      return <GenericStepStage beat={beat} progress={progress} />
   }
-  return <GenericStepStage beat={beat} progress={progress} />
 }
