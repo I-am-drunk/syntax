@@ -466,7 +466,7 @@
    -------------------------------------------------------------------------- */
 .pen-br-brush-dock {
   position: absolute;
-  top: 58px;
+  top: 60px;
   left: 0;
   z-index: 30;
   display: flex;
@@ -484,13 +484,13 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 9px;
   width: 56px;
-  padding: 14px 8px;
-  background: rgba(255, 255, 255, 0.96);
+  padding: 12px 7px;
+  background: #ffffff;
   border: 1.5px solid #e2e4e9;
   border-left: none;
-  border-radius: 0 18px 18px 0;
+  border-radius: 0 14px 14px 0;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), 0 3px 0 #e2e4e9;
   transform: translateX(-100%);
   opacity: 0;
@@ -505,26 +505,26 @@
 }
 
 .pen-br-brush-dock[data-theme='dark'] .pen-br-brush-slab {
-  background: rgba(28, 29, 34, 0.96);
-  border-color: #363842;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), 0 3px 0 #2a2c34;
+  background: #1e1e1e;
+  border-color: #333333;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), 0 3px 0 #121212;
 }
 
-/* Pull-in / pull-out arrow handle attached cleanly to the drawer edge */
+/* Pull-in / pull-out arrow handle: snug below top bar when closed, welded flush on the straight edge below the 14px slab corner when open */
 .pen-br-dock-tab {
   pointer-events: auto;
   position: relative;
-  margin-top: 2px;
+  margin-top: 0;
   margin-left: -1.5px;
-  transform: translateX(-56px);
+  transform: translate3d(-56px, 0, 0);
   width: 24px;
-  height: 46px;
+  height: 44px;
   display: inline-flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  border-radius: 0 12px 12px 0;
+  border-radius: 0 11px 11px 0;
   border: 1.5px solid #e2e4e9;
   border-left: none;
   background: #ffffff;
@@ -535,13 +535,13 @@
 }
 
 .pen-br-brush-dock[data-open] .pen-br-dock-tab {
-  transform: translateX(0);
+  transform: translate3d(0, 14px, 0);
 }
 
 .pen-br-brush-dock[data-theme='dark'] .pen-br-dock-tab {
-  background: #1f2025;
-  border-color: #363842;
-  color: #b4b7c2;
+  background: #1e1e1e;
+  border-color: #333333;
+  color: #b8b8b8;
   box-shadow: 2px 4px 12px rgba(0, 0, 0, 0.4);
 }
 
@@ -603,7 +603,7 @@
 .pen-br-vtrack {
   position: relative;
   width: 24px;
-  height: 82px;
+  height: 74px;
   display: flex;
   justify-content: center;
   cursor: ns-resize;
@@ -611,7 +611,7 @@
 }
 
 .pen-br-vtrack.is-opacity {
-  height: 62px;
+  height: 54px;
 }
 
 .pen-br-vtrack::before {

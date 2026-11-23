@@ -1065,55 +1065,60 @@ export function CourseShell() {
                   </svg>
                 </button>
 
-                {/* Compact Apple Fitness-style circular progress ring in top-left (started lessons only) */}
-                {completionPct > 0 && (
-                  <div
-                    className={`outline-fitness-ring${selDone ? ' is-done' : selIsCatchup ? ' is-catchup' : ''}`}
-                    role="progressbar"
-                    aria-label={`${sel.title} completion: ${completionPct}%`}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
-                    aria-valuenow={completionPct}
-                    title={`${completionPct}% complete`}
-                  >
-                    <svg className="outline-fitness-svg" width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
-                      <defs>
-                        <linearGradient id={ringGradId} x1="0%" y1="0%" x2="100%" y2="100%">
-                          <stop offset="0%" stopColor={selDone ? '#2dd45c' : selIsCatchup ? '#fbbf24' : '#6f8eff'} />
-                          <stop offset="100%" stopColor={selDone ? '#15b441' : selIsCatchup ? '#d97706' : '#456dff'} />
-                        </linearGradient>
-                      </defs>
-                      <circle className="outline-fitness-track" cx="22" cy="22" r={ringRadius} />
-                      <circle
-                        className="outline-fitness-arc"
-                        cx="22"
-                        cy="22"
-                        r={ringRadius}
-                        stroke={`url(#${ringGradId})`}
-                        strokeDasharray={ringCircumference.toFixed(2)}
-                        strokeDashoffset={ringOffset.toFixed(2)}
-                      />
-                    </svg>
-                    <span className="outline-fitness-pct">{completionPct}%</span>
-                  </div>
-                )}
+                {/* Compact Apple Fitness-style circular progress ring in top-left: tight circle at rest, expands on hover/focus with % + mini Page pill */}
+                {completionPct > 0 && (() => {
+                  const miniPillLabel =
+                    selInProgress && selResume
+                      ? `Page ${Math.min((savedPage >= 0 ? savedPage : selResume.pageIndex) + 1, totalPages)} of ${totalPages}`
+                      : selDone && selStat && selStat.total > 0
+                        ? `${selStat.correct}/${selStat.total} checks`
+                        : selDone
+                          ? 'Completed'
+                          : null
+                  return (
+                    <div
+                      className={`outline-progress-anchor${selDone ? ' is-done' : selIsCatchup ? ' is-catchup' : ''}`}
+                      tabIndex={0}
+                      role="progressbar"
+                      aria-label={`${sel.title} completion: ${completionPct}%${miniPillLabel ? `, ${miniPillLabel}` : ''}`}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-valuenow={completionPct}
+                    >
+                      <div className={`outline-fitness-ring${selDone ? ' is-done' : selIsCatchup ? ' is-catchup' : ''}`}>
+                        <svg className="outline-fitness-svg" viewBox="0 0 44 44" aria-hidden="true">
+                          <defs>
+                            <linearGradient id={ringGradId} x1="0%" y1="0%" x2="100%" y2="100%">
+                              <stop offset="0%" stopColor={selDone ? '#2dd45c' : selIsCatchup ? '#fbbf24' : '#6f8eff'} />
+                              <stop offset="100%" stopColor={selDone ? '#15b441' : selIsCatchup ? '#d97706' : '#456dff'} />
+                            </linearGradient>
+                          </defs>
+                          <circle className="outline-fitness-track" cx="22" cy="22" r={ringRadius} />
+                          <circle
+                            className="outline-fitness-arc"
+                            cx="22"
+                            cy="22"
+                            r={ringRadius}
+                            stroke={`url(#${ringGradId})`}
+                            strokeDasharray={ringCircumference.toFixed(2)}
+                            strokeDashoffset={ringOffset.toFixed(2)}
+                          />
+                        </svg>
+                        <span className="outline-fitness-pct">{completionPct}%</span>
+                      </div>
+                      {miniPillLabel && (
+                        <span className={`outline-progress-mini-pill${selDone ? ' is-done' : selIsCatchup ? ' is-catchup' : ''}`}>
+                          <span className="outline-progress-mini-track" aria-hidden="true">
+                            <span className="outline-progress-mini-fill" style={{ width: `${completionPct}%` }} />
+                          </span>
+                          <span>{miniPillLabel}</span>
+                        </span>
+                      )}
+                    </div>
+                  )
+                })()}
 
-                <div className="outline-action-meta">
-                  <span className="outline-action-eyebrow">
-                    {selIsCatchup ? 'Catch-Up Refresher' : `Level ${sel.level} · Lesson ${sel.number}`}
-                  </span>
-                  {selInProgress && selResume && (
-                    <span className="outline-action-progress">
-                      Page {Math.min((savedPage >= 0 ? savedPage : selResume.pageIndex) + 1, totalPages)} of {totalPages}
-                    </span>
-                  )}
-                  {selDone && selStat && selStat.total > 0 && (
-                    <span className="outline-action-progress is-done">
-                      {selStat.correct}/{selStat.total} checks
-                    </span>
-                  )}
-                </div>
-                <h2>{sel.title}</h2>
+                <h2 className="outline-action-title">{sel.title}</h2>
                 <div className="outline-course-actions">
                   <button
                     type="button"

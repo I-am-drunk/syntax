@@ -157,22 +157,22 @@
   }
 }
 
-/* Sema Live Customizer Studio inside Settings */
+/* Sema Live Customizer Studio inside Settings (100% Native Brilliant monochrome palette) */
 .sema-studio-card {
   display: flex;
   flex-direction: column;
   gap: 16px;
   padding: 20px;
-  border-radius: 20px;
-  border: 1.5px solid var(--border, #e2e4ea);
-  background: var(--surface, #ffffff);
-  box-shadow: 0 3px 0 var(--border, #e2e4ea);
+  border-radius: 16px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  box-shadow: 0 2px 0 var(--border);
 }
 
 :root[data-theme='dark'] .sema-studio-card {
-  background: #171a22;
-  border-color: #2b303e;
-  box-shadow: 0 3px 0 #101218;
+  background: #1c1c1c;
+  border-color: #2f2f2f;
+  box-shadow: 0 2px 0 #0f0f0f;
 }
 
 .sema-studio-hero {
@@ -196,18 +196,18 @@
   justify-content: center;
   width: 156px;
   height: 156px;
-  border-radius: 18px;
-  border: 1.5px solid var(--border, #e2e4ea);
+  border-radius: 16px;
+  border: 1.5px solid var(--border);
   background:
-    radial-gradient(circle, rgba(69, 109, 255, 0.14) 1px, transparent 1px) 0 0 / 16px 16px,
-    var(--secondary, #f7f8fc);
+    radial-gradient(circle, rgba(0, 0, 0, 0.12) 1px, transparent 1px) 0 0 / 16px 16px,
+    var(--secondary, #f8f8f8);
 }
 
 :root[data-theme='dark'] .sema-studio-stage {
-  border-color: #2c3140;
+  border-color: #2f2f2f;
   background:
-    radial-gradient(circle, rgba(132, 160, 255, 0.16) 1px, transparent 1px) 0 0 / 16px 16px,
-    #12151c;
+    radial-gradient(circle, rgba(255, 255, 255, 0.12) 1px, transparent 1px) 0 0 / 16px 16px,
+    #141414;
 }
 
 .sema-studio-summary {
@@ -230,46 +230,34 @@
   }
 }
 
-.sema-studio-badge {
+.sema-studio-badge,
+.sema-studio-badge.is-tail,
+.sema-studio-badge.is-expr,
+.sema-studio-badge.is-motion {
   display: inline-flex;
   align-items: center;
   padding: 4px 10px;
   border-radius: 999px;
+  border: 1px solid var(--border);
   font-size: 11.5px;
   font-weight: 700;
-  background: rgba(113, 57, 204, 0.1);
-  color: #5b27b5;
+  background: var(--secondary, #f8f8f8);
+  color: var(--text, #141414);
 }
 
-:root[data-theme='dark'] .sema-studio-badge {
-  background: rgba(182, 137, 255, 0.16);
-  color: #d6beff;
-}
-
-.sema-studio-badge.is-expr {
-  background: rgba(69, 109, 255, 0.11);
-  color: #2c4ed8;
-}
-
-:root[data-theme='dark'] .sema-studio-badge.is-expr {
-  background: rgba(116, 145, 255, 0.18);
-  color: #a9beff;
-}
-
-.sema-studio-badge.is-motion {
-  background: rgba(21, 180, 65, 0.11);
-  color: #117b31;
-}
-
+:root[data-theme='dark'] .sema-studio-badge,
+:root[data-theme='dark'] .sema-studio-badge.is-tail,
+:root[data-theme='dark'] .sema-studio-badge.is-expr,
 :root[data-theme='dark'] .sema-studio-badge.is-motion {
-  background: rgba(94, 217, 129, 0.16);
-  color: #8ceba5;
+  background: #252525;
+  border-color: #363636;
+  color: #f2f2f2;
 }
 
 .sema-studio-hint {
   font-size: 13px;
   line-height: 1.45;
-  color: var(--muted, #6c7280);
+  color: var(--muted);
 }
 
 .sema-studio-quick-actions {
@@ -281,31 +269,37 @@
   appearance: none;
   padding: 6px 12px;
   border-radius: 10px;
-  border: 1.5px solid var(--border, #dcdfe8);
-  background: var(--surface, #ffffff);
-  color: var(--text, #141414);
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
   font: inherit;
   font-size: 12.5px;
   font-weight: 600;
-  box-shadow: 0 2px 0 var(--border, #dcdfe8);
+  box-shadow: 0 2px 0 var(--border);
   cursor: pointer;
   transition: transform 90ms ease, border-color 120ms ease, background-color 120ms ease;
 }
 
 .sema-studio-action-btn:hover {
-  border-color: #7139cc;
+  background: var(--hover);
+  border-color: var(--tertiary);
 }
 
 .sema-studio-action-btn:active {
   transform: translateY(1px);
-  box-shadow: 0 1px 0 var(--border, #dcdfe8);
+  box-shadow: 0 1px 0 var(--border);
 }
 
 :root[data-theme='dark'] .sema-studio-action-btn {
-  background: #1d212d;
-  border-color: #32384a;
-  color: #edf0f7;
-  box-shadow: 0 2px 0 #101218;
+  background: #252525;
+  border-color: #383838;
+  color: #ffffff;
+  box-shadow: 0 2px 0 #0f0f0f;
+}
+
+:root[data-theme='dark'] .sema-studio-action-btn:hover {
+  background: #2e2e2e;
+  border-color: #525252;
 }
 
 .sema-studio-tabs {
@@ -313,21 +307,23 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 4px;
   padding: 4px;
-  border-radius: 14px;
-  background: var(--secondary, #f2f3f7);
+  border-radius: 12px;
+  background: var(--secondary, #f5f5f5);
+  border: 1px solid var(--border);
 }
 
 :root[data-theme='dark'] .sema-studio-tabs {
-  background: #10131a;
+  background: #141414;
+  border-color: #2c2c2c;
 }
 
 .sema-studio-tab {
   appearance: none;
   border: 0;
-  border-radius: 10px;
+  border-radius: 9px;
   padding: 8px 10px;
   background: transparent;
-  color: var(--muted, #666c7a);
+  color: var(--muted);
   font: inherit;
   font-size: 12.5px;
   font-weight: 700;
@@ -336,18 +332,19 @@
 }
 
 .sema-studio-tab:hover {
-  color: var(--text, #141414);
+  color: var(--text);
 }
 
 .sema-studio-tab.is-active {
-  background: var(--surface, #ffffff);
-  color: var(--text, #141414);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 :root[data-theme='dark'] .sema-studio-tab.is-active {
-  background: #232836;
+  background: #2a2a2a;
   color: #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
 }
 
 .sema-studio-panel {
@@ -364,26 +361,32 @@
   appearance: none;
   padding: 7px 12px;
   border-radius: 11px;
-  border: 1.5px solid var(--border, #dcdfe8);
-  background: var(--surface, #ffffff);
-  color: var(--text, #141414);
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
   font: inherit;
   font-size: 12.5px;
   font-weight: 600;
-  box-shadow: 0 2px 0 var(--border, #dcdfe8);
+  box-shadow: 0 2px 0 var(--border);
   cursor: pointer;
   transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease, transform 90ms ease;
 }
 
 :root[data-theme='dark'] .sema-chip {
-  background: #14171f;
-  border-color: #2e3444;
-  box-shadow: 0 2px 0 #0d0f15;
-  color: #e6e8f0;
+  background: #171717;
+  border-color: #323232;
+  box-shadow: 0 2px 0 #0c0c0c;
+  color: #e8e8e8;
 }
 
 .sema-chip:hover {
-  border-color: #7139cc;
+  background: var(--hover);
+  border-color: var(--tertiary);
+}
+
+:root[data-theme='dark'] .sema-chip:hover {
+  background: #242424;
+  border-color: #525252;
 }
 
 .sema-chip:active {
@@ -391,11 +394,20 @@
   box-shadow: none;
 }
 
-.sema-chip.is-active {
-  border-color: #7139cc;
-  background: #7139cc;
-  box-shadow: 0 2px 0 #4d2294;
+.sema-chip.is-active,
+.sema-chip.is-anim.is-active {
+  border-color: #141414;
+  background: #141414;
+  box-shadow: 0 2px 0 #000000;
   color: #ffffff;
+}
+
+:root[data-theme='dark'] .sema-chip.is-active,
+:root[data-theme='dark'] .sema-chip.is-anim.is-active {
+  border-color: #ffffff;
+  background: #ffffff;
+  box-shadow: 0 2px 0 rgba(255, 255, 255, 0.28);
+  color: #141414;
 }
 
 .sema-chip.is-tail-chip {
@@ -407,23 +419,6 @@
 .sema-chip-glyph {
   flex: 0 0 auto;
   display: block;
-}
-
-.sema-studio-badge.is-tail {
-  background: rgba(113, 57, 204, 0.12);
-  color: #5b28b0;
-}
-
-:root[data-theme='dark'] .sema-studio-badge.is-tail {
-  background: rgba(167, 139, 250, 0.16);
-  color: #cbb4ff;
-}
-
-.sema-chip.is-anim.is-active {
-  border-color: #456dff;
-  background: #456dff;
-  box-shadow: 0 2px 0 #2646bd;
-  color: #ffffff;
 }
 
 @media (max-width: 560px) {
