@@ -15,7 +15,7 @@ import {
   createPlayer,
 } from '@videojs/react'
 import { Video, videoFeatures } from '@videojs/react/video'
-import { type SemaShapeName } from '../mascot/Sema'
+import { type SemaShapeName, type SemaTailName } from '../mascot/Sema'
 import { assetUrl } from '../assetUrl'
 import { CATCHUP_BY_ID } from '../data/catchupCourses'
 import { BrilliantGraph } from '../graph/BrilliantGraph'
@@ -69,6 +69,7 @@ function WalkthroughVideoStage({
   voiceActive,
   promptMode,
   semaShape,
+  semaTail,
   fallbackCaption,
   onPlayingChange,
   onToggleVoice,
@@ -78,6 +79,7 @@ function WalkthroughVideoStage({
   voiceActive: boolean
   promptMode: SemaPromptDisplayMode
   semaShape: SemaShapeName
+  semaTail: SemaTailName
   fallbackCaption?: string
   onPlayingChange: (playing: boolean) => void
   onToggleVoice: () => void
@@ -102,11 +104,17 @@ function WalkthroughVideoStage({
     }
   }, [voiceActive, store, videoSrc])
 
+  const autoMutedRef = useRef(false)
+
   // Propagate user clicks on Video.js MuteButton back to app voice setting
   const prevMutedRef = useRef(muted)
   useEffect(() => {
     if (prevMutedRef.current !== muted) {
       prevMutedRef.current = muted
+      if (autoMutedRef.current && muted) {
+        autoMutedRef.current = false
+        return
+      }
       const shouldBeMuted = !voiceActive
       if (muted !== shouldBeMuted) {
         onToggleVoice()
@@ -142,6 +150,7 @@ function WalkthroughVideoStage({
           const v = e.currentTarget
           v.muted = !voiceActive
           v.play().catch(() => {
+            autoMutedRef.current = true
             v.muted = true
             v.play().catch(() => {})
           })
@@ -156,6 +165,7 @@ function WalkthroughVideoStage({
         voiceOn={voiceActive}
         displayMode={promptMode}
         userShape={semaShape}
+        userTail={semaTail}
         fallbackCaption={fallbackCaption}
       />
 
@@ -202,6 +212,9 @@ function WalkthroughVideoStage({
               <TimeSlider.Fill className="wt-vjs-fill" />
             </TimeSlider.Track>
             <TimeSlider.Thumb className="wt-vjs-thumb" />
+            <TimeSlider.Preview className="wt-vjs-preview" overflow="clamp">
+              <TimeSlider.Value type="pointer" className="wt-vjs-preview-time" />
+            </TimeSlider.Preview>
           </TimeSlider.Root>
 
           <Controls.Group className="wt-vjs-bar">
@@ -306,7 +319,8 @@ export function WalkthroughContent({
   spec,
   soundOn,
   voiceOn,
-  semaShape = 'circle',
+  semaShape = 'jenson',
+  semaTail = 'jenson',
   inline = false,
   floating = false,
   initialStepIndex = 0,
@@ -320,6 +334,7 @@ export function WalkthroughContent({
   voiceOn: boolean
   drawMode?: boolean
   semaShape?: SemaShapeName
+  semaTail?: SemaTailName
   inline?: boolean
   floating?: boolean
   initialStepIndex?: number
@@ -334,6 +349,27 @@ export function WalkthroughContent({
   const [playing, setPlaying] = useState(true)
   const [showRescue, setShowRescue] = useState(false)
   const [semaTrack, setSemaTrack] = useState<SemaTrack | null>(null)
+  const shellRef = useRef<HTMLDivElement | null>(null)
+  const [isCompact, setIsCompact] = useState(false)
+  const [topBarRevealed, setTopBarRevealed] = useState(false)
+
+  // Observe floating window size to switch seamlessly into edge-to-edge corner mini-player mode
+  useEffect(() => {
+    if (!floating) {
+      setIsCompact(false)
+      return
+    }
+    const el = shellRef.current
+    if (!el) return
+    const check = () => {
+      const rect = el.getBoundingClientRect()
+      setIsCompact(rect.width <= 520 || rect.height <= 360)
+    }
+    check()
+    const ro = new ResizeObserver(check)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [floating])
 
   const [promptMode, setPromptMode] = useState<SemaPromptDisplayMode>(() => {
     try {
@@ -435,11 +471,23 @@ export function WalkthroughContent({
   const canNext = beatIndex < totalSteps - 1
   const currentPromptSpec = PROMPT_MODES.find(m => m.id === promptMode) ?? PROMPT_MODES[0]!
 
+  const handleShellPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isCompact) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const nearTop = e.clientY - rect.top <= 48
+    if (nearTop !== topBarRevealed) setTopBarRevealed(nearTop)
+  }
+
   return (
     <div
-      className={`wt-shell${inline ? ' is-inline' : ''}${floating ? ' is-floating' : ''}${playing ? ' is-playing' : ''}`}
+      ref={shellRef}
+      className={`wt-shell${inline ? ' is-inline' : ''}${floating ? ' is-floating' : ''}${isCompact ? ' is-compact' : ''}${topBarRevealed || showRescue ? ' is-top-revealed' : ''}${playing ? ' is-playing' : ''}`}
+      onPointerMove={handleShellPointerMove}
+      onPointerLeave={() => {
+        if (topBarRevealed) setTopBarRevealed(false)
+      }}
     >
-      {/* Compact top bar: Step X of Y + concise step title + inline Still stuck? + lens/prompt toggles */}
+      {/* Single clean top bar: Step badge + title on left, breathing space in middle, Still stuck? + controls pinned in top-right corner */}
       <div className="wt-step-header-row">
         <div className="wt-step-header-left">
           <span className="wt-active-step-badge">
@@ -449,29 +497,6 @@ export function WalkthroughContent({
             <span className="wt-active-step-label" title={activeStep.label}>
               {activeStep.label}
             </span>
-          )}
-          {rescueCourse && (
-            <button
-              type="button"
-              className={`wt-still-stuck-btn${showRescue ? ' is-open' : ''}`}
-              aria-expanded={showRescue}
-              onClick={() => setShowRescue(v => !v)}
-            >
-              <span>Still stuck?</span>
-              <svg
-                className="wt-top-stuck-chevron"
-                width="13"
-                height="13"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </button>
           )}
         </div>
 
@@ -504,6 +529,30 @@ export function WalkthroughContent({
               onClick={cyclePromptMode}
             >
               {currentPromptSpec.label}
+            </button>
+          )}
+
+          {rescueCourse && (
+            <button
+              type="button"
+              className={`wt-still-stuck-btn${showRescue ? ' is-open' : ''}`}
+              aria-expanded={showRescue}
+              onClick={() => setShowRescue(v => !v)}
+            >
+              <span>Still stuck?</span>
+              <svg
+                className="wt-top-stuck-chevron"
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
             </button>
           )}
 
@@ -578,6 +627,7 @@ export function WalkthroughContent({
                 voiceActive={voiceActive}
                 promptMode={promptMode}
                 semaShape={semaShape}
+        semaTail={semaTail}
                 fallbackCaption={beat.caption}
                 onPlayingChange={setPlaying}
                 onToggleVoice={onToggleVoice}
@@ -633,7 +683,8 @@ export function WalkthroughModal({
   soundOn,
   voiceOn,
   drawMode = false,
-  semaShape = 'circle',
+  semaShape = 'jenson',
+  semaTail = 'jenson',
   initialStepIndex = 0,
   onToggleFloat,
   onToggleVoice,
@@ -646,6 +697,7 @@ export function WalkthroughModal({
   voiceOn: boolean
   drawMode?: boolean
   semaShape?: SemaShapeName
+  semaTail?: SemaTailName
   initialStepIndex?: number
   onToggleFloat?: () => void
   onToggleVoice: () => void
@@ -668,12 +720,13 @@ export function WalkthroughModal({
   return (
     <WinBoxWindow
       id="syntax-walkthrough-winbox"
+      className="wt-walkthrough-winbox"
       eyebrow="Guided walkthrough"
       title={spec.title}
       defaultWidth={700}
       defaultHeight={510}
-      minWidth={320}
-      minHeight={340}
+      minWidth={260}
+      minHeight={170}
       headerActions={headerActions}
       onClose={onClose}
     >
@@ -683,6 +736,7 @@ export function WalkthroughModal({
         voiceOn={voiceOn}
         drawMode={drawMode}
         semaShape={semaShape}
+        semaTail={semaTail}
         floating
         initialStepIndex={initialStepIndex}
         onToggleFloat={onToggleFloat}

@@ -26,6 +26,7 @@ import {
  */
 export type ShapeId =
   | 'sema'
+  | 'jenson'
   | 'cercle'
   | 'galet'
   | 'squircle'
@@ -49,6 +50,9 @@ function normalize(radii: number[], max = 1): number[] {
 }
 
 const ANGLES = Array.from({ length: PROFILE_SAMPLES }, (_, i) => (i / PROFILE_SAMPLES) * Math.PI * 2)
+
+/** Jenson 4-point rounded star: sub-pixel traced directly from the classic Jenson semicolon top star. */
+const jensonStar: number[] = [1.14, 1.1292, 1.0691, 0.989, 0.9058, 0.8365, 0.7918, 0.7672, 0.7549, 0.7672, 0.7918, 0.8365, 0.9058, 0.989, 1.0691, 1.1292, 1.14, 1.1292, 1.0691, 0.989, 0.9058, 0.8365, 0.7918, 0.7672, 0.7549, 0.7672, 0.7918, 0.8365, 0.9058, 0.989, 1.0691, 1.1292, 1.14, 1.1292, 1.0691, 0.989, 0.9058, 0.8365, 0.7918, 0.7672, 0.7549, 0.7672, 0.7918, 0.8365, 0.9058, 0.989, 1.0691, 1.1292, 1.14, 1.1292, 1.0691, 0.989, 0.9058, 0.8365, 0.7918, 0.7672, 0.7549, 0.7672, 0.7918, 0.8365, 0.9058, 0.989, 1.0691, 1.1292]
 
 /** Galet : cercle deforme par deux harmoniques basses, donc irregulier mais lisse. */
 const pebble = normalize(
@@ -80,6 +84,7 @@ const capsule = profileFromPolygon(hullOfCircles(-0.42, 0, 0.62, 0.42, 0, 0.62),
 export const SHAPES: BotShape[] = [
   // Original Sema head traced from hand-drawn Sema PNG (99.93% circular IoU, paired with sculpted crescent-comma tail)
   { id: 'sema', radii: new Array(PROFILE_SAMPLES).fill(1) },
+  { id: 'jenson', radii: jensonStar },
   { id: 'cercle', radii: new Array(PROFILE_SAMPLES).fill(1) },
   { id: 'galet', radii: pebble },
   // 1.15 et pas 1.02 : sur une superellipse le rayon maximal est la diagonale,

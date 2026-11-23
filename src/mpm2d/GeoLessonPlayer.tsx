@@ -18,7 +18,7 @@ import { buildWorksheetSpec } from './pen/worksheetModel'
 import { CheckmarkGate } from './checkmark/CheckmarkGate'
 import { getWalkthroughForPage } from './walkthrough/walkthroughData'
 import { WalkthroughContent, WalkthroughModal } from './walkthrough/WalkthroughPlayer'
-import { Sema, type SemaExpressionName, type SemaShapeName, type SemaState } from './mascot/Sema'
+import { Sema, type SemaExpressionName, type SemaShapeName, type SemaState, type SemaTailName } from './mascot/Sema'
 import { recordWorkHistoryVersion } from './historyStore'
 
 const PenCanvasWorkspace = lazy(() => import('./pen/PenCanvasWorkspace'))
@@ -199,7 +199,8 @@ export function GeoLessonPlayer({
   soundOn = true,
   drawMode = false,
   voiceOn = true,
-  semaShape = 'circle',
+  semaShape = 'jenson',
+  semaTail = 'jenson',
   semaExpression = 'neutral',
   penControlsCollapsed = true,
   formulasOpen,
@@ -221,6 +222,7 @@ export function GeoLessonPlayer({
   drawMode?: boolean
   voiceOn?: boolean
   semaShape?: SemaShapeName
+  semaTail?: SemaTailName
   semaExpression?: SemaExpressionName
   penControlsCollapsed?: boolean
   formulasOpen: boolean
@@ -817,7 +819,7 @@ export function GeoLessonPlayer({
       state.evaluation === 'unsubmitted' &&
       (state.mathValue.trim().length > 0 || state.subInputs.some(v => v.trim().length > 0))
     ) {
-      return { state: 'thinking', expression: 'attentive' }
+      return { state: 'idle', expression: 'attentive' }
     }
     if (page.kind === 'worked' || page.kind === 'explore') {
       return { state: 'idle', expression: 'curious' }
@@ -901,9 +903,10 @@ export function GeoLessonPlayer({
         <div className="lesson-nav-actions">
           <div className="lesson-sema-buddy">
             <Sema
-              size={30}
+              size={26}
               interactive
               shape={semaShape}
+              tail={semaTail}
               state={lessonSema.state}
               expression={lessonSema.expression}
               ariaLabel="Sema lesson companion"
@@ -1020,6 +1023,7 @@ export function GeoLessonPlayer({
                   voiceOn={voiceOn}
                   drawMode={drawMode}
                   semaShape={semaShape}
+          semaTail={semaTail}
                   inline
                   floating={false}
                   initialStepIndex={walkthroughInitialStep}
@@ -1580,6 +1584,7 @@ export function GeoLessonPlayer({
           voiceOn={voiceOn}
           drawMode={drawMode}
           semaShape={semaShape}
+          semaTail={semaTail}
           initialStepIndex={walkthroughInitialStep}
           onToggleFloat={penOpen ? () => setWalkthroughFloating(false) : undefined}
           onToggleVoice={() => onToggleVoice?.()}

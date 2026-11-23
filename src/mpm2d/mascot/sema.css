@@ -310,7 +310,7 @@
 
 .sema-studio-tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 4px;
   padding: 4px;
   border-radius: 14px;
@@ -398,11 +398,38 @@
   color: #ffffff;
 }
 
+.sema-chip.is-tail-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sema-chip-glyph {
+  flex: 0 0 auto;
+  display: block;
+}
+
+.sema-studio-badge.is-tail {
+  background: rgba(113, 57, 204, 0.12);
+  color: #5b28b0;
+}
+
+:root[data-theme='dark'] .sema-studio-badge.is-tail {
+  background: rgba(167, 139, 250, 0.16);
+  color: #cbb4ff;
+}
+
 .sema-chip.is-anim.is-active {
   border-color: #456dff;
   background: #456dff;
   box-shadow: 0 2px 0 #2646bd;
   color: #ffffff;
+}
+
+@media (max-width: 560px) {
+  .sema-studio-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* Subtle reactive Sema buddy inside Lesson nav bar */

@@ -2,17 +2,20 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import {
   Sema,
+  SEMA_JENSON_HEAD_PATH,
+  SEMA_REST_COMMA_PATHS,
   type SemaExpressionName,
   type SemaLookPoint,
   type SemaShapeName,
   type SemaState,
+  type SemaTailName,
 } from './Sema'
 import './sema.css'
 
 type Phase = 'docked' | 'roaming' | 'returning'
 
-const SEMA_SIZE = 38
-const SEMA_HEIGHT = Math.round(SEMA_SIZE * 1.18)
+const SEMA_SIZE = 34
+const SEMA_HEIGHT = Math.round(SEMA_SIZE * 1.28)
 const CATCH_BUBBLE_SIZE = 136
 const CATCH_BUBBLE_HALF = CATCH_BUBBLE_SIZE / 2
 const IDLE_TRIGGER_MS = 45_000
@@ -38,7 +41,8 @@ export function TopBarSema({
   enableRoaming = true,
   dockedIntoLogo = false,
   scrollContainerRef,
-  shape = 'classic',
+  shape = 'jenson',
+  tail = 'jenson',
   expression = 'neutral',
   hasNotification = false,
   onPoke,
@@ -48,6 +52,7 @@ export function TopBarSema({
   dockedIntoLogo?: boolean
   scrollContainerRef?: RefObject<HTMLElement | null>
   shape?: SemaShapeName
+  tail?: SemaTailName
   expression?: SemaExpressionName
   hasNotification?: boolean
   onPoke?: () => void
@@ -421,6 +426,7 @@ export function TopBarSema({
               state={dockedState}
               expression={dockedExpression}
               shape={shape}
+              tail={tail}
               size={SEMA_SIZE}
               interactive={!dockedIntoLogo && !isAway}
               followCursor={!dockedIntoLogo && !isAway}
@@ -454,18 +460,19 @@ export function TopBarSema({
           >
             <svg
               className="sema-frozen-semicolon-svg"
-              width="14"
-              height="32"
-              viewBox="-115 -115 230 445"
+              width="15"
+              height="27"
+              viewBox="-122 -122 244 426"
               fill="none"
               aria-hidden="true"
               shapeRendering="geometricPrecision"
             >
-              <circle cx="0" cy="0" r="96" fill="currentColor" />
-              <path
-                d="M 55.02,109.64 C 64.67,103.08 92.85,87.29 86.35,112.05 C 62.90,190.98 15.81,291.94 -76.71,309.64 C -99.75,312.99 -95.52,285.03 -87.15,273.49 C -59.79,225.13 -70.68,159.24 -83.94,108.03 C -82.96,90.64 -63.64,107.36 -55.82,110.44 C -24.58,131.78 23.99,130.37 55.02,109.64 Z"
-                fill="currentColor"
-              />
+              {shape === 'jenson' ? (
+                <path d={SEMA_JENSON_HEAD_PATH} fill="currentColor" />
+              ) : (
+                <circle cx="0" cy="0" r="98" fill="currentColor" />
+              )}
+              <path d={SEMA_REST_COMMA_PATHS[tail] ?? SEMA_REST_COMMA_PATHS.jenson} fill="currentColor" />
             </svg>
           </button>
 
@@ -505,6 +512,7 @@ export function TopBarSema({
                   state={roamState}
                   expression={roamExpr}
                   shape={shape}
+                  tail={tail}
                   size={SEMA_SIZE}
                   interactive={false}
                   followCursor={false}

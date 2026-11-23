@@ -213,6 +213,7 @@ export function CourseShell() {
   })
   const [popoverOpenId, setPopoverOpenId] = useState<string | null>(null)
   const [activeNav, setActiveNav] = useState<'course' | 'conference'>('course')
+  const [outlineAtBottom, setOutlineAtBottom] = useState(false)
   const [formulasOpen, setFormulasOpen] = useState(false)
   const [penModeActive, setPenModeActive] = useState(false)
 
@@ -303,6 +304,8 @@ export function CourseShell() {
       raf = 0
       if (Date.now() < navLockUntilRef.current || confBottom <= confTop) return
       const st = scroller.scrollTop
+      const atBot = st + scroller.clientHeight >= scroller.scrollHeight - 140
+      setOutlineAtBottom(prev => (prev === atBot ? prev : atBot))
       const relTop = confTop - st
       const inConference = relTop <= triggerLine
       if (inConference !== lastInConf) {
@@ -544,6 +547,7 @@ export function CourseShell() {
           drawMode={prefs.drawMode}
           voiceOn={prefs.voiceOn}
           semaShape={prefs.semaShape}
+        semaTail={prefs.semaTail}
           semaExpression={prefs.semaExpression}
           penControlsCollapsed={prefs.penControlsCollapsed}
           formulasOpen={formulasOpen}
@@ -598,6 +602,7 @@ export function CourseShell() {
             dockedIntoLogo={settingsOpen}
             scrollContainerRef={outlineScrollRef}
             shape={prefs.semaShape}
+            tail={prefs.semaTail}
             expression={prefs.semaExpression}
             hasNotification={validMissedIds.length > 0}
             onPoke={() => emitSound('lightweight-choice')}
@@ -1017,25 +1022,82 @@ export function CourseShell() {
               : selInProgress && totalPages > 0
                 ? Math.min(99, Math.max(8, Math.round(((resolvedPageIdx + 1) / totalPages) * 100)))
                 : 0
+            const ringRadius = 16.5
+            const ringCircumference = 2 * Math.PI * ringRadius
+            const ringOffset = ringCircumference * (1 - completionPct / 100)
+            const ringGradId = selDone
+              ? 'outline-ring-done'
+              : selIsCatchup
+                ? 'outline-ring-catchup'
+                : 'outline-ring-active'
             return (
-              <div className="outline-action-dock">
-                <div
-                  className="outline-action-progress-shell"
-                  role="progressbar"
-                  aria-label={`${sel.title} completion`}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={completionPct}
+              <div className={`outline-action${selIsCatchup ? ' is-catchup' : ''}${completionPct > 0 ? ' has-ring' : ''}`}>
+                {/* Brilliant tactile circular scroll-to-bottom down-arrow button above the action pill */}
+                <button
+                  className={`outline-scroll-btn${outlineAtBottom ? ' is-at-bottom' : ''}`}
+                  aria-label={outlineAtBottom ? 'Scroll back to top' : 'Scroll to bottom of course'}
+                  title={outlineAtBottom ? 'Back to top' : 'Jump to bottom'}
+                  type="button"
+                  onClick={() => {
+                    emitSound('lightweight-choice')
+                    const scroller = outlineScrollRef.current
+                    if (scroller) {
+                      scroller.scrollTo({
+                        top: outlineAtBottom ? 0 : scroller.scrollHeight,
+                        behavior: 'smooth',
+                      })
+                    }
+                  }}
                 >
-                  <div className="outline-action-progress-track">
-                    <div
-                      className={`outline-action-progress-fill${selDone ? ' is-done' : selIsCatchup ? ' is-catchup' : ''}`}
-                      style={{ width: `${completionPct}%` }}
-                    />
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <polyline points="6 13 12 19 18 13" />
+                  </svg>
+                </button>
+
+                {/* Compact Apple Fitness-style circular progress ring in top-left (started lessons only) */}
+                {completionPct > 0 && (
+                  <div
+                    className={`outline-fitness-ring${selDone ? ' is-done' : selIsCatchup ? ' is-catchup' : ''}`}
+                    role="progressbar"
+                    aria-label={`${sel.title} completion: ${completionPct}%`}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={completionPct}
+                    title={`${completionPct}% complete`}
+                  >
+                    <svg className="outline-fitness-svg" width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
+                      <defs>
+                        <linearGradient id={ringGradId} x1="0%" y1="0%" x2="100%" y2="100%">
+                          <stop offset="0%" stopColor={selDone ? '#2dd45c' : selIsCatchup ? '#fbbf24' : '#6f8eff'} />
+                          <stop offset="100%" stopColor={selDone ? '#15b441' : selIsCatchup ? '#d97706' : '#456dff'} />
+                        </linearGradient>
+                      </defs>
+                      <circle className="outline-fitness-track" cx="22" cy="22" r={ringRadius} />
+                      <circle
+                        className="outline-fitness-arc"
+                        cx="22"
+                        cy="22"
+                        r={ringRadius}
+                        stroke={`url(#${ringGradId})`}
+                        strokeDasharray={ringCircumference.toFixed(2)}
+                        strokeDashoffset={ringOffset.toFixed(2)}
+                      />
+                    </svg>
+                    <span className="outline-fitness-pct">{completionPct}%</span>
                   </div>
-                  <span className="outline-action-progress-pct">{completionPct}%</span>
-                </div>
-                <div className={`outline-action${selIsCatchup ? ' is-catchup' : ''}`}>
+                )}
+
                 <div className="outline-action-meta">
                   <span className="outline-action-eyebrow">
                     {selIsCatchup ? 'Catch-Up Refresher' : `Level ${sel.level} · Lesson ${sel.number}`}
@@ -1076,7 +1138,6 @@ export function CourseShell() {
                     </button>
                   )}
                 </div>
-                </div>
               </div>
             )
           })()}
@@ -1089,6 +1150,7 @@ export function CourseShell() {
         theme={theme}
         drawMode={prefs.drawMode}
         semaShape={prefs.semaShape}
+        semaTail={prefs.semaTail}
         onSelectTheme={setTheme}
         onSelectDrawMode={next => setPrefs(p => ({ ...p, drawMode: next }))}
         onFinish={() => setPrefs(p => ({ ...p, onboarded: true }))}

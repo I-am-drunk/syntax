@@ -4,13 +4,15 @@ import { Sema } from '../mascot/Sema'
 import {
   SEMA_ANIMATIONS,
   SEMA_EXPRESSIONS,
+  SEMA_REST_COMMA_PATHS,
   SEMA_SHAPES,
+  SEMA_TAILS,
   type StateId,
 } from '../mascot/bloub'
 import type { SyntaxPrefs } from '../storage'
 
 type SettingsSectionId = 'appearance' | 'learning' | 'sema' | 'sounds' | 'guide'
-type StudioTab = 'shape' | 'expression' | 'motion'
+type StudioTab = 'shape' | 'semicolon' | 'expression' | 'motion'
 
 const NAV_SECTIONS: { id: SettingsSectionId; label: string }[] = [
   { id: 'appearance', label: 'Appearance' },
@@ -107,6 +109,8 @@ export function SyntaxSettingsPage({
 
   const activeShapeLabel =
     SEMA_SHAPES.find(s => s.id === prefs.semaShape)?.label ?? prefs.semaShape
+  const activeTailLabel =
+    SEMA_TAILS.find(t => t.id === prefs.semaTail)?.label ?? prefs.semaTail
   const activeExprLabel =
     SEMA_EXPRESSIONS.find(e => e.id === prefs.semaExpression)?.label ?? prefs.semaExpression
   const activeAnimLabel =
@@ -227,14 +231,17 @@ export function SyntaxSettingsPage({
                   state={previewAnim}
                   expression={prefs.semaExpression}
                   shape={prefs.semaShape}
-                  size={108}
+                  tail={prefs.semaTail}
+                  size={104}
                   interactive
+                  followCursor={false}
                   ariaLabel="Sema live studio preview"
                 />
               </div>
               <div className="sema-studio-summary">
                 <div className="sema-studio-badges">
                   <span className="sema-studio-badge">{activeShapeLabel}</span>
+                  <span className="sema-studio-badge is-tail">{activeTailLabel}</span>
                   <span className="sema-studio-badge is-expr">{activeExprLabel}</span>
                   <span className="sema-studio-badge is-motion">{activeAnimLabel}</span>
                 </div>
@@ -247,7 +254,7 @@ export function SyntaxSettingsPage({
                     className="sema-studio-action-btn"
                     onClick={() => {
                       setPreviewAnim('idle')
-                      onPatchPrefs({ semaShape: 'classic', semaExpression: 'neutral' })
+                      onPatchPrefs({ semaShape: 'jenson', semaTail: 'jenson', semaExpression: 'neutral' })
                     }}
                   >
                     Reset defaults
@@ -260,6 +267,7 @@ export function SyntaxSettingsPage({
               {(
                 [
                   { id: 'shape', label: `Shape (${SEMA_SHAPES.length})` },
+                  { id: 'semicolon', label: `Semicolon (${SEMA_TAILS.length})` },
                   { id: 'expression', label: `Expression (${SEMA_EXPRESSIONS.length})` },
                   { id: 'motion', label: `Motion (${SEMA_ANIMATIONS.length})` },
                 ] as const
@@ -291,6 +299,34 @@ export function SyntaxSettingsPage({
                       }}
                     >
                       {sh.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {studioTab === 'semicolon' && (
+                <div className="sema-studio-chips">
+                  {SEMA_TAILS.map(tl => (
+                    <button
+                      key={tl.id}
+                      type="button"
+                      className={`sema-chip is-tail-chip${prefs.semaTail === tl.id ? ' is-active' : ''}`}
+                      onClick={() => {
+                        setPreviewAnim('idle')
+                        onPatchPrefs({ semaTail: tl.id })
+                      }}
+                    >
+                      <svg
+                        className="sema-chip-glyph"
+                        width="12"
+                        height="16"
+                        viewBox="-74 126 148 176"
+                        fill="none"
+                        aria-hidden="true"
+                      >
+                        <path d={SEMA_REST_COMMA_PATHS[tl.id]} fill="currentColor" />
+                      </svg>
+                      <span>{tl.label}</span>
                     </button>
                   ))}
                 </div>

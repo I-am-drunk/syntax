@@ -4,17 +4,24 @@ import {
   DEMI_VIEWBOX,
   NOTIF_BLUE,
   RAYON_BOULE,
+  SEMA_REST_COMMA_PATHS,
   mixHex,
+  closedPath,
+  toPoints,
+  projectSemicolonTail3D,
   resolveExpression,
   resolveShapeRadii,
+  resolveTailProfile,
   type BotFrame,
   type SemaExpressionName,
   type SemaShapeName,
+  type SemaTailName,
   type StateId,
 } from './bloub'
 import './sema.css'
 
-export type { SemaExpressionName, SemaShapeName, StateId }
+export type { SemaExpressionName, SemaShapeName, SemaTailName, StateId }
+export { SEMA_REST_COMMA_PATHS }
 
 /** Full set of supported Sema states: all 16 bloub morph animations + Sema legacy shorthand states */
 export type SemaState =
@@ -46,11 +53,18 @@ const SVG_NS = 'http://www.w3.org/2000/svg'
 const R = RAYON_BOULE // 100
 const VB = DEMI_VIEWBOX // 158
 
-// Sema's sculpted crescent-comma tail traced directly from the hand-drawn Sema PNG (R = 100 coordinate space)
-const TAIL_PATH =
-  'M 55.02,109.64 C 64.67,103.08 92.85,87.29 86.35,112.05 C 62.90,190.98 15.81,291.94 -76.71,309.64 C -99.75,312.99 -95.52,285.03 -87.15,273.49 C -59.79,225.13 -70.68,159.24 -83.94,108.03 C -82.96,90.64 -63.64,107.36 -55.82,110.44 C -24.58,131.78 23.99,130.37 55.02,109.64 Z'
-const TAIL_VB_TOP = -142
-const TAIL_VB_HEIGHT = 472
+// True typographic semicolon framing in bloub's R = 100 coordinate space:
+// Head sphere occupies y in [-100, +100] (Jenson star tips reach [-114, +114]),
+// followed by a crisp ~65-78u typographic gap and a full-proportioned ~180-197u traced comma
+// (y ~ 165..375), giving Sema unmistakable semicolon silhouette & balance.
+const TAIL_VB_TOP = -130
+const TAIL_VB_HEIGHT = 436
+
+export const SEMA_REST_COMMA_PATH = SEMA_REST_COMMA_PATHS.jenson
+export const SEMA_REST_COMMA_JENSON_PATH = SEMA_REST_COMMA_PATHS.jenson
+export const SEMA_JENSON_HEAD_PATH = closedPath(
+  toPoints({ radii: resolveShapeRadii('jenson'), rot: 0, cx: 0, cy: 0, sx: 1, sy: 1 }, 100),
+)
 
 // Crisp checkmark cutout stroke in R = 100 coordinate space (punched through mask during 'checkbox' state)
 const CHECKBOX_CUTOUT_PATH = 'M -42,4 L -12,34 L 46,-28'
@@ -239,7 +253,8 @@ function syncArcs(
 export function Sema({
   state = 'idle',
   expression = 'neutral',
-  shape = 'classic',
+  shape = 'jenson',
+  tail = 'jenson',
   size = 56,
   interactive = false,
   followCursor = true,
@@ -257,6 +272,7 @@ export function Sema({
   state?: SemaState
   expression?: SemaExpressionName
   shape?: SemaShapeName
+  tail?: SemaTailName
   size?: number
   interactive?: boolean
   followCursor?: boolean
@@ -305,6 +321,7 @@ export function Sema({
   const statePropRef = useRef(state)
   const exprPropRef = useRef(expression)
   const shapePropRef = useRef(shape)
+  const tailPropRef = useRef(tail)
   const followRef = useRef(followCursor)
   const lookAtRef = useRef(lookAt)
   const speakLevelRef = useRef(speakLevel)
@@ -317,6 +334,7 @@ export function Sema({
   statePropRef.current = state
   exprPropRef.current = expression
   shapePropRef.current = shape
+  tailPropRef.current = tail
   followRef.current = followCursor
   lookAtRef.current = lookAt
   speakLevelRef.current = speakLevel
@@ -358,8 +376,17 @@ export function Sema({
     tailY: 0,
     tailVx: 0,
     tailVy: 0,
-    tailRot: 0,
+    tailYaw: 0,
+    tailYawV: 0,
+    tailPitch: 0,
+    tailPitchV: 0,
+    tailRoll: 0,
+    tailRollV: 0,
+    tailBodyRot: 0,
+    tailSx: 1,
+    tailSy: 1,
     tailAlpha: 1,
+    tailScale: 1,
     cursorX: 0,
     cursorY: 0,
     hasCursor: false,
@@ -370,6 +397,19 @@ export function Sema({
     peakPullMag: 0,
     stretchMoodIdx: 0,
   })
+
+  // Immediately apply external expression/state/shape changes (e.g. clicking chips in Settings studio)
+  const mountedSyncRef = useRef(false)
+  useEffect(() => {
+    if (!mountedSyncRef.current) {
+      mountedSyncRef.current = true
+      return
+    }
+    physRef.current.overrideReaction = null
+    physRef.current.overrideUntil = 0
+    physRef.current.pokeScaleY = 0.91
+    physRef.current.pokeVy = 3.3
+  }, [expression, state, shape, tail])
 
   // Observe theme changes without polling inside rAF
   useEffect(() => {
@@ -390,7 +430,7 @@ export function Sema({
       if (rect.width > 0 && rect.height > 0) {
         centerCacheRef.current = {
           cx: rect.left + rect.width * 0.5,
-          cy: rect.top + rect.height * (showTailRef.current ? 0.30 : 0.50),
+          cy: rect.top + rect.height * (showTailRef.current ? 0.37 : 0.50),
           width: rect.width,
           valid: true,
         }
@@ -421,7 +461,7 @@ export function Sema({
         if (rect.width > 0 && rect.height > 0) {
           centerCacheRef.current = {
             cx: rect.left + rect.width * 0.5,
-            cy: rect.top + rect.height * (showTailRef.current ? 0.30 : 0.50),
+            cy: rect.top + rect.height * (showTailRef.current ? 0.37 : 0.50),
             width: rect.width,
             valid: true,
           }
@@ -450,6 +490,7 @@ export function Sema({
     let lastEngineState: StateId | null = null
     let lastExprKey: SemaExpressionName | null = null
     let lastShapeKey: SemaShapeName | null = null
+    let lastTailKey: SemaTailName | null = null
     let lastBodyPath = ''
     let lastInk = ''
     let lastPaper = ''
@@ -495,6 +536,7 @@ export function Sema({
       const beh = resolveSemaBehavior(activeState)
       const nextExprKey = beh.expressionOverride ?? activeExpr
       const nextShapeKey = shapePropRef.current
+      const nextTailKey = tailPropRef.current
 
       // Only push into BotEngine when inputs actually change
       if (beh.engineState !== lastEngineState) {
@@ -508,6 +550,10 @@ export function Sema({
       if (nextShapeKey !== lastShapeKey) {
         engine.setShape(resolveShapeRadii(nextShapeKey), clock)
         lastShapeKey = nextShapeKey
+      }
+      if (nextTailKey !== lastTailKey) {
+        engine.setTail(resolveTailProfile(nextTailKey), clock)
+        lastTailKey = nextTailKey
       }
 
       // Gaze target (zero layout reads: uses cached center!)
@@ -663,19 +709,39 @@ export function Sema({
       const pokeSy = clamp(p.pokeScaleY, 0.74, 1.24) * extraScaleY
       const pokeSx = 1 / Math.sqrt(pokeSy)
 
-      // Trailing semicolon tail spring
-      const tailTargetX = headX * 0.72
-      const tailTargetY = headY * 0.72
-      p.tailVx += ((tailTargetX - p.tailX) * 135 - p.tailVx * 10.5) * dt
-      p.tailVy += ((tailTargetY - p.tailY) * 135 - p.tailVy * 10.5) * dt
+      // Deeply integrated 3D semicolon tail follow-through driven by bloub's native f.semicolon choreography
+      const pose3d = f.pose3d
+      const semi = f.semicolon
+      const choreo = semi.choreo
+      const followLagX = pose3d.offX * R + choreo.extraOffX - headX * 0.14
+      const followLagY = pose3d.offY * R + choreo.extraOffY - headY * 0.14
+      p.tailVx += ((followLagX - p.tailX) * 190 - p.tailVx * 15) * dt
+      p.tailVy += ((followLagY - p.tailY) * 190 - p.tailVy * 15) * dt
       p.tailX += p.tailVx * dt
       p.tailY += p.tailVy * dt
-      const targetRot = clamp((headX - p.tailX) * 0.7, -20, 20)
-      p.tailRot += (targetRot - p.tailRot) * Math.min(1, dt * 11)
 
-      const wantsTail = showTailRef.current && f.baseBody && f.bodyAlpha > 0.6
-      const tailGoal = wantsTail ? 1 : 0
-      p.tailAlpha += (tailGoal - p.tailAlpha) * Math.min(1, dt * 10)
+      // 3D attitude spring: comma turns in 3D space a beat behind head gaze + bloub choreography
+      const targetYaw = pose3d.yaw + choreo.extraYaw + clamp((headX - p.tailX) * 0.45, -18, 18)
+      const targetPitch = pose3d.pitch + choreo.extraPitch
+      const targetRoll = pose3d.roll + choreo.extraRoll + clamp((headX - p.tailX) * 0.35, -14, 14)
+      p.tailYawV += ((targetYaw - p.tailYaw) * 125 - p.tailYawV * 13) * dt
+      p.tailPitchV += ((targetPitch - p.tailPitch) * 125 - p.tailPitchV * 13) * dt
+      p.tailRollV += ((targetRoll - p.tailRoll) * 135 - p.tailRollV * 13.5) * dt
+      p.tailYaw += p.tailYawV * dt
+      p.tailPitch += p.tailPitchV * dt
+      p.tailRoll += p.tailRollV * dt
+
+      const lerpK = Math.min(1, dt * 13)
+      p.tailBodyRot += (pose3d.rot - p.tailBodyRot) * lerpK
+      const targetSx = 1 + (pose3d.sx - 1) * 0.72
+      const targetSy = 1 + (pose3d.sy - 1) * 0.72
+      p.tailSx += (targetSx - p.tailSx) * lerpK
+      p.tailSy += (targetSy - p.tailSy) * lerpK
+
+      const tailGoal = showTailRef.current ? choreo.alphaMult : 0
+      p.tailAlpha += (tailGoal - p.tailAlpha) * Math.min(1, dt * 11)
+      const scaleGoal = showTailRef.current ? choreo.scaleMult : 0.45
+      p.tailScale += (scaleGoal - p.tailScale) * Math.min(1, dt * 11)
 
       if (rigRef.current) {
         rigRef.current.setAttribute(
@@ -693,12 +759,30 @@ export function Sema({
           stretchRef.current.removeAttribute('transform')
         }
       }
-      if (tailRef.current) {
-        tailRef.current.setAttribute(
-          'transform',
-          `translate(${p.tailX.toFixed(2)} ${p.tailY.toFixed(2)}) rotate(${p.tailRot.toFixed(2)} 0 128)`,
-        )
-        tailRef.current.setAttribute('opacity', p.tailAlpha.toFixed(3))
+      if (tailRef.current && tailPathRef.current) {
+        if (p.tailAlpha > 0.01) {
+          const commaPath = projectSemicolonTail3D(
+            semi.from,
+            semi.to,
+            semi.morphT,
+            p.tailYaw,
+            p.tailPitch,
+            p.tailRoll,
+            p.tailBodyRot,
+            p.tailX,
+            p.tailY,
+            p.tailSx,
+            p.tailSy,
+            p.tailScale,
+            0,
+          )
+          tailPathRef.current.setAttribute('d', commaPath)
+          tailPathRef.current.setAttribute('fill', ink)
+          tailRef.current.setAttribute('opacity', p.tailAlpha.toFixed(3))
+          tailRef.current.style.display = ''
+        } else {
+          tailRef.current.style.display = 'none'
+        }
       }
     }
 
@@ -826,7 +910,7 @@ export function Sema({
 
   const vbTop = showTail ? TAIL_VB_TOP : -VB
   const vbHeight = showTail ? TAIL_VB_HEIGHT : VB * 2
-  const svgHeight = showTail ? Math.round(size * 1.18) : size
+  const svgHeight = showTail ? Math.round(size * 1.28) : size
   const svgWidth = showTail ? Math.round(svgHeight * ((VB * 2) / vbHeight)) : size
 
   return (
@@ -872,14 +956,13 @@ export function Sema({
         </mask>
       </defs>
 
-      {showTail && (
-        <g ref={tailRef}>
-          <path ref={tailPathRef} d={TAIL_PATH} fill="#141414" />
-        </g>
-      )}
-
       <g ref={rigRef}>
         <g ref={stretchRef}>
+          {showTail && (
+            <g ref={tailRef}>
+              <path ref={tailPathRef} d={SEMA_REST_COMMA_PATH} fill="#141414" />
+            </g>
+          )}
           <g ref={arcsBackRef} fill="none" strokeLinecap="round" />
           <g ref={dotsBehindRef} />
 

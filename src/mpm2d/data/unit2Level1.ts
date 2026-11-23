@@ -106,10 +106,28 @@ export const UNIT2_LEVEL_1: GeoLesson[] = [
             },
           },
           {
-            heading: 'Flip & negate, then solve for b',
+            heading: 'Flip & negate to find m⊥',
             mathLines: [
-              'm⊥ = 1/3',
-              '1 = (1/3)(6) + b  →  b = −1',
+              'm = −3 = −3/1',
+              'Flip & negate  →  m⊥ = +1/3',
+            ],
+            scene: {
+              xMin: -6,
+              xMax: 8,
+              yMin: -6,
+              yMax: 5,
+              lines: [
+                { a: 3, b: 1, c: 3, color: 'blue', dim: true, label: 'm = −3' },
+                { a: 1, b: -3, c: 0, color: 'teal', dashed: true, label: 'm⊥ = 1/3' },
+              ],
+              rightAngles: [{ vertex: [-0.9, -0.3], dir1: [1, -3], dir2: [3, 1], color: 'green' }],
+              points: [{ id: 'p', x: 6, y: 1, label: 'P', showCoords: true, color: 'amber' }],
+            },
+          },
+          {
+            heading: 'Solve for b using P(6, 1)',
+            mathLines: [
+              '1 = (1/3)(6) + b  →  1 = 2 + b  →  b = −1',
               'y = 1/3 x − 1',
             ],
             scene: {

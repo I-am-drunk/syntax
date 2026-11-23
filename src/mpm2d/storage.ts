@@ -1,4 +1,4 @@
-import type { SemaExpressionName, SemaShapeName } from './mascot/bloub'
+import { isValidTailName, type SemaExpressionName, type SemaShapeName, type SemaTailName } from './mascot/bloub'
 
 const PREFS_KEY = 'syntax.mpm2d.prefs.v1'
 const COOKIE_NAME = 'syntax_mpm2d_prefs'
@@ -10,6 +10,7 @@ export type SyntaxPrefs = {
   voiceOn: boolean
   penControlsCollapsed: boolean
   semaShape: SemaShapeName
+  semaTail: SemaTailName
   semaExpression: SemaExpressionName
 }
 
@@ -19,7 +20,8 @@ const DEFAULT_PREFS: SyntaxPrefs = {
   onboarded: false,
   voiceOn: true,
   penControlsCollapsed: true,
-  semaShape: 'classic',
+  semaShape: 'jenson',
+  semaTail: 'jenson',
   semaExpression: 'neutral',
 }
 
@@ -64,7 +66,8 @@ export function loadPrefs(): SyntaxPrefs {
         parsed.penControlsCollapsed === undefined
           ? DEFAULT_PREFS.penControlsCollapsed
           : Boolean(parsed.penControlsCollapsed),
-      semaShape: !parsed.semaShape || parsed.semaShape === 'circle' ? 'classic' : parsed.semaShape,
+      semaShape: !parsed.semaShape || parsed.semaShape === 'circle' ? DEFAULT_PREFS.semaShape : parsed.semaShape,
+      semaTail: isValidTailName(parsed.semaTail) ? parsed.semaTail : DEFAULT_PREFS.semaTail,
       semaExpression: parsed.semaExpression ?? DEFAULT_PREFS.semaExpression,
     }
   } catch {

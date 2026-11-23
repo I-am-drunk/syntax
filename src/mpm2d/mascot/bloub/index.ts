@@ -5,6 +5,18 @@ import { STATES, STATE_BY_ID, POSES, type StateId } from './states'
 import { BotEngine, type BotFrame, type Look, type RenderedEye } from './engine'
 import { NOTIF_BLUE } from './decor'
 import { DEMI_VIEWBOX, RAYON, RAYON as RAYON_BOULE } from './repere'
+import { closedPath, toPoints } from './shape'
+import {
+  DEFAULT_TAIL,
+  SEMA_REST_COMMA_PATHS,
+  SEMA_TAILS,
+  TAIL_PROFILES,
+  isValidTailName,
+  projectSemicolonTail3D,
+  resolveTailProfile,
+  type SemaTailName,
+  type TailProfile,
+} from './semicolon'
 
 export {
   BotEngine,
@@ -22,9 +34,18 @@ export {
   RAYON,
   RAYON_BOULE,
   mixHex,
+  closedPath,
+  toPoints,
+  DEFAULT_TAIL,
+  SEMA_REST_COMMA_PATHS,
+  SEMA_TAILS,
+  TAIL_PROFILES,
+  isValidTailName,
+  projectSemicolonTail3D,
+  resolveTailProfile,
 }
 
-export type { BotExpression, ExpressionId, BotShape, ShapeId, ColorId, StateId, BotFrame, Look, RenderedEye }
+export type { BotExpression, ExpressionId, BotShape, ShapeId, ColorId, StateId, BotFrame, Look, RenderedEye, SemaTailName, TailProfile }
 
 export type SemaExpressionName =
   | 'neutral'
@@ -46,6 +67,7 @@ export type SemaExpressionName =
 
 export type SemaShapeName =
   | 'classic'
+  | 'jenson'
   | 'squircle'
   | 'circle'
   | 'pebble'
@@ -76,6 +98,7 @@ const EXPR_EN_TO_FR: Record<SemaExpressionName, ExpressionId> = {
 
 const SHAPE_EN_TO_FR: Record<SemaShapeName, ShapeId> = {
   classic: 'sema',
+  jenson: 'jenson',
   squircle: 'squircle',
   circle: 'cercle',
   pebble: 'galet',
@@ -106,7 +129,8 @@ export const SEMA_EXPRESSIONS: { id: SemaExpressionName; label: string }[] = [
 ]
 
 export const SEMA_SHAPES: { id: SemaShapeName; label: string }[] = [
-  { id: 'classic', label: 'Original Sema' },
+  { id: 'classic', label: 'Classic' },
+  { id: 'jenson', label: 'Jenson Star' },
   { id: 'squircle', label: 'Squircle' },
   { id: 'pebble', label: 'Pebble' },
   { id: 'capsule', label: 'Capsule' },

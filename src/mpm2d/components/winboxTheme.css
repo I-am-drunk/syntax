@@ -188,3 +188,10 @@
 .winbox.syntax-winbox.min .wb-header-actions {
   display: none;
 }
+
+/* Walkthrough WinBox body locks to 100% viewport height with zero vertical scrolling */
+.winbox.syntax-winbox.wt-walkthrough-winbox .wb-body {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}

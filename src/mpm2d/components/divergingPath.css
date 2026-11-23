@@ -403,11 +403,12 @@
 
 .br-node-caption.is-catchup {
   font-size: 12px;
-  color: #704000;
+  font-weight: 700;
+  color: var(--text, #141414);
 }
 
 :root[data-theme='dark'] .br-node-caption.is-catchup {
-  color: #ffd66b;
+  color: #ffffff;
 }
 
 .br-node-caption.is-muted {
@@ -1830,75 +1831,169 @@
   color: #f3f5fa;
 }
 
-/* Sticky bottom dock wrapper: 90%-width Brilliant lesson completion bar above Resume pill */
-.outline-action-dock {
+/* Sticky Brilliant action pill with frosted opaque acrylic finish, Apple Fitness ring, & Brilliant practice button */
+.outline-action {
   position: sticky;
-  bottom: 28px;
+  bottom: 32px;
   z-index: 4;
-  width: calc(100% - 32px);
-  margin: 52px auto 0;
-  display: flex;
-  flex-direction: column;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(20px) saturate(1.45);
+  -webkit-backdrop-filter: blur(20px) saturate(1.45);
+  box-shadow:
+    0 12px 32px rgba(15, 23, 42, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+:root[data-theme='dark'] .outline-action {
+  background: rgba(22, 24, 31, 0.86);
+  box-shadow:
+    0 14px 36px rgba(0, 0, 0, 0.44),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.outline-action .outline-action-meta {
+  padding-inline: 56px;
+}
+
+/* Brilliant tactile circular Jump-to-Bottom / Jump-to-Top button tucked cleanly in top-right of .outline-action */
+.outline-scroll-btn {
+  position: absolute;
+  right: 16px;
+  top: 14px;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 999px;
+  border: 2px solid var(--border, #e2e4ea);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(14px) saturate(1.4);
+  -webkit-backdrop-filter: blur(14px) saturate(1.4);
+  color: var(--text, #141414);
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow:
+    0 3px 0 var(--border, #e2e4ea),
+    0 6px 16px rgba(15, 23, 42, 0.08);
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 140ms ease, background-color 140ms ease;
 }
 
-.outline-action-dock > .outline-action {
-  position: static;
-  width: 100%;
-  margin: 0;
+.outline-scroll-btn svg {
+  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.outline-action-progress-shell {
-  width: 90%;
-  margin: 0 auto;
+.outline-scroll-btn.is-at-bottom svg {
+  transform: rotate(180deg);
+}
+
+.outline-scroll-btn:hover {
+  border-color: var(--muted, #8e96a7);
+  background: #ffffff;
+}
+
+.outline-scroll-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 var(--border, #e2e4ea);
+}
+
+:root[data-theme='dark'] .outline-scroll-btn {
+  background: rgba(28, 31, 40, 0.94);
+  border-color: #32384a;
+  color: #f3f5fa;
+  box-shadow:
+    0 3px 0 #101218,
+    0 6px 18px rgba(0, 0, 0, 0.36);
+}
+
+:root[data-theme='dark'] .outline-scroll-btn:hover {
+  border-color: #4d5670;
+  background: #232734;
+}
+
+:root[data-theme='dark'] .outline-scroll-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 #101218;
+}
+
+/* Compact Apple Fitness-style circular progress ring in top-left of .outline-action (started courses only) */
+.outline-fitness-ring {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(12px) saturate(1.4);
+  -webkit-backdrop-filter: blur(12px) saturate(1.4);
+  box-shadow:
+    0 3px 10px rgba(15, 23, 42, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  pointer-events: auto;
+}
+
+:root[data-theme='dark'] .outline-fitness-ring {
+  background: rgba(30, 33, 43, 0.88);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.outline-fitness-svg {
+  display: block;
+  transform: rotate(-90deg);
+}
+
+.outline-fitness-track {
+  fill: none;
+  stroke: rgba(69, 109, 255, 0.16);
+  stroke-width: 4.2;
+}
+
+.outline-fitness-ring.is-done .outline-fitness-track {
+  stroke: rgba(21, 180, 65, 0.18);
+}
+
+.outline-fitness-ring.is-catchup .outline-fitness-track {
+  stroke: rgba(245, 158, 11, 0.2);
+}
+
+:root[data-theme='dark'] .outline-fitness-track {
+  stroke: rgba(116, 145, 255, 0.2);
+}
+
+:root[data-theme='dark'] .outline-fitness-ring.is-done .outline-fitness-track {
+  stroke: rgba(45, 212, 92, 0.22);
+}
+
+:root[data-theme='dark'] .outline-fitness-ring.is-catchup .outline-fitness-track {
+  stroke: rgba(251, 191, 36, 0.22);
+}
+
+.outline-fitness-arc {
+  fill: none;
+  stroke-width: 4.2;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.outline-fitness-pct {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 5px 12px;
-  border-radius: 999px;
-  border: 1.5px solid var(--border, #e2e4ea);
-  background: var(--surface, #ffffff);
-  box-shadow: 0 2px 0 var(--border, #e2e4ea);
-}
-
-:root[data-theme='dark'] .outline-action-progress-shell {
-  background: #1a1d26;
-  border-color: #2f3444;
-  box-shadow: 0 2px 0 #101218;
-}
-
-.outline-action-progress-track {
-  flex: 1 1 auto;
-  height: 7px;
-  border-radius: 999px;
-  background: var(--secondary, #ebeef5);
-  overflow: hidden;
-}
-
-:root[data-theme='dark'] .outline-action-progress-track {
-  background: #272c3a;
-}
-
-.outline-action-progress-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #456dff 0%, #6f8eff 100%);
-  transition: width 260ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.outline-action-progress-fill.is-done {
-  background: linear-gradient(90deg, #15b441 0%, #2dd45c 100%);
-}
-
-.outline-action-progress-fill.is-catchup {
-  background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%);
-}
-
-.outline-action-progress-pct {
-  flex: 0 0 auto;
-  font-size: 11.5px;
+  justify-content: center;
+  font-size: 10px;
   font-weight: 800;
+  letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
   color: var(--text, #141414);
+}
+
+:root[data-theme='dark'] .outline-fitness-pct {
+  color: #f3f5fa;
 }

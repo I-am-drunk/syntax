@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Dialog } from '@base-ui/react/dialog'
-import { Sema, type SemaShapeName } from '../mascot/Sema'
+import { Sema, type SemaShapeName, type SemaTailName } from '../mascot/Sema'
 import './onboarding.css'
 
 export function OnboardingModal({
   open,
   theme,
   drawMode,
-  semaShape = 'classic',
+  semaShape = 'jenson',
+  semaTail = 'jenson',
   onSelectTheme,
   onSelectDrawMode,
   onFinish,
@@ -17,6 +18,7 @@ export function OnboardingModal({
   theme: 'light' | 'dark'
   drawMode: boolean
   semaShape?: SemaShapeName
+  semaTail?: SemaTailName
   onSelectTheme: (next: 'light' | 'dark') => void
   onSelectDrawMode: (next: boolean) => void
   onFinish: () => void
@@ -68,7 +70,7 @@ export function OnboardingModal({
                   <div className="sema-speech-bubble" data-placement="top" aria-hidden="true">
                     Hi, I’m Sema
                   </div>
-                  <Sema state="idle" expression="happy" shape={semaShape} size={84} interactive ariaLabel="Sema greeting you" />
+                  <Sema state="idle" expression="happy" shape={semaShape} tail={semaTail} size={84} interactive ariaLabel="Sema greeting you" />
                 </div>
               </motion.div>
               <Dialog.Title className="ob-title">Welcome to Syntax</Dialog.Title>
@@ -89,7 +91,7 @@ export function OnboardingModal({
           {beat === 1 && (
             <div className="ob-beat">
               <div className="ob-sema-mini">
-                <Sema state="idle" expression="curious" shape={semaShape} size={54} interactive ariaLabel="Sema theme preview" />
+                <Sema state="idle" expression="curious" shape={semaShape} tail={semaTail} size={54} interactive ariaLabel="Sema theme preview" />
               </div>
               <Dialog.Title className="ob-title">Pick your look</Dialog.Title>
               <p className="ob-copy">Switch anytime from the top bar.</p>
@@ -133,7 +135,7 @@ export function OnboardingModal({
           {beat === 2 && (
             <div className="ob-beat">
               <div className="ob-sema-mini">
-                <Sema state={drawMode ? 'checkbox' : 'wink'} shape={semaShape} size={54} interactive ariaLabel="Sema mode preview" />
+                <Sema state={drawMode ? 'checkbox' : 'wink'} shape={semaShape} tail={semaTail} size={54} interactive ariaLabel="Sema mode preview" />
               </div>
               <Dialog.Title className="ob-title">How do you want to check answers?</Dialog.Title>
               <p className="ob-copy">

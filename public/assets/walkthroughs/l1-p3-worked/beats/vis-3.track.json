@@ -7,18 +7,6 @@
   "keyframes": [
     {
       "t": 0.0,
-      "x": 0.2394,
-      "y": 0.2297,
-      "lookX": 0.502,
-      "lookY": 0.108,
-      "state": "speaking",
-      "expression": "attentive",
-      "shape": "circle",
-      "scale": 1.0,
-      "speaking": true
-    },
-    {
-      "t": 0.0,
       "x": 0.5697,
       "y": 0.1783,
       "lookX": -0.423,
@@ -969,16 +957,6 @@
   "prompts": [
     {
       "start": 0.0,
-      "end": 0.12,
-      "callout": "Slide to P(6, 1)",
-      "say": "Keep the slope locked at 1/3 and glide down like an elevator.",
-      "subtitle": "Slide the line vertically while keeping slope m\u22a5 = 1/3.",
-      "mode": "callout",
-      "accent": "teal",
-      "side": "auto"
-    },
-    {
-      "start": 0.0,
       "end": 4.6333,
       "callout": "Sliding b down...",
       "say": "Watch the y-intercept bead glide smoothly down the y-axis.",
@@ -1000,9 +978,9 @@
     {
       "start": 7.5667,
       "end": 11.3667,
-      "callout": "b = \u22121!",
-      "say": "Look at the y-axis: it crosses right at (0, \u22121).",
-      "subtitle": "It crosses the y-axis at b = \u22121.",
+      "callout": "b = −1!",
+      "say": "Look at the y-axis: it crosses right at (0, −1).",
+      "subtitle": "It crosses the y-axis at b = −1.",
       "mode": "callout",
       "accent": "green",
       "side": "auto"
@@ -1010,9 +988,9 @@
     {
       "start": 11.3667,
       "end": 14.9333,
-      "callout": "y = 1/3 x \u2212 1",
-      "say": "Final perpendicular equation: y = 1/3 x \u2212 1!",
-      "subtitle": "Our perpendicular line is y = 1/3 x \u2212 1.",
+      "callout": "y = 1/3 x − 1",
+      "say": "Final perpendicular equation: y = 1/3 x − 1!",
+      "subtitle": "Our perpendicular line is y = 1/3 x − 1.",
       "mode": "callout",
       "accent": "green",
       "side": "auto"
@@ -1267,7 +1245,7 @@
     {
       "name": "perpendicular:vis3_90deg",
       "passed": true,
-      "detail": "screen_angle=90.000\u00b0 (error=0.000\u00b0, tol=0.5\u00b0)"
+      "detail": "screen_angle=90.000° (error=0.000°, tol=0.5°)"
     },
     {
       "name": "line_slope:vis3_locked",

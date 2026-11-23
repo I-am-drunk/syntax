@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Sema, type SemaExpressionName, type SemaShapeName, type SemaState } from '../mascot/Sema'
+import { Sema, type SemaExpressionName, type SemaShapeName, type SemaState, type SemaTailName } from '../mascot/Sema'
 import {
   findActivePrompt,
   findActiveWordIndex,
@@ -27,7 +27,8 @@ export function SemaStageRuntime({
   playing,
   voiceOn,
   displayMode,
-  userShape = 'circle',
+  userShape = 'jenson',
+  userTail = 'jenson',
   fallbackCaption,
 }: {
   track: SemaTrack | null
@@ -36,6 +37,7 @@ export function SemaStageRuntime({
   voiceOn: boolean
   displayMode: SemaPromptDisplayMode
   userShape?: SemaShapeName
+  userTail?: SemaTailName
   fallbackCaption?: string
 }) {
   const actorRef = useRef<HTMLDivElement | null>(null)
@@ -433,6 +435,7 @@ export function SemaStageRuntime({
               state={resolvedState}
               expression={resolvedExpression}
               shape={hud.shape}
+              tail={userTail}
               size={56}
               interactive={false}
               followCursor={!playing && !isStretching}

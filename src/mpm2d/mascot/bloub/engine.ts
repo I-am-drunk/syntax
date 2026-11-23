@@ -13,11 +13,24 @@ import {
   type Silhouette
 } from './shape'
 import { STATE_BY_ID, type Pose, type StateDef, type StateId } from './states'
+import { DEFAULT_TAIL, TAIL_PROFILES, semicolonChoreography, type TailChoreography, type TailProfile } from './semicolon'
 
 export interface RenderedEye {
   d: string
   matrix: string
   alpha: number
+}
+
+export interface BotPose3D {
+  yaw: number
+  pitch: number
+  roll: number
+  offX: number
+  offY: number
+  sx: number
+  sy: number
+  rot: number
+  stateId: StateId
 }
 
 export interface BotFrame {
@@ -36,6 +49,15 @@ export interface BotFrame {
   tintHex: string | null
   /** Whether the active state uses baseBody (controls Sema's semicolon tail visibility) */
   baseBody: boolean
+  /** Live 3D spherical head pose & silhouette transform for deeply integrated 3D accessories */
+  pose3d: BotPose3D
+  /** First-class semicolon tail morph & state choreography computed by BotEngine */
+  semicolon: {
+    from: TailProfile
+    to: TailProfile
+    morphT: number
+    choreo: TailChoreography
+  }
 }
 
 /**
@@ -151,6 +173,9 @@ export class BotEngine {
   private shape: number[] | null = null
   private shapePrev: number[] | null = null
   private shapeAt = -10
+  private tail: TailProfile = TAIL_PROFILES[DEFAULT_TAIL]
+  private tailPrev: TailProfile | null = null
+  private tailAt = -10
   private expr: BotExpression | null = null
   private exprPrev: BotExpression | null = null
   private exprAt = -10
@@ -226,6 +251,22 @@ export class BotEngine {
    * fonction pure du temps, donc relire une date passee doit redonner l'image
    * intermediaire. On garde juste une reference de plus.
    */
+  setTail(profile: TailProfile, now = 0) {
+    if (profile.id === this.tail.id) return
+    this.tailPrev = this.tail
+    this.tail = profile
+    this.tailAt = now
+  }
+
+  private tailAtTime(now: number): { from: TailProfile; to: TailProfile; morphT: number } {
+    const to = this.tail
+    const from = this.tailPrev
+    if (!from) return { from: to, to, morphT: 1 }
+    const k = (now - this.tailAt) / BotEngine.SHAPE_MORPH
+    if (k >= 1) return { from: to, to, morphT: 1 }
+    return { from, to, morphT: easings.easeOutQuint(clamp(k)) }
+  }
+
   private shapeAtTime(now: number): number[] | null {
     const to = this.shape
     const from = this.shapePrev
@@ -562,7 +603,22 @@ export class BotEngine {
       notch,
       checkDraw: pose.checkDraw ?? 0,
       tintHex: pose.tintHex ?? null,
-      baseBody: def.baseBody
+      baseBody: def.baseBody,
+      pose3d: {
+        yaw: gaze.yaw,
+        pitch: gaze.pitch,
+        roll: gaze.roll,
+        offX,
+        offY,
+        sx: sil.sx,
+        sy: sil.sy,
+        rot: sil.rot,
+        stateId: this.cur
+      },
+      semicolon: {
+        ...this.tailAtTime(now),
+        choreo: semicolonChoreography(this.cur, now, pose.bodyAlpha)
+      }
     }
   }
 }
