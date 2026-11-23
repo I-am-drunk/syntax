@@ -56,6 +56,15 @@ export const UNIT2_LEVEL2: GeoLesson[] = [
       {
         id: 'l5-p2-worked',
         kind: 'worked',
+        checkChoice: {
+          prompt: 'Which verification confirms △ABC is a right triangle?',
+          options: [
+            { id: 'a', label: 'AC² + BC² = 80 + 20 = 100 = AB² (90° at C)' },
+            { id: 'b', label: 'AB² + BC² = 100 + 20 = 120 = AC² (90° at B)', hint: 'AB is the longest side (√100 = 10), so it must be the hypotenuse opposite ∠C.' },
+            { id: 'c', label: 'Not a right triangle because 80 + 20 ≠ 10', hint: 'Compare squared lengths: AB² = 100, not 10.' },
+          ],
+          correctId: 'a',
+        },
         source: 'Alex Notes · Oct 28',
         prompt: 'Prove △ABC with A(5, 5), B(−3, −1), C(1, −3) is a right triangle.',
         plan: [
@@ -402,6 +411,15 @@ export const UNIT2_LEVEL2: GeoLesson[] = [
       {
         id: 'l6-p2-worked',
         kind: 'worked',
+        checkChoice: {
+          prompt: 'What exact shortest distance did you get from O(0, 0) to y = 2x − 10?',
+          options: [
+            { id: 'a', label: '√20 (≈ 4.5)' },
+            { id: 'b', label: '10 (vertical y-intercept distance)', hint: 'The vertical distance to (0, −10) is not perpendicular to the line. Use the foot (4, −2).' },
+            { id: 'c', label: '√12 (≈ 3.5)', hint: 'Both squares add: 4² + (−2)² = 16 + 4 = 20, not 16 − 4.' },
+          ],
+          correctId: 'a',
+        },
         source: 'Alex Notes · Nov 3',
         prompt: 'Find the shortest distance from O(0, 0) to the line y = 2x − 10.',
         plan: [
@@ -820,6 +838,15 @@ export const UNIT2_LEVEL2: GeoLesson[] = [
       {
         id: 'l7-p3-worked',
         kind: 'worked',
+        checkChoice: {
+          prompt: 'Which equation did you get for the right bisector of AB?',
+          options: [
+            { id: 'a', label: 'y = 2x' },
+            { id: 'b', label: 'y = −1/2 x + 5/2', hint: 'Remember the right bisector uses the perpendicular slope m⊥ = +2, not m_AB = −1/2.' },
+            { id: 'c', label: 'y = 2x + 4', hint: 'Substitute the midpoint M(1, 2): 2 = 2(1) + b gives b = 0.' },
+          ],
+          correctId: 'a',
+        },
         source: 'Alex Notes · Nov 5',
         prompt: 'Find the equation of the right bisector of segment AB with A(−3, 4) and B(5, 0).',
         plan: [
@@ -1129,6 +1156,15 @@ export const UNIT2_LEVEL2: GeoLesson[] = [
       {
         id: 'l8-p2-worked',
         kind: 'worked',
+        checkChoice: {
+          prompt: 'What completes the proof that RSTU is a square after showing all 4 sides equal √13?',
+          options: [
+            { id: 'a', label: 'm_RS · m_ST = (−2/3)(3/2) = −1, so ∠S = 90°' },
+            { id: 'b', label: 'Four equal sides alone already proves a square', hint: 'Four equal sides only proves a rhombus; you still need one 90° corner.' },
+            { id: 'c', label: 'm_RS = m_ST = −2/3, so adjacent sides are parallel', hint: 'Adjacent sides of a square are perpendicular (negative reciprocals), not parallel.' },
+          ],
+          correctId: 'a',
+        },
         source: 'Nov 12 Board Q · Test #11',
         prompt: 'Verify that R(3, 2), S(0, 4), T(−2, 1), U(1, −1) is a square.',
         plan: [

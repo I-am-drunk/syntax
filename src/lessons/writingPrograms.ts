@@ -98,7 +98,7 @@ export const writingPrograms: Lesson = {
       kind: 'introduction', asset: 'LessonTappyOnboardingTicV18_Interactive1',
       title: 'Writing Programs',
       // Preserve the punctuation of the captured V18 lesson copy.
-      paragraphs: ["Programs are instructions. You already know how to write them — let's prove it."],
+      paragraphs: ["Programs are instructions. You already know how to write them, so let's prove it."],
     },
     ...gridPages,
     {

@@ -2284,7 +2284,7 @@
   width: 64px;
 }
 
-/* Splitter snap tension feedback — calm Brilliant neutral surface, zero colored borders */
+/* Splitter snap tension feedback: calm Brilliant neutral surface, zero colored borders */
 .workspace-splitter[data-tension='close'] .workspace-splitter-bar,
 .workspace-splitter[data-tension='fullscreen'] .workspace-splitter-bar {
   background: var(--text);
@@ -2461,7 +2461,7 @@
 }
 
 
-/* Left-Pane Slot Panels (Playbook & Compare in Pen Mode — zero 3-panel collision) */
+/* Left-Pane Slot Panels (Playbook & Compare in Pen Mode: zero 3-panel collision) */
 .lesson-left-slot-panel {
   display: flex;
   flex-direction: column;
@@ -3111,4 +3111,72 @@
 
 .menu-popup {
   border: 1px solid var(--border);
+}
+
+.br-worked-mc-block {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.br-worked-mc-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text, #141414);
+}
+
+/* Formula Sheet floating WinBox top padding + authentic Brilliant Dock/Float/Print buttons */
+.fm-content-wrap.is-floating .fm-tabs {
+  padding: 14px 20px 12px;
+}
+
+.fm-content-wrap .fm-print-btn,
+.winbox.syntax-winbox .wt-wb-action-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border, #d8dce6);
+  background: var(--surface, #ffffff);
+  color: var(--text, #141414);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 2px 0 var(--border, #d8dce6);
+  cursor: pointer;
+  transition: transform 90ms ease, border-color 120ms ease, background-color 120ms ease, box-shadow 90ms ease;
+}
+
+.fm-content-wrap .fm-print-btn:hover,
+.winbox.syntax-winbox .wt-wb-action-btn:hover {
+  border-color: #456dff;
+  color: #456dff;
+  background: rgba(69, 109, 255, 0.05);
+}
+
+.fm-content-wrap .fm-print-btn:active,
+.winbox.syntax-winbox .wt-wb-action-btn:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+:root[data-theme='dark'] .fm-content-wrap .fm-print-btn,
+[data-theme='dark'] .winbox.syntax-winbox .wt-wb-action-btn,
+.winbox.syntax-winbox.is-dark .wt-wb-action-btn {
+  background: #1f2330;
+  border-color: #343a4d;
+  color: #eef1f8;
+  box-shadow: 0 2px 0 #101218;
+}
+
+:root[data-theme='dark'] .fm-content-wrap .fm-print-btn:hover,
+[data-theme='dark'] .winbox.syntax-winbox .wt-wb-action-btn:hover,
+.winbox.syntax-winbox.is-dark .wt-wb-action-btn:hover {
+  border-color: #7491ff;
+  color: #9cb2ff;
+  background: rgba(116, 145, 255, 0.12);
 }

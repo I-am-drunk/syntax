@@ -13,7 +13,7 @@ import {
  * A la difference des silhouettes d'animation (`profiles.ts`), celles-ci ne sont
  * PAS relevees sur la video : elles sont construites analytiquement d'apres la
  * grille du personnalisateur d'origine. Deux sources distinctes, donc, et c'est
- * volontaire — les etats animes doivent rester fideles a la video, les formes de
+ * volontaire: les etats animes doivent rester fideles a la video, les formes de
  * base sont un choix d'utilisateur.
  */
 
@@ -78,8 +78,8 @@ const droplet = normalize(
 const capsule = profileFromPolygon(hullOfCircles(-0.42, 0, 0.62, 0.42, 0, 0.62), 0, 0)
 
 export const SHAPES: BotShape[] = [
-  // Original Sema superellipse (n=2.55) from semaEngine.ts with classic Sema circle size
-  { id: 'sema', radii: normalize(superellipseProfile(2.55), 1.07) },
+  // Original Sema head traced from hand-drawn Sema PNG (99.93% circular IoU, paired with sculpted crescent-comma tail)
+  { id: 'sema', radii: new Array(PROFILE_SAMPLES).fill(1) },
   { id: 'cercle', radii: new Array(PROFILE_SAMPLES).fill(1) },
   { id: 'galet', radii: pebble },
   // 1.15 et pas 1.02 : sur une superellipse le rayon maximal est la diagonale,
@@ -97,7 +97,7 @@ export const SHAPES: BotShape[] = [
 // Map indexee par `string` et non par `ShapeId` : les appelants interrogent avec
 // une valeur relue du localStorage ou d'une prop, donc non validee.
 export const SHAPE_BY_ID = new Map<string, BotShape>(SHAPES.map((s) => [s.id, s]))
-export const DEFAULT_SHAPE = 'cercle'
+export const DEFAULT_SHAPE = 'sema'
 
 export type ColorId =
   | 'encre'

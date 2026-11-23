@@ -304,8 +304,7 @@ export function CourseShell() {
       if (Date.now() < navLockUntilRef.current || confBottom <= confTop) return
       const st = scroller.scrollTop
       const relTop = confTop - st
-      const relBottom = confBottom - st
-      const inConference = relTop <= triggerLine && relBottom > 120
+      const inConference = relTop <= triggerLine
       if (inConference !== lastInConf) {
         lastInConf = inConference
         setActiveNav(inConference ? 'conference' : 'course')
@@ -339,7 +338,7 @@ export function CourseShell() {
       setPrefs(prev => {
         if (prev.drawMode) return prev
         if (prev.onboarded) {
-          toast('Stylus detected — Draw Mode enabled', {
+          toast('Stylus detected: Draw Mode enabled', {
             action: {
               label: 'Undo',
               onClick: () => setPrefs(p => ({ ...p, drawMode: false })),
@@ -581,7 +580,7 @@ export function CourseShell() {
           <a
             className="wordmark"
             href="#top"
-            aria-label={settingsOpen ? 'Syntax — Back to Unit 2' : 'Syntax Analytic Geometry'}
+            aria-label={settingsOpen ? 'Syntax: Back to Unit 2' : 'Syntax Analytic Geometry'}
             onClick={e => {
               e.preventDefault()
               if (settingsOpen || historyOpen) {
@@ -884,22 +883,14 @@ export function CourseShell() {
           </div>
 
           <div className="course-schedule">
-            <button
-              type="button"
-              className="course-schedule-row is-clickable"
-              onClick={() => jumpToLevel(3)}
-            >
+            <div className="course-schedule-row">
               <span className="course-schedule-date">Tue Nov 24</span>
-              <span>U2 Conference · Plans only →</span>
-            </button>
-            <button
-              type="button"
-              className="course-schedule-row is-clickable"
-              onClick={() => jumpToLevel(4)}
-            >
+              <span>U2 Conference · Plans only</span>
+            </div>
+            <div className="course-schedule-row">
               <span className="course-schedule-date">Thu Nov 26</span>
-              <span>Unit Assignment · Open notes →</span>
-            </button>
+              <span>Unit Assignment · Open notes</span>
+            </div>
           </div>
 
           {validMissedIds.length > 0 && (
@@ -1020,8 +1011,31 @@ export function CourseShell() {
             const totalPages = sel.pages.length + sel.checks.length
             const savedPage = [...sel.pages, ...sel.checks].findIndex(page => page.id === selResume?.pageId)
             const ctaText = selInProgress ? 'Resume' : selDone ? 'Review' : 'Start'
+            const resolvedPageIdx = savedPage >= 0 ? savedPage : (selResume?.pageIndex ?? 0)
+            const completionPct = selDone
+              ? 100
+              : selInProgress && totalPages > 0
+                ? Math.min(99, Math.max(8, Math.round(((resolvedPageIdx + 1) / totalPages) * 100)))
+                : 0
             return (
-              <div className={`outline-action${selIsCatchup ? ' is-catchup' : ''}`}>
+              <div className="outline-action-dock">
+                <div
+                  className="outline-action-progress-shell"
+                  role="progressbar"
+                  aria-label={`${sel.title} completion`}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={completionPct}
+                >
+                  <div className="outline-action-progress-track">
+                    <div
+                      className={`outline-action-progress-fill${selDone ? ' is-done' : selIsCatchup ? ' is-catchup' : ''}`}
+                      style={{ width: `${completionPct}%` }}
+                    />
+                  </div>
+                  <span className="outline-action-progress-pct">{completionPct}%</span>
+                </div>
+                <div className={`outline-action${selIsCatchup ? ' is-catchup' : ''}`}>
                 <div className="outline-action-meta">
                   <span className="outline-action-eyebrow">
                     {selIsCatchup ? 'Catch-Up Refresher' : `Level ${sel.level} · Lesson ${sel.number}`}
@@ -1061,6 +1075,7 @@ export function CourseShell() {
                       <RedoOutlineIcon />
                     </button>
                   )}
+                </div>
                 </div>
               </div>
             )

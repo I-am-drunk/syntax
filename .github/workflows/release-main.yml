@@ -1,0 +1,86 @@
+name: Deploy Main Site (Stable Release)
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to deploy (optional, defaults to current ref)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.event_name == 'workflow_dispatch' || github.event.release.prerelease == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build stable site
+        env:
+          VITE_BASE: /${{ github.event.repository.name }}/
+          VITE_CHANNEL: stable
+          VITE_RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag || github.ref_name }}
+        run: npm run build
+
+      - name: Package main channel archive
+        run: tar -czf site-main.tar.gz -C dist .
+
+      - name: Attach main archive to release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" site-main.tar.gz --clobber --repo "${{ github.repository }}"
+
+      - name: Assemble combined Pages output (main + latest dev)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p _site
+          tar -xzf site-main.tar.gz -C _site
+          touch _site/.nojekyll
+          DEV_TAG="$(gh release list --repo "${{ github.repository }}" --limit 30 --json tagName,isPrerelease --jq '[.[] | select(.isPrerelease == true)][0].tagName // empty')"
+          if [ -n "$DEV_TAG" ]; then
+            echo "Restoring dev site from pre-release $DEV_TAG"
+            if gh release download "$DEV_TAG" --pattern "site-dev.tar.gz" --repo "${{ github.repository }}"; then
+              mkdir -p _site/dev
+              tar -xzf site-dev.tar.gz -C _site/dev
+            fi
+          fi
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./_site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

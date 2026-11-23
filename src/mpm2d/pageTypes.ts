@@ -40,6 +40,8 @@ export type WorkedPage = {
   id: string
   /** Explicitly enable or disable the Pen PDF sheet on this page */
   penEnabled?: boolean
+  /** Explicitly tag whether this page counts as a lesson-type question */
+  isLessonQuestion?: boolean
   kind: 'worked'
   source: string
   prompt: string
@@ -49,6 +51,12 @@ export type WorkedPage = {
     mathLines: string[]
     scene: GeoScene
   }[]
+  /** 3 plausible multiple-choice answers used to verify worksheet work in Draw Mode */
+  checkChoice?: {
+    prompt?: string
+    options: ChoiceOption[]
+    correctId: string
+  }
 }
 
 export type ChoicePage = {
@@ -233,4 +241,21 @@ export function isPenEnabledForPage(page: GeoLessonPage, isCheck: boolean): bool
     return hasMathWork
   }
   return false
+}
+
+export type PageClassification = 'explore' | 'worked' | 'lesson-question' | 'check'
+
+/**
+ * Explicit lesson-type question classification in code (tracked independently
+ * of whether Draw Mode / Pen worksheet is enabled for the page).
+ */
+export function classifyLessonPage(page: GeoLessonPage, isCheck: boolean): PageClassification {
+  if (isCheck) return 'check'
+  if (page.kind === 'explore') return 'explore'
+  if (page.kind === 'worked') return 'worked'
+  return 'lesson-question'
+}
+
+export function isLessonQuestionPage(page: GeoLessonPage, isCheck: boolean): boolean {
+  return classifyLessonPage(page, isCheck) === 'lesson-question'
 }

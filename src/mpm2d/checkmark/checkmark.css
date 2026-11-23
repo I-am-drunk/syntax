@@ -2,18 +2,20 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   width: 100%;
 }
 
 .chk-gate {
   position: relative;
-  width: min(320px, 100%);
-  height: 84px;
-  border-radius: 18px;
-  border: 2px solid var(--border, #e2e4ea);
-  background: var(--surface, #ffffff);
-  box-shadow: 0 3px 0 var(--border, #e2e4ea);
+  width: min(440px, 100%);
+  height: 118px;
+  border-radius: 20px;
+  border: 2px solid var(--border, #dcdfe8);
+  background:
+    radial-gradient(circle, rgba(69, 109, 255, 0.13) 1px, transparent 1px) 0 0 / 16px 16px,
+    var(--surface, #ffffff);
+  box-shadow: 0 4px 0 var(--border, #dcdfe8);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -29,14 +31,16 @@
 }
 
 :root[data-theme='dark'] .chk-gate {
-  background: #1a1d25;
-  border-color: #2f3442;
-  box-shadow: 0 3px 0 #11131a;
+  background:
+    radial-gradient(circle, rgba(132, 160, 255, 0.15) 1px, transparent 1px) 0 0 / 16px 16px,
+    #181b23;
+  border-color: #2f3545;
+  box-shadow: 0 4px 0 #0f1118;
 }
 
 .chk-gate:hover:not(.is-disabled) {
-  border-color: #b689ff;
-  box-shadow: 0 3px 0 rgba(182, 137, 255, 0.45);
+  border-color: #456dff;
+  box-shadow: 0 4px 0 rgba(69, 109, 255, 0.3);
 }
 
 .chk-gate.is-disabled {
@@ -46,19 +50,23 @@
 
 .chk-gate.is-drawing {
   border-color: #456dff;
-  background: rgba(69, 109, 255, 0.04);
+  background:
+    radial-gradient(circle, rgba(69, 109, 255, 0.18) 1px, transparent 1px) 0 0 / 16px 16px,
+    rgba(69, 109, 255, 0.04);
   box-shadow: 0 0 0 3px rgba(69, 109, 255, 0.14);
 }
 
 .chk-gate.is-correct {
   border-color: #29cc57;
-  background: rgba(41, 204, 87, 0.07);
-  box-shadow: 0 3px 0 rgba(41, 204, 87, 0.25);
+  background:
+    radial-gradient(circle, rgba(41, 204, 87, 0.18) 1px, transparent 1px) 0 0 / 16px 16px,
+    rgba(41, 204, 87, 0.06);
+  box-shadow: 0 4px 0 rgba(41, 204, 87, 0.28);
 }
 
 .chk-gate.is-wrong {
   border-color: #e6a817;
-  box-shadow: 0 3px 0 rgba(230, 168, 23, 0.28);
+  box-shadow: 0 4px 0 rgba(230, 168, 23, 0.28);
 }
 
 .chk-gate.is-shake {
@@ -73,31 +81,32 @@
 }
 
 .chk-guide-svg {
-  width: 240px;
-  height: 74px;
+  width: 286px;
+  height: 98px;
   pointer-events: none;
   overflow: visible;
 }
 
-/* Normal single-stroke dotted checkmark */
+/* Organic sketch / handwriting dotted checkmark guide */
 .chk-dotted-guide {
   fill: none;
-  stroke: var(--text, #141414);
-  stroke-width: 4.5;
+  stroke: var(--text, #1a1d26);
+  stroke-width: 3.4;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-dasharray: 1 11;
-  opacity: 0.36;
-  transition: opacity 120ms ease;
+  stroke-dasharray: 4.5 7.5;
+  opacity: 0.34;
+  transition: opacity 140ms ease, stroke 140ms ease;
 }
 
 :root[data-theme='dark'] .chk-dotted-guide {
   stroke: #eef0f6;
-  opacity: 0.42;
+  opacity: 0.4;
 }
 
 .chk-gate:hover:not(.is-disabled) .chk-dotted-guide {
-  opacity: 0.54;
+  stroke: #456dff;
+  opacity: 0.62;
 }
 
 .chk-gate.is-drawing .chk-dotted-guide,
@@ -108,13 +117,13 @@
 .chk-solid-check {
   fill: none;
   stroke: #29cc57;
-  stroke-width: 7.5;
+  stroke-width: 6.5;
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-dasharray: 100;
   stroke-dashoffset: 100;
   opacity: 0;
-  transition: stroke-dashoffset 300ms cubic-bezier(0.22, 1, 0.36, 1), opacity 120ms ease;
+  transition: stroke-dashoffset 280ms cubic-bezier(0.22, 1, 0.36, 1), opacity 120ms ease;
 }
 
 .chk-gate.is-correct .chk-solid-check {
@@ -137,7 +146,7 @@
   stroke-dasharray: 100;
   stroke-dashoffset: 100;
   opacity: 0;
-  transition: stroke-dashoffset 360ms cubic-bezier(0.22, 1, 0.36, 1), opacity 120ms ease;
+  transition: stroke-dashoffset 340ms cubic-bezier(0.22, 1, 0.36, 1), opacity 120ms ease;
 }
 
 .chk-gate.is-correct .chk-led-rect {
@@ -187,28 +196,30 @@
 }
 
 .chk-gate.is-awaiting-answer {
-  opacity: 0.72;
+  opacity: 0.78;
   cursor: crosshair;
 }
 
 .chk-gate.is-awaiting-answer:hover {
-  opacity: 0.92;
-  border-color: #b689ff;
+  opacity: 0.96;
+  border-color: #456dff;
 }
 
 .chk-gate.is-holding {
   border-color: #29cc57;
-  background: rgba(41, 204, 87, 0.06);
+  background:
+    radial-gradient(circle, rgba(41, 204, 87, 0.16) 1px, transparent 1px) 0 0 / 16px 16px,
+    rgba(41, 204, 87, 0.05);
   box-shadow: 0 0 0 3px rgba(41, 204, 87, 0.16);
 }
 
 .chk-hold-progress-wrap {
-  width: min(320px, 100%);
+  width: min(440px, 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 5px;
-  animation: chk-hold-in 140ms ease-out;
+  animation: chk-hold-in 120ms ease-out;
 }
 
 @keyframes chk-hold-in {

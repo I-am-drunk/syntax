@@ -46,9 +46,11 @@ const SVG_NS = 'http://www.w3.org/2000/svg'
 const R = RAYON_BOULE // 100
 const VB = DEMI_VIEWBOX // 158
 
-// Sema's signature semicolon comma tail scaled for R = 100 coordinate space
+// Sema's sculpted crescent-comma tail traced directly from the hand-drawn Sema PNG (R = 100 coordinate space)
 const TAIL_PATH =
-  'M -17,108 C -17,97 17,97 17,108 C 17,131 6,152 -15,166 C -21,169 -26,163 -22,157 C -9,146 -3,133 -4,122 C -13,120 -17,115 -17,108 Z'
+  'M 55.02,109.64 C 64.67,103.08 92.85,87.29 86.35,112.05 C 62.90,190.98 15.81,291.94 -76.71,309.64 C -99.75,312.99 -95.52,285.03 -87.15,273.49 C -59.79,225.13 -70.68,159.24 -83.94,108.03 C -82.96,90.64 -63.64,107.36 -55.82,110.44 C -24.58,131.78 23.99,130.37 55.02,109.64 Z'
+const TAIL_VB_TOP = -142
+const TAIL_VB_HEIGHT = 472
 
 // Crisp checkmark cutout stroke in R = 100 coordinate space (punched through mask during 'checkbox' state)
 const CHECKBOX_CUTOUT_PATH = 'M -42,4 L -12,34 L 46,-28'
@@ -88,16 +90,16 @@ function resolveSemaBehavior(state: SemaState): ResolvedBehavior {
 type PokeReaction = { state: StateId; expression?: SemaExpressionName; dur: number }
 
 const POKE_REACTIONS: PokeReaction[] = [
+  { state: 'idle', expression: 'happy', dur: 1.25 },
   { state: 'wink', dur: 1.35 },
+  { state: 'idle', expression: 'curious', dur: 1.25 },
+  { state: 'idle', expression: 'shy', dur: 1.3 },
+  { state: 'idle', expression: 'surprised', dur: 1.2 },
+  { state: 'idle', expression: 'proud', dur: 1.3 },
   { state: 'checkbox', dur: 1.45 },
   { state: 'idle', expression: 'laughing', dur: 1.35 },
-  { state: 'notify', dur: 1.55 },
-  { state: 'wide', dur: 1.3 },
-  { state: 'swirl', expression: 'excited', dur: 1.35 },
-  { state: 'idle', expression: 'curious', dur: 1.3 },
-  { state: 'orbit', dur: 1.9 },
-  { state: 'idle', expression: 'proud', dur: 1.3 },
-  { state: 'play', dur: 1.45 },
+  { state: 'idle', expression: 'excited', dur: 1.3 },
+  { state: 'idle', expression: 'unimpressed', dur: 1.3 },
 ]
 
 function clamp(v: number, lo: number, hi: number): number {
@@ -237,7 +239,7 @@ function syncArcs(
 export function Sema({
   state = 'idle',
   expression = 'neutral',
-  shape = 'squircle',
+  shape = 'classic',
   size = 56,
   interactive = false,
   followCursor = true,
@@ -364,6 +366,9 @@ export function Sema({
     overrideReaction: null as PokeReaction | null,
     overrideUntil: 0,
     pokeIndex: 0,
+    dragHoldSec: 0,
+    peakPullMag: 0,
+    stretchMoodIdx: 0,
   })
 
   // Observe theme changes without polling inside rAF
@@ -385,7 +390,7 @@ export function Sema({
       if (rect.width > 0 && rect.height > 0) {
         centerCacheRef.current = {
           cx: rect.left + rect.width * 0.5,
-          cy: rect.top + rect.height * 0.45,
+          cy: rect.top + rect.height * (showTailRef.current ? 0.30 : 0.50),
           width: rect.width,
           valid: true,
         }
@@ -416,7 +421,7 @@ export function Sema({
         if (rect.width > 0 && rect.height > 0) {
           centerCacheRef.current = {
             cx: rect.left + rect.width * 0.5,
-            cy: rect.top + rect.height * 0.45,
+            cy: rect.top + rect.height * (showTailRef.current ? 0.30 : 0.50),
             width: rect.width,
             valid: true,
           }
@@ -465,10 +470,22 @@ export function Sema({
       const clock = p.clock
       const engine = engineRef.current!
 
-      // Resolve effective state + expression (with temporary poke override)
+      // Resolve effective state + expression (live stretch emotions + temporary poke/release override)
       let activeState = statePropRef.current
       let activeExpr = exprPropRef.current
-      if (p.overrideReaction && clock < p.overrideUntil) {
+      const livePullMag = Math.hypot(p.targetDx, p.targetDy)
+      if (p.dragging && livePullMag > 10) {
+        p.dragHoldSec += dt
+        if (livePullMag > p.peakPullMag) p.peakPullMag = livePullMag
+        activeState = 'idle'
+        if (livePullMag >= 40 || (livePullMag >= 28 && p.dragHoldSec > 0.65)) {
+          activeExpr = 'angry'
+        } else if (livePullMag >= 22) {
+          activeExpr = p.stretchMoodIdx % 2 === 0 ? 'scared' : 'sad'
+        } else {
+          activeExpr = 'surprised'
+        }
+      } else if (p.overrideReaction && clock < p.overrideUntil) {
         activeState = p.overrideReaction.state
         if (p.overrideReaction.expression) activeExpr = p.overrideReaction.expression
       } else if (p.overrideReaction && clock >= p.overrideUntil) {
@@ -493,7 +510,7 @@ export function Sema({
         lastShapeKey = nextShapeKey
       }
 
-      // Gaze target (zero layout reads — uses cached center!)
+      // Gaze target (zero layout reads: uses cached center!)
       lookUpdateTimer += dt
       if (lookUpdateTimer >= 0.04) {
         lookUpdateTimer = 0
@@ -679,7 +696,7 @@ export function Sema({
       if (tailRef.current) {
         tailRef.current.setAttribute(
           'transform',
-          `translate(${p.tailX.toFixed(2)} ${p.tailY.toFixed(2)}) rotate(${p.tailRot.toFixed(2)} 0 112)`,
+          `translate(${p.tailX.toFixed(2)} ${p.tailY.toFixed(2)}) rotate(${p.tailRot.toFixed(2)} 0 128)`,
         )
         tailRef.current.setAttribute('opacity', p.tailAlpha.toFixed(3))
       }
@@ -714,6 +731,8 @@ export function Sema({
     p.velX = 0
     p.velY = 0
     p.maxDistPx = 0
+    p.dragHoldSec = 0
+    p.peakPullMag = 0
     p.targetDx = 0
     p.targetDy = 0
     p.pokeVy -= 3.4
@@ -788,19 +807,34 @@ export function Sema({
       p.overrideUntil = p.clock + reaction.dur
       onPokeRef.current?.()
     } else {
-      p.pokeVy += 2.8
+      p.pokeVy += 3.1
+      p.stretchMoodIdx += 1
+      const releaseReaction: PokeReaction =
+        p.peakPullMag >= 40 || p.dragHoldSec > 0.65
+          ? { state: 'idle', expression: 'angry', dur: 1.35 }
+          : p.peakPullMag >= 22
+            ? {
+                state: 'idle',
+                expression: p.stretchMoodIdx % 2 === 0 ? 'sad' : 'unimpressed',
+                dur: 1.25,
+              }
+            : { state: 'idle', expression: 'shy', dur: 1.1 }
+      p.overrideReaction = releaseReaction
+      p.overrideUntil = p.clock + releaseReaction.dur
     }
   }
 
-  const svgHeight = showTail ? Math.round(size * 1.12) : size
-  const vbHeight = showTail ? VB * 2 + 34 : VB * 2
+  const vbTop = showTail ? TAIL_VB_TOP : -VB
+  const vbHeight = showTail ? TAIL_VB_HEIGHT : VB * 2
+  const svgHeight = showTail ? Math.round(size * 1.18) : size
+  const svgWidth = showTail ? Math.round(svgHeight * ((VB * 2) / vbHeight)) : size
 
   return (
     <svg
       ref={svgRef}
-      width={size}
+      width={svgWidth}
       height={svgHeight}
-      viewBox={`${-VB} ${-VB} ${VB * 2} ${vbHeight}`}
+      viewBox={`${-VB} ${vbTop} ${VB * 2} ${vbHeight}`}
       className={`sema-svg${interactive ? ' is-interactive' : ''}${className ? ` ${className}` : ''}`}
       role="img"
       aria-label={ariaLabel}
@@ -814,7 +848,7 @@ export function Sema({
           id={maskId}
           maskUnits="userSpaceOnUse"
           x={-VB}
-          y={-VB}
+          y={vbTop}
           width={VB * 2}
           height={vbHeight}
         >
@@ -852,7 +886,7 @@ export function Sema({
           <g ref={bodyGroupRef} opacity="1">
             <path ref={bodyPaperRef} d="" fill="#ffffff" />
             <g mask={`url(#${maskId})`}>
-              <rect ref={bodyFillRectRef} x={-VB} y={-VB} width={VB * 2} height={vbHeight} fill="#141414" />
+              <rect ref={bodyFillRectRef} x={-VB} y={vbTop} width={VB * 2} height={vbHeight} fill="#141414" />
             </g>
           </g>
 

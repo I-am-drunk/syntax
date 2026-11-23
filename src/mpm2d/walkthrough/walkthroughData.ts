@@ -165,7 +165,7 @@ const L3_P3_WALKTHROUGH: WalkthroughSpec = {
   title: 'Equation of the median from C',
   rescueLessonId: 'rescue-solve-b',
   rescueMessage:
-    "Finding the slope and solving for b with fractions takes practice — let's run a quick 3-minute catch-up on solving for b.",
+    "Finding the slope and solving for b with fractions takes practice, so let's run a quick 3-minute catch-up on solving for b.",
   steps: [
     { id: 's1', stepNum: 1, label: 'Midpoint of AB', equation: 'A(−3, 3), B(2, −5)  →  M(−0.5, −1)' },
     { id: 's2', stepNum: 2, label: 'Line through CM', equation: 'm = 6/11  →  y = (6/11)x − 8/11' },

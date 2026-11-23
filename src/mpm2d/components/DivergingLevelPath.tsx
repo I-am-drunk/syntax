@@ -87,13 +87,10 @@ function MedallionGlyph({ kind }: { kind: GlyphKind }) {
       )
     case 'catchup':
       return (
-        <path
-          d="M 48 28 L 51.8 38.2 L 62 42 L 51.8 45.8 L 48 56 L 44.2 45.8 L 34 42 L 44.2 38.2 Z"
-          fill="currentColor"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinejoin="round"
-        />
+        <g fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M 35 49 L 44 40 L 51 46 L 61 35" />
+          <path d="M 54 35 H 61 V 42" />
+        </g>
       )
     case 'trophy':
       return (
@@ -143,6 +140,9 @@ function BrilliantNodeMedallion({
         shapeRendering="geometricPrecision"
         aria-hidden="true"
       >
+        {/* Soft ambient ground shadow strictly beneath both outer rim and pedestal */}
+        <ellipse cx="48" cy="73" rx="28" ry="6" fill="var(--med-shadow)" />
+
         {/* Full symmetric selection / current halo ring */}
         {(selected || tone === 'active') && (
           <ellipse
@@ -155,10 +155,6 @@ function BrilliantNodeMedallion({
             strokeWidth="3.2"
           />
         )}
-
-        {/* Soft ambient ground shadow */}
-        {/* Ground shadow belongs below the pedestal, not inside the medallion face. */}
-        <ellipse cx="48" cy="68" rx="30" ry="7" fill="var(--med-shadow)" />
 
         {/* 3D cylindrical pedestal wall */}
         <path
@@ -335,6 +331,13 @@ export function DivergingLevelPath({
               d: cubicPath(prevNode.x, prevNode.y, cx, cy),
               done: prevNode.done && (cDone || cResume),
             })
+          } else {
+            curves.push({
+              id: `lead-${c.id}`,
+              route: 'catchup',
+              d: cubicPath(center, 0, cx, cy),
+              done: Boolean(cDone || cResume),
+            })
           }
           prevNode = { id: c.id, x: cx, y: cy, done: Boolean(cDone || cResume), route: 'catchup' }
         })
@@ -458,9 +461,6 @@ export function DivergingLevelPath({
             className={`br-journey-node-wrap is-${item.route}${isSelected ? ' is-open' : ''}`}
             style={{ left: `${(item.x / layout.width) * 100}%`, top: item.y }}
           >
-            {item.route === 'catchup' && (
-              <span className="br-catchup-pill-tag">Catch-Up</span>
-            )}
             <button
               ref={el => {
                 if (!item.isTrophy) registerNodeRef(item.id, el)

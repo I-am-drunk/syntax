@@ -210,8 +210,8 @@ export function BrilliantGraph({
 
       const snappedPxX = vp.toPxX(sx)
       const snappedPxY = vp.toPxY(sy)
-      let resX = (clampedPxX - snappedPxX) * 0.42
-      let resY = (clampedPxY - snappedPxY) * 0.42
+      let resX = (clampedPxX - snappedPxX) * 0.22
+      let resY = (clampedPxY - snappedPxY) * 0.22
 
       if (pt.direction === 'horizontal') {
         resY = 0
@@ -227,7 +227,7 @@ export function BrilliantGraph({
       }
 
       const resLen = Math.hypot(resX, resY)
-      const maxPull = 13
+      const maxPull = 6
       if (resLen > maxPull) {
         resX = (resX / resLen) * maxPull
         resY = (resY / resLen) * maxPull

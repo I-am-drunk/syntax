@@ -237,7 +237,7 @@ export function MathPackageWorksheet({
       {/* Full-bleed paper ruling */}
       <div className="pen-br-ruling" data-paper={paperStyle} aria-hidden="true" />
 
-      {/* Quiet Brilliant editorial step heading — unboxed, generous breathing room */}
+      {/* Quiet Brilliant editorial step heading: unboxed, generous breathing room */}
       <header className="pen-br-step-head">
         <div className="pen-br-step-title-row">
           <span className="pen-br-step-circle" aria-hidden="true">

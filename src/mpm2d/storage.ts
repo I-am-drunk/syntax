@@ -19,7 +19,7 @@ const DEFAULT_PREFS: SyntaxPrefs = {
   onboarded: false,
   voiceOn: true,
   penControlsCollapsed: true,
-  semaShape: 'circle',
+  semaShape: 'classic',
   semaExpression: 'neutral',
 }
 
@@ -64,7 +64,7 @@ export function loadPrefs(): SyntaxPrefs {
         parsed.penControlsCollapsed === undefined
           ? DEFAULT_PREFS.penControlsCollapsed
           : Boolean(parsed.penControlsCollapsed),
-      semaShape: parsed.semaShape ?? DEFAULT_PREFS.semaShape,
+      semaShape: !parsed.semaShape || parsed.semaShape === 'circle' ? 'classic' : parsed.semaShape,
       semaExpression: parsed.semaExpression ?? DEFAULT_PREFS.semaExpression,
     }
   } catch {

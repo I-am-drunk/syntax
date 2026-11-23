@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Segmented, Toggle } from '../../settings/Controls'
 import { Sema } from '../mascot/Sema'
 import {
@@ -10,6 +10,7 @@ import {
 import type { SyntaxPrefs } from '../storage'
 
 type SettingsSectionId = 'appearance' | 'learning' | 'sema' | 'sounds' | 'guide'
+type StudioTab = 'shape' | 'expression' | 'motion'
 
 const NAV_SECTIONS: { id: SettingsSectionId; label: string }[] = [
   { id: 'appearance', label: 'Appearance' },
@@ -39,7 +40,9 @@ export function SyntaxSettingsPage({
   onReplayWelcome: () => void
 }) {
   const [previewAnim, setPreviewAnim] = useState<StateId>('idle')
+  const [studioTab, setStudioTab] = useState<StudioTab>('shape')
   const [activeSection, setActiveSection] = useState<SettingsSectionId>('appearance')
+  const scrollLockUntilRef = useRef<number>(0)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -52,36 +55,62 @@ export function SyntaxSettingsPage({
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  // Scroll-spy so the sidebar highlights whichever section is currently in view
+  // Reliable scroll-spy with programmatic scroll lock and bottom-of-page detection
   useEffect(() => {
-    const handleScroll = () => {
-      const targetY = 140
-      let bestId: SettingsSectionId = 'appearance'
-      let bestDist = Infinity
+    let raf = 0
+    const computeActive = () => {
+      raf = 0
+      if (Date.now() < scrollLockUntilRef.current) return
+
+      const scrollBottom = window.innerHeight + window.scrollY
+      const docHeight = document.documentElement.scrollHeight
+      if (docHeight - scrollBottom <= 24) {
+        setActiveSection(NAV_SECTIONS[NAV_SECTIONS.length - 1]!.id)
+        return
+      }
+
+      const anchorY = 132
+      let current: SettingsSectionId = NAV_SECTIONS[0]!.id
       for (const sec of NAV_SECTIONS) {
         const el = document.getElementById(`pref-${sec.id}`)
         if (!el) continue
         const rect = el.getBoundingClientRect()
-        const dist = Math.abs(rect.top - targetY)
-        if (rect.top <= targetY + 80 && dist < bestDist) {
-          bestDist = dist
-          bestId = sec.id
+        if (rect.top <= anchorY) {
+          current = sec.id
         }
       }
-      setActiveSection(bestId)
+      setActiveSection(current)
     }
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
+
+    const onScroll = () => {
+      if (!raf) raf = window.requestAnimationFrame(computeActive)
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll, { passive: true })
+    return () => {
+      if (raf) window.cancelAnimationFrame(raf)
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+    }
   }, [])
 
   function scrollToSection(id: SettingsSectionId) {
     setActiveSection(id)
+    scrollLockUntilRef.current = Date.now() + 750
     const el = document.getElementById(`pref-${id}`)
     if (el) {
-      const top = el.getBoundingClientRect().top + window.scrollY - 88
-      window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+      const top = Math.max(0, el.getBoundingClientRect().top + window.scrollY - 88)
+      window.scrollTo({ top, behavior: 'smooth' })
     }
   }
+
+  const activeShapeLabel =
+    SEMA_SHAPES.find(s => s.id === prefs.semaShape)?.label ?? prefs.semaShape
+  const activeExprLabel =
+    SEMA_EXPRESSIONS.find(e => e.id === prefs.semaExpression)?.label ?? prefs.semaExpression
+  const activeAnimLabel =
+    SEMA_ANIMATIONS.find(a => a.id === previewAnim)?.label ?? previewAnim
 
   return (
     <main className="settings-layout syntax-settings-page" aria-label="Settings">
@@ -192,72 +221,113 @@ export function SyntaxSettingsPage({
         <section id="pref-sema" aria-labelledby="pref-sema-h">
           <h2 id="pref-sema-h">Sema Companion</h2>
           <div className="sema-studio-card">
-            <div className="sema-studio-stage">
-              <Sema
-                state={previewAnim}
-                expression={prefs.semaExpression}
-                shape={prefs.semaShape}
-                size={104}
-                interactive
-                ariaLabel="Sema live studio preview"
-              />
-              <span className="sema-studio-hint">
-                Poke or drag Sema · Active: <strong>{previewAnim}</strong>
-              </span>
-            </div>
-
-            <div className="sema-studio-group">
-              <span className="sema-studio-label">Shape ({SEMA_SHAPES.length})</span>
-              <div className="sema-studio-chips">
-                {SEMA_SHAPES.map(sh => (
+            <div className="sema-studio-hero">
+              <div className="sema-studio-stage">
+                <Sema
+                  state={previewAnim}
+                  expression={prefs.semaExpression}
+                  shape={prefs.semaShape}
+                  size={108}
+                  interactive
+                  ariaLabel="Sema live studio preview"
+                />
+              </div>
+              <div className="sema-studio-summary">
+                <div className="sema-studio-badges">
+                  <span className="sema-studio-badge">{activeShapeLabel}</span>
+                  <span className="sema-studio-badge is-expr">{activeExprLabel}</span>
+                  <span className="sema-studio-badge is-motion">{activeAnimLabel}</span>
+                </div>
+                <p className="sema-studio-hint">
+                  Poke Sema to cycle reactions, or pull to test elastic stretch physics.
+                </p>
+                <div className="sema-studio-quick-actions">
                   <button
-                    key={sh.id}
                     type="button"
-                    className={`sema-chip${prefs.semaShape === sh.id ? ' is-active' : ''}`}
+                    className="sema-studio-action-btn"
                     onClick={() => {
                       setPreviewAnim('idle')
-                      onPatchPrefs({ semaShape: sh.id })
+                      onPatchPrefs({ semaShape: 'classic', semaExpression: 'neutral' })
                     }}
                   >
-                    {sh.label}
+                    Reset defaults
                   </button>
-                ))}
+                </div>
               </div>
             </div>
 
-            <div className="sema-studio-group">
-              <span className="sema-studio-label">Expression ({SEMA_EXPRESSIONS.length})</span>
-              <div className="sema-studio-chips">
-                {SEMA_EXPRESSIONS.map(ex => (
-                  <button
-                    key={ex.id}
-                    type="button"
-                    className={`sema-chip${prefs.semaExpression === ex.id ? ' is-active' : ''}`}
-                    onClick={() => {
-                      setPreviewAnim('idle')
-                      onPatchPrefs({ semaExpression: ex.id })
-                    }}
-                  >
-                    {ex.label}
-                  </button>
-                ))}
-              </div>
+            <div className="sema-studio-tabs" role="tablist" aria-label="Sema customization">
+              {(
+                [
+                  { id: 'shape', label: `Shape (${SEMA_SHAPES.length})` },
+                  { id: 'expression', label: `Expression (${SEMA_EXPRESSIONS.length})` },
+                  { id: 'motion', label: `Motion (${SEMA_ANIMATIONS.length})` },
+                ] as const
+              ).map(t => (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={studioTab === t.id}
+                  className={`sema-studio-tab${studioTab === t.id ? ' is-active' : ''}`}
+                  onClick={() => setStudioTab(t.id)}
+                >
+                  {t.label}
+                </button>
+              ))}
             </div>
 
-            <div className="sema-studio-group">
-              <span className="sema-studio-label">Test Animation ({SEMA_ANIMATIONS.length})</span>
-              <div className="sema-studio-chips">
-                {SEMA_ANIMATIONS.map(an => (
-                  <button
-                    key={an.id}
-                    type="button"
-                    className={`sema-chip is-anim${previewAnim === an.id ? ' is-active' : ''}`}
-                    onClick={() => setPreviewAnim(an.id)}
-                  >
-                    {an.label}
-                  </button>
-                ))}
-              </div>
+            <div className="sema-studio-panel" role="tabpanel">
+              {studioTab === 'shape' && (
+                <div className="sema-studio-chips">
+                  {SEMA_SHAPES.map(sh => (
+                    <button
+                      key={sh.id}
+                      type="button"
+                      className={`sema-chip${prefs.semaShape === sh.id ? ' is-active' : ''}`}
+                      onClick={() => {
+                        setPreviewAnim('idle')
+                        onPatchPrefs({ semaShape: sh.id })
+                      }}
+                    >
+                      {sh.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {studioTab === 'expression' && (
+                <div className="sema-studio-chips">
+                  {SEMA_EXPRESSIONS.map(ex => (
+                    <button
+                      key={ex.id}
+                      type="button"
+                      className={`sema-chip${prefs.semaExpression === ex.id ? ' is-active' : ''}`}
+                      onClick={() => {
+                        setPreviewAnim('idle')
+                        onPatchPrefs({ semaExpression: ex.id })
+                      }}
+                    >
+                      {ex.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {studioTab === 'motion' && (
+                <div className="sema-studio-chips">
+                  {SEMA_ANIMATIONS.map(an => (
+                    <button
+                      key={an.id}
+                      type="button"
+                      className={`sema-chip is-anim${previewAnim === an.id ? ' is-active' : ''}`}
+                      onClick={() => setPreviewAnim(an.id)}
+                    >
+                      {an.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </section>

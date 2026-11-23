@@ -1,5 +1,5 @@
 /* ==========================================================================
-   MPM2D Pen Studio — 100% Brilliant Design Language
+   MPM2D Pen Studio: 100% Brilliant Design Language
    Exact Brilliant tokens: #fff / #141414 surfaces, #456dff blue, #29cc57 green,
    tactile 3D-pressable pill buttons, zero TLDraw chrome, zero scroll-card slop.
    ========================================================================== */
@@ -26,7 +26,7 @@
 }
 
 /* --------------------------------------------------------------------------
-   1. Brilliant Top Control Bar (in normal flex flow ABOVE paper — zero overlap)
+   1. Brilliant Top Control Bar (in normal flex flow ABOVE paper: zero overlap)
    -------------------------------------------------------------------------- */
 .pen-br-topbar-wrap {
   position: relative;
@@ -228,7 +228,7 @@
 }
 
 /* --------------------------------------------------------------------------
-   2. Brilliant Popovers (strictly ABOVE canvas & drawer — z:70)
+   2. Brilliant Popovers (strictly ABOVE canvas & drawer: z:70)
    -------------------------------------------------------------------------- */
 .pen-br-popover {
   position: absolute;
@@ -466,7 +466,7 @@
    -------------------------------------------------------------------------- */
 .pen-br-brush-dock {
   position: absolute;
-  top: 84px;
+  top: 10px;
   left: 0;
   z-index: 30;
   display: flex;
@@ -1413,7 +1413,7 @@
   position: relative;
 }
 
-/* Scratch pages: ONLY crisp dotted circular ring — NEVER a solid border or underline! */
+/* Scratch pages: ONLY crisp dotted circular ring: NEVER a solid border or underline! */
 .pen-br-step-dot[data-custom] {
   width: 30px;
   min-width: 30px;

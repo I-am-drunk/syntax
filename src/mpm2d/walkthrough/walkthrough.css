@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Syntax Walkthrough Player — Video.js 10 + Moving Sema + WinBox Chrome
+   Syntax Walkthrough Player: Video.js 10 + Moving Sema + WinBox Chrome
    ========================================================================== */
 
 .wt-shell {
@@ -447,7 +447,7 @@
   }
 }
 
-/* Controls Overlay — quietly dimmed when pointer is outside the window */
+/* Controls Overlay: quietly dimmed when pointer is outside the window */
 .wt-vjs-backdrop {
   position: absolute;
   inset: auto 0 0 0;
@@ -1063,4 +1063,177 @@
 
 .sema-tether-dot {
   fill: var(--bg-blue, #375ce3);
+}
+
+/* Compact Step + inline Still stuck? Brilliant header bar */
+.wt-step-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.wt-step-header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+}
+
+.wt-still-stuck-btn,
+.wt-br-mini-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 11px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border, #d8dce6);
+  background: var(--surface, #ffffff);
+  color: var(--text, #141414);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: 0 2px 0 var(--border, #d8dce6);
+  cursor: pointer;
+  transition: transform 90ms ease, border-color 120ms ease, background-color 120ms ease, box-shadow 90ms ease;
+}
+
+.wt-still-stuck-btn:hover,
+.wt-br-mini-btn:hover {
+  border-color: #456dff;
+  color: #456dff;
+  background: rgba(69, 109, 255, 0.05);
+}
+
+.wt-still-stuck-btn.is-open {
+  border-color: #e77a16;
+  color: #b45309;
+  background: rgba(245, 158, 11, 0.12);
+  box-shadow: 0 2px 0 rgba(231, 122, 22, 0.35);
+}
+
+.wt-still-stuck-btn:active,
+.wt-br-mini-btn:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+:root[data-theme='dark'] .wt-still-stuck-btn,
+:root[data-theme='dark'] .wt-br-mini-btn {
+  background: #1f2330;
+  border-color: #343a4d;
+  color: #eef1f8;
+  box-shadow: 0 2px 0 #101218;
+}
+
+:root[data-theme='dark'] .wt-still-stuck-btn:hover,
+:root[data-theme='dark'] .wt-br-mini-btn:hover {
+  border-color: #7491ff;
+  color: #9cb2ff;
+}
+
+:root[data-theme='dark'] .wt-still-stuck-btn.is-open {
+  border-color: #f59e0b;
+  color: #ffd66b;
+  background: rgba(245, 158, 11, 0.18);
+}
+
+/* Video.js stage flanked by side step arrows */
+.wt-stage-carousel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.wt-stage-carousel > .wt-stage-frame {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.wt-side-arrow {
+  appearance: none;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border, #d8dce6);
+  background: var(--surface, #ffffff);
+  color: var(--text, #141414);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 0 var(--border, #d8dce6);
+  cursor: pointer;
+  transition: transform 90ms ease, border-color 120ms ease, opacity 120ms ease, color 120ms ease;
+}
+
+.wt-side-arrow:hover:not(:disabled) {
+  border-color: #456dff;
+  color: #456dff;
+}
+
+.wt-side-arrow:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.wt-side-arrow:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+:root[data-theme='dark'] .wt-side-arrow {
+  background: #1f2330;
+  border-color: #343a4d;
+  color: #eef1f8;
+  box-shadow: 0 2px 0 #101218;
+}
+
+.wt-footer.is-clean {
+  justify-content: flex-end;
+  padding-top: 2px;
+}
+
+/* Ensure single-step TimeSlider track + fill + thumb stay crisp */
+.wt-vjs-slider > .wt-vjs-track {
+  position: relative;
+  width: 100%;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.34);
+  overflow: hidden;
+}
+
+.wt-vjs-buffer {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--media-slider-buffer, 0%);
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.wt-vjs-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--media-slider-fill, 0%);
+  background: #456dff;
+}
+
+.wt-vjs-thumb {
+  position: absolute;
+  top: 50%;
+  left: var(--media-slider-fill, 0%);
+  width: 13px;
+  height: 13px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 2px solid #456dff;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.28);
 }

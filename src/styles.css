@@ -123,7 +123,7 @@ a:focus-visible, button:focus-visible { outline: 3px solid #4965ff; outline-offs
 }
 @media (max-width: 768px) {
   .app-header { padding-inline: 24px; gap: 0; }
-  .wordmark, .primary-nav a > span:not(.icon) { display: none; }
+  .wordmark, .primary-nav a > span:not(.icon):not(.primary-nav-indicator) { display: none; }
   .primary-nav { gap: 0; }
   .primary-nav a { width: 52px; justify-content: center; }
   .primary-nav .icon { width: 24px; height: 24px; }

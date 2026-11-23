@@ -8,7 +8,7 @@ export function OnboardingModal({
   open,
   theme,
   drawMode,
-  semaShape = 'circle',
+  semaShape = 'classic',
   onSelectTheme,
   onSelectDrawMode,
   onFinish,
@@ -68,7 +68,7 @@ export function OnboardingModal({
                   <div className="sema-speech-bubble" data-placement="top" aria-hidden="true">
                     Hi, I’m Sema
                   </div>
-                  <Sema state="bobbing" expression="happy" shape={semaShape} size={84} interactive ariaLabel="Sema greeting you" />
+                  <Sema state="idle" expression="happy" shape={semaShape} size={84} interactive ariaLabel="Sema greeting you" />
                 </div>
               </motion.div>
               <Dialog.Title className="ob-title">Welcome to Syntax</Dialog.Title>

@@ -75,6 +75,15 @@ export const UNIT2_LEVEL_1: GeoLesson[] = [
       {
         id: 'l1-p3-worked',
         kind: 'worked',
+        checkChoice: {
+          prompt: 'Which equation did you get on your worksheet?',
+          options: [
+            { id: 'a', label: 'y = 1/3 x − 1' },
+            { id: 'b', label: 'y = −1/3 x + 3', hint: 'Remember to negate AND flip: m = −3 becomes m⊥ = +1/3.' },
+            { id: 'c', label: 'y = 1/3 x + 1', hint: 'Check b: 1 = (1/3)(6) + b gives 1 = 2 + b, so b = −1.' },
+          ],
+          correctId: 'a',
+        },
         source: "Alex's Notes · Oct 20",
         prompt:
           'Find the line **perpendicular** to **3x + y = −3** that passes through **P(6, 1)**.',
@@ -387,6 +396,15 @@ export const UNIT2_LEVEL_1: GeoLesson[] = [
       {
         id: 'l2-p2-worked',
         kind: 'worked',
+        checkChoice: {
+          prompt: 'Which midpoint did you get for P(−4, −8) and Q(−3, −1)?',
+          options: [
+            { id: 'a', label: '(−3.5, −4.5)' },
+            { id: 'b', label: '(−0.5, −3.5)', hint: 'Add the coordinates instead of subtracting: (−4 + (−3))/2 = −7/2.' },
+            { id: 'c', label: '(−7, −9)', hint: 'Don’t forget to divide both sums by 2.' },
+          ],
+          correctId: 'a',
+        },
         source: "Alex's Notes · Oct 20",
         prompt:
           'Find the midpoint of **A(11, 14), B(3, 5)** and **P(−4, −8), Q(−3, −1)**.',
@@ -492,6 +510,15 @@ export const UNIT2_LEVEL_1: GeoLesson[] = [
       {
         id: 'l2-p4-worked-rev',
         kind: 'worked',
+        checkChoice: {
+          prompt: 'Which missing endpoint E did you get?',
+          options: [
+            { id: 'a', label: 'E(−3, −9)' },
+            { id: 'b', label: 'E(1.5, −1.5)', hint: 'That averages D and M. Here M is the midpoint, so double the jump from D to M.' },
+            { id: 'c', label: 'E(−3, −7)', hint: 'Check y: (1 + y)/2 = −4 gives 1 + y = −8, so y = −9.' },
+          ],
+          correctId: 'a',
+        },
         source: 'Ch. 2 Test · #8',
         prompt:
           '**M(0, −4)** is the midpoint of segment **DE**, and **D(3, 1)**. Find the other endpoint **E**.',
@@ -744,6 +771,15 @@ export const UNIT2_LEVEL_1: GeoLesson[] = [
       {
         id: 'l3-p3-worked',
         kind: 'worked',
+        checkChoice: {
+          prompt: 'Which equation did you get for the median from C?',
+          options: [
+            { id: 'a', label: 'y = 6/11 x − 8/11' },
+            { id: 'b', label: 'y = 11/6 x − 43/6', hint: 'Check rise over run: Δy = 2 − (−1) = 3 and Δx = 5 − (−0.5) = 5.5, so m = 6/11.' },
+            { id: 'c', label: 'y = 6/11 x + 8/11', hint: 'Check b: 2 = (6/11)(5) + b gives 22/11 − 30/11 = −8/11.' },
+          ],
+          correctId: 'a',
+        },
         source: "Alex's Notes · Oct 22",
         prompt: 'Find the equation of the **median from C** in **△ABC** with A(−3, 3), B(2, −5), C(5, 2).',
         plan: ['Find midpoint M of AB.', 'Find slope of CM.', 'Sub C(5, 2) into y = mx + b.'],
@@ -1014,6 +1050,15 @@ export const UNIT2_LEVEL_1: GeoLesson[] = [
       {
         id: 'l4-p2-worked',
         kind: 'worked',
+        checkChoice: {
+          prompt: 'How did you classify △DEF from its exact side lengths?',
+          options: [
+            { id: 'a', label: 'Isosceles (DE = EF = √17)' },
+            { id: 'b', label: 'Equilateral (all three sides √17)', hint: 'Check DF: Δx = −3, Δy = −5 gives DF = √(9 + 25) = √34.' },
+            { id: 'c', label: 'Scalene (all sides different)', hint: 'Recheck DE and EF: both equal √(4² + 1²) = √17.' },
+          ],
+          correctId: 'a',
+        },
         source: "Alex's Notes · Oct 26",
         prompt:
           'Find exact length **AB** for **A(3, 1), B(6, 9)**, then classify **△DEF** with **D(1, 3), E(−3, 2), F(−2, −2)**.',

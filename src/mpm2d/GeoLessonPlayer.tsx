@@ -2,7 +2,7 @@ import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { Arrow, LessonFooter } from '../lessons/LessonControls'
 import type { LessonSound } from '../services/lessonSounds'
 import { gradeAnswer, parseGhostGeometry } from './mathParser'
-import { isPenEnabledForPage, type GeoLesson, type GeoLessonPage, type MultiStepPage, type PlanOrderPage } from './pageTypes'
+import { classifyLessonPage, isPenEnabledForPage, type GeoLesson, type GeoLessonPage, type MultiStepPage, type PlanOrderPage } from './pageTypes'
 import { BrilliantGraph } from './graph'
 import { MathText } from './components/MathText'
 import { BrilliantChoice, type ChoiceEvaluation } from './components/BrilliantChoice'
@@ -140,8 +140,9 @@ function RichText({ text }: { text: string }) {
   )
 }
 
-function isInteractivePage(page: GeoLessonPage): boolean {
-  return page.kind !== 'explore' && page.kind !== 'worked'
+function isInteractivePage(page: GeoLessonPage, penOpen: boolean): boolean {
+  if (page.kind === 'worked') return penOpen && Boolean(page.checkChoice)
+  return page.kind !== 'explore'
 }
 
 function evaluatePlanOrder(page: PlanOrderPage, chosen: string[]): { ok: boolean; feedback: string } {
@@ -288,9 +289,10 @@ export function GeoLessonPlayer({
   const isCheck = lesson.checks.length > 0 && pageIndex >= lesson.pages.length
   const checkIndex = isCheck ? pageIndex - lesson.pages.length : undefined
   const state = states[page.id] ?? emptyState
-  const isProblem = isInteractivePage(page)
   const penAllowed = isPenEnabledForPage(page, isCheck)
   const penOpen = penWanted && penAllowed
+  const pageRole = classifyLessonPage(page, isCheck)
+  const isProblem = isInteractivePage(page, penOpen)
   const worksheetSpec = useMemo(
     () => buildWorksheetSpec(lesson, page, pageIndex, allPages.length, isCheck),
     [lesson, page, pageIndex, allPages.length, isCheck],
@@ -380,6 +382,7 @@ export function GeoLessonPlayer({
   const canCheck = useMemo(() => {
     if (!isProblem || state.evaluation !== 'unsubmitted') return false
     switch (page.kind) {
+      case 'worked':
       case 'choice':
       case 'read-plan':
         return state.selectedIds.length === 1
@@ -513,7 +516,15 @@ export function GeoLessonPlayer({
     let ok = false
     let feedback: string | undefined
 
-    if (page.kind === 'choice' || page.kind === 'read-plan') {
+    if (page.kind === 'worked' && page.checkChoice) {
+      const picked = state.selectedIds[0]
+      ok = picked === page.checkChoice.correctId
+      if (!ok) {
+        feedback =
+          page.checkChoice.options.find(o => o.id === picked)?.hint ??
+          'Compare your worksheet steps carefully and try another option.'
+      }
+    } else if (page.kind === 'choice' || page.kind === 'read-plan') {
       const picked = state.selectedIds[0]
       ok = picked === page.correctId
       if (!ok) {
@@ -567,7 +578,7 @@ export function GeoLessonPlayer({
     const summaryText =
       page.kind === 'math-input'
         ? state.mathValue.trim()
-        : page.kind === 'choice' || page.kind === 'multi-choice' || page.kind === 'read-plan'
+        : page.kind === 'worked' && page.checkChoice ? state.selectedIds.map(id => page.checkChoice!.options.find(o => o.id === id)?.label ?? id).join(', ') : page.kind === 'choice' || page.kind === 'multi-choice' || page.kind === 'read-plan'
           ? state.selectedIds.map(id => page.options.find(o => o.id === id)?.label ?? id).join(", ")
           : page.kind === 'plan-order'
             ? state.planChosen.map((id, idx) => `${idx + 1}. ${page.pool.find(b => b.id === id)?.text ?? id}`).join(" · ")
@@ -591,7 +602,7 @@ export function GeoLessonPlayer({
         page.kind === 'math-input' || page.kind === 'multi-step'
           ? state.feedback ?? state.pinnedHint
           : undefined,
-      selectedIds: page.kind === 'choice' || page.kind === 'read-plan' ? [] : state.selectedIds,
+      selectedIds: page.kind === 'choice' || page.kind === 'read-plan' || page.kind === 'worked' ? [] : state.selectedIds,
     })
   }
 
@@ -720,11 +731,11 @@ export function GeoLessonPlayer({
     const checkCorrect =
       lesson.checks.length > 0
         ? lesson.checks.filter(p => states[p.id]?.evaluation === 'correct').length
-        : lesson.pages.filter(p => isInteractivePage(p) && states[p.id]?.evaluation === 'correct').length
+        : lesson.pages.filter(p => isInteractivePage(p, penOpen) && states[p.id]?.evaluation === 'correct').length
     const totalChecks =
       lesson.checks.length > 0
         ? lesson.checks.length
-        : lesson.pages.filter(isInteractivePage).length
+        : lesson.pages.filter(p => isInteractivePage(p, penOpen)).length
 
     return (
       <GeoCompletion
@@ -1042,21 +1053,24 @@ export function GeoLessonPlayer({
                   ref={pageScrollRef}
                   className="lesson-page"
                   data-page-kind={page.kind}
+                  data-page-role={pageRole}
                   data-is-check={isCheck}
                 >
                   <div className="lesson-content">
                     <div className="lesson-kicker-line">
-                      {lesson.id.startsWith('rescue-') ? 'Catch-Up' : `Level ${lesson.level}`}
-                      {' · '}
-                      {isCheck
-                        ? 'Mastery Check'
-                        : page.kind === 'worked'
-                          ? 'Worked Example'
-                          : page.kind === 'explore'
-                            ? 'Interactive Lab'
-                            : penAllowed
-                              ? 'Notebook'
-                              : 'Practice'}
+                      {page.kind === 'worked'
+                        ? lesson.id.startsWith('rescue-')
+                          ? 'Catch-Up Worked Example'
+                          : `Level ${lesson.level} Worked Example`
+                        : `${lesson.id.startsWith('rescue-') ? 'Catch-Up' : `Level ${lesson.level}`} · ${
+                            isCheck
+                              ? 'Mastery Check'
+                              : page.kind === 'explore'
+                                ? 'Interactive Lab'
+                                : penAllowed
+                                  ? 'Lesson · Notebook'
+                                  : 'Lesson'
+                          }`}
                     </div>
                     {returnToLessonLabel && onReturnToLesson && (
                       <button
@@ -1076,11 +1090,38 @@ export function GeoLessonPlayer({
                     )}
 
                     {page.kind === 'worked' && (
-                      <BrilliantWorkedCard
-                        page={page}
-                        penMode={penOpen}
-                        onStepChange={setWorkedStepIndex}
-                      />
+                      <div className="br-problem-body">
+                        <BrilliantWorkedCard
+                          page={page}
+                          penMode={penOpen}
+                          onStepChange={setWorkedStepIndex}
+                        />
+                        {penOpen && page.checkChoice && (
+                          <div className="br-worked-mc-block">
+                            <div className="br-worked-mc-label">
+                              {page.checkChoice.prompt ?? 'Select the answer you got on your worksheet:'}
+                            </div>
+                            <BrilliantChoice
+                              options={page.checkChoice.options}
+                              selected={state.selectedIds}
+                              evaluation={state.evaluation}
+                              correctIds={[page.checkChoice.correctId]}
+                              active={!explanationOpen}
+                              onToggle={id => {
+                                onSound?.('lightweight-choice')
+                                patchState(page.id, { selectedIds: [id] })
+                              }}
+                            />
+                            {state.feedback &&
+                              state.evaluation !== 'unsubmitted' &&
+                              state.evaluation !== 'correct' && (
+                                <div className="br-inline-note is-hint">
+                                  <MathText text={state.feedback} />
+                                </div>
+                              )}
+                          </div>
+                        )}
+                      </div>
                     )}
 
                     {page.kind === 'choice' && (

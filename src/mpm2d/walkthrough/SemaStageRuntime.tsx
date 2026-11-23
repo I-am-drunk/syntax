@@ -11,14 +11,14 @@ import {
 const POKE_QUIPS = [
   'Watch how the math moves!',
   'Grab and stretch me anytime!',
-  'Pause the video — I will follow your cursor!',
+  'Pause the video and I will follow your cursor!',
   'Every color matches its step.',
 ]
 
 const STRETCH_QUIPS = [
   'Boing! Back to the math!',
   'Whoa, stretchy!',
-  'Wheee — right back on track!',
+  'Wheee, right back on track!',
 ]
 
 export function SemaStageRuntime({
@@ -425,7 +425,7 @@ export function SemaStageRuntime({
           onPointerUp={finishStretch}
           onPointerCancel={finishStretch}
           onClick={e => e.stopPropagation()}
-          title="Grab & stretch Sema! Or click to say hi — pause video for cursor eye-tracking"
+          title="Grab & stretch Sema, or click to say hi (pause video for cursor eye-tracking)"
         >
           <div ref={haloRef} className="sema-runtime-halo" aria-hidden="true" />
           <div ref={stretchWrapRef} className="sema-stretch-wrap">
@@ -438,7 +438,7 @@ export function SemaStageRuntime({
               followCursor={!playing && !isStretching}
               lookAt={playing || isStretching ? { x: hud.lookX, y: hud.lookY } : null}
               speakLevel={hud.speakingNow && !isStretching ? 0.72 : 0}
-              ariaLabel="Sema guiding walkthrough — drag to stretch"
+              ariaLabel="Sema guiding walkthrough (drag to stretch)"
             />
           </div>
 

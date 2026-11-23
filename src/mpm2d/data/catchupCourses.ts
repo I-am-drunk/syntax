@@ -263,7 +263,7 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
       {
         id: 'rc-slp-0',
         kind: 'explore',
-        prompt: 'Drag the line to test positive, negative, and perpendicular slopes — watch the product **m₁ · m₂ = −1** hold.',
+        prompt: 'Drag the line to test positive, negative, and perpendicular slopes: watch the product **m₁ · m₂ = −1** hold.',
         exploration: 'slope-perp',
       },
       {
@@ -466,7 +466,7 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
     level: 1,
     number: 105,
     title: 'Catch-Up: Negative Squares & Exact Radicals',
-    shortTitle: 'Squares & √',
+    shortTitle: 'Exact Radicals',
     subtitle: '3 min · Why (−5)² is always +25 and how to keep exact radical lengths.',
     completionColor: '#456dff',
     completionRiveColor: 0,

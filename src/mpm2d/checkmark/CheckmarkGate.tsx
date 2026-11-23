@@ -5,8 +5,8 @@ import './checkmark.css'
 
 export type CheckmarkGateVisualState = 'ready' | 'disabled' | 'correct' | 'wrong'
 
-const DOTTED_CHECKMARK_STROKE = 'M 105 46 L 128 69 L 176 19'
-const STILLNESS_HOLD_MS = 2000
+const DOTTED_CHECKMARK_STROKE = 'M 86 58 C 96 68, 109 82, 120 92 C 124 96, 128 96, 132 90 C 154 60, 186 34, 232 16'
+const STILLNESS_HOLD_MS = 500
 const STILLNESS_MOVE_TOLERANCE_PX = 10
 
 function drawInkStroke(
@@ -160,7 +160,7 @@ export function CheckmarkGate({
         const dist = Math.hypot(ev.clientX - anchorX, ev.clientY - anchorY)
         if (dist > STILLNESS_MOVE_TOLERANCE_PX) {
           settled = true
-          cancelStillnessHold('Cursor moved — hold still for 2s after drawing ✓', pts)
+          cancelStillnessHold('Cursor moved. Hold still for 0.5s after drawing ✓', pts)
         }
       }
 
@@ -184,7 +184,7 @@ export function CheckmarkGate({
         const frac = Math.min(1, elapsed / STILLNESS_HOLD_MS)
         setHoldProgress(frac)
 
-        // Keep green checkmark illuminated during the 2-second stillness lock-in
+        // Keep green checkmark illuminated during the 0.5-second stillness lock-in
         const ctx = ensureCanvasSize()
         if (ctx) {
           ctx.clearRect(0, 0, window.innerWidth, window.innerHeight)
@@ -398,26 +398,26 @@ export function CheckmarkGate({
         onPointerUp={onGatePointerUp}
         onPointerCancel={onGatePointerUp}
       >
-        <svg className="chk-led-svg" viewBox="0 0 320 84" preserveAspectRatio="none" aria-hidden="true">
+        <svg className="chk-led-svg" viewBox="0 0 440 118" preserveAspectRatio="none" aria-hidden="true">
           <rect
             className="chk-led-rect"
             x="2"
             y="2"
-            width="316"
-            height="80"
-            rx="16"
-            ry="16"
+            width="436"
+            height="114"
+            rx="20"
+            ry="20"
             pathLength={100}
           />
         </svg>
 
-        <svg className="chk-guide-svg" viewBox="0 0 280 86" aria-hidden="true">
+        <svg className="chk-guide-svg" viewBox="0 0 320 112" aria-hidden="true">
           <path className="chk-dotted-guide" d={DOTTED_CHECKMARK_STROKE} />
           <path className="chk-solid-check" d={DOTTED_CHECKMARK_STROKE} pathLength={100} />
         </svg>
       </div>
 
-      {/* 2-second stillness green progress bar right below the checkmark box */}
+      {/* 0.5-second stillness green progress bar right below the checkmark box */}
       {isHolding && (
         <div className="chk-hold-progress-wrap" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(holdProgress * 100)}>
           <div className="chk-hold-progress-track">
@@ -427,7 +427,7 @@ export function CheckmarkGate({
             />
           </div>
           <span className="chk-hold-progress-label">
-            Hold still ({Math.max(0, (2 - holdProgress * 2)).toFixed(1)}s) — Complete the step
+            Hold still ({Math.max(0, (0.5 - holdProgress * 0.5)).toFixed(1)}s) · Complete the step
           </span>
         </div>
       )}
@@ -438,7 +438,7 @@ export function CheckmarkGate({
         ) : !isHolding ? (
           <span className={`chk-gate-instruction${isCorrect ? ' is-correct' : ''}`}>
             {isDrawing
-              ? 'Release, then hold cursor still for 2s…'
+              ? 'Release and hold still for 0.5s'
               : disabled
                 ? 'Draw anywhere · enter an answer to submit'
                 : label}

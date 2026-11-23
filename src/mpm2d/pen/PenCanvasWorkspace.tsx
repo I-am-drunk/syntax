@@ -295,16 +295,25 @@ export function PenCanvasWorkspace({
       setBaseSheetHeight(nextBaseH)
 
       if (Math.abs(w - lastW) >= 2) {
-        const prevFitZoom = lastW > 40 ? lastW / SHEET_WIDTH : fitZoom
+        const prevW = lastW > 40 ? lastW : w
+        const prevFitZoom = prevW / SHEET_WIDTH
         lastW = w
         const editor = editorRef.current
         if (editor) {
-          editor.updateViewportScreenBounds(vp)
           const cam = editor.getCamera()
-          const wasAtBaseFit = cam.z <= prevFitZoom * 1.08
+          const wasAtBaseFit = cam.z <= prevFitZoom * 1.06
+          // Capture exact world center horizontally so resizing keeps focused title centered
+          const worldCenterX = -cam.x + prevW / (2 * cam.z)
+          editor.updateViewportScreenBounds(vp)
           editor.setCameraOptions(buildStepCameraOptions(Math.max(nextBaseH, sheetHeightRef.current)))
           if (wasAtBaseFit) {
+            // Keep sheet width cleanly fitted without abrupt jumping
             editor.setCamera({ x: 0, y: Math.min(0, cam.y), z: fitZoom }, { immediate: true })
+          } else {
+            // Preserve exact zoom scale AND horizontal center point while dragging divider
+            const nextZ = Math.max(fitZoom, cam.z)
+            const nextX = Math.min(0, -(worldCenterX - w / (2 * nextZ)))
+            editor.setCamera({ x: nextX, y: cam.y, z: nextZ }, { immediate: true })
           }
         }
       }

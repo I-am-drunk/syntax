@@ -88,6 +88,7 @@ export function WinBoxWindow({
       bottom: 8,
       left: 6,
       right: 6,
+      index: 950,
       header: 42,
       border: 0,
       onclose: () => {

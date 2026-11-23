@@ -224,7 +224,7 @@ export function PenBrilliantChrome({
 
   return (
     <>
-      {/* 1. Minimal Brilliant Header Strip (normal flex flow above paper — zero collisions) */}
+      {/* 1. Minimal Brilliant Header Strip (normal flex flow above paper: zero collisions) */}
       <div
         ref={topRef}
         className="pen-br-topbar-wrap"
@@ -348,7 +348,7 @@ export function PenBrilliantChrome({
           </div>
         </div>
 
-        {/* Sheet Popover — strictly z:70 above everything, cleanly below top bar */}
+        {/* Sheet Popover: strictly z:70 above everything, cleanly below top bar */}
         {openMenu === 'sheet' && (
           <div className="pen-br-popover pen-br-popover-sheet" role="menu">
             <div className="pen-br-pop-eyebrow">Paper Style</div>

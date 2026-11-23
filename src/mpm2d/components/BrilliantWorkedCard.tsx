@@ -33,10 +33,6 @@ export function BrilliantWorkedCard({
 
   return (
     <div className="br-worked">
-      <div className="br-worked-meta">
-        <span className="br-source-tag">{page.source}</span>
-      </div>
-
       <div className="geo-frame">
         <BrilliantGraph mode="display" scene={step.scene} caption={step.heading} />
       </div>

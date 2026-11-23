@@ -107,7 +107,6 @@ export const SEMA_EXPRESSIONS: { id: SemaExpressionName; label: string }[] = [
 
 export const SEMA_SHAPES: { id: SemaShapeName; label: string }[] = [
   { id: 'classic', label: 'Original Sema' },
-  { id: 'circle', label: 'Circle' },
   { id: 'squircle', label: 'Squircle' },
   { id: 'pebble', label: 'Pebble' },
   { id: 'capsule', label: 'Capsule' },
@@ -143,7 +142,7 @@ export function resolveExpression(name?: SemaExpressionName | ExpressionId | nul
 }
 
 export function resolveShapeRadii(name?: SemaShapeName | ShapeId | null): number[] {
-  const key = name ?? 'squircle'
+  const key = name ?? 'classic'
   const fr = (SHAPE_EN_TO_FR as Record<string, ShapeId>)[key] ?? (key as ShapeId)
-  return (SHAPE_BY_ID.get(fr) ?? SHAPE_BY_ID.get('squircle')!).radii
+  return (SHAPE_BY_ID.get(fr) ?? SHAPE_BY_ID.get('sema')!).radii
 }

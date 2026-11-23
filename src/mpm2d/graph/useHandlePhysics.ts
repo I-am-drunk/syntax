@@ -90,6 +90,12 @@ export function useHandlePhysics(
         vDotR: 0,
         viscousUntil: 0,
       })
+    } else if (isPressed && (!mergeNearbyHandles || nowPerf >= existing.viscousUntil)) {
+      // Lock actively dragged handle 1:1 to live target so it never lags behind line or cursor
+      existing.x = tx
+      existing.y = ty
+      existing.vx = 0
+      existing.vy = 0
     }
   }
 
