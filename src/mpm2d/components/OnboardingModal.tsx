@@ -25,13 +25,17 @@ export function OnboardingModal({
 }) {
   const [beat, setBeat] = useState<0 | 1 | 2>(0)
   const [penDetected, setPenDetected] = useState(false)
+  const autoDetectedRef = useRef(false)
   const onSelectDrawModeRef = useRef(onSelectDrawMode)
   onSelectDrawModeRef.current = onSelectDrawMode
 
   useEffect(() => {
     if (!open) return
     const onPtr = (e: PointerEvent) => {
-      if (e.pointerType === 'pen') {
+      if (e.pointerType === 'pen' && !autoDetectedRef.current) {
+        const target = e.target as HTMLElement | null
+        if (target?.closest('.ob-choice-card, .ob-actions, button')) return
+        autoDetectedRef.current = true
         setPenDetected(true)
         onSelectDrawModeRef.current(true)
       }
@@ -44,6 +48,7 @@ export function OnboardingModal({
     if (open) {
       setBeat(0)
       setPenDetected(false)
+      autoDetectedRef.current = false
     }
   }, [open])
 
@@ -156,7 +161,7 @@ export function OnboardingModal({
                   onClick={() => onSelectDrawMode(true)}
                 >
                   <div className="ob-mode-icon">
-                    <svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="M6 19 L14 27 L29 8" />
                     </svg>
                   </div>
@@ -173,7 +178,7 @@ export function OnboardingModal({
                   onClick={() => onSelectDrawMode(false)}
                 >
                   <div className="ob-mode-icon">
-                    <svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <rect x="4" y="8" width="26" height="18" rx="4" />
                       <line x1="9" y1="14" x2="13" y2="14" />
                       <line x1="16" y1="14" x2="20" y2="14" />

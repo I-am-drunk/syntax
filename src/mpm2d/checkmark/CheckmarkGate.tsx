@@ -335,7 +335,7 @@ export function CheckmarkGate({
       if (!(target instanceof Element)) return true
       return Boolean(
         target.closest(
-          'button, a, input, textarea, select, label, [role="button"], [role="dialog"], [role="slider"], [data-pen-workspace], .pen-workspace-surface, .workspace-splitter, .chk-gate-wrap, .br-choice-opt, .br-choice-btn, .br-plan-card, .br-plan-problem, .grid-tile, .br-graph-handle, [data-draggable-handle], .sema-svg, .lesson-navigation, .winbox',
+          'button, a, input, textarea, select, label, [role="button"], [role="dialog"], [role="menu"], [role="listbox"], [role="radiogroup"], [role="slider"], [data-pen-workspace], .pen-workspace-surface, .pen-radial-backdrop, .workspace-splitter, .chk-gate-wrap, .br-choice-opt, .br-choice-btn, .br-plan-card, .br-plan-problem, .grid-tile, .br-graph-handle, .br-graph-svg, [data-draggable-handle], .sema-svg, .sema-runtime-anchor, .lesson-navigation, .winbox',
         ),
       )
     }
@@ -420,8 +420,15 @@ export function CheckmarkGate({
         className={`chk-gate${disabled ? ' is-awaiting-answer' : ''}${isDrawing ? ' is-drawing' : ''}${
           isHolding ? ' is-holding' : ''
         }${isCorrect ? ' is-correct' : ''}${isWrong ? ' is-wrong' : ''}${rejectShake ? ' is-shake' : ''}`}
-        role="group"
+        role="button"
+        tabIndex={disabled ? -1 : 0}
+        aria-disabled={disabled || undefined}
         aria-label={label}
+        onKeyDown={e => {
+          if (disabled || (e.key !== 'Enter' && e.key !== ' ')) return
+          e.preventDefault()
+          onTriggerRef.current()
+        }}
         onPointerDown={onGatePointerDown}
         onPointerMove={onGatePointerMove}
         onPointerUp={onGatePointerUp}
@@ -457,7 +464,7 @@ export function CheckmarkGate({
             />
           </div>
           <span className="chk-hold-progress-label">
-            Hold still ({Math.max(0, (0.5 - holdProgress * 0.5)).toFixed(1)}s) · Complete the step
+            Hold still ({Math.max(0, ((1 - holdProgress) * STILLNESS_HOLD_MS) / 1000).toFixed(1)}s) · Complete the step
           </span>
         </div>
       )}

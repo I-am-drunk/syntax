@@ -359,7 +359,7 @@ export function BrilliantGraph({
         viewBox={`0 0 ${vp.width} ${vp.height}`}
         className={`bg-graph-svg${pressedId ? ' is-dragging' : ''}`}
         overflow="visible"
-        role="img"
+        role={mode === 'interactive' && (draggablePoints?.length ?? 0) > 0 ? 'group' : 'img'}
         aria-label={caption ?? 'Coordinate plane graph'}
         onPointerMove={handleSvgPointerMove}
         onPointerUp={endDrag}

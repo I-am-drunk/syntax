@@ -686,14 +686,18 @@ export function PenCanvasWorkspace({
 
         const rect = vp.getBoundingClientRect()
         const margin = 108
-        const originX = Math.max(
-          rect.left + margin,
-          Math.min(rect.right - margin, e.clientX),
-        )
-        const originY = Math.max(
-          rect.top + margin,
-          Math.min(rect.bottom - margin, e.clientY),
-        )
+        const midX = (rect.left + rect.right) / 2
+        const midY = (rect.top + rect.bottom) / 2
+        const minX = Math.min(rect.left + margin, midX)
+        const maxX = Math.max(rect.right - margin, midX)
+        const minY = Math.min(rect.top + margin, midY)
+        const maxY = Math.max(rect.bottom - margin, midY)
+        const clampedX = Math.max(minX, Math.min(maxX, e.clientX))
+        const clampedY = Math.max(minY, Math.min(maxY, e.clientY))
+        const vw = window.innerWidth
+        const vh = window.innerHeight
+        const originX = Math.max(Math.min(margin, vw / 2), Math.min(Math.max(vw - margin, vw / 2), clampedX))
+        const originY = Math.max(Math.min(margin, vh / 2), Math.min(Math.max(vh - margin, vh / 2), clampedY))
 
         setRadial({
           open: true,
@@ -810,8 +814,13 @@ export function PenCanvasWorkspace({
         target &&
         (target.tagName === 'INPUT' ||
           target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
           target.isContentEditable ||
-          Boolean(target.closest('button, a, [role="dialog"], [role="menu"], .winbox')))
+          Boolean(
+            target.closest(
+              'button, a, [role="button"], [role="radio"], [role="radiogroup"], [role="checkbox"], [role="switch"], [role="slider"], [role="dialog"], [role="menu"], .winbox',
+            ),
+          ))
       ) {
         return
       }

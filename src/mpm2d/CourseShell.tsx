@@ -223,6 +223,13 @@ export function CourseShell() {
   const filterWrapRef = useRef<HTMLDivElement>(null)
   const penNotifiedRef = useRef(false)
   const navLockUntilRef = useRef(0)
+  const jumpRafRef = useRef(0)
+
+  useEffect(() => {
+    return () => {
+      if (jumpRafRef.current) cancelAnimationFrame(jumpRafRef.current)
+    }
+  }, [])
 
   useEffect(preloadLessonSounds, [])
 
@@ -363,8 +370,17 @@ export function CourseShell() {
       if (!prefs.onboarded) return
       if (e.metaKey || e.ctrlKey || e.altKey) return
       const el = e.target as HTMLElement | null
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+      if (
+        el &&
+        (el.tagName === 'INPUT' ||
+          el.tagName === 'TEXTAREA' ||
+          el.tagName === 'SELECT' ||
+          el.isContentEditable)
+      ) {
+        return
+      }
       if (el?.closest('[data-pen-workspace]')) return
+      if (document.querySelector('[role="dialog"]:not(#syntax-playbook-winbox), [role="menu"]')) return
       if (e.key === 'f' || e.key === 'F') {
         e.preventDefault()
         setFormulasOpen(v => !v)
@@ -515,8 +531,15 @@ export function CourseShell() {
     navLockUntilRef.current = Date.now() + 650
     setActiveNav('course')
     const run = () => outlineScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
-    if (defer) requestAnimationFrame(run)
-    else run()
+    if (jumpRafRef.current) cancelAnimationFrame(jumpRafRef.current)
+    if (defer) {
+      jumpRafRef.current = requestAnimationFrame(() => {
+        jumpRafRef.current = 0
+        run()
+      })
+    } else {
+      run()
+    }
   }
 
   function jumpToLevel(level: 3 | 4, defer = false) {
@@ -541,8 +564,15 @@ export function CourseShell() {
         }
       }
     }
-    if (defer) requestAnimationFrame(run)
-    else run()
+    if (jumpRafRef.current) cancelAnimationFrame(jumpRafRef.current)
+    if (defer) {
+      jumpRafRef.current = requestAnimationFrame(() => {
+        jumpRafRef.current = 0
+        run()
+      })
+    } else {
+      run()
+    }
   }
 
   const getPathStat = useCallback(
@@ -778,7 +808,7 @@ export function CourseShell() {
               <Menu.Positioner sideOffset={16} align="end" className="menu-positioner">
                 <Menu.Popup className="menu-popup">
                   <Menu.Arrow className="menu-arrow">
-                    <svg width="20" height="10" viewBox="0 0 20 10" fill="none">
+                    <svg width="20" height="10" viewBox="0 0 20 10" fill="none" aria-hidden="true">
                       <path
                         d="M9.66437 2.60207L4.80758 6.97318C4.07308 7.63423 3.11989 8 2.13172 8H0V10H20V8H17.8683C16.8801 8 15.9269 7.63423 15.1924 6.97318L10.3356 2.60207C10.0708 2.3636 9.92918 2.3636 9.66437 2.60207Z"
                         fill="currentColor"

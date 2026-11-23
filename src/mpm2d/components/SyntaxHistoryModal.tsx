@@ -378,6 +378,7 @@ export function SyntaxHistoryPage({
                     key={tab.id}
                     type="button"
                     data-filter-id={tab.id}
+                    aria-pressed={active}
                     className={`syntax-history-filter-pill${active ? ' is-active' : ''}`}
                     onClick={() => handleSelectFilter(tab.id)}
                   >
@@ -409,7 +410,7 @@ export function SyntaxHistoryPage({
               role="slider"
               tabIndex={0}
               aria-label="Tactile history scroll wheel"
-              aria-valuemin={1}
+              aria-valuemin={count > 0 ? 1 : 0}
               aria-valuemax={Math.max(1, count)}
               aria-valuenow={count > 0 ? activeIndex + 1 : 0}
               onPointerDown={onWheelPointerDown}
@@ -552,6 +553,7 @@ export function SyntaxHistoryPage({
                         <button
                           key={ver.versionId}
                           type="button"
+                          aria-pressed={isCurr}
                           className={`syntax-version-pill${isCurr ? ' is-active' : ''}`}
                           onClick={() => {
                             playScrollWheelTick(soundOn, 1.08)

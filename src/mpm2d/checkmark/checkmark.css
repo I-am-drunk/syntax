@@ -193,8 +193,14 @@
   inset: 0;
   width: 100vw;
   height: 100vh;
+  height: 100dvh;
   pointer-events: none;
   z-index: 9999;
+}
+
+.chk-gate:focus-visible {
+  outline: 3px solid #456dff;
+  outline-offset: 3px;
 }
 
 .chk-gate.is-awaiting-answer {

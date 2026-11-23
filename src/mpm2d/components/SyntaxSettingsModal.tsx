@@ -137,7 +137,7 @@ export function SyntaxSettingsPage({
           <a
             key={sec.id}
             href={`#pref-${sec.id}`}
-            aria-current={activeSection === sec.id ? 'page' : undefined}
+            aria-current={activeSection === sec.id ? 'location' : undefined}
             onClick={e => {
               e.preventDefault()
               scrollToSection(sec.id)

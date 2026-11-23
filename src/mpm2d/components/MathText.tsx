@@ -75,7 +75,7 @@ export function MathText({
   text: string
   stackedFractions?: boolean
 }) {
-  const parts = text.split(/(\*\*[\s\S]*?\*\*|\*[^*\n]+?\*)/g)
+  const parts = text.split(/(\*\*[\s\S]*?\*\*|(?<![A-Za-z0-9])\*[^\s*\n](?:[^*\n]*[^\s*\n])?\*(?![A-Za-z0-9]))/g)
   return (
     <>
       {parts.map((part, i) => {

@@ -63,8 +63,10 @@ export function BrilliantChoice({
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement ||
         el?.isContentEditable ||
         el?.closest('[data-pen-workspace]') ||
+        document.querySelector('[role="dialog"], [role="menu"]') ||
         e.metaKey ||
         e.ctrlKey ||
         e.altKey
@@ -94,6 +96,21 @@ export function BrilliantChoice({
           isSteps ? ' is-steps' : isCompactGrid ? ' is-grid' : isColumn ? ' is-column' : ' is-row'
         }`}
         role={multiple ? 'group' : 'radiogroup'}
+        aria-label={multiple ? 'Answer choices (select all that apply)' : 'Answer choices'}
+        onKeyDown={e => {
+          if (multiple || locked || options.length === 0) return
+          if (e.key !== 'ArrowDown' && e.key !== 'ArrowRight' && e.key !== 'ArrowUp' && e.key !== 'ArrowLeft') return
+          e.preventDefault()
+          const curIdx = Math.max(
+            0,
+            options.findIndex(o => selected.includes(o.id)),
+          )
+          const dir = e.key === 'ArrowDown' || e.key === 'ArrowRight' ? 1 : -1
+          const nextIdx = (curIdx + dir + options.length) % options.length
+          onToggle(options[nextIdx].id)
+          const buttons = e.currentTarget.querySelectorAll<HTMLButtonElement>('[data-slot="choice-button"]')
+          buttons[nextIdx]?.focus()
+        }}
       >
         {options.map((opt, idx) => {
           const isSelected = selected.includes(opt.id)

@@ -227,12 +227,12 @@ function WalkthroughVideoStage({
           render={(props, state) => (
             <button {...props} type="button">
               {state.ended ? (
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
                   <path d="M3 3v5h5" />
                 </svg>
               ) : (
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                   <polygon points="7,4 20,12 7,20" />
                 </svg>
               )}
@@ -262,16 +262,16 @@ function WalkthroughVideoStage({
                 render={(props, state) => (
                   <button {...props} type="button">
                     {state.ended ? (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                         <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
                         <path d="M3 3v5h5" />
                       </svg>
                     ) : state.paused ? (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                         <polygon points="6,4 20,12 6,20" />
                       </svg>
                     ) : (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                         <rect x="6" y="4" width="4.5" height="16" rx="1" />
                         <rect x="13.5" y="4" width="4.5" height="16" rx="1" />
                       </svg>
@@ -303,13 +303,13 @@ function WalkthroughVideoStage({
                 render={(props, state) => (
                   <button {...props} type="button">
                     {state.muted ? (
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                         <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
                         <line x1="23" y1="9" x2="17" y2="15" />
                         <line x1="17" y1="9" x2="23" y2="15" />
                       </svg>
                     ) : (
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                         <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
                         <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
                         <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
@@ -324,11 +324,11 @@ function WalkthroughVideoStage({
                 render={(props, state) => (
                   <button {...props} type="button">
                     {state.fullscreen ? (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                         <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
                       </svg>
                     ) : (
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                         <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
                       </svg>
                     )}
@@ -549,7 +549,20 @@ export function WalkthroughContent({
 
         <div className="wt-toolbar-controls">
           {spec.lenses.length > 1 && (
-            <div className="wt-lens-tabs" role="tablist" aria-label="Walkthrough lens">
+            <div
+              className="wt-lens-tabs"
+              role="tablist"
+              aria-label="Walkthrough lens"
+              onKeyDown={e => {
+                if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+                e.preventDefault()
+                const dir = e.key === 'ArrowRight' ? 1 : -1
+                const nextIdx = (lensIndex + dir + spec.lenses.length) % spec.lenses.length
+                switchLens(nextIdx)
+                const tabs = e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')
+                tabs[nextIdx]?.focus()
+              }}
+            >
               {spec.lenses.map((l, idx) => {
                 const active = idx === lensIndex
                 return (
@@ -558,6 +571,7 @@ export function WalkthroughContent({
                     type="button"
                     role="tab"
                     aria-selected={active}
+                    tabIndex={active ? 0 : -1}
                     className={`wt-lens-tab${active ? ' is-active' : ''}`}
                     onClick={() => switchLens(idx)}
                   >
@@ -597,7 +611,7 @@ export function WalkthroughContent({
                 strokeWidth="2.4"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-              >
+               aria-hidden="true">
                 <polyline points="6 9 12 15 18 9" />
               </svg>
             </button>
@@ -623,7 +637,7 @@ export function WalkthroughContent({
               title="Close walkthrough"
               onClick={onClose}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" aria-hidden="true">
                 <path d="M18 6 6 18M6 6l12 12" />
               </svg>
             </button>
@@ -659,7 +673,7 @@ export function WalkthroughContent({
             title="Previous step"
             onClick={() => selectBeat(beatIndex - 1)}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <polyline points="15 18 9 12 15 6" />
             </svg>
           </button>
@@ -718,7 +732,7 @@ export function WalkthroughContent({
             title="Next step"
             onClick={() => selectBeat(beatIndex + 1)}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <polyline points="9 18 15 12 9 6" />
             </svg>
           </button>

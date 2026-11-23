@@ -134,7 +134,7 @@ export function AxesLayer({
             strokeLinecap="round"
           />
           <g transform={`translate(${plotX + plotW + 10.25} ${xAxisY}) rotate(90) translate(-6 0)`}>
-            <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
+            <svg width="12" height="10" viewBox="0 0 12 10" fill="none" aria-hidden="true">
               <path d={ARROWHEAD_PATH} className="bg-axis-fill" />
             </svg>
           </g>
@@ -180,7 +180,7 @@ export function AxesLayer({
             strokeLinecap="round"
           />
           <g transform={`translate(${yAxisX} ${plotY - 10}) translate(-6 0)`}>
-            <svg width="12" height="10" viewBox="0 0 12 10" fill="none">
+            <svg width="12" height="10" viewBox="0 0 12 10" fill="none" aria-hidden="true">
               <path d={ARROWHEAD_PATH} className="bg-axis-fill" />
             </svg>
           </g>

@@ -923,8 +923,21 @@ export function Sema({
       height={svgHeight}
       viewBox={`${-VB} ${vbTop} ${VB * 2} ${vbHeight}`}
       className={`sema-svg${interactive ? ' is-interactive' : ''}${className ? ` ${className}` : ''}`}
-      role="img"
+      role={interactive ? 'button' : 'img'}
+      tabIndex={interactive ? 0 : undefined}
       aria-label={ariaLabel}
+      onKeyDown={e => {
+        if (!interactive || (e.key !== 'Enter' && e.key !== ' ')) return
+        e.preventDefault()
+        const p = physRef.current
+        p.pokeScaleY = 0.78
+        p.pokeVy = 5.6
+        const reaction = POKE_REACTIONS[p.pokeIndex % POKE_REACTIONS.length]!
+        p.pokeIndex += 1
+        p.overrideReaction = reaction
+        p.overrideUntil = p.clock + reaction.dur
+        onPokeRef.current?.()
+      }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={finishDragOrPoke}

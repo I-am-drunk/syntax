@@ -53,8 +53,10 @@ export function GeoExplanationContent({
       if (
         target instanceof HTMLInputElement ||
         target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
         target?.isContentEditable ||
-        target?.closest('[data-pen-workspace]')
+        target?.closest('[data-pen-workspace]') ||
+        (inline && document.querySelector('[role="dialog"], [role="menu"]'))
       ) {
         return
       }
@@ -72,8 +74,9 @@ export function GeoExplanationContent({
     return () => window.removeEventListener('keydown', onKey)
   }, [explanation.steps.length, inline, onClose])
 
-  const step = explanation.steps[index] ?? explanation.steps[0]
-  const last = index === explanation.steps.length - 1
+  const safeIndex = Math.min(index, Math.max(0, explanation.steps.length - 1))
+  const step = explanation.steps[safeIndex] ?? explanation.steps[0]
+  const last = safeIndex === explanation.steps.length - 1
 
   return (
     <>
@@ -125,8 +128,8 @@ export function GeoExplanationContent({
             type="button"
             className="explanation-step-button"
             aria-label="Previous"
-            disabled={index === 0}
-            onClick={() => setIndex(i => Math.max(0, i - 1))}
+            disabled={safeIndex === 0}
+            onClick={() => setIndex(Math.max(0, safeIndex - 1))}
           >
             <span className="explanation-desktop-icon">
               <Caret direction="left" />
@@ -137,18 +140,18 @@ export function GeoExplanationContent({
           </button>
         </div>
 
-        <div className="explanation-dots" aria-label={`Step ${index + 1} of ${explanation.steps.length}`}>
-          {index > 0 && (
-            <button type="button" aria-label="Previous step" onClick={() => setIndex(i => i - 1)}>
-              {Array.from({ length: index }, (_, i) => (
+        <div className="explanation-dots" aria-label={`Step ${safeIndex + 1} of ${explanation.steps.length}`}>
+          {safeIndex > 0 && (
+            <button type="button" aria-label="Previous step" onClick={() => setIndex(Math.max(0, safeIndex - 1))}>
+              {Array.from({ length: safeIndex }, (_, i) => (
                 <i key={i} />
               ))}
             </button>
           )}
           <i className="explanation-current-dot" />
           {!last && (
-            <button type="button" aria-label="Next step" onClick={() => setIndex(i => i + 1)}>
-              {Array.from({ length: explanation.steps.length - index - 1 }, (_, i) => (
+            <button type="button" aria-label="Next step" onClick={() => setIndex(Math.min(explanation.steps.length - 1, safeIndex + 1))}>
+              {Array.from({ length: Math.max(0, explanation.steps.length - safeIndex - 1) }, (_, i) => (
                 <i key={i} />
               ))}
             </button>
@@ -161,7 +164,7 @@ export function GeoExplanationContent({
             className="explanation-step-button explanation-next"
             aria-label="Next"
             disabled={last}
-            onClick={() => setIndex(i => Math.min(explanation.steps.length - 1, i + 1))}
+            onClick={() => setIndex(Math.min(explanation.steps.length - 1, safeIndex + 1))}
           >
             <span className="explanation-desktop-icon">
               <Caret direction="right" />

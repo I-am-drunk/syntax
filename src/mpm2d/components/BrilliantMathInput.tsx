@@ -26,8 +26,15 @@ export function BrilliantMathInput({
   onSubmit: () => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const insertRafRef = useRef<number>(0)
   // Keep editable on incorrect-retry so the student never has to click "Try again" just to fix a sign
   const locked = evaluation === 'correct' || evaluation === 'incorrect'
+
+  useEffect(() => {
+    return () => {
+      if (insertRafRef.current) cancelAnimationFrame(insertRafRef.current)
+    }
+  }, [])
 
   useEffect(() => {
     if (active && !locked) {
@@ -45,11 +52,22 @@ export function BrilliantMathInput({
     const focused = document.activeElement === el
     const start = focused ? (el.selectionStart ?? value.length) : value.length
     const end = focused ? (el.selectionEnd ?? value.length) : value.length
-    const next = value.slice(0, start) + token + value.slice(end)
+    const selectedText = value.slice(start, end)
+    let inserted = token
+    let caretOffset = token.length - cursorBack
+    if (selectedText.length > 0 && cursorBack > 0 && cursorBack < token.length) {
+      const prefix = token.slice(0, token.length - cursorBack)
+      const suffix = token.slice(token.length - cursorBack)
+      inserted = prefix + selectedText + suffix
+      caretOffset = prefix.length + selectedText.length
+    }
+    const next = value.slice(0, start) + inserted + value.slice(end)
     onChange(next)
-    requestAnimationFrame(() => {
+    if (insertRafRef.current) cancelAnimationFrame(insertRafRef.current)
+    insertRafRef.current = requestAnimationFrame(() => {
+      insertRafRef.current = 0
       el.focus()
-      const pos = start + token.length - cursorBack
+      const pos = start + caretOffset
       el.setSelectionRange(pos, pos)
     })
   }
@@ -95,10 +113,13 @@ export function BrilliantMathInput({
           value={value}
           disabled={locked}
           placeholder={placeholder ?? 'Type your answer'}
+          aria-label={placeholder ?? 'Math answer'}
+          aria-invalid={evaluation === 'incorrect' || evaluation === 'incorrect-retry' || undefined}
           onChange={e => onChange(e.target.value)}
           onKeyDown={e => {
             if (e.key === 'Enter') {
               e.preventDefault()
+              if (evaluation === 'unsubmitted' && value.trim().length === 0) return
               onSubmit()
             }
           }}

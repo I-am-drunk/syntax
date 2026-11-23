@@ -37,7 +37,10 @@ export function GeoCompletion({
     color: riveColor,
     levelNumber,
     mastered,
-    onReveal: () => setRevealed(true),
+    onReveal: () => {
+      playOnce()
+      setRevealed(true)
+    },
     onError: () => {
       playOnce()
       setRevealed(true)
@@ -54,6 +57,30 @@ export function GeoCompletion({
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revealed])
+
+  const onContinueRef = useRef(onContinue)
+  onContinueRef.current = onContinue
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return
+      const target = e.target as HTMLElement | null
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLSelectElement ||
+        target?.isContentEditable ||
+        Boolean(target?.closest('button, a, [role="button"]')) ||
+        document.querySelector('[role="dialog"], [role="menu"]')
+      ) {
+        return
+      }
+      e.preventDefault()
+      onContinueRef.current()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   return (
     <CompletionFrame onContinue={onContinue} color={color}>

@@ -448,11 +448,20 @@ export function GeoLessonPlayer({
 
   // Global 'P' shortcut to toggle Pen Studio Mode
   useEffect(() => {
-    if (finished) return
+    if (finished || explanationOpen || walkthroughOpen || formulasOpen) return
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return
       const el = e.target as HTMLElement | null
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
+      if (
+        el &&
+        (el.tagName === 'INPUT' ||
+          el.tagName === 'TEXTAREA' ||
+          el.tagName === 'SELECT' ||
+          el.isContentEditable)
+      ) {
+        return
+      }
+      if (document.querySelector('[role="dialog"], [role="menu"]')) return
       if ((e.key === 'p' || e.key === 'P') && penAllowed) {
         e.preventDefault()
         setPenWanted(v => !v)
@@ -463,7 +472,7 @@ export function GeoLessonPlayer({
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [finished, penAllowed, walkthroughSpec, page])
+  }, [finished, explanationOpen, walkthroughOpen, formulasOpen, penAllowed, walkthroughSpec, page])
 
   const patchState = (id: string, patch: Partial<PageRuntime>) => {
     setStates(prev => ({
@@ -750,6 +759,7 @@ export function GeoLessonPlayer({
       if (e.metaKey || e.ctrlKey || e.altKey) return
       const target = e.target as HTMLElement | null
       if (target?.closest('[data-pen-workspace]')) return
+      if (document.querySelector('[role="dialog"], [role="menu"]')) return
       if (e.key === 'Enter') {
         const isInteractiveEl =
           target instanceof HTMLInputElement ||
@@ -1440,7 +1450,7 @@ export function GeoLessonPlayer({
                           }
                           onSubmit={() => {
                             if (state.evaluation === 'unsubmitted' && canCheck) handleCheck()
-                            else if (state.evaluation === 'incorrect-retry') handleCheck(true)
+                            else if (state.evaluation === 'incorrect-retry') handleRetry()
                             else if (state.evaluation === 'correct' || state.evaluation === 'incorrect')
                               handleContinue()
                           }}
@@ -1534,7 +1544,7 @@ export function GeoLessonPlayer({
                               }
                               onSubmit={() => {
                                 if (state.evaluation === 'unsubmitted' && canCheck) handleCheck()
-                                else if (state.evaluation === 'incorrect-retry') handleCheck(true)
+                                else if (state.evaluation === 'incorrect-retry') handleRetry()
                               }}
                             />
                           )}
@@ -1683,7 +1693,7 @@ export function GeoLessonPlayer({
                             : 'ready'
                       }
                       screenGestureContainerRef={lessonSurfaceRef}
-                      enableScreenGesture={!walkthroughOpen && !explanationOpen && !formulasOpen}
+                      enableScreenGesture={!walkthroughOpen && !explanationOpen && !formulasOpen && !helpMenuOpen}
                       onTrigger={() => {
                         if (!isProblem) {
                           handleContinue()

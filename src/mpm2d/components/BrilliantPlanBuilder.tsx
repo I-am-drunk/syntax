@@ -33,7 +33,7 @@ const sameSource = (a: Source, b: Source) => a.kind === b.kind && a.index === b.
 function RowMark({ kind }: { kind: 'success' | 'match' | 'mismatch' }) {
   return (
     <div className="grid-row-mark" data-kind={kind} aria-hidden="true">
-      <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
         <path
           fill="white"
           d={
@@ -121,6 +121,10 @@ export function BrilliantPlanBuilder({
   const [transient, setTransient] = useState<Transient>(null)
   const [oralHidden, setOralHidden] = useState<boolean>(defaultOralTest)
   const transientRef = useRef<Transient>(null)
+
+  useEffect(() => {
+    setOralHidden(defaultOralTest)
+  }, [defaultOralTest, pool])
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const generationRef = useRef(0)
 
@@ -179,7 +183,9 @@ export function BrilliantPlanBuilder({
   }
 
   const localPoint = (clientX: number, clientY: number): Point => {
-    const rect = rootRef.current!.getBoundingClientRect()
+    const root = rootRef.current
+    if (!root) return { x: 0, y: 0 }
+    const rect = root.getBoundingClientRect()
     return { x: clientX - rect.x, y: clientY - rect.y }
   }
 
@@ -425,7 +431,10 @@ export function BrilliantPlanBuilder({
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement ||
+        (e.target as HTMLElement | null)?.isContentEditable ||
         (e.target as HTMLElement | null)?.closest('[data-pen-workspace]') ||
+        document.querySelector('[role="dialog"], [role="menu"]') ||
         e.metaKey ||
         e.ctrlKey ||
         e.altKey ||
@@ -579,7 +588,18 @@ export function BrilliantPlanBuilder({
                             })(),
                             transition: 'transform 180ms cubic-bezier(0.2, 0.9, 0.2, 1), opacity 140ms ease',
                           }}
+                          role={locked ? undefined : 'button'}
+                          tabIndex={locked ? undefined : 0}
+                          aria-label={locked ? undefined : `Remove step ${index + 1}: ${block.text}`}
                           onPointerDown={e => press(e, source, block.id)}
+                          onKeyDown={e => {
+                            if (locked || (e.key !== 'Enter' && e.key !== ' ')) return
+                            e.preventDefault()
+                            const cur = [...slotsRef.current]
+                            cur[index] = null
+                            onSound?.('drag-released')
+                            commitSlots(cur)
+                          }}
                           title={locked ? undefined : 'Drag to reorder or tap to remove'}
                         >
                           <div className="grid-tile-face br-plan-tile-face">
@@ -617,6 +637,7 @@ export function BrilliantPlanBuilder({
             <button
               type="button"
               className="br-plan-oral-toggle"
+              aria-pressed={oralHidden}
               data-active={oralHidden || undefined}
               onClick={() => setOralHidden(v => !v)}
             >
@@ -658,9 +679,23 @@ export function BrilliantPlanBuilder({
                   {!isPlaced && (
                     <div
                       className="grid-tile br-plan-tile-node br-plan-bank-tile"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Add step option ${index + 1}: ${block.text}`}
                       data-read-only="false"
                       style={{ opacity: moving ? 0 : 1 }}
                       onPointerDown={e => press(e, source, block.id)}
+                      onKeyDown={e => {
+                        if (e.key !== 'Enter' && e.key !== ' ') return
+                        e.preventDefault()
+                        const cur = [...slotsRef.current]
+                        const emptyIdx = cur.indexOf(null)
+                        if (emptyIdx >= 0) {
+                          cur[emptyIdx] = block.id
+                          onSound?.('drag-released')
+                          commitSlots(cur)
+                        }
+                      }}
                     >
                       <div className="grid-tile-face br-plan-tile-face">
                         <span className="br-tile-num">{index + 1}</span>

@@ -27,13 +27,16 @@ export function BrilliantWorkedCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page.id])
 
-  useEffect(() => {
-    onStepChange?.(stepIdx)
-  }, [stepIdx, onStepChange])
+  const safeStepIdx = Math.min(stepIdx, Math.max(0, page.steps.length - 1))
 
-  const step = page.steps[stepIdx] ?? page.steps[0]
-  const priorSteps = page.steps.slice(0, stepIdx)
-  const algebraVisible = Boolean(revealedSteps[stepIdx])
+  useEffect(() => {
+    setSolutionGraphOpen(false)
+    onStepChange?.(safeStepIdx)
+  }, [safeStepIdx, onStepChange])
+
+  const step = page.steps[safeStepIdx] ?? page.steps[0]
+  const priorSteps = page.steps.slice(0, safeStepIdx)
+  const algebraVisible = Boolean(revealedSteps[safeStepIdx])
   const preScene = step.preScene ?? page.preScene
   const hasSeparateSolutionGraph = Boolean(preScene)
   const mainScene = preScene ?? step.scene
@@ -97,24 +100,24 @@ export function BrilliantWorkedCard({
       <div className="br-worked-step">
         <div className="br-worked-step-head">
           <span className="br-worked-step-title">
-            {CIRCLED[stepIdx] ?? `${stepIdx + 1}.`} <MathText text={step.heading} />
+            {CIRCLED[safeStepIdx] ?? `${safeStepIdx + 1}.`} <MathText text={step.heading} />
           </span>
           <div className="br-stepper">
             <button
               type="button"
-              disabled={stepIdx === 0}
-              onClick={() => setStepIdx(i => Math.max(0, i - 1))}
+              disabled={safeStepIdx === 0}
+              onClick={() => setStepIdx(Math.max(0, safeStepIdx - 1))}
               aria-label="Previous step"
             >
               ←
             </button>
             <span className="br-stepper-count">
-              {stepIdx + 1}/{page.steps.length}
+              {safeStepIdx + 1}/{page.steps.length}
             </span>
             <button
               type="button"
-              disabled={stepIdx === page.steps.length - 1}
-              onClick={() => setStepIdx(i => Math.min(page.steps.length - 1, i + 1))}
+              disabled={safeStepIdx === page.steps.length - 1}
+              onClick={() => setStepIdx(Math.min(page.steps.length - 1, safeStepIdx + 1))}
               aria-label="Next step"
             >
               →
@@ -138,7 +141,7 @@ export function BrilliantWorkedCard({
             <button
               type="button"
               className="br-worked-reveal-btn"
-              onClick={() => setRevealedSteps(prev => ({ ...prev, [stepIdx]: true }))}
+              onClick={() => setRevealedSteps(prev => ({ ...prev, [safeStepIdx]: true }))}
             >
               Reveal algebra
             </button>
@@ -149,7 +152,7 @@ export function BrilliantWorkedCard({
       {hasSeparateSolutionGraph && solutionGraphOpen && (
         <WinBoxWindow
           id={`worked-solution-graph-${page.id}`}
-          eyebrow={`Step ${stepIdx + 1}`}
+          eyebrow={`Step ${safeStepIdx + 1}`}
           title={step.heading}
           defaultWidth={560}
           defaultHeight={490}

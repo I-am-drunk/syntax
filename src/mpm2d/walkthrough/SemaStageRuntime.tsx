@@ -440,11 +440,22 @@ export function SemaStageRuntime({
 
         <div
           className={`sema-runtime-anchor${isStretching ? ' is-stretching' : ''}`}
+          role="button"
+          tabIndex={0}
+          aria-label="Interact with Sema (press Enter to say hi, or drag to stretch)"
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={finishStretch}
           onPointerCancel={finishStretch}
           onClick={e => e.stopPropagation()}
+          onKeyDown={e => {
+            if (e.key !== 'Enter' && e.key !== ' ') return
+            e.preventDefault()
+            e.stopPropagation()
+            const msg = POKE_QUIPS[quipIdxRef.current % POKE_QUIPS.length]!
+            quipIdxRef.current += 1
+            showTempQuip(msg, 2200)
+          }}
           title="Grab & stretch Sema, or click to say hi (pause video for cursor eye-tracking)"
         >
           <div ref={haloRef} className="sema-runtime-halo" aria-hidden="true" />
@@ -487,7 +498,7 @@ export function SemaStageRuntime({
       </div>
 
       {/* Optional Word-Highlighted Karaoke CC Subtitle Bar */}
-      {showSubtitle && (
+      {showSubtitle && (subtitleChunk || activePrompt?.subtitle || fallbackCaption) && (
         <div className="sema-runtime-cc-bar" role="status">
           <div className="sema-runtime-cc-pill">
             {subtitleChunk ? (

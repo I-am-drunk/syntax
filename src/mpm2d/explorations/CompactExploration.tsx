@@ -248,9 +248,12 @@ function MidpointCompact({ onSound }: { onSound?: SoundFn }) {
       <div className="geo-mini-tabs">
         <button
           type="button"
+          aria-pressed={mode === 'forward'}
           className={mode === 'forward' ? 'is-active' : ''}
           onClick={() => {
-            if (mode === 'reverse') setB(e2)
+            if (mode === 'reverse') {
+              setB([Math.max(-6, Math.min(6, e2[0])), Math.max(-6, Math.min(6, e2[1]))])
+            }
             setMode('forward')
           }}
         >
@@ -258,6 +261,7 @@ function MidpointCompact({ onSound }: { onSound?: SoundFn }) {
         </button>
         <button
           type="button"
+          aria-pressed={mode === 'reverse'}
           className={mode === 'reverse' ? 'is-active' : ''}
           onClick={() => {
             if (mode === 'forward') setMFixed(m)
@@ -427,6 +431,7 @@ function LengthCircleCompact({ onSound }: { onSound?: SoundFn }) {
       <div className="geo-mini-tabs">
         <button
           type="button"
+          aria-pressed={tab === 'length'}
           className={tab === 'length' ? 'is-active' : ''}
           onClick={() => setTab('length')}
         >
@@ -434,6 +439,7 @@ function LengthCircleCompact({ onSound }: { onSound?: SoundFn }) {
         </button>
         <button
           type="button"
+          aria-pressed={tab === 'circle'}
           className={tab === 'circle' ? 'is-active' : ''}
           onClick={() => setTab('circle')}
         >
@@ -814,7 +820,7 @@ function ShapePropertiesCompact() {
     <div className="geo-explore-stack">
       <div className="geo-mini-tabs">
         {(['square', 'rhombus', 'rectangle', 'parallelogram', 'trapezoid'] as QuadKey[]).map(k => (
-          <button key={k} type="button" className={quad === k ? 'is-active' : ''} onClick={() => setQuad(k)}>
+          <button key={k} type="button" aria-pressed={quad === k} className={quad === k ? 'is-active' : ''} onClick={() => setQuad(k)}>
             {k[0].toUpperCase() + k.slice(1)}
           </button>
         ))}

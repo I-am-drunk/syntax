@@ -170,6 +170,7 @@ export function MathPackageWorksheet({
       autoRaf = requestAnimationFrame(autoTick)
 
       const onMove = (ev: PointerEvent) => {
+        if (ev.pointerId !== pointerId) return
         const drag = dragRef.current
         if (!drag) return
         const dyPx = ev.clientY - lastClientY
@@ -186,7 +187,7 @@ export function MathPackageWorksheet({
         setPointerPage({ x: pt.x, y: Math.max(baseHeight, baseHeight + currentExtra) })
       }
 
-      const onUp = () => {
+      const finishResize = () => {
         if (autoRaf) cancelAnimationFrame(autoRaf)
         autoRaf = 0
         dragRef.current = null
@@ -202,7 +203,12 @@ export function MathPackageWorksheet({
         window.removeEventListener('pointercancel', onUp)
       }
 
-      cleanupResizeRef.current = onUp
+      const onUp = (ev: PointerEvent) => {
+        if (ev.pointerId !== pointerId) return
+        finishResize()
+      }
+
+      cleanupResizeRef.current = finishResize
       window.addEventListener('pointermove', onMove)
       window.addEventListener('pointerup', onUp)
       window.addEventListener('pointercancel', onUp)

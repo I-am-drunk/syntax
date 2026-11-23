@@ -1100,6 +1100,7 @@
 .syntax-history-page {
   width: 100%;
   min-height: calc(100vh - 64px);
+  min-height: calc(100dvh - 64px);
   padding: 24px 20px 64px;
   background: var(--bg, #f7f8fa);
   color: var(--text, #141414);
@@ -1950,6 +1951,11 @@
   gap: 8px;
   cursor: pointer;
   outline: none;
+}
+
+.outline-progress-dock:focus-visible .outline-fitness-ring {
+  outline: 3px solid #456dff;
+  outline-offset: 2px;
 }
 
 .outline-fitness-ring {

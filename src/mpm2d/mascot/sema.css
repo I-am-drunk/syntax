@@ -587,3 +587,9 @@
 :root[data-theme='dark'] .sema-roam-layer .sema-svg {
   filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.52));
 }
+
+.sema-svg.is-interactive:focus-visible {
+  outline: 3px solid #456dff;
+  outline-offset: 4px;
+  border-radius: 16px;
+}

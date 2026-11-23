@@ -112,6 +112,7 @@ export function WinBoxWindow({
 
     const headerEl = dom?.querySelector('.wb-header') as HTMLElement | null
     const controlEl = dom?.querySelector('.wb-control') as HTMLElement | null
+    let cleanupSlotListeners: (() => void) | null = null
     if (headerEl && controlEl) {
       const slot = document.createElement('div')
       slot.className = 'wb-header-actions'
@@ -120,6 +121,12 @@ export function WinBoxWindow({
       slot.addEventListener('mousedown', stopDrag)
       slot.addEventListener('touchstart', stopDrag, { passive: true })
       slot.addEventListener('dblclick', stopDrag)
+      cleanupSlotListeners = () => {
+        slot.removeEventListener('pointerdown', stopDrag)
+        slot.removeEventListener('mousedown', stopDrag)
+        slot.removeEventListener('touchstart', stopDrag)
+        slot.removeEventListener('dblclick', stopDrag)
+      }
       controlEl.insertAdjacentElement('afterend', slot)
       setActionsNode(slot)
     }
@@ -176,6 +183,7 @@ export function WinBoxWindow({
     window.addEventListener('resize', handleViewportResize)
 
     return () => {
+      cleanupSlotListeners?.()
       window.removeEventListener('resize', handleViewportResize)
       themeObserver.disconnect()
       closingProgrammaticallyRef.current = true

@@ -86,7 +86,15 @@ function normalizeSymbols(s: string): string {
  * +, -, *, /, parentheses, and sqrt(...) or √...
  */
 export function parseNumberExpr(input: string): ParsedNumber | null {
-  const s = normalizeSymbols(input).toLowerCase()
+  let s = normalizeSymbols(input).toLowerCase()
+  if (!s) return null
+  // Allow optional leading variable assignment like "m = 3/2", "m_ab = -1", "d = sqrt(72)", "r = 5"
+  s = s
+    .replace(
+      /^(?:m(?:_[a-z0-9⊥]+|⊥)?|d(?:_[a-z0-9]+)?|r|b|k|a|c|h|x|y|slope|length|radius|distance|area)\s*=\s*/i,
+      '',
+    )
+    .trim()
   if (!s) return null
   if (
     s === 'undefined' ||
@@ -98,6 +106,14 @@ export function parseNumberExpr(input: string): ParsedNumber | null {
   ) {
     return { kind: 'undefined' }
   }
+  // Allow optional trailing measurement units like "46.4 km", "12 units", "sqrt(50) u", "25 sq units"
+  s = s
+    .replace(
+      /(?<=[0-9)])\s*(?:sq\.?\s*units?|square\s+units?|units?\^2|u\^2|km\^2|m\^2|cm\^2|mm\^2|units?|km|cm|mm|mi|ft|in|m|u)\.?$/i,
+      '',
+    )
+    .trim()
+  if (!s) return null
 
   const hasRadical = s.includes('sqrt') || s.includes('√')
 

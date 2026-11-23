@@ -40,6 +40,7 @@ a:focus-visible, button:focus-visible { outline: 3px solid #4965ff; outline-offs
 }
 .menu-group { display: flex; flex-direction: column; padding-block: 8px; }
 .menu-item { padding: 12px 16px; cursor: pointer; outline: none; }
+.menu-item:focus-visible { background: var(--hover); box-shadow: inset 3px 0 0 #456dff; }
 .menu-item[data-highlighted] { background: var(--hover); }
 .menu-item[data-disabled] { color: var(--tertiary); cursor: default; }
 .menu-separator { height: 1px; background: var(--hover); }
