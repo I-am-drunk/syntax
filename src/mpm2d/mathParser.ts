@@ -61,12 +61,23 @@ export type GradeResult = {
 
 const EPS = 1e-4
 
+function fmtFeedbackNum(n: number): string {
+  if (!Number.isFinite(n)) return String(n)
+  const rounded = Math.round(n * 1000) / 1000
+  if (Math.abs(rounded - Math.round(rounded)) < 1e-6) {
+    return String(Math.round(rounded))
+  }
+  return String(rounded)
+}
+
 function normalizeSymbols(s: string): string {
   return s
     .trim()
     .replace(/[\u2212\u2013\u2014]/g, '-')
-    .replace(/×/g, '*')
+    .replace(/[×·⋅]/g, '*')
+    .replace(/÷/g, '/')
     .replace(/²/g, '^2')
+    .replace(/³/g, '^3')
     .replace(/\s+/g, ' ')
 }
 
@@ -133,6 +144,8 @@ export function parseNumberExpr(input: string): ParsedNumber | null {
 export function parsePointExpr(input: string): ParsedPoint | null {
   let s = normalizeSymbols(input)
   if (!s) return null
+  // Allow optional point labels like M(2, -1) or P = (1/2, -3/2)
+  s = s.replace(/^[a-zA-Z][a-zA-Z0-9_']*\s*=?\s*(?=\()/, '').trim()
   if (s.startsWith('(') && s.endsWith(')')) {
     let wrapDepth = 0
     let wrapsAll = true
@@ -384,8 +397,14 @@ export function gradeAnswer(raw: string, spec: StepAnswerSpec): GradeResult {
       }
     }
 
-    // Forgot square root on length?
-    if (spec.expected > 1 && Math.abs(parsed.value - spec.expected * spec.expected) <= 1e-2) {
+    // Forgot square root on length? Only fire for radical/length specs (not plain slopes like 2 vs 4)
+    const isLikelyLengthRadical =
+      Boolean(spec.exactRequired) || spec.display.includes('√') || spec.display.toLowerCase().includes('sqrt')
+    if (
+      isLikelyLengthRadical &&
+      spec.expected > 1 &&
+      Math.abs(parsed.value - spec.expected * spec.expected) <= 1e-2
+    ) {
       return {
         correct: false,
         feedback: `That's d² (before taking the square root). Take the square root: type sqrt(${Math.round(parsed.value)}).`,
@@ -425,13 +444,13 @@ export function gradeAnswer(raw: string, spec: StepAnswerSpec): GradeResult {
     if (Math.abs(parsed.x - ex) <= tol) {
       return {
         correct: false,
-        feedback: `Your x-coordinate (${parsed.x}) is right. Double-check your y-coordinate.`,
+        feedback: `Your x-coordinate (${fmtFeedbackNum(parsed.x)}) is right. Double-check your y-coordinate.`,
       }
     }
     if (Math.abs(parsed.y - ey) <= tol) {
       return {
         correct: false,
-        feedback: `Your y-coordinate (${parsed.y}) is right. Double-check your x-coordinate.`,
+        feedback: `Your y-coordinate (${fmtFeedbackNum(parsed.y)}) is right. Double-check your x-coordinate.`,
       }
     }
     return {

@@ -298,22 +298,26 @@ export function computeSnapLattice(
     )
   }
 
-  // If constrained with a callback but no explicit snapSamples, sample the plot and dedupe
+  // If constrained with a callback but no explicit snapSamples, sample a 2D grid and dedupe
   if (activePoint.constrain) {
     const seen = new Map<string, [number, number]>()
-    const steps = 28
-    for (let i = 0; i <= steps; i++) {
-      const mx = vp.bounds.xMin + ((vp.bounds.xMax - vp.bounds.xMin) * i) / steps
-      const my = vp.bounds.yMin + ((vp.bounds.yMax - vp.bounds.yMin) * i) / steps
-      const [sx, sy] = activePoint.constrain(mx, my)
-      if (
-        sx >= vp.bounds.xMin - 1e-6 &&
-        sx <= vp.bounds.xMax + 1e-6 &&
-        sy >= vp.bounds.yMin - 1e-6 &&
-        sy <= vp.bounds.yMax + 1e-6
-      ) {
-        const key = `${Math.round(sx * 100)},${Math.round(sy * 100)}`
-        if (!seen.has(key)) seen.set(key, [sx, sy])
+    const gridSteps = 10
+    for (let ix = 0; ix <= gridSteps; ix++) {
+      const mx = vp.bounds.xMin + ((vp.bounds.xMax - vp.bounds.xMin) * ix) / gridSteps
+      for (let iy = 0; iy <= gridSteps; iy++) {
+        const my = vp.bounds.yMin + ((vp.bounds.yMax - vp.bounds.yMin) * iy) / gridSteps
+        const [sx, sy] = activePoint.constrain(mx, my)
+        if (
+          Number.isFinite(sx) &&
+          Number.isFinite(sy) &&
+          sx >= vp.bounds.xMin - 1e-6 &&
+          sx <= vp.bounds.xMax + 1e-6 &&
+          sy >= vp.bounds.yMin - 1e-6 &&
+          sy <= vp.bounds.yMax + 1e-6
+        ) {
+          const key = `${Math.round(sx * 100)},${Math.round(sy * 100)}`
+          if (!seen.has(key)) seen.set(key, [sx, sy])
+        }
       }
     }
     return [...seen.values()]

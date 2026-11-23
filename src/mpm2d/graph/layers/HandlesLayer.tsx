@@ -1,4 +1,4 @@
-import type { PointerEvent as ReactPointerEvent } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react'
 import type { GeoScene } from '../../types'
 import type { DraggablePointSpec, GhostPreview, Viewport } from '../math'
 
@@ -45,6 +45,7 @@ export function HandlesLayer({
   mergeNearbyHandles,
   ghost,
   onHandlePointerDown,
+  onHandleKeyDown,
 }: {
   scene: GeoScene
   vp: Viewport
@@ -58,6 +59,7 @@ export function HandlesLayer({
   mergeNearbyHandles: boolean
   ghost?: GhostPreview | null
   onHandlePointerDown: (e: ReactPointerEvent<SVGGElement>, pt: DraggablePointSpec) => void
+  onHandleKeyDown?: (e: ReactKeyboardEvent<SVGGElement>, pt: DraggablePointSpec) => void
 }) {
   const m = vp.scale < 22 ? HANDLE_METRICS.compact : HANDLE_METRICS.regular
   const draggableIds = new Set((draggables ?? []).map(d => d.id))
@@ -359,10 +361,15 @@ export function HandlesLayer({
                 data-point-x={item.pt.x}
                 data-point-y={item.pt.y}
                 className="bg-drag-handle"
+                role="slider"
+                tabIndex={0}
+                aria-label={`Point ${item.pt.label ?? item.pt.id} at (${item.pt.x}, ${item.pt.y}). Use arrow keys to move.`}
+                aria-valuetext={`(${item.pt.x}, ${item.pt.y})`}
                 style={{
                   cursor: isPressed ? 'grabbing' : isOtherDragging ? 'default' : 'grab',
                 }}
                 onPointerDown={e => onHandlePointerDown(e, item.pt)}
+                onKeyDown={e => onHandleKeyDown?.(e, item.pt)}
               >
                 <circle cx={item.x} cy={item.y} r={m.hitRadius} fill="transparent" />
               </g>

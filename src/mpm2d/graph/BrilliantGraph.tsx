@@ -430,6 +430,32 @@ export function BrilliantGraph({
           mergeNearbyHandles={mergeNearbyHandles}
           ghost={ghost}
           onHandlePointerDown={handleHandlePointerDown}
+          onHandleKeyDown={(e, pt) => {
+            if (!onDragPoint) return
+            const step = snapToGrid && snapToGrid > 0 ? snapToGrid : 1
+            let dx = 0
+            let dy = 0
+            if (e.key === 'ArrowLeft') dx = -step
+            else if (e.key === 'ArrowRight') dx = step
+            else if (e.key === 'ArrowUp') dy = step
+            else if (e.key === 'ArrowDown') dy = -step
+            else return
+            e.preventDefault()
+            let nx = pt.x + dx
+            let ny = pt.y + dy
+            if (pt.constrain) {
+              const [cx, cy] = pt.constrain(nx, ny)
+              nx = cx
+              ny = cy
+            } else {
+              nx = Math.max(vp.bounds.xMin, Math.min(vp.bounds.xMax, nx))
+              ny = Math.max(vp.bounds.yMin, Math.min(vp.bounds.yMax, ny))
+            }
+            if (Math.abs(nx - pt.x) > 1e-6 || Math.abs(ny - pt.y) > 1e-6) {
+              onDragPoint(pt.id, nx, ny)
+              onSound?.('grid-snap')
+            }
+          }}
         />
       </svg>
 

@@ -64,7 +64,7 @@ function buildFallbackDemoEntries(): WorkHistoryEntry[] {
   // If the student hasn't answered questions yet, populate a clear preview from Unit 2 lessons so the dial & versioning are immediately interactive
   const l1 = UNIT2_LESSONS[0]
   const l2 = UNIT2_LESSONS[1]
-  const l3 = UNIT2_LESSONS[2]
+  const l3 = UNIT2_LESSONS[3] ?? UNIT2_LESSONS[2]
   const entries: WorkHistoryEntry[] = []
   const now = Date.now()
   if (l1 && l1.pages[2]) {

@@ -113,7 +113,9 @@ export function findActivePrompt(track: SemaTrack | null, t: number): SemaPrompt
       return p
     }
   }
-  return track.prompts[track.prompts.length - 1] ?? null
+  const last = track.prompts[track.prompts.length - 1]
+  if (last && t > last.end + 0.08) return last
+  return null
 }
 
 export function findActiveWordIndex(words: WordTiming[], t: number): number {

@@ -140,9 +140,9 @@ export function AxesLayer({
           </g>
           <text
             x={plotX + plotW + 10}
-            y={xAxisY + 12}
+            y={xAxisY > plotY + plotH - 18 ? xAxisY - 12 : xAxisY + 12}
             textAnchor="end"
-            dominantBaseline="hanging"
+            dominantBaseline={xAxisY > plotY + plotH - 18 ? 'auto' : 'hanging'}
             className="bg-axis-name"
           >
             x
@@ -185,9 +185,9 @@ export function AxesLayer({
             </svg>
           </g>
           <text
-            x={yAxisX - 12}
+            x={yAxisX < plotX + 22 ? yAxisX + 10 : yAxisX - 12}
             y={plotY - 10}
-            textAnchor="end"
+            textAnchor={yAxisX < plotX + 22 ? 'start' : 'end'}
             dominantBaseline="hanging"
             className="bg-axis-name"
           >
