@@ -16,6 +16,7 @@ export type WorksheetField = {
   /** Optional custom extra height if student pulls the bottom edge downward */
   extraHeight: number
   checked: boolean
+  hasInk?: boolean
   isCustom?: boolean
 }
 
@@ -34,7 +35,9 @@ export type WorksheetSpec = {
 type PersistedSheetState = {
   extraHeights: Record<string, number>
   checked: Record<string, boolean>
+  inkFields?: Record<string, boolean>
   customFields: { id: string; title: string }[]
+  updatedAt?: number
 }
 
 const SHEET_PREFIX = 'mpm2d-pen-brilliant-v4:'
@@ -217,12 +220,14 @@ export function loadWorksheetFields(pageKey: string, spec: WorksheetSpec): Works
     saved?.checked && typeof saved.checked === 'object' && !Array.isArray(saved.checked)
       ? saved.checked
       : {}
+  const inkMap = saved?.inkFields ?? {}
   const rawCustoms = Array.isArray(saved?.customFields) ? saved.customFields : []
 
   const base: WorksheetField[] = spec.defaultFields.map(f => ({
     ...f,
     extraHeight: clampExtraHeight(extraHeights[f.id] ?? 0),
     checked: Boolean(checkedMap[f.id]),
+    hasInk: Boolean(inkMap[f.id]),
   }))
 
   const seenIds = new Set(base.map(f => f.id))
@@ -240,6 +245,7 @@ export function loadWorksheetFields(pageKey: string, spec: WorksheetSpec): Works
         subtitle: 'Extra blank page',
         extraHeight: clampExtraHeight(extraHeights[cf.id] ?? 0),
         checked: Boolean(checkedMap[cf.id]),
+        hasInk: Boolean(inkMap[cf.id]),
         isCustom: true,
       }
     })
@@ -251,17 +257,29 @@ export function saveWorksheetFields(pageKey: string, fields: WorksheetField[]) {
   const state: PersistedSheetState = {
     extraHeights: {},
     checked: {},
+    inkFields: {},
     customFields: [],
   }
   for (const f of fields) {
     if (f.extraHeight > 0) state.extraHeights[f.id] = Math.round(f.extraHeight)
     if (f.checked) state.checked[f.id] = true
+    if (f.hasInk) state.inkFields![f.id] = true
     if (f.isCustom) {
       state.customFields.push({ id: f.id, title: f.title })
     }
   }
+  const hasAny =
+    Object.keys(state.extraHeights).length > 0 ||
+    Object.keys(state.checked).length > 0 ||
+    Object.keys(state.inkFields!).length > 0 ||
+    state.customFields.length > 0
   try {
-    localStorage.setItem(SHEET_PREFIX + pageKey, JSON.stringify(state))
+    if (!hasAny) {
+      localStorage.removeItem(SHEET_PREFIX + pageKey)
+    } else {
+      state.updatedAt = Date.now()
+      localStorage.setItem(SHEET_PREFIX + pageKey, JSON.stringify(state))
+    }
   } catch {
     // ignore quota errors
   }

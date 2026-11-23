@@ -154,6 +154,7 @@ function WalkthroughVideoStage({
     if (v.paused || v.ended) {
       if (v.ended) v.currentTime = 0
       v.play().catch(() => {
+        autoMutedRef.current = true
         v.muted = true
         v.play().catch(() => {})
       })
@@ -454,6 +455,7 @@ export function WalkthroughContent({
 
   useEffect(() => {
     setVideoFailed(false)
+    if (!videoSrc) setPlaying(false)
   }, [videoSrc])
   const voiceActive = soundOn && voiceOn
 

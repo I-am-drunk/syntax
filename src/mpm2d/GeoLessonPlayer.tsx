@@ -54,6 +54,7 @@ type LessonResume = {
   pageIndex: number
   pageId?: string
   furthest: number
+  updatedAt?: number
   states?: Record<string, PageRuntime>
   seenExplain?: Record<string, boolean>
 }
@@ -79,7 +80,7 @@ function writeResume(lessonId: string, resume: LessonResume) {
     const map: ResumeMap = raw ? (JSON.parse(raw) as ResumeMap) : {}
     if (resume.pageIndex === 0 && resume.furthest === 0 && !Object.keys(resume.states ?? {}).length) return
     delete map[lessonId]
-    map[lessonId] = resume
+    map[lessonId] = { ...resume, updatedAt: Date.now() }
     localStorage.setItem(RESUME_KEY, JSON.stringify(map))
   } catch {
     // ignore
@@ -413,6 +414,7 @@ export function GeoLessonPlayer({
       setWalkthroughOpen(false)
       setHelpMenuOpen(false)
       setGuidedHintsOpen(false)
+      setWorkedStepIndex(0)
       return
     }
     if (!finished) {
@@ -426,6 +428,7 @@ export function GeoLessonPlayer({
     setWalkthroughOpen(false)
     setHelpMenuOpen(false)
     setGuidedHintsOpen(false)
+    setWorkedStepIndex(0)
   }, [pageIndex])
 
   useEffect(() => {
@@ -436,7 +439,10 @@ export function GeoLessonPlayer({
       }
     }
     const onEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setHelpMenuOpen(false)
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setHelpMenuOpen(false)
+      }
     }
     document.addEventListener('pointerdown', onDown, true)
     window.addEventListener('keydown', onEsc)
@@ -731,8 +737,12 @@ export function GeoLessonPlayer({
   const handleContinue = () => {
     onSound?.('continue')
     if (pageIndex >= allPages.length - 1) {
-      const checkCorrect = lesson.checks.filter(p => states[p.id]?.evaluation === 'correct').length
-      const totalChecks = lesson.checks.length
+      const gradedPages =
+        lesson.checks.length > 0
+          ? lesson.checks
+          : lesson.pages.filter(p => isInteractivePage(p, false))
+      const checkCorrect = gradedPages.filter(p => states[p.id]?.evaluation === 'correct').length
+      const totalChecks = gradedPages.length
       const missedCheckIds = lesson.checks
         .filter(p => states[p.id]?.evaluation !== 'correct')
         .map(p => p.id)
@@ -856,14 +866,12 @@ export function GeoLessonPlayer({
   }
 
   if (finished) {
-    const checkCorrect =
+    const gradedPages =
       lesson.checks.length > 0
-        ? lesson.checks.filter(p => states[p.id]?.evaluation === 'correct').length
-        : lesson.pages.filter(p => isInteractivePage(p, penOpen) && states[p.id]?.evaluation === 'correct').length
-    const totalChecks =
-      lesson.checks.length > 0
-        ? lesson.checks.length
-        : lesson.pages.filter(p => isInteractivePage(p, penOpen)).length
+        ? lesson.checks
+        : lesson.pages.filter(p => isInteractivePage(p, false))
+    const checkCorrect = gradedPages.filter(p => states[p.id]?.evaluation === 'correct').length
+    const totalChecks = gradedPages.length
 
     return (
       <GeoCompletion
@@ -1071,26 +1079,34 @@ export function GeoLessonPlayer({
                     <strong>{guidedHintsOpen ? 'Hide guided hints' : 'Guided hints & components'}</strong>
                     <span>See the formulas and setup steps without spoiling the answer.</span>
                   </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="lesson-help-item"
-                    onClick={() => {
-                      setHelpMenuOpen(false)
-                      if (penOpen && formulasOpen) onCloseFormulas()
-                      if (walkthroughSpec) {
-                        if (explanationOpen) setExplanationOpen(false)
-                        setWalkthroughOpen(true)
-                      } else if (activeExplanation) {
-                        setExplanationOpen(true)
-                      }
-                      setSeenExplain(prev => ({ ...prev, [page.id]: true }))
-                      onSound?.('lightweight-choice')
-                    }}
-                  >
-                    <strong>Full solution walkthrough</strong>
-                    <span>Watch Sema walk through the complete worked solution.</span>
-                  </button>
+                  {(walkthroughSpec || activeExplanation) && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="lesson-help-item"
+                      onClick={() => {
+                        setHelpMenuOpen(false)
+                        if (penOpen && formulasOpen) onCloseFormulas()
+                        if (walkthroughSpec) {
+                          if (explanationOpen) setExplanationOpen(false)
+                          setWalkthroughOpen(true)
+                        } else if (activeExplanation) {
+                          setExplanationOpen(true)
+                        }
+                        setSeenExplain(prev => ({ ...prev, [page.id]: true }))
+                        onSound?.('lightweight-choice')
+                      }}
+                    >
+                      <strong>
+                        {walkthroughSpec ? 'Full solution walkthrough' : 'View full explanation'}
+                      </strong>
+                      <span>
+                        {walkthroughSpec
+                          ? 'Watch Sema walk through the complete worked solution.'
+                          : 'Read the complete step-by-step worked solution.'}
+                      </span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -1620,6 +1636,7 @@ export function GeoLessonPlayer({
                               <button
                                 key={i}
                                 type="button"
+                                aria-current={i === state.readStep ? 'step' : undefined}
                                 className={`br-read-step${i === state.readStep ? ' is-current' : ''}`}
                                 onClick={() => patchState(page.id, { readStep: i })}
                               >

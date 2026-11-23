@@ -264,6 +264,8 @@ export function PenCanvasWorkspace({
   )
   const sheetHeightRef = useRef(sheetHeight)
   sheetHeightRef.current = sheetHeight
+  const activeFieldIdRef = useRef(activeField.id)
+  activeFieldIdRef.current = activeField.id
 
   const stepPersistenceKey = `mpm2d-pen-br-v4:${pageKey}:${activeField.id}`
 
@@ -397,7 +399,7 @@ export function PenCanvasWorkspace({
     const editor = editorRef.current
     const vp = viewportRef.current
     if (!editor || !vp) return
-    const fitZoom = Math.max(0.4, vp.clientWidth / SHEET_WIDTH)
+    const fitZoom = Math.max(0.25, vp.clientWidth / SHEET_WIDTH)
     editor.setCamera({ x: 0, y: 0, z: fitZoom }, { animation: { duration: 180 } })
   }, [])
 
@@ -426,6 +428,12 @@ export function PenCanvasWorkspace({
     editor.deleteShapes(ids)
     editor.setCurrentTool('draw')
     setActiveTool('draw')
+    const clearedId = activeFieldIdRef.current
+    setFields(prev =>
+      prev.some(f => f.id === clearedId && f.hasInk)
+        ? prev.map(f => (f.id === clearedId ? { ...f, hasInk: false } : f))
+        : prev,
+    )
     onSound?.('toggle-on')
   }, [onSound])
 
@@ -578,11 +586,20 @@ export function PenCanvasWorkspace({
       setHasInk(false)
       setIsStroking(false)
 
+      const mountedFieldId = activeFieldIdRef.current
       let prevTool = editor.getCurrentToolId()
       let previousUndo = false
       let previousRedo = false
       let previousHasInk = false
-      const syncFromEditor = () => {
+      const syncFieldInk = (hasInkNow: boolean, allowClear: boolean) => {
+        if (!hasInkNow && !allowClear) return
+        setFields(prev => {
+          const cur = prev.find(f => f.id === mountedFieldId)
+          if (!cur || Boolean(cur.hasInk) === hasInkNow) return prev
+          return prev.map(f => (f.id === mountedFieldId ? { ...f, hasInk: hasInkNow } : f))
+        })
+      }
+      const syncFromEditor = (allowClearInk = false) => {
         const canUndoNow = editor.getCanUndo()
         const canRedoNow = editor.getCanRedo()
         const hasInkNow = editor.getCurrentPageShapeIds().size > 0
@@ -597,6 +614,9 @@ export function PenCanvasWorkspace({
         if (hasInkNow !== previousHasInk) {
           previousHasInk = hasInkNow
           setHasInk(hasInkNow)
+          syncFieldInk(hasInkNow, allowClearInk)
+        } else if (hasInkNow) {
+          syncFieldInk(true, false)
         }
         const t = editor.getCurrentToolId()
         if (t !== prevTool) {
@@ -614,19 +634,22 @@ export function PenCanvasWorkspace({
         }
       }
 
-      const unsubStore = editor.store.listen(syncFromEditor, { scope: 'all' })
+      const unsubStore = editor.store.listen(
+        entry => syncFromEditor(entry.source === 'user'),
+        { scope: 'all' },
+      )
       const onEditorEvent = (ev: { name: string; button?: number }) => {
         if (ev.name === 'pointer_down' && ev.button === 0) {
           setIsStroking(true)
           setCanvasPointerEpoch(n => n + 1)
         } else if (ev.name === 'pointer_up' || ev.name === 'cancel') {
           setIsStroking(false)
-          syncFromEditor()
+          syncFromEditor(true)
         }
       }
       editor.on('event', onEditorEvent)
 
-      syncFromEditor()
+      syncFromEditor(false)
 
       return () => {
         cancelAnimationFrame(rafFit)

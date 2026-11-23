@@ -139,24 +139,32 @@ export function recordWorkHistoryVersion(params: {
   }
 }
 
-function sheetStateHasWork(raw: string | null): boolean {
-  if (!raw) return false
+function parseSheetWorkMeta(raw: string | null): { hasWork: boolean; updatedAt: number } {
+  if (!raw) return { hasWork: false, updatedAt: 0 }
   try {
     const parsed = JSON.parse(raw) as {
       checked?: Record<string, boolean>
+      inkFields?: Record<string, boolean>
       customFields?: unknown[]
       extraHeights?: Record<string, number>
+      updatedAt?: number
     }
-    if (!parsed || typeof parsed !== 'object') return false
-    if (Array.isArray(parsed.customFields) && parsed.customFields.length > 0) return true
-    if (parsed.checked && Object.values(parsed.checked).some(Boolean)) return true
+    if (!parsed || typeof parsed !== 'object') return { hasWork: false, updatedAt: 0 }
+    const ts = typeof parsed.updatedAt === 'number' && Number.isFinite(parsed.updatedAt) ? parsed.updatedAt : 0
+    if (parsed.inkFields && Object.values(parsed.inkFields).some(Boolean)) return { hasWork: true, updatedAt: ts }
+    if (Array.isArray(parsed.customFields) && parsed.customFields.length > 0) return { hasWork: true, updatedAt: ts }
+    if (parsed.checked && Object.values(parsed.checked).some(Boolean)) return { hasWork: true, updatedAt: ts }
     if (parsed.extraHeights && Object.values(parsed.extraHeights).some(v => typeof v === 'number' && v > 0)) {
-      return true
+      return { hasWork: true, updatedAt: ts }
     }
-    return false
+    return { hasWork: false, updatedAt: 0 }
   } catch {
-    return false
+    return { hasWork: false, updatedAt: 0 }
   }
+}
+
+function sheetStateHasWork(raw: string | null): boolean {
+  return parseSheetWorkMeta(raw).hasWork
 }
 
 export function detectPenInkForPage(lessonId: string, pageId: string): boolean {
@@ -179,13 +187,13 @@ function mergeWithLiveStorage(existing: WorkHistoryEntry[]): WorkHistoryEntry[] 
   const byId = new Map<string, WorkHistoryEntry>()
   for (const e of existing) {
     if (!e || typeof e !== 'object' || !e.id) continue
-    // Refresh hasPenInk on latest version if user sketched after submitting
+    // Refresh hasPenInk on latest version if user sketched or cleared ink after submitting
     const penNow = detectPenInkForPage(e.lessonId, e.pageId)
-    if (penNow && Array.isArray(e.versions) && e.versions.length > 0) {
+    if (Array.isArray(e.versions) && e.versions.length > 0) {
       const last = e.versions[e.versions.length - 1]!
-      if (!last.hasPenInk) {
+      if (Boolean(last.hasPenInk) !== penNow) {
         const updatedVersions = e.versions.slice()
-        updatedVersions[updatedVersions.length - 1] = { ...last, hasPenInk: true }
+        updatedVersions[updatedVersions.length - 1] = { ...last, hasPenInk: penNow }
         byId.set(e.id, { ...e, versions: updatedVersions })
         continue
       }
@@ -277,9 +285,13 @@ function mergeWithLiveStorage(existing: WorkHistoryEntry[]): WorkHistoryEntry[] 
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i)
       if (!k || !k.startsWith('mpm2d-pen-brilliant-v4:')) continue
-      if (!sheetStateHasWork(localStorage.getItem(k))) continue
+      const meta = parseSheetWorkMeta(localStorage.getItem(k))
+      if (!meta.hasWork) continue
       const rest = k.slice('mpm2d-pen-brilliant-v4:'.length)
-      const [lessonId, pageId] = rest.split(':')
+      const sepIdx = rest.indexOf(':')
+      if (sepIdx <= 0) continue
+      const lessonId = rest.slice(0, sepIdx)
+      const pageId = rest.slice(sepIdx + 1)
       if (!lessonId || !pageId) continue
       const entryId = `${lessonId}:${pageId}`
       if (byId.has(entryId)) continue
@@ -302,12 +314,12 @@ function mergeWithLiveStorage(existing: WorkHistoryEntry[]): WorkHistoryEntry[] 
         isCheck,
         promptSnippet: cleanPrompt(pg.prompt),
         category: 'scratchpad',
-        latestTimestamp: 0,
+        latestTimestamp: meta.updatedAt,
         versions: [
           {
             versionId: `${entryId}:v1`,
             versionNum: 1,
-            timestamp: 0,
+            timestamp: meta.updatedAt,
             answerSummary: 'Handwritten Pen Studio Scratchpad & Steps',
             evaluation: 'scratchpad',
             hasPenInk: true,

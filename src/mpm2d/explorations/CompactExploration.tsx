@@ -332,6 +332,7 @@ function MedianCompact({ onSound }: { onSound?: SoundFn }) {
   const medLine = lineFromPoints(c, m)
   const dx = c[0] - m[0]
   const dy = c[1] - m[1]
+  const validMedian = Math.hypot(dx, dy) > 1e-6
 
   const scene: GeoScene = {
     xMin: -7,
@@ -343,7 +344,7 @@ function MedianCompact({ onSound }: { onSound?: SoundFn }) {
       { from: a, to: m, color: 'teal', ticks: 1 },
       { from: m, to: b, color: 'teal', ticks: 1 },
     ],
-    lines: [{ ...medLine, color: 'amber', label: 'Median CM' }],
+    lines: validMedian ? [{ ...medLine, color: 'amber', label: 'Median CM' }] : [],
     points: [
       { id: 'M', x: m[0], y: m[1], label: 'M', showCoords: true, color: 'teal', emphasis: true },
     ],
@@ -379,7 +380,7 @@ function MedianCompact({ onSound }: { onSound?: SoundFn }) {
         </div>
         <div className="geo-stat-chip is-amber">
           <span>Slope of median CM</span>
-          <strong>{fmtFrac(dy, dx)}</strong>
+          <strong>{validMedian ? fmtFrac(dy, dx) : 'C is on M'}</strong>
         </div>
       </div>
     </div>
@@ -412,9 +413,9 @@ function LengthCircleCompact({ onSound }: { onSound?: SoundFn }) {
           xMax: 7,
           yMin: -7,
           yMax: 7,
-          circles: [{ cx: 0, cy: 0, r: Math.sqrt(rSq), color: 'blue' }],
-          riseRuns: [{ from: [0, 0], to: p, dim: true, showLabels: false }],
-          segments: [{ from: [0, 0], to: p, color: 'teal', label: `r = √${rSq}` }],
+          circles: rSq > 0 ? [{ cx: 0, cy: 0, r: Math.sqrt(rSq), color: 'blue' }] : [],
+          riseRuns: rSq > 0 ? [{ from: [0, 0], to: p, dim: true, showLabels: false }] : [],
+          segments: rSq > 0 ? [{ from: [0, 0], to: p, color: 'teal', label: `r = √${rSq}` }] : [],
           points: [{ id: 'O', x: 0, y: 0, label: 'O', color: 'ink' }],
         }
 
@@ -671,12 +672,14 @@ function ThreeLinesCompact({ onSound }: { onSound?: SoundFn }) {
       { from: m, to: c, color: 'teal', ticks: 1, dim: true, group: 'median' },
     ],
     lines: [
-      { ...medLine, color: 'teal', label: 'Median', group: 'median' },
+      ...(Math.hypot(a[0] - m[0], a[1] - m[1]) > 1e-6
+        ? [{ ...medLine, color: 'teal' as const, label: 'Median', group: 'median' }]
+        : []),
       { ...altLine, color: 'amber', label: 'Altitude', group: 'altitude' },
       { ...rbLine, color: 'violet', dashed: true, label: 'Right Bisector', group: 'rb' },
     ],
     rightAngles: [
-      ...(altFoot
+      ...(altFoot && !isCollinear
         ? [
             {
               vertex: altFoot,
@@ -726,30 +729,35 @@ function ThreeLinesCompact({ onSound }: { onSound?: SoundFn }) {
         />
       </div>
       <div className="geo-chip-bar">
-        <div
-          className="geo-stat-chip is-teal"
-          onPointerEnter={() => setChipFocus('median')}
-          onPointerLeave={() => setChipFocus(null)}
-        >
-          <span>Median</span>
-          <strong>A to midpoint M</strong>
-        </div>
-        <div
-          className="geo-stat-chip is-amber"
-          onPointerEnter={() => setChipFocus('altitude')}
-          onPointerLeave={() => setChipFocus(null)}
-        >
-          <span>Altitude</span>
-          <strong>A at 90° to BC</strong>
-        </div>
-        <div
-          className="geo-stat-chip is-violet"
-          onPointerEnter={() => setChipFocus('rb')}
-          onPointerLeave={() => setChipFocus(null)}
-        >
-          <span>Right Bisector</span>
-          <strong>M at 90° (ignores A)</strong>
-        </div>
+        {(
+          [
+            { id: 'median', cls: 'is-teal', label: 'Median', detail: 'A to midpoint M' },
+            { id: 'altitude', cls: 'is-amber', label: 'Altitude', detail: 'A at 90° to BC' },
+            { id: 'rb', cls: 'is-violet', label: 'Right Bisector', detail: 'M at 90° (ignores A)' },
+          ] as const
+        ).map(chip => (
+          <div
+            key={chip.id}
+            role="button"
+            tabIndex={0}
+            aria-pressed={chipFocus === chip.id}
+            className={`geo-stat-chip ${chip.cls}`}
+            onPointerEnter={() => setChipFocus(chip.id)}
+            onPointerLeave={() => setChipFocus(null)}
+            onFocus={() => setChipFocus(chip.id)}
+            onBlur={() => setChipFocus(null)}
+            onClick={() => setChipFocus(prev => (prev === chip.id ? null : chip.id))}
+            onKeyDown={e => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                setChipFocus(prev => (prev === chip.id ? null : chip.id))
+              }
+            }}
+          >
+            <span>{chip.label}</span>
+            <strong>{chip.detail}</strong>
+          </div>
+        ))}
       </div>
     </div>
   )

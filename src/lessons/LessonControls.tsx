@@ -32,8 +32,8 @@ export function LessonNavigation({ page, total, furthest, xp, closeHref, onNavig
       <button className="lesson-page-arrow" type="button" aria-label="Previous page" disabled={page === 0}
         onClick={() => onNavigate(-1)}><Arrow /></button>
       <div className="lesson-progress-track" role="progressbar" aria-label="Lesson progress"
-        aria-valuemin={0} aria-valuemax={total - 1} aria-valuenow={page}>
-        <div style={{ width: `${page / (total - 1) * 100}%` }} />
+        aria-valuemin={0} aria-valuemax={Math.max(1, total - 1)} aria-valuenow={page}>
+        <div style={{ width: `${total <= 1 ? 100 : (page / (total - 1)) * 100}%` }} />
       </div>
       </>}
       <div className="lesson-check-progress" aria-label={checkIndex === undefined ? undefined : `Check ${checkIndex + 1} of ${checkEvaluations?.length ?? 3}`}>

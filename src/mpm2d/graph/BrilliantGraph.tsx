@@ -139,7 +139,7 @@ export function BrilliantGraph({
     e: ReactPointerEvent<SVGGElement>,
     pt: DraggablePointSpec,
   ) => {
-    if (mode !== 'interactive') return
+    if (mode !== 'interactive' || e.button !== 0 || dragSessionRef.current) return
     e.stopPropagation()
     e.preventDefault()
 
@@ -178,6 +178,7 @@ export function BrilliantGraph({
 
     const session = dragSessionRef.current
     if (session && pressedId === session.id) {
+      if (e.pointerId !== session.pointerId) return
       const pt = draggablePoints?.find(d => d.id === session.id)
       if (!pt) return
 
@@ -318,9 +319,10 @@ export function BrilliantGraph({
     }
   }
 
-  const endDrag = () => {
+  const endDrag = (e?: ReactPointerEvent<SVGSVGElement>) => {
     const session = dragSessionRef.current
     if (!session) return
+    if (e && e.pointerId !== session.pointerId) return
     try {
       svgRef.current?.releasePointerCapture(session.pointerId)
     } catch {
@@ -364,6 +366,7 @@ export function BrilliantGraph({
         onPointerMove={handleSvgPointerMove}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
+        onLostPointerCapture={endDrag}
         onPointerLeave={handleSvgPointerLeave}
       >
         <defs>

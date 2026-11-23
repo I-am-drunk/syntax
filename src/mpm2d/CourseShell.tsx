@@ -277,7 +277,10 @@ export function CourseShell() {
       }
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setFilterOpen(false)
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setFilterOpen(false)
+      }
     }
     window.addEventListener('pointerdown', onDown)
     window.addEventListener('keydown', onKey)
@@ -333,6 +336,7 @@ export function CourseShell() {
     }
 
     measure()
+    syncNavFromScroll()
     scroller.addEventListener('scroll', onScroll, { passive: true })
     window.addEventListener('resize', onResize, { passive: true })
     return () => {

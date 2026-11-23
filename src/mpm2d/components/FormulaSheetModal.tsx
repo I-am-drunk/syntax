@@ -310,13 +310,33 @@ export function FormulaSheetContent({
         </header>
       )}
 
-      <div className="fm-tabs" role="tablist" aria-label="Formula categories">
+      <div
+        className="fm-tabs"
+        role="tablist"
+        aria-label="Formula categories"
+        onKeyDown={e => {
+          const idx = TABS.findIndex(item => item.id === tab)
+          let nextIdx = -1
+          if (e.key === 'ArrowRight') nextIdx = (idx + 1) % TABS.length
+          else if (e.key === 'ArrowLeft') nextIdx = (idx - 1 + TABS.length) % TABS.length
+          else if (e.key === 'Home') nextIdx = 0
+          else if (e.key === 'End') nextIdx = TABS.length - 1
+          if (nextIdx >= 0) {
+            e.preventDefault()
+            const next = TABS[nextIdx]!
+            setTab(next.id)
+            const tabs = e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]')
+            tabs[nextIdx]?.focus()
+          }
+        }}
+      >
         {TABS.map(t => (
           <button
             key={t.id}
             id={`fm-tab-${t.id}`}
             type="button"
             role="tab"
+            tabIndex={tab === t.id ? 0 : -1}
             aria-selected={tab === t.id}
             aria-controls={`fm-panel-${t.id}`}
             className={`fm-tab${tab === t.id ? ' is-active' : ''}`}
@@ -631,16 +651,17 @@ export function FormulaSheetModal({
   }, [])
 
   useEffect(() => {
-    if (!open) return
+    if (!open || (dockable && canDockViewport && floating) || !(dockable && canDockViewport)) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !e.defaultPrevented) {
+        if (document.querySelector('[role="dialog"], [role="menu"]')) return
         e.preventDefault()
         onClose()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+  }, [open, dockable, canDockViewport, floating, onClose])
 
   if (!open) return null
 

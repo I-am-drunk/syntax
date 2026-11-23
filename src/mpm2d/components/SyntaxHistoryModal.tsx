@@ -193,17 +193,25 @@ export function SyntaxHistoryPage({
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  const filteredEntries = useMemo(() => {
-    if (filter === 'all') return rawEntries
-    return rawEntries.filter(e => e.category === filter)
-  }, [rawEntries, filter])
+  const matchesHistoryFilter = useCallback((entry: WorkHistoryEntry, cat: WorkHistoryCategory) => {
+    if (cat === 'all') return true
+    if (cat === 'scratchpad') {
+      return entry.category === 'scratchpad' || entry.versions.some(v => v.hasPenInk)
+    }
+    return entry.category === cat
+  }, [])
+
+  const filteredEntries = useMemo(
+    () => rawEntries.filter(e => matchesHistoryFilter(e, filter)),
+    [rawEntries, filter, matchesHistoryFilter],
+  )
 
   // Continuous wheel notch angle / index (supports infinite wrap-around scrolling with tick-tick-tick detents!)
   const [wheelNotch, setWheelNotch] = useState(0)
   const [selectedVerIdx, setSelectedVerIdx] = useState<Record<string, number>>({})
   const filterStripRef = useRef<HTMLDivElement>(null)
   const wheelColRef = useRef<HTMLDivElement>(null)
-  const wheelDragRef = useRef<{ startY: number; startNotch: number; lastIntNotch: number } | null>(null)
+  const wheelDragRef = useRef<{ pointerId: number; startY: number; startNotch: number; lastIntNotch: number } | null>(null)
   const wheelAccumRef = useRef(0)
 
   const count = filteredEntries.length
@@ -255,7 +263,7 @@ export function SyntaxHistoryPage({
   }, [count, stepWheelBy])
 
   const onWheelPointerDown = (e: React.PointerEvent) => {
-    if (count <= 1) return
+    if (e.button !== 0 || count <= 1) return
     e.preventDefault()
     try {
       ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
@@ -263,6 +271,7 @@ export function SyntaxHistoryPage({
       // ignore
     }
     wheelDragRef.current = {
+      pointerId: e.pointerId,
       startY: e.clientY,
       startNotch: wheelNotch,
       lastIntNotch: wheelNotch,
@@ -271,7 +280,7 @@ export function SyntaxHistoryPage({
 
   const onWheelPointerMove = (e: React.PointerEvent) => {
     const d = wheelDragRef.current
-    if (!d || count <= 1) return
+    if (!d || d.pointerId !== e.pointerId || count <= 1) return
     const dy = d.startY - e.clientY
     const rawNotch = d.startNotch + Math.round(dy / 22)
     if (rawNotch !== d.lastIntNotch) {
@@ -282,7 +291,8 @@ export function SyntaxHistoryPage({
     }
   }
 
-  const onWheelPointerUp = () => {
+  const onWheelPointerUp = (e: React.PointerEvent) => {
+    if (wheelDragRef.current && wheelDragRef.current.pointerId !== e.pointerId) return
     wheelDragRef.current = null
   }
 
@@ -369,10 +379,7 @@ export function SyntaxHistoryPage({
             <div className="syntax-history-filter-track" ref={filterStripRef}>
               {FILTER_TABS.map(tab => {
                 const active = filter === tab.id
-                const tabCount =
-                  tab.id === 'all'
-                    ? rawEntries.length
-                    : rawEntries.filter(e => e.category === tab.id).length
+                const tabCount = rawEntries.filter(e => matchesHistoryFilter(e, tab.id)).length
                 return (
                   <button
                     key={tab.id}

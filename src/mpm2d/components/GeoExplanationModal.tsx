@@ -67,6 +67,7 @@ export function GeoExplanationContent({
         e.preventDefault()
         setIndex(i => Math.max(0, i - 1))
       } else if (e.key === 'Escape' && inline) {
+        e.preventDefault()
         onClose()
       }
     }

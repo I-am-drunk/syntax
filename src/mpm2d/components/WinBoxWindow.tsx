@@ -180,11 +180,28 @@ export function WinBoxWindow({
       attributeFilter: ['data-theme'],
     })
 
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      const myDom = boxRef.current?.dom as HTMLElement | undefined
+      if (!myDom) return
+      // Only let the highest-z visible WinBox handle Escape when multiple are open
+      const myZ = Number(window.getComputedStyle(myDom).zIndex) || 0
+      const allBoxes = Array.from(document.querySelectorAll<HTMLElement>('.winbox'))
+      const topZ = allBoxes.reduce((max, el) => Math.max(max, Number(window.getComputedStyle(el).zIndex) || 0), 0)
+      if (myZ < topZ) return
+      // Do not close if a menu or nested dialog outside this WinBox is active
+      if (document.querySelector('[role="menu"]')) return
+      e.preventDefault()
+      onCloseRef.current()
+    }
+
     window.addEventListener('resize', handleViewportResize)
+    window.addEventListener('keydown', handleKeyDown)
 
     return () => {
       cleanupSlotListeners?.()
       window.removeEventListener('resize', handleViewportResize)
+      window.removeEventListener('keydown', handleKeyDown)
       themeObserver.disconnect()
       closingProgrammaticallyRef.current = true
       setMountNode(null)

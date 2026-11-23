@@ -462,8 +462,8 @@ export function DivergingLevelPath({
               }}
               type="button"
               className={`br-node-btn${isSelected ? ' is-selected' : ''}${item.compact ? ' is-compact' : ''}`}
-              aria-pressed={isSelected}
-              aria-label={item.title}
+              aria-pressed={item.isTrophy ? undefined : isSelected}
+              aria-label={item.isTrophy ? `${item.title}: ${item.ctaLabel}` : item.title}
               onClick={e => {
                 e.stopPropagation()
                 if (item.isTrophy) {

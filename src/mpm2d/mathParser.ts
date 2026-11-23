@@ -70,6 +70,75 @@ function fmtFeedbackNum(n: number): string {
   return String(rounded)
 }
 
+/**
+ * Converts "^" to "**" while wrapping unary minus before an exponentiation base
+ * so expressions like "-3^2", "-(3)^2", "-3^(2)", "-x^2" become valid JS
+ * ("-(3**2)", "-((3)**2)", "-(3**(2))", "-(x**2)").
+ */
+function wrapUnaryNegPowers(expr: string): string {
+  const findMatchingClose = (str: string, openIdx: number): number => {
+    let depth = 0
+    for (let i = openIdx; i < str.length; i++) {
+      if (str[i] === '(') depth++
+      else if (str[i] === ')') {
+        depth--
+        if (depth === 0) return i
+      }
+    }
+    return -1
+  }
+
+  let out = expr
+  let i = 0
+  while (i < out.length) {
+    if (out[i] === '-' && (i === 0 || '+(*/,-^'.includes(out[i - 1]!))) {
+      // Parse the base immediately following the unary minus
+      let baseEnd = i + 1
+      if (out.startsWith('sqrt(', baseEnd)) {
+        const close = findMatchingClose(out, baseEnd + 4)
+        if (close !== -1) baseEnd = close + 1
+      } else if (out[baseEnd] === '(') {
+        const close = findMatchingClose(out, baseEnd)
+        if (close !== -1) baseEnd = close + 1
+      } else {
+        while (baseEnd < out.length && /[0-9.xy]/.test(out[baseEnd]!)) baseEnd++
+      }
+
+      if (baseEnd > i + 1 && out[baseEnd] === '^') {
+        // Parse the exponent chain (right-associative, may start with unary +/- and use parens or sqrt)
+        let expEnd = baseEnd + 1
+        while (expEnd < out.length) {
+          if (out[expEnd] === '+' || out[expEnd] === '-') expEnd++
+          if (out.startsWith('sqrt(', expEnd)) {
+            const close = findMatchingClose(out, expEnd + 4)
+            if (close === -1) break
+            expEnd = close + 1
+          } else if (out[expEnd] === '(') {
+            const close = findMatchingClose(out, expEnd)
+            if (close === -1) break
+            expEnd = close + 1
+          } else {
+            const startDigits = expEnd
+            while (expEnd < out.length && /[0-9.xy]/.test(out[expEnd]!)) expEnd++
+            if (expEnd === startDigits) break
+          }
+          if (out[expEnd] === '^') {
+            expEnd++
+            continue
+          }
+          break
+        }
+        const inner = out.slice(i + 1, expEnd)
+        out = out.slice(0, i) + '-(' + inner + ')' + out.slice(expEnd)
+        i += 2
+        continue
+      }
+    }
+    i++
+  }
+  return out.replace(/\^/g, '**')
+}
+
 function normalizeSymbols(s: string): string {
   return s
     .trim()
@@ -140,12 +209,8 @@ export function parseNumberExpr(input: string): ParsedNumber | null {
   const stripped = expr.replace(/sqrt/g, '')
   if (!/^[0-9.+\-*/()^]+$/.test(stripped)) return null
 
-  // Rewrite unary minus before exponent (e.g. -3^2 -> -(3**2)) for valid JS
-  const jsExpr = expr
-    .replace(/sqrt\(/g, 'Math.sqrt(')
-    .replace(/(^|[+(*/,-])-(\d+(?:\.\d+)?|\([^()]+\))\^/g, '$1-($2**')
-    .replace(/\^/g, '**')
-    .replace(/-\(([^()]+\*\*\d+(?:\.\d+)?)(?!\))/g, '-($1)')
+  // Rewrite unary minus before exponent (e.g. -3^2 -> -(3**2), -(2+1)^2 -> -((2+1)**2), -3^(2) -> -(3**(2))) for valid JS
+  const jsExpr = wrapUnaryNegPowers(expr).replace(/sqrt\(/g, 'Math.sqrt(')
 
   try {
     // eslint-disable-next-line no-new-func
@@ -241,7 +306,7 @@ function parseLinearSide(side: string): { a: number; b: number; c: number } | nu
 }
 
 export function parseLineExpr(input: string): ParsedLine | null {
-  const s = normalizeSymbols(input)
+  const s = normalizeSymbols(input).replace(/\bf\s*\(\s*x\s*\)/gi, 'y')
   const parts = s.split('=')
   if (parts.length !== 2) return null
   const lhs = parseLinearSide(parts[0])
@@ -274,17 +339,22 @@ export function parseCircleExpr(input: string): ParsedCircle | null {
   const [lhs, rhs] = parts
   if (!lhs || !rhs) return null
   const prep = (rawSide: string): string | null => {
-    if (/[^0-9xy.+\-*/()^]/.test(rawSide)) return null
     let e = rawSide
+      .replace(/√\s*\(/g, 'sqrt(')
+      .replace(/√\s*([0-9]+(?:\.[0-9]+)?)/g, 'sqrt($1)')
+      .replace(/sqrt\s+([0-9]+(?:\.[0-9]+)?)/g, 'sqrt($1)')
+    const stripped = e.replace(/sqrt/g, '')
+    if (/[^0-9xy.+\-*/()^]/.test(stripped)) return null
+    e = e
+      .replace(/(\d|\)|[xy])(sqrt\()/g, '$1*$2')
       .replace(/\)\(/g, ')*(')
       .replace(/(\d|\))([xy])/g, '$1*$2')
       .replace(/([xy])(\d|\()/g, '$1*$2')
       .replace(/(\d)\(/g, '$1*(')
-      .replace(/\^/g, '**')
     while (/[+-]{2}/.test(e)) {
       e = e.replace(/--/g, '+').replace(/\+\+/g, '+').replace(/\+-|-\+/g, '-')
     }
-    return e
+    return wrapUnaryNegPowers(e).replace(/sqrt\(/g, 'Math.sqrt(')
   }
   const eL = prep(lhs)
   const eR = prep(rhs)
@@ -557,9 +627,15 @@ export function gradeAnswer(raw: string, spec: StepAnswerSpec): GradeResult {
       return { correct: true }
     }
     if (Math.abs(parsed.rSquared - spec.expectedRadius) < 1e-3) {
+      const rSqHint =
+        Math.abs(spec.expectedRadius - Math.round(spec.expectedRadius)) < 1e-6
+          ? `${Math.round(spec.expectedRadius)}²`
+          : Math.abs(targetR2 - Math.round(targetR2)) < 1e-4
+            ? `(√${Math.round(targetR2)})²`
+            : `${fmtFeedbackNum(spec.expectedRadius)}²`
       return {
         correct: false,
-        feedback: `Almost! Remember the formula is x² + y² = r², so you need to square the radius (${spec.expectedRadius}²).`,
+        feedback: `Almost! Remember the formula is x² + y² = r², so you need to square the radius: ${rSqHint}.`,
       }
     }
     return {

@@ -94,8 +94,14 @@ export function stampCoordinateAxes(editor: Editor) {
   const vp = editor.getViewportPageBounds()
   const bump = (axesStampSeq++ % 4) * 26
   const arm = 96
-  const cx = Math.max(vp.x + arm + 32, Math.min(vp.maxX - arm - 32, vp.x + vp.w * 0.5 + bump - 30))
-  const cy = Math.max(vp.y + arm + 110, Math.min(vp.maxY - arm - 36, vp.y + Math.max(210, vp.h * 0.42) + bump))
+  const minCx = vp.x + arm + 32
+  const maxCx = vp.maxX - arm - 32
+  const targetCx = vp.x + vp.w * 0.5 + bump - 30
+  const cx = minCx <= maxCx ? Math.max(minCx, Math.min(maxCx, targetCx)) : vp.x + vp.w * 0.5
+  const minCy = vp.y + arm + 110
+  const maxCy = vp.maxY - arm - 36
+  const targetCy = vp.y + Math.max(210, vp.h * 0.42) + bump
+  const cy = minCy <= maxCy ? Math.max(minCy, Math.min(maxCy, targetCy)) : vp.y + vp.h * 0.5
 
   editor.run(() => {
     editor.markHistoryStoppingPoint('stamp-axes')

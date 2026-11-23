@@ -175,6 +175,7 @@ export function PenBrilliantChrome({
     if (!openMenu) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        e.preventDefault()
         setOpenMenu(null)
         setConfirmClear(false)
       }
@@ -489,6 +490,7 @@ export function PenBrilliantChrome({
               <button
                 type="button"
                 className="pen-br-pop-row is-danger"
+                disabled={!hasInk}
                 onClick={() => setConfirmClear(true)}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -852,7 +854,8 @@ export function PenStepFooter({
           </svg>
         </button>
 
-        <div className="pen-br-step-pills" role="tablist" aria-label="Equation steps">
+        <div className="pen-br-step-pills">
+          <div className="pen-br-step-pills" role="tablist" aria-label="Equation steps" style={{ padding: 0, gap: "inherit" }}>
           {checkedSteps.map((isDone, idx) => {
             const isCustom = Boolean(isCustomSteps[idx])
             const stableKey = stepIds[idx] ?? `step-${idx}`
@@ -906,6 +909,7 @@ export function PenStepFooter({
             )
           })}
 
+          </div>
           <button
             type="button"
             className="pen-br-step-add"

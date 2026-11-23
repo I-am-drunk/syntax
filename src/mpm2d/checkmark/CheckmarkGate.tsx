@@ -271,6 +271,7 @@ export function CheckmarkGate({
   // Pointer handlers on the footer checkmark pad itself (always drawable in Draw Mode)
   const onGatePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 && e.pointerType === 'mouse') return
+    if (activePointerRef.current !== null) return
     e.preventDefault()
     e.stopPropagation()
     cancelStillnessHold()
@@ -342,7 +343,7 @@ export function CheckmarkGate({
 
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0 && e.pointerType === 'mouse') return
-      if (activePointerRef.current !== null) return
+      if (activePointerRef.current !== null || screenPtrId !== null) return
       if (isExcludedTarget(e.target)) return
       const container = screenGestureContainerRef?.current
       if (container && (!(e.target instanceof Node) || !container.contains(e.target))) {
@@ -433,6 +434,7 @@ export function CheckmarkGate({
         onPointerMove={onGatePointerMove}
         onPointerUp={onGatePointerUp}
         onPointerCancel={onGatePointerCancel}
+        onLostPointerCapture={onGatePointerCancel}
       >
         <svg className="chk-led-svg" viewBox="0 0 440 118" preserveAspectRatio="none" aria-hidden="true">
           <rect
