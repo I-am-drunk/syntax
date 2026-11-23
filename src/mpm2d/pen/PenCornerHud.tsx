@@ -97,9 +97,12 @@ export function PenBrilliantChrome({
   fullscreen,
   flipped,
   planSteps,
+  showStepPlan = false,
+  hasInk = true,
   dimmed,
   defaultDrawerCollapsed = true,
   canvasPointerEpoch,
+  onToggleShowStepPlan,
   onSelectTool,
   onSelectColor,
   onSelectSize,
@@ -125,9 +128,12 @@ export function PenBrilliantChrome({
   fullscreen: boolean
   flipped: boolean
   planSteps: string[]
+  showStepPlan?: boolean
+  hasInk?: boolean
   dimmed: boolean
   defaultDrawerCollapsed?: boolean
   canvasPointerEpoch: number
+  onToggleShowStepPlan?: () => void
   onSelectTool: (t: PenToolId) => void
   onSelectColor: (c: PenColorId) => void
   onSelectSize: (s: PenSizeId) => void
@@ -147,11 +153,18 @@ export function PenBrilliantChrome({
   useEffect(() => {
     setDrawerOpen(!defaultDrawerCollapsed)
   }, [defaultDrawerCollapsed])
-  const [openMenu, setOpenMenu] = useState<'sheet' | 'plan' | null>(null)
+  const [openMenu, setOpenMenu] = useState<'sheet' | 'plan' | 'more' | null>(null)
   const [confirmClear, setConfirmClear] = useState(false)
   const topRef = useRef<HTMLDivElement>(null)
   const sizeTrackRef = useRef<HTMLDivElement>(null)
   const opacityTrackRef = useRef<HTMLDivElement>(null)
+  const scrubCleanupRef = useRef<(() => void) | null>(null)
+
+  useEffect(() => {
+    return () => {
+      scrubCleanupRef.current?.()
+    }
+  }, [])
 
   useEffect(() => {
     setOpenMenu(null)
@@ -173,10 +186,10 @@ export function PenBrilliantChrome({
       }
     }
     window.addEventListener('keydown', onKey)
-    window.addEventListener('pointerdown', onDown)
+    window.addEventListener('pointerdown', onDown, true)
     return () => {
       window.removeEventListener('keydown', onKey)
-      window.removeEventListener('pointerdown', onDown)
+      window.removeEventListener('pointerdown', onDown, true)
     }
   }, [openMenu])
 
@@ -209,14 +222,19 @@ export function PenBrilliantChrome({
     if (e.button !== 0) return
     e.stopPropagation()
     e.preventDefault()
+    scrubCleanupRef.current?.()
     fn(e.clientY)
     const onMove = (ev: PointerEvent) => fn(ev.clientY)
     const onUp = () => {
+      scrubCleanupRef.current = null
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
     }
+    scrubCleanupRef.current = onUp
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
   }
 
   const sizePct = (sizeIdx / (PEN_SIZES.length - 1)) * 100
@@ -254,7 +272,7 @@ export function PenBrilliantChrome({
               </svg>
             </button>
 
-            {planSteps.length > 0 && (
+            {showStepPlan && planSteps.length > 0 && (
               <button
                 type="button"
                 className="pen-br-chip"
@@ -345,6 +363,24 @@ export function PenBrilliantChrome({
                 </svg>
               )}
             </button>
+            <button
+              type="button"
+              className="pen-br-icon-btn pen-br-more-btn"
+              data-active={openMenu === 'more' || undefined}
+              onClick={() => {
+                setConfirmClear(false)
+                setOpenMenu(m => (m === 'more' ? null : 'more'))
+              }}
+              aria-expanded={openMenu === 'more'}
+              aria-label="Pen workspace options"
+              title="Pen workspace options"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <circle cx="12" cy="5" r="2" />
+                <circle cx="12" cy="12" r="2" />
+                <circle cx="12" cy="19" r="2" />
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -425,6 +461,7 @@ export function PenBrilliantChrome({
             <button
               type="button"
               className="pen-br-pop-row"
+              disabled={!hasInk}
               onClick={() => {
                 onExportPng()
                 setOpenMenu(null)
@@ -482,8 +519,90 @@ export function PenBrilliantChrome({
           </div>
         )}
 
+        {/* Top-Right 3-Dot Workspace Options Menu */}
+        {openMenu === 'more' && (
+          <div className="pen-br-popover pen-br-popover-more" role="menu" aria-label="Pen workspace options">
+            <div className="pen-br-pop-eyebrow">Workspace Options</div>
+
+            {onToggleShowStepPlan && (
+              <button
+                type="button"
+                className="pen-br-pop-row pen-br-pop-toggle"
+                role="menuitemcheckbox"
+                aria-checked={showStepPlan}
+                onClick={() => onToggleShowStepPlan()}
+              >
+                <span>Show step plan</span>
+                <span className={`pen-br-toggle-pill${showStepPlan ? ' is-on' : ''}`}>
+                  {showStepPlan ? 'ON' : 'OFF'}
+                </span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              className="pen-br-pop-row pen-br-pop-toggle"
+              role="menuitemcheckbox"
+              aria-checked={drawerOpen}
+              onClick={() => setDrawerOpen(v => !v)}
+            >
+              <span>Brush controls drawer</span>
+              <span className={`pen-br-toggle-pill${drawerOpen ? ' is-on' : ''}`}>
+                {drawerOpen ? 'ON' : 'OFF'}
+              </span>
+            </button>
+
+            <div className="pen-br-pop-sep" />
+
+            <button
+              type="button"
+              className="pen-br-pop-row"
+              onClick={() => {
+                onStampGrid()
+                setOpenMenu(null)
+              }}
+            >
+              <span>Insert coordinate axes</span>
+            </button>
+
+            <button
+              type="button"
+              className="pen-br-pop-row"
+              onClick={() => {
+                onResetZoom()
+                setOpenMenu(null)
+              }}
+            >
+              <span>Reset zoom to fit</span>
+            </button>
+
+            <button
+              type="button"
+              className="pen-br-pop-row"
+              onClick={() => {
+                onToggleFlip()
+                setOpenMenu(null)
+              }}
+            >
+              <span>{flipped ? 'Move sheet to right' : 'Move sheet to left'}</span>
+            </button>
+
+            <button
+              type="button"
+              className="pen-br-pop-row"
+              disabled={!hasInk}
+              onClick={() => {
+                onExportPng()
+                setOpenMenu(null)
+              }}
+            >
+              <span>Save page as PNG</span>
+            </button>
+          </div>
+        )}
+
         {/* Strategy Plan Popover */}
-        {openMenu === 'plan' && planSteps.length > 0 && (
+        {openMenu === 'plan' && showStepPlan && planSteps.length > 0 && (
           <div className="pen-br-popover pen-br-popover-plan" role="dialog" aria-label="Strategy Plan">
             <div className="pen-br-pop-eyebrow">Strategy Plan</div>
             <ol className="pen-br-plan-list">
@@ -535,6 +654,21 @@ export function PenBrilliantChrome({
               aria-valuetext={PEN_SIZES[sizeIdx].label}
               tabIndex={drawerOpen ? 0 : -1}
               onPointerDown={e => beginVerticalScrub(e, scrubSize)}
+              onKeyDown={e => {
+                if (e.key === 'ArrowUp' || e.key === 'ArrowRight') {
+                  e.preventDefault()
+                  onSelectSize(PEN_SIZES[Math.min(PEN_SIZES.length - 1, sizeIdx + 1)].id)
+                } else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
+                  e.preventDefault()
+                  onSelectSize(PEN_SIZES[Math.max(0, sizeIdx - 1)].id)
+                } else if (e.key === 'Home') {
+                  e.preventDefault()
+                  onSelectSize(PEN_SIZES[0].id)
+                } else if (e.key === 'End') {
+                  e.preventDefault()
+                  onSelectSize(PEN_SIZES[PEN_SIZES.length - 1].id)
+                }
+              }}
             >
               <div className="pen-br-vtrack-taper" aria-hidden="true" />
               <div className="pen-br-vtrack-fill" style={{ height: `${Math.max(10, sizePct)}%` }} />
@@ -557,6 +691,21 @@ export function PenBrilliantChrome({
               aria-valuenow={Math.round(activeOpacity * 100)}
               tabIndex={drawerOpen ? 0 : -1}
               onPointerDown={e => beginVerticalScrub(e, scrubOpacity)}
+              onKeyDown={e => {
+                if (e.key === 'ArrowUp' || e.key === 'ArrowRight') {
+                  e.preventDefault()
+                  onSetOpacity(Math.min(1, Math.round((activeOpacity + 0.05) * 20) / 20))
+                } else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') {
+                  e.preventDefault()
+                  onSetOpacity(Math.max(0.25, Math.round((activeOpacity - 0.05) * 20) / 20))
+                } else if (e.key === 'Home') {
+                  e.preventDefault()
+                  onSetOpacity(0.25)
+                } else if (e.key === 'End') {
+                  e.preventDefault()
+                  onSetOpacity(1)
+                }
+              }}
             >
               <div className="pen-br-vtrack-fill" style={{ height: `${Math.max(8, opacityPct)}%` }} />
               <div className="pen-br-vtrack-knob" style={{ bottom: `calc(${opacityPct}% - 7px)` }} />
@@ -640,7 +789,9 @@ export function PenStepFooter({
   stepIndex,
   totalSteps,
   checkedSteps,
+  stepIds = [],
   isCustomSteps = [],
+  showStepPlan = false,
   currentChecked,
   dimmed,
   onPrevStep,
@@ -654,7 +805,9 @@ export function PenStepFooter({
   stepIndex: number
   totalSteps: number
   checkedSteps: boolean[]
+  stepIds?: string[]
   isCustomSteps?: boolean[]
+  showStepPlan?: boolean
   currentChecked: boolean
   dimmed: boolean
   onPrevStep: () => void
@@ -694,8 +847,9 @@ export function PenStepFooter({
         <div className="pen-br-step-pills" role="tablist" aria-label="Equation steps">
           {checkedSteps.map((isDone, idx) => {
             const isCustom = Boolean(isCustomSteps[idx])
+            const stableKey = stepIds[idx] ?? `step-${idx}`
             return (
-              <div key={idx} className="pen-br-step-dot-wrap">
+              <div key={stableKey} className="pen-br-step-dot-wrap">
                 <button
                   type="button"
                   role="tab"
@@ -795,7 +949,7 @@ export function PenStepFooter({
             >
               <polyline points="20 6 9 17 4 12" />
             </svg>
-            <span>{currentChecked ? 'Step done' : 'Mark step done'}</span>
+            <span>{showStepPlan ? (currentChecked ? 'Step done' : 'Mark step done') : (currentChecked ? 'Page done' : 'Mark page done')}</span>
           </span>
         </button>
       </div>

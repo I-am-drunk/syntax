@@ -145,8 +145,16 @@ export function PenRadialMenu({
     <div
       className="pen-radial-backdrop"
       data-theme={theme}
+      data-latched={state.latched || undefined}
       data-has-selection={activeIdx !== null || undefined}
       onContextMenu={e => e.preventDefault()}
+      onPointerDown={e => {
+        if (state.latched && e.button === 0 && e.target === e.currentTarget) {
+          e.preventDefault()
+          e.stopPropagation()
+          onCancel()
+        }
+      }}
     >
       {/* Compact Procreate-inspired ring + BrilliantGraph nucleus-in-membrane hub */}
       <svg className="pen-radial-svg" aria-hidden="true">
@@ -229,8 +237,16 @@ export function PenRadialMenu({
               } as React.CSSProperties
             }
             onPointerDown={e => {
+              if (e.button !== 0) return
+              e.preventDefault()
               e.stopPropagation()
               onSelect(item.id)
+            }}
+            onClick={e => {
+              if (e.detail === 0) {
+                e.stopPropagation()
+                onSelect(item.id)
+              }
             }}
           >
             <span className="pen-radial-node-icon">

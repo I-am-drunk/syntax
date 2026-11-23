@@ -17,16 +17,25 @@ function gcd(a: number, b: number): number {
   return x || 1
 }
 
-function fmtFrac(num: number, den: number): string {
-  if (Math.abs(den) < 1e-6) return 'undefined'
-  if (Math.abs(num) < 1e-6) return '0'
-  const sign = (num < 0) !== (den < 0) ? '−' : ''
-  const n = Math.abs(Math.round(num * 2))
-  const d = Math.abs(Math.round(den * 2))
-  const g = gcd(n, d)
-  const rn = n / g
-  const rd = d / g
-  return rd === 1 ? `${sign}${rn}` : `${sign}${rn}/${rd}`
+function fmtFrac(num: number, den: number, forceFraction = false): string {
+  const qn = Math.round(num * 2)
+  const qd = Math.round(den * 2)
+  if (qd === 0) return 'undefined'
+  if (qn === 0) return '0'
+  const sign = (qn < 0) !== (qd < 0) ? '−' : ''
+  const an = Math.abs(qn)
+  const ad = Math.abs(qd)
+  const g = gcd(an, ad)
+  const rn = an / g
+  const rd = ad / g
+  if (rd === 1) return forceFraction ? `${sign}${rn}/1` : `${sign}${rn}`
+  return `${sign}${rn}/${rd}`
+}
+
+function fmtSignedSum(a: number, b: number): string {
+  const sa = fmtCoord(a)
+  if (b < 0) return `${sa} − ${fmtCoord(Math.abs(b))}`
+  return `${sa} + ${fmtCoord(b)}`
 }
 
 function fmtCoord(n: number): string {
@@ -143,15 +152,50 @@ function SlopePerpCompact({ onSound }: { onSound?: SoundFn }) {
         />
       </div>
       <div className="geo-slope-readout" data-focus={focusGroup ?? 'none'}>
-        <div className="is-base">
-          <span>Slope</span>
-          <strong>m = {fmtFrac(dy, dx)}</strong>
-        </div>
-        {valid && (
-          <div className="is-perp">
-            <span>90° slope</span>
-            <strong>{fmtFrac(-dx, dy)}</strong>
+        {!valid ? (
+          <div className="is-base">
+            <span>Points overlap</span>
+            <strong>Drag A or B apart to form a line</strong>
           </div>
+        ) : Math.abs(dy) < 1e-6 ? (
+          <>
+            <div className="is-base">
+              <span>Slope (horizontal)</span>
+              <strong>m = 0 / {Math.abs(Math.round(dx))} = 0</strong>
+            </div>
+            <div className="is-perp">
+              <span>90° slope (vertical)</span>
+              <strong>undefined (flip 0/1 → ÷0)</strong>
+            </div>
+          </>
+        ) : Math.abs(dx) < 1e-6 ? (
+          <>
+            <div className="is-base">
+              <span>Slope (vertical)</span>
+              <strong>m = {Math.abs(Math.round(dy))} / 0 = undefined</strong>
+            </div>
+            <div className="is-perp">
+              <span>90° slope (horizontal)</span>
+              <strong>0 (0 / {Math.abs(Math.round(dy))})</strong>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="is-base">
+              <span>Slope</span>
+              <strong>
+                m = {fmtFrac(dy, dx)}
+                {!fmtFrac(dy, dx).includes('/') ? ` (${fmtFrac(dy, dx, true)})` : ''}
+              </strong>
+            </div>
+            <div className="is-perp">
+              <span>90° slope (flip &amp; negate)</span>
+              <strong>
+                m⊥ = {fmtFrac(-dx, dy)}
+                {!fmtFrac(-dx, dy).includes('/') ? ` (${fmtFrac(-dx, dy, true)})` : ''}
+              </strong>
+            </div>
+          </>
         )}
       </div>
     </div>
@@ -167,11 +211,17 @@ function MidpointCompact({ onSound }: { onSound?: SoundFn }) {
   const e2: [number, number] = mode === 'forward' ? b : [2 * mFixed[0] - a[0], 2 * mFixed[1] - a[1]]
   const m: [number, number] = mode === 'forward' ? [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2] : mFixed
 
+  const pad = 2
+  const maxExt = Math.max(
+    7,
+    Math.ceil(Math.abs(e2[0]) + pad),
+    Math.ceil(Math.abs(e2[1]) + pad),
+  )
   const scene: GeoScene = {
-    xMin: -7,
-    xMax: 7,
-    yMin: -7,
-    yMax: 7,
+    xMin: -maxExt,
+    xMax: maxExt,
+    yMin: -maxExt,
+    yMax: maxExt,
     segments: [
       { from: a, to: m, color: 'blue', ticks: 1 },
       { from: m, to: e2, color: 'teal', ticks: 1 },
@@ -199,14 +249,20 @@ function MidpointCompact({ onSound }: { onSound?: SoundFn }) {
         <button
           type="button"
           className={mode === 'forward' ? 'is-active' : ''}
-          onClick={() => setMode('forward')}
+          onClick={() => {
+            if (mode === 'reverse') setB(e2)
+            setMode('forward')
+          }}
         >
           Find midpoint
         </button>
         <button
           type="button"
           className={mode === 'reverse' ? 'is-active' : ''}
-          onClick={() => setMode('reverse')}
+          onClick={() => {
+            if (mode === 'forward') setMFixed(m)
+            setMode('reverse')
+          }}
         >
           Find missing endpoint
         </button>
@@ -238,7 +294,7 @@ function MidpointCompact({ onSound }: { onSound?: SoundFn }) {
             <div className="geo-stat-chip">
               <span>Average</span>
               <strong>
-                ({a[0]}+{b[0]})/2, ({a[1]}+{b[1]})/2
+                ({fmtSignedSum(a[0], b[0])})/2, ({fmtSignedSum(a[1], b[1])})/2
               </strong>
             </div>
           </>
@@ -441,8 +497,13 @@ function RightTriangleCompact({ onSound }: { onSound?: SoundFn }) {
 
   const acSq = (a[0] - c[0]) ** 2 + (a[1] - c[1]) ** 2
   const bcSq = (b[0] - c[0]) ** 2 + (b[1] - c[1]) ** 2
+  const degenerate = acSq < 1e-4 || bcSq < 1e-4
   const dot = (a[0] - c[0]) * (b[0] - c[0]) + (a[1] - c[1]) * (b[1] - c[1])
-  const isRight = Math.abs(dot) < 1e-4
+  const isRight = !degenerate && Math.abs(dot) < 1e-4
+  const axisPerp =
+    isRight &&
+    ((Math.abs(a[0] - c[0]) < 1e-6 && Math.abs(b[1] - c[1]) < 1e-6) ||
+      (Math.abs(b[0] - c[0]) < 1e-6 && Math.abs(a[1] - c[1]) < 1e-6))
 
   const scene: GeoScene = {
     xMin: -5,
@@ -476,8 +537,11 @@ function RightTriangleCompact({ onSound }: { onSound?: SoundFn }) {
         <div className={`geo-stat-chip ${isRight ? 'is-green' : ''}`}>
           <span>Slopes at C</span>
           <strong>
-            {fmtFrac(a[1] - c[1], a[0] - c[0])} · {fmtFrac(b[1] - c[1], b[0] - c[0])}{' '}
-            {isRight ? '= −1 ✓' : '≠ −1'}
+            {degenerate
+              ? 'C overlaps A or B (move C apart)'
+              : axisPerp
+                ? 'Horizontal ⊥ Vertical ✓'
+                : `${fmtFrac(a[1] - c[1], a[0] - c[0])} · ${fmtFrac(b[1] - c[1], b[0] - c[0])} ${isRight ? '= −1 ✓' : '≠ −1'}`}
           </strong>
         </div>
         <div className={`geo-stat-chip ${isRight ? 'is-green' : ''}`}>
@@ -582,10 +646,12 @@ function ThreeLinesCompact({ onSound }: { onSound?: SoundFn }) {
   const rbLine = perpThrough(m, bcDir)
   const altFoot = intersect(altLine, bcLine)
 
-  // Detect if A lies on the right bisector of BC (isosceles at A -> all 3 coincide!)
+  // Detect collinearity (area ~ 0) and isosceles (A on right bisector of BC)
+  const twiceArea = Math.abs((b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]))
+  const isCollinear = twiceArea < 0.1
   const abDist = Math.hypot(a[0] - b[0], a[1] - b[1])
   const acDist = Math.hypot(a[0] - c[0], a[1] - c[1])
-  const isIsosceles = Math.abs(abDist - acDist) < 0.08
+  const isIsosceles = !isCollinear && Math.abs(abDist - acDist) < 0.08
 
   const scene: GeoScene = {
     xMin: -7,
@@ -645,9 +711,11 @@ function ThreeLinesCompact({ onSound }: { onSound?: SoundFn }) {
           onSound={onSound}
           onDragPoint={(_, x, y) => setA([x, y])}
           caption={
-            isIsosceles
-              ? 'Isosceles! Median, Altitude, and Right Bisector all overlap'
-              : 'Drag A · Hover any line or chip below to spotlight it'
+            isCollinear
+              ? 'A lies on line BC: drag A off BC to form a triangle'
+              : isIsosceles
+                ? 'Isosceles! Median, Altitude, and Right Bisector all overlap'
+                : 'Drag A · Hover any line or chip below to spotlight it'
           }
         />
       </div>

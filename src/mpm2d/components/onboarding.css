@@ -1,9 +1,9 @@
 .ob-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(10, 12, 18, 0.52);
+  background: rgba(0, 0, 0, 0.56);
   backdrop-filter: blur(5px);
-  z-index: 950;
+  z-index: 1100;
 }
 
 .ob-popup {
@@ -12,20 +12,22 @@
   left: 50%;
   transform: translate(-50%, -50%);
   width: min(460px, calc(100vw - 28px));
-  background: var(--surface-card, #ffffff);
-  color: var(--text-primary, #141414);
+  background: var(--surface, #ffffff);
+  color: var(--text, #141414);
   border-radius: 24px;
-  border: 1px solid var(--border-subtle, #e4e6ec);
+  border: 1px solid var(--border, #e4e6ec);
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.24);
   padding: 24px 24px 22px;
-  z-index: 960;
+  z-index: 1110;
+  max-height: calc(100dvh - 28px);
+  overflow-y: auto;
   outline: none;
 }
 
 [data-theme='dark'] .ob-popup {
-  background: #14171f;
-  border-color: #282d3a;
-  color: #f2f3f7;
+  background: #1c1c1c;
+  border-color: #2f2f2f;
+  color: #ffffff;
 }
 
 .ob-dots {
@@ -82,12 +84,12 @@
   margin: 0;
   font-size: 14px;
   line-height: 1.5;
-  color: var(--text-muted, #5c6270);
+  color: var(--muted, #5c6270);
   max-width: 360px;
 }
 
 [data-theme='dark'] .ob-copy {
-  color: #aeb5c4;
+  color: #a3a3a3;
 }
 
 .ob-card-grid {
@@ -100,7 +102,7 @@
 
 .ob-choice-card {
   appearance: none;
-  border: 2px solid var(--border-subtle, #e2e4ea);
+  border: 2px solid var(--border, #e2e4ea);
   background: transparent;
   color: inherit;
   border-radius: 16px;
@@ -116,7 +118,7 @@
 }
 
 [data-theme='dark'] .ob-choice-card {
-  border-color: #2c3140;
+  border-color: #2f2f2f;
 }
 
 .ob-choice-card:hover {
@@ -140,7 +142,7 @@
 
 .ob-choice-card span {
   font-size: 12px;
-  color: var(--text-muted, #6b7280);
+  color: var(--muted, #6b7280);
   line-height: 1.35;
 }
 
@@ -171,15 +173,21 @@
 }
 
 .ob-mini-preview.is-dark {
-  background: #10131a;
+  background: #141414;
 }
 
 .ob-mini-bar {
   width: 55%;
   height: 7px;
   border-radius: 99px;
-  background: currentColor;
-  opacity: 0.22;
+}
+
+.ob-mini-preview.is-light .ob-mini-bar {
+  background: rgba(20, 20, 20, 0.22);
+}
+
+.ob-mini-preview.is-dark .ob-mini-bar {
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .ob-mini-graph {
@@ -220,7 +228,7 @@
   appearance: none;
   border: none;
   background: transparent;
-  color: var(--text-muted, #6c7280);
+  color: var(--muted, #6c7280);
   font: inherit;
   font-size: 14px;
   font-weight: 600;
@@ -230,7 +238,7 @@
 }
 
 .ob-skip:hover {
-  color: var(--text-primary, #141414);
+  color: var(--text, #141414);
 }
 
 [data-theme='dark'] .ob-skip:hover {

@@ -90,22 +90,35 @@ export function parseNumberExpr(input: string): ParsedNumber | null {
 
   const hasRadical = s.includes('sqrt') || s.includes('√')
 
-  // Normalize √72 -> sqrt(72), 6√2 -> 6*sqrt(2), 6sqrt(2) -> 6*sqrt(2)
+  // Reject mixed numbers like "1 1/2" rather than gluing digits into "11/2"
+  if (/\d\s+\d/.test(s)) return null
+
+  // Normalize √( ... ), √72, sqrt 72, 6√2, 6sqrt(2), and implicit )( multiplication
   let expr = s
-    .replace(/√\s*\(([^)]+)\)/g, 'sqrt($1)')
+    .replace(/√\s*\(/g, 'sqrt(')
     .replace(/√\s*([0-9]+(?:\.[0-9]+)?)/g, 'sqrt($1)')
+    .replace(/sqrt\s+([0-9]+(?:\.[0-9]+)?)/g, 'sqrt($1)')
     .replace(/(\d|\))\s*(sqrt\()/g, '$1*$2')
     .replace(/(\d)\s*\(/g, '$1*(')
     .replace(/\)\s*(\d)/g, ')*$1')
+    .replace(/\)\s*\(/g, ')*(')
     .replace(/\s+/g, '')
+
+  // Collapse double signs so "5 - -2" -> "5+2" instead of invalid JS decrement
+  while (/[+-]{2}/.test(expr)) {
+    expr = expr.replace(/--/g, '+').replace(/\+\+/g, '+').replace(/\+-|-\+/g, '-')
+  }
 
   // Validate only safe tokens
   const stripped = expr.replace(/sqrt/g, '')
   if (!/^[0-9.+\-*/()^]+$/.test(stripped)) return null
 
+  // Rewrite unary minus before exponent (e.g. -3^2 -> -(3**2)) for valid JS
   const jsExpr = expr
     .replace(/sqrt\(/g, 'Math.sqrt(')
+    .replace(/(^|[+(*/,-])-(\d+(?:\.\d+)?|\([^()]+\))\^/g, '$1-($2**')
     .replace(/\^/g, '**')
+    .replace(/-\(([^()]+\*\*\d+(?:\.\d+)?)(?!\))/g, '-($1)')
 
   try {
     // eslint-disable-next-line no-new-func
@@ -121,7 +134,17 @@ export function parsePointExpr(input: string): ParsedPoint | null {
   let s = normalizeSymbols(input)
   if (!s) return null
   if (s.startsWith('(') && s.endsWith(')')) {
-    s = s.slice(1, -1).trim()
+    let wrapDepth = 0
+    let wrapsAll = true
+    for (let i = 0; i < s.length - 1; i++) {
+      if (s[i] === '(') wrapDepth++
+      else if (s[i] === ')') wrapDepth--
+      if (wrapDepth === 0) {
+        wrapsAll = false
+        break
+      }
+    }
+    if (wrapsAll) s = s.slice(1, -1).trim()
   }
   // Split on top-level comma
   let depth = 0
@@ -152,12 +175,16 @@ function parseLinearSide(side: string): { a: number; b: number; c: number } | nu
   if (expr.includes('^') || expr.includes('sqrt') || expr.includes('√')) return null
   if (/[^0-9xy.+\-*/()\s]/.test(expr)) return null
 
-  // Insert implicit multiplication: 2x -> 2*x, )x -> )*x, -x -> -1*x, 1/2x -> (1/2)*x
+  // Insert implicit multiplication & normalize double signs
   expr = expr
     .replace(/\s+/g, '')
+    .replace(/\)\(/g, ')*(')
     .replace(/(\d|\))([xy])/g, '$1*$2')
     .replace(/([xy])(\d|\()/g, '$1*$2')
     .replace(/(\d)\(/g, '$1*(')
+  while (/[+-]{2}/.test(expr)) {
+    expr = expr.replace(/--/g, '+').replace(/\+\+/g, '+').replace(/\+-|-\+/g, '-')
+  }
 
   const evalAt = (x: number, y: number): number | null => {
     try {
@@ -199,8 +226,12 @@ export function parseLineExpr(input: string): ParsedLine | null {
   if (Math.abs(a) < EPS && Math.abs(b) < EPS) return null
 
   const lhsTrim = parts[0].trim().toLowerCase()
+  const rhsTrim = parts[1].trim().toLowerCase()
   const isVertical = Math.abs(b) < EPS
-  const isSlopeIntercept = lhsTrim === 'y' && !isVertical
+  const isSlopeIntercept =
+    !isVertical &&
+    ((lhsTrim === 'y' && Math.abs(rhs.b) < EPS) ||
+      (rhsTrim === 'y' && Math.abs(lhs.b) < EPS))
   const slope = isVertical ? null : -a / b
   const intercept = isVertical ? null : -c / b
 
@@ -212,31 +243,64 @@ export function parseCircleExpr(input: string): ParsedCircle | null {
   const parts = s.split('=')
   if (parts.length !== 2) return null
   const [lhs, rhs] = parts
-  const isCircleLhs =
-    lhs === 'x^2+y^2' || lhs === 'y^2+x^2'
-  if (isCircleLhs) {
-    const num = parseNumberExpr(rhs)
-    if (!num || num.kind !== 'value' || num.value <= 0) return null
-    return { rSquared: num.value }
+  if (!lhs || !rhs) return null
+  const prep = (rawSide: string): string | null => {
+    if (/[^0-9xy.+\-*/()^]/.test(rawSide)) return null
+    let e = rawSide
+      .replace(/\)\(/g, ')*(')
+      .replace(/(\d|\))([xy])/g, '$1*$2')
+      .replace(/([xy])(\d|\()/g, '$1*$2')
+      .replace(/(\d)\(/g, '$1*(')
+      .replace(/\^/g, '**')
+    while (/[+-]{2}/.test(e)) {
+      e = e.replace(/--/g, '+').replace(/\+\+/g, '+').replace(/\+-|-\+/g, '-')
+    }
+    return e
   }
-  const isCircleRhs =
-    rhs === 'x^2+y^2' || rhs === 'y^2+x^2'
-  if (isCircleRhs) {
-    const num = parseNumberExpr(lhs)
-    if (!num || num.kind !== 'value' || num.value <= 0) return null
-    return { rSquared: num.value }
+  const eL = prep(lhs)
+  const eR = prep(rhs)
+  if (!eL || !eR) return null
+  const evalDiff = (x: number, y: number): number | null => {
+    try {
+      // eslint-disable-next-line no-new-func
+      const v = Function('x', 'y', `"use strict"; return ((${eL}) - (${eR}));`)(x, y)
+      return typeof v === 'number' && Number.isFinite(v) ? v : null
+    } catch {
+      return null
+    }
   }
-  return null
+  const f00 = evalDiff(0, 0)
+  const f10 = evalDiff(1, 0)
+  const fm10 = evalDiff(-1, 0)
+  const f01 = evalDiff(0, 1)
+  const f0m1 = evalDiff(0, -1)
+  const f23 = evalDiff(2, 3)
+  if (f00 === null || f10 === null || fm10 === null || f01 === null || f0m1 === null || f23 === null) return null
+  const ax = (f10 + fm10 - 2 * f00) / 2
+  const ay = (f01 + f0m1 - 2 * f00) / 2
+  const bx = (f10 - fm10) / 2
+  const by = (f01 - f0m1) / 2
+  if (Math.abs(ax) < EPS || Math.abs(ax - ay) > 1e-5 || Math.abs(bx) > 1e-5 || Math.abs(by) > 1e-5) return null
+  // Verify pure quadratic ax*(x^2+y^2) + f00 at (2, 3)
+  if (Math.abs(ax * (4 + 9) + f00 - f23) > 1e-4) return null
+  const rSquared = -f00 / ax
+  if (!Number.isFinite(rSquared) || rSquared <= 0) return null
+  return { rSquared }
 }
 
 function linesEqual(p: { a: number; b: number; c: number }, q: { a: number; b: number; c: number }): boolean {
-  // Cross products of (a, b, c) vectors must all be ~0
-  const c1 = p.a * q.b - p.b * q.a
-  const c2 = p.a * q.c - p.c * q.a
-  const c3 = p.b * q.c - p.c * q.b
-  const scale = Math.hypot(p.a, p.b, p.c) * Math.hypot(q.a, q.b, q.c)
-  if (scale < EPS) return false
-  return Math.max(Math.abs(c1), Math.abs(c2), Math.abs(c3)) / scale < 1e-3
+  const np = Math.hypot(p.a, p.b)
+  const nq = Math.hypot(q.a, q.b)
+  if (np < EPS || nq < EPS) return false
+  const sp = (p.a > EPS || (Math.abs(p.a) <= EPS && p.b > 0)) ? 1 : -1
+  const sq = (q.a > EPS || (Math.abs(q.a) <= EPS && q.b > 0)) ? 1 : -1
+  const pa = (p.a / np) * sp
+  const pb = (p.b / np) * sp
+  const pc = (p.c / np) * sp
+  const qa = (q.a / nq) * sq
+  const qb = (q.b / nq) * sq
+  const qc = (q.c / nq) * sq
+  return Math.abs(pa - qa) < 1e-3 && Math.abs(pb - qb) < 1e-3 && Math.abs(pc - qc) < 1e-2
 }
 
 export function gradeAnswer(raw: string, spec: StepAnswerSpec): GradeResult {
@@ -269,20 +333,25 @@ export function gradeAnswer(raw: string, spec: StepAnswerSpec): GradeResult {
       return { correct: false, feedback: 'Check Δx = x₂ − x₁. What happens when you divide by 0?' }
     }
     if (parsed.kind === 'undefined') {
+      const undefMistake = spec.commonMistakes?.find(m => m.value === 'undefined')
+      if (undefMistake) {
+        return { correct: false, feedback: undefMistake.message }
+      }
       return {
         correct: false,
-        feedback: 'This slope is not undefined because Δx is not zero here. Check your subtraction.',
+        feedback: 'This answer is a finite number, not undefined. Check your calculation.',
       }
     }
 
     const tol = spec.tolerance ?? 1e-3
     if (Math.abs(parsed.value - spec.expected) <= tol) {
-      if (spec.exactRequired && !Number.isInteger(spec.expected) && !parsed.hasRadical && !raw.includes('/')) {
-        // Only insist on a radical when expected is genuinely irrational (not a simple fraction or exact terminating decimal)
-        const isSimpleDec = Math.abs(spec.expected * 100 - Math.round(spec.expected * 100)) < 1e-6
-        if (!isSimpleDec) {
+      if (spec.exactRequired && !Number.isInteger(spec.expected) && !parsed.hasRadical) {
+        const isSimpleDec = Math.abs(spec.expected * 1000 - Math.round(spec.expected * 1000)) < 1e-6
+        const isExactFrac = raw.includes('/') && Math.abs(parsed.value - spec.expected) < 1e-9
+        if (!isSimpleDec && !isExactFrac) {
           return {
             correct: false,
+            isFormatError: true,
             feedback: `Right value! Because the question asks for the exact length, leave it as a square root using sqrt(...) instead of rounding.`,
           }
         }
@@ -384,6 +453,7 @@ export function gradeAnswer(raw: string, spec: StepAnswerSpec): GradeResult {
       if (spec.requireSlopeIntercept && !parsed.isSlopeIntercept && Math.abs(spec.expected.b) > EPS) {
         return {
           correct: false,
+          isFormatError: true,
           feedback: 'That is the exact same line! Now isolate y so it is written in slope y-intercept form (y = mx + b).',
         }
       }
@@ -470,8 +540,9 @@ export function gradeAnswer(raw: string, spec: StepAnswerSpec): GradeResult {
  * Formats typed math nicely for live preview beneath the keyboard input.
  */
 export function formatMathPreview(raw: string): string {
-  if (!raw.trim()) return ''
-  return raw
+  const trimmed = raw.trim()
+  if (!trimmed) return ''
+  return trimmed
     .replace(/sqrt\(([^)]*)\)/gi, '√($1)')
     .replace(/√\((\d+(?:\.\d+)?)\)/g, '√$1')
     .replace(/\^2/g, '²')

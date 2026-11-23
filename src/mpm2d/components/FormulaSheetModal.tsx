@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Frac, Sqrt } from './MathText'
 import { WinBoxWindow } from './WinBoxWindow'
 
@@ -185,6 +185,63 @@ function ShapeMiniSvg({ kind }: { kind: string }) {
   }
 }
 
+const FORMULA_EXPLAINERS: Record<string, { title: string; steps: string[]; tip: string }> = {
+  slope: {
+    title: 'How slope measures steepness',
+    steps: [
+      'Pick any two points (x₁, y₁) and (x₂, y₂) on the line.',
+      'Subtract vertically (rise = y₂ − y₁) and horizontally (run = x₂ − x₁) in the SAME order.',
+      'Reduce the fraction; positive climbs right, negative falls right, 0 is flat, undefined is vertical.',
+    ],
+    tip: 'Flipping the order on BOTH top and bottom gives the same slope, but flipping only one flips the sign!',
+  },
+  midpoint: {
+    title: 'Why midpoint averages coordinates',
+    steps: [
+      'Add the two x-coordinates and divide by 2 to land halfway horizontally.',
+      'Add the two y-coordinates and divide by 2 to land halfway vertically.',
+      'Working backwards from M to an endpoint? Double M, then subtract the known endpoint.',
+    ],
+    tip: 'Midpoint ADDS coordinates. Slope and Distance SUBTRACT coordinates.',
+  },
+  length: {
+    title: 'Pythagorean theorem on the grid',
+    steps: [
+      'Find horizontal leg Δx = x₂ − x₁ and vertical leg Δy = y₂ − y₁.',
+      'Square both legs (negatives always become positive!) and add them.',
+      'Take the square root and keep the exact radical (e.g. √45 = 3√5) until the final step.',
+    ],
+    tip: 'Never drop the parentheses around a negative difference: (−3)² = +9, not −9.',
+  },
+  perp: {
+    title: 'Why 90° slopes are negative reciprocals',
+    steps: [
+      'A 90° rotation swaps rise and run and reverses one sign.',
+      'Write m as a fraction a/b, flip it to b/a, and reverse its sign to −b/a.',
+      'Check by multiplying: m₁ · m₂ must equal −1 (except horizontal m = 0 ⊥ vertical undefined).',
+    ],
+    tip: 'Whole number like m = −3 is really −3/1, so flipping and negating gives +1/3.',
+  },
+  line: {
+    title: 'Building y = mx + b from any clue',
+    steps: [
+      'Find slope m first (from two points, parallel/perpendicular clue, or isolating y).',
+      'Substitute m and ONE known point (x, y) into y = mx + b.',
+      'Solve for b, then write the finished equation with x and y back as variables.',
+    ],
+    tip: 'Standard form Ax + By + C = 0 hides the slope; isolate y first so you never misread the sign.',
+  },
+  circle: {
+    title: 'Every point at distance r from (0, 0)',
+    steps: [
+      'Distance from (0, 0) to (x, y) is √(x² + y²) = r. Squaring both sides gives x² + y² = r².',
+      'To find the radius from an equation, take √(right-hand side).',
+      'To test a point (x, y), compute x² + y² and compare directly to r²: < inside, = on, > outside.',
+    ],
+    tip: 'x² + y² = 25 has radius r = 5, NOT 25!',
+  },
+}
+
 export function FormulaSheetContent({
   onClose,
   closeLabel = 'Close',
@@ -201,6 +258,7 @@ export function FormulaSheetContent({
   onDragStart?: (e: React.PointerEvent) => void
 }) {
   const [tab, setTab] = useState<SheetTab>('formulas')
+  const [expandedGuide, setExpandedGuide] = useState<string | null>(null)
 
   return (
     <div className={`fm-content-wrap${compact ? ' is-compact' : ''}${floating ? ' is-floating' : ''}`}>
@@ -256,9 +314,11 @@ export function FormulaSheetContent({
         {TABS.map(t => (
           <button
             key={t.id}
+            id={`fm-tab-${t.id}`}
             type="button"
             role="tab"
             aria-selected={tab === t.id}
+            aria-controls={`fm-panel-${t.id}`}
             className={`fm-tab${tab === t.id ? ' is-active' : ''}`}
             onClick={() => setTab(t.id)}
           >
@@ -267,7 +327,7 @@ export function FormulaSheetContent({
         ))}
       </div>
 
-      <div className="formula-modal-body">
+      <div id={`fm-panel-${tab}`} className="formula-modal-body" role="tabpanel" aria-labelledby={`fm-tab-${tab}`}>
         {tab === 'formulas' && (
           <div className="fm-formula-grid">
             <article className="fm-fcard">
@@ -278,6 +338,17 @@ export function FormulaSheetContent({
               <div className="fm-math-display">
                 <em>m</em> = <Frac num={<><em>y</em><sub>2</sub> − <em>y</em><sub>1</sub></>} den={<><em>x</em><sub>2</sub> − <em>x</em><sub>1</sub></>} />
               </div>
+            
+              <button type="button" className="fm-explain-toggle" aria-expanded={expandedGuide === 'slope'} onClick={() => setExpandedGuide(prev => (prev === 'slope' ? null : 'slope'))}>
+                {expandedGuide === 'slope' ? 'Hide guide' : 'How it works'}
+              </button>
+              {expandedGuide === 'slope' && (
+                <div className="fm-explain-box">
+                  <strong>{FORMULA_EXPLAINERS.slope!.title}</strong>
+                  <ol>{FORMULA_EXPLAINERS.slope!.steps.map((st, idx) => <li key={idx}>{st}</li>)}</ol>
+                  <p className="fm-explain-tip">{FORMULA_EXPLAINERS.slope!.tip}</p>
+                </div>
+              )}
             </article>
 
             <article className="fm-fcard">
@@ -292,6 +363,17 @@ export function FormulaSheetContent({
                 <Frac num={<><em>y</em><sub>1</sub> + <em>y</em><sub>2</sub></>} den="2" />
                 <span className="m-paren">)</span>
               </div>
+            
+              <button type="button" className="fm-explain-toggle" aria-expanded={expandedGuide === 'midpoint'} onClick={() => setExpandedGuide(prev => (prev === 'midpoint' ? null : 'midpoint'))}>
+                {expandedGuide === 'midpoint' ? 'Hide guide' : 'How it works'}
+              </button>
+              {expandedGuide === 'midpoint' && (
+                <div className="fm-explain-box">
+                  <strong>{FORMULA_EXPLAINERS.midpoint!.title}</strong>
+                  <ol>{FORMULA_EXPLAINERS.midpoint!.steps.map((st, idx) => <li key={idx}>{st}</li>)}</ol>
+                  <p className="fm-explain-tip">{FORMULA_EXPLAINERS.midpoint!.tip}</p>
+                </div>
+              )}
             </article>
 
             <article className="fm-fcard">
@@ -302,6 +384,17 @@ export function FormulaSheetContent({
               <div className="fm-math-display">
                 <em>d</em> = <Sqrt>(<em>x</em><sub>2</sub> − <em>x</em><sub>1</sub>)<sup>2</sup> + (<em>y</em><sub>2</sub> − <em>y</em><sub>1</sub>)<sup>2</sup></Sqrt>
               </div>
+            
+              <button type="button" className="fm-explain-toggle" aria-expanded={expandedGuide === 'length'} onClick={() => setExpandedGuide(prev => (prev === 'length' ? null : 'length'))}>
+                {expandedGuide === 'length' ? 'Hide guide' : 'How it works'}
+              </button>
+              {expandedGuide === 'length' && (
+                <div className="fm-explain-box">
+                  <strong>{FORMULA_EXPLAINERS.length!.title}</strong>
+                  <ol>{FORMULA_EXPLAINERS.length!.steps.map((st, idx) => <li key={idx}>{st}</li>)}</ol>
+                  <p className="fm-explain-tip">{FORMULA_EXPLAINERS.length!.tip}</p>
+                </div>
+              )}
             </article>
 
             <article className="fm-fcard">
@@ -314,6 +407,17 @@ export function FormulaSheetContent({
                 <div><span>⊥</span> <em>m</em><sub>1</sub> · <em>m</em><sub>2</sub> = −1 <small>(flip &amp; negate)</small></div>
                 <div className="fm-math-muted"><em>m</em> = 0 (horiz) ⊥ undefined (vert)</div>
               </div>
+            
+              <button type="button" className="fm-explain-toggle" aria-expanded={expandedGuide === 'perp'} onClick={() => setExpandedGuide(prev => (prev === 'perp' ? null : 'perp'))}>
+                {expandedGuide === 'perp' ? 'Hide guide' : 'How it works'}
+              </button>
+              {expandedGuide === 'perp' && (
+                <div className="fm-explain-box">
+                  <strong>{FORMULA_EXPLAINERS.perp!.title}</strong>
+                  <ol>{FORMULA_EXPLAINERS.perp!.steps.map((st, idx) => <li key={idx}>{st}</li>)}</ol>
+                  <p className="fm-explain-tip">{FORMULA_EXPLAINERS.perp!.tip}</p>
+                </div>
+              )}
             </article>
 
             <article className="fm-fcard">
@@ -325,6 +429,17 @@ export function FormulaSheetContent({
                 <div><em>y</em> = <em>mx</em> + <em>b</em></div>
                 <div className="fm-math-muted"><em>Ax</em> + <em>By</em> + <em>C</em> = 0 · horiz <em>y</em> = <em>k</em> · vert <em>x</em> = <em>k</em></div>
               </div>
+            
+              <button type="button" className="fm-explain-toggle" aria-expanded={expandedGuide === 'line'} onClick={() => setExpandedGuide(prev => (prev === 'line' ? null : 'line'))}>
+                {expandedGuide === 'line' ? 'Hide guide' : 'How it works'}
+              </button>
+              {expandedGuide === 'line' && (
+                <div className="fm-explain-box">
+                  <strong>{FORMULA_EXPLAINERS.line!.title}</strong>
+                  <ol>{FORMULA_EXPLAINERS.line!.steps.map((st, idx) => <li key={idx}>{st}</li>)}</ol>
+                  <p className="fm-explain-tip">{FORMULA_EXPLAINERS.line!.tip}</p>
+                </div>
+              )}
             </article>
 
             <article className="fm-fcard">
@@ -336,6 +451,17 @@ export function FormulaSheetContent({
                 <div><em>x</em><sup>2</sup> + <em>y</em><sup>2</sup> = <em>r</em><sup>2</sup></div>
                 <div className="fm-math-muted">Inside &lt; <em>r</em><sup>2</sup> · On = <em>r</em><sup>2</sup> · Outside &gt; <em>r</em><sup>2</sup></div>
               </div>
+            
+              <button type="button" className="fm-explain-toggle" aria-expanded={expandedGuide === 'circle'} onClick={() => setExpandedGuide(prev => (prev === 'circle' ? null : 'circle'))}>
+                {expandedGuide === 'circle' ? 'Hide guide' : 'How it works'}
+              </button>
+              {expandedGuide === 'circle' && (
+                <div className="fm-explain-box">
+                  <strong>{FORMULA_EXPLAINERS.circle!.title}</strong>
+                  <ol>{FORMULA_EXPLAINERS.circle!.steps.map((st, idx) => <li key={idx}>{st}</li>)}</ol>
+                  <p className="fm-explain-tip">{FORMULA_EXPLAINERS.circle!.tip}</p>
+                </div>
+              )}
             </article>
           </div>
         )}
@@ -489,10 +615,38 @@ export function FormulaSheetModal({
   onToggleFloat?: () => void
 }) {
   const [floating, setFloating] = useState(true)
+  const [canDockViewport, setCanDockViewport] = useState(() =>
+    typeof window === 'undefined' ? true : window.innerWidth >= 1100,
+  )
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const onResize = () => {
+      const ok = window.innerWidth >= 1100
+      setCanDockViewport(ok)
+      if (!ok) setFloating(true)
+    }
+    window.addEventListener('resize', onResize, { passive: true })
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !e.defaultPrevented) {
+        e.preventDefault()
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onClose])
 
   if (!open) return null
 
-  if (dockable && !floating) {
+  const effectiveDockable = dockable && canDockViewport
+
+  if (effectiveDockable && !floating) {
     return (
       <aside className="formula-dock-rail" aria-label="Unit 2 Playbook">
         <FormulaSheetContent
@@ -505,7 +659,7 @@ export function FormulaSheetModal({
     )
   }
 
-  const resolvedToggleFloat = onToggleFloat ?? (dockable ? () => setFloating(false) : undefined)
+  const resolvedToggleFloat = onToggleFloat ?? (effectiveDockable ? () => setFloating(false) : undefined)
 
   return (
     <WinBoxWindow

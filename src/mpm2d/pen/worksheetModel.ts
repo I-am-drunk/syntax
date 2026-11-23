@@ -45,6 +45,7 @@ export function buildWorksheetSpec(
   pageIndex: number,
   totalPages: number,
   isCheck: boolean,
+  showStepPlan = false,
 ): WorksheetSpec {
   const source = 'source' in page ? page.source : undefined
   let planSteps: string[] = []
@@ -156,6 +157,26 @@ export function buildWorksheetSpec(
     ]
   }
 
+  if (!showStepPlan) {
+    defaultFields = [
+      {
+        id: 'blank-page-1',
+        index: 1,
+        title: 'Page 1',
+        subtitle: 'Build your own plan and work cleanly. Tap + below to add another page.',
+      },
+    ]
+  } else if (defaultFields.length === 0) {
+    defaultFields = [
+      {
+        id: 'scratch-page',
+        index: 1,
+        title: 'Scratch Paper',
+        subtitle: 'Work out steps, sketches, or algebra',
+      },
+    ]
+  }
+
   return {
     lessonTitle: lesson.shortTitle,
     lessonNumber: lesson.number,
@@ -170,6 +191,7 @@ export function buildWorksheetSpec(
 }
 
 export function clampExtraHeight(h: number): number {
+  if (!Number.isFinite(h)) return 0
   return Math.max(0, Math.min(MAX_SHEET_HEIGHT - MIN_SHEET_HEIGHT, Math.round(h)))
 }
 
@@ -177,26 +199,50 @@ export function loadWorksheetFields(pageKey: string, spec: WorksheetSpec): Works
   let saved: PersistedSheetState | null = null
   try {
     const raw = localStorage.getItem(SHEET_PREFIX + pageKey)
-    if (raw) saved = JSON.parse(raw) as PersistedSheetState
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        saved = parsed as PersistedSheetState
+      }
+    }
   } catch {
     saved = null
   }
 
+  const extraHeights =
+    saved?.extraHeights && typeof saved.extraHeights === 'object' && !Array.isArray(saved.extraHeights)
+      ? saved.extraHeights
+      : {}
+  const checkedMap =
+    saved?.checked && typeof saved.checked === 'object' && !Array.isArray(saved.checked)
+      ? saved.checked
+      : {}
+  const rawCustoms = Array.isArray(saved?.customFields) ? saved.customFields : []
+
   const base: WorksheetField[] = spec.defaultFields.map(f => ({
     ...f,
-    extraHeight: clampExtraHeight(saved?.extraHeights?.[f.id] ?? 0),
-    checked: Boolean(saved?.checked?.[f.id]),
+    extraHeight: clampExtraHeight(extraHeights[f.id] ?? 0),
+    checked: Boolean(checkedMap[f.id]),
   }))
 
-  const customs: WorksheetField[] = (saved?.customFields ?? []).map((cf, i) => ({
-    id: cf.id,
-    index: base.length + i + 1,
-    title: cf.title,
-    subtitle: 'Extra scratch paper',
-    extraHeight: clampExtraHeight(saved?.extraHeights?.[cf.id] ?? 0),
-    checked: Boolean(saved?.checked?.[cf.id]),
-    isCustom: true,
-  }))
+  const seenIds = new Set(base.map(f => f.id))
+  const customs: WorksheetField[] = rawCustoms
+    .filter(
+      (cf): cf is { id: string; title: string } =>
+        Boolean(cf && typeof cf.id === 'string' && typeof cf.title === 'string' && !seenIds.has(cf.id)),
+    )
+    .map((cf, i) => {
+      seenIds.add(cf.id)
+      return {
+        id: cf.id,
+        index: base.length + i + 1,
+        title: cf.title,
+        subtitle: 'Extra blank page',
+        extraHeight: clampExtraHeight(extraHeights[cf.id] ?? 0),
+        checked: Boolean(checkedMap[cf.id]),
+        isCustom: true,
+      }
+    })
 
   return [...base, ...customs]
 }

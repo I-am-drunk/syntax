@@ -326,12 +326,14 @@ export function BrilliantPlanBuilder({
     return best
   }
 
-  useLayoutEffect(() => {
-    if (!active) {
-      if (transientRef.current && transientRef.current.kind !== 'settling') cancelEdit()
-      return
-    }
-    const movePointer = (event: PointerEvent) => {
+  const pointerHandlersRef = useRef({
+    move: (_event: PointerEvent) => {},
+    up: (_event: PointerEvent) => {},
+    cancel: (_event: PointerEvent) => {},
+  })
+
+  pointerHandlersRef.current = {
+    move: (event: PointerEvent) => {
       const state = transientRef.current
       if (!state || state.kind === 'settling' || state.pointerId !== event.pointerId) return
       const point = localPoint(event.clientX, event.clientY)
@@ -341,8 +343,8 @@ export function BrilliantPlanBuilder({
       if (state.kind === 'pressed' && kind === 'dragging') {
         onSound?.('drag-started')
       }
-    }
-    const releasePointer = (event: PointerEvent) => {
+    },
+    up: (event: PointerEvent) => {
       const state = transientRef.current
       if (!state || state.kind === 'settling' || state.pointerId !== event.pointerId) return
       const gesture: Gesture = { ...state, point: localPoint(event.clientX, event.clientY) }
@@ -371,20 +373,31 @@ export function BrilliantPlanBuilder({
         return
       }
       settle(gesture, { kind: 'line', index: firstEmpty })
-    }
-    const cancelPointer = (event: PointerEvent) => {
+    },
+    cancel: (event: PointerEvent) => {
       const state = transientRef.current
       if (state && state.kind !== 'settling' && state.pointerId === event.pointerId) cancelEdit()
+    },
+  }
+
+  useEffect(() => {
+    if (!active) {
+      if (transientRef.current && transientRef.current.kind !== 'settling') cancelEdit()
+      return
     }
-    document.addEventListener('pointermove', movePointer)
-    document.addEventListener('pointerup', releasePointer)
-    document.addEventListener('pointercancel', cancelPointer)
+    const onMove = (e: PointerEvent) => pointerHandlersRef.current.move(e)
+    const onUp = (e: PointerEvent) => pointerHandlersRef.current.up(e)
+    const onCancel = (e: PointerEvent) => pointerHandlersRef.current.cancel(e)
+    document.addEventListener('pointermove', onMove)
+    document.addEventListener('pointerup', onUp)
+    document.addEventListener('pointercancel', onCancel)
     return () => {
-      document.removeEventListener('pointermove', movePointer)
-      document.removeEventListener('pointerup', releasePointer)
-      document.removeEventListener('pointercancel', cancelPointer)
+      document.removeEventListener('pointermove', onMove)
+      document.removeEventListener('pointerup', onUp)
+      document.removeEventListener('pointercancel', onCancel)
     }
-  })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active])
 
   // Trigger settling CSS transform transition on next animation frame
   useLayoutEffect(() => {
@@ -454,7 +467,7 @@ export function BrilliantPlanBuilder({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, locked, pool])
+  }, [active, locked, oralHidden, pool])
 
   // Row feedback marks (matching Brilliant's success / match / mismatch diagnostics)
   const closestPlan = (() => {
@@ -478,7 +491,8 @@ export function BrilliantPlanBuilder({
     if (!id) return null
     if (evaluation === 'correct') return 'success'
     if (hideRowHints) return null
-    if (closestPlan && closestPlan.steps[index] === id) return 'match'
+    const compactedIndex = slots.slice(0, index).filter(Boolean).length
+    if (closestPlan && closestPlan.steps[compactedIndex] === id) return 'match'
     return 'mismatch'
   }
 

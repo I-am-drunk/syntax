@@ -45,17 +45,20 @@ export function SyntaxSettingsPage({
   const [studioTab, setStudioTab] = useState<StudioTab>('shape')
   const [activeSection, setActiveSection] = useState<SettingsSectionId>('appearance')
   const scrollLockUntilRef = useRef<number>(0)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
   useEffect(() => {
+    window.scrollTo({ top: 0 })
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        onClose()
-      }
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      if (document.querySelector('[role="dialog"], [role="menu"]')) return
+      e.preventDefault()
+      onCloseRef.current()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [])
 
   // Reliable scroll-spy with programmatic scroll lock and bottom-of-page detection
   useEffect(() => {
@@ -88,6 +91,7 @@ export function SyntaxSettingsPage({
       if (!raf) raf = window.requestAnimationFrame(computeActive)
     }
 
+    computeActive()
     window.addEventListener('scroll', onScroll, { passive: true })
     window.addEventListener('resize', onScroll, { passive: true })
     return () => {
@@ -196,6 +200,18 @@ export function SyntaxSettingsPage({
 
             <div className="preference-row">
               <div className="syntax-pref-copy">
+                <p>Show step plan in Pen Studio</p>
+                <span>Off by default so you plan steps yourself; turn on to pre-load guided step boards</span>
+              </div>
+              <Toggle
+                label="Show step plan in Pen Studio"
+                checked={prefs.showStepPlan}
+                onChange={v => onPatchPrefs({ showStepPlan: v })}
+              />
+            </div>
+
+            <div className="preference-row">
+              <div className="syntax-pref-copy">
                 <p>Collapse pen controls by default</p>
                 <span>Keep the top-left pen tip size &amp; color drawer tucked away until tapped</span>
               </div>
@@ -263,7 +279,26 @@ export function SyntaxSettingsPage({
               </div>
             </div>
 
-            <div className="sema-studio-tabs" role="tablist" aria-label="Sema customization">
+            <div
+              className="sema-studio-tabs"
+              role="tablist"
+              aria-label="Sema customization"
+              onKeyDown={e => {
+                const order: StudioTab[] = ['shape', 'semicolon', 'expression', 'motion']
+                const idx = order.indexOf(studioTab)
+                if (e.key === 'ArrowRight') {
+                  e.preventDefault()
+                  const next = order[(idx + 1) % order.length]!
+                  setStudioTab(next)
+                  document.getElementById(`sema-tab-${next}`)?.focus()
+                } else if (e.key === 'ArrowLeft') {
+                  e.preventDefault()
+                  const next = order[(idx - 1 + order.length) % order.length]!
+                  setStudioTab(next)
+                  document.getElementById(`sema-tab-${next}`)?.focus()
+                }
+              }}
+            >
               {(
                 [
                   { id: 'shape', label: `Shape (${SEMA_SHAPES.length})` },
@@ -274,9 +309,12 @@ export function SyntaxSettingsPage({
               ).map(t => (
                 <button
                   key={t.id}
+                  id={`sema-tab-${t.id}`}
                   type="button"
                   role="tab"
                   aria-selected={studioTab === t.id}
+                  aria-controls="sema-studio-tabpanel"
+                  tabIndex={studioTab === t.id ? 0 : -1}
                   className={`sema-studio-tab${studioTab === t.id ? ' is-active' : ''}`}
                   onClick={() => setStudioTab(t.id)}
                 >
@@ -285,13 +323,14 @@ export function SyntaxSettingsPage({
               ))}
             </div>
 
-            <div className="sema-studio-panel" role="tabpanel">
+            <div id="sema-studio-tabpanel" className="sema-studio-panel" role="tabpanel" aria-labelledby={`sema-tab-${studioTab}`}>
               {studioTab === 'shape' && (
                 <div className="sema-studio-chips">
                   {SEMA_SHAPES.map(sh => (
                     <button
                       key={sh.id}
                       type="button"
+                      aria-pressed={prefs.semaShape === sh.id}
                       className={`sema-chip${prefs.semaShape === sh.id ? ' is-active' : ''}`}
                       onClick={() => {
                         setPreviewAnim('idle')
@@ -310,6 +349,7 @@ export function SyntaxSettingsPage({
                     <button
                       key={tl.id}
                       type="button"
+                      aria-pressed={prefs.semaTail === tl.id}
                       className={`sema-chip is-tail-chip${prefs.semaTail === tl.id ? ' is-active' : ''}`}
                       onClick={() => {
                         setPreviewAnim('idle')
@@ -338,6 +378,7 @@ export function SyntaxSettingsPage({
                     <button
                       key={ex.id}
                       type="button"
+                      aria-pressed={prefs.semaExpression === ex.id}
                       className={`sema-chip${prefs.semaExpression === ex.id ? ' is-active' : ''}`}
                       onClick={() => {
                         setPreviewAnim('idle')
@@ -356,6 +397,7 @@ export function SyntaxSettingsPage({
                     <button
                       key={an.id}
                       type="button"
+                      aria-pressed={previewAnim === an.id}
                       className={`sema-chip is-anim${previewAnim === an.id ? ' is-active' : ''}`}
                       onClick={() => setPreviewAnim(an.id)}
                     >
@@ -371,7 +413,7 @@ export function SyntaxSettingsPage({
         <hr />
 
         <section id="pref-sounds" aria-labelledby="pref-sounds-h">
-          <h2 id="pref-sounds-h">Sounds &amp; Narration</h2>
+          <h2 id="pref-sounds-h">Sounds &amp; Voice</h2>
           <div className="preference-rows">
             <div className="preference-row">
               <div className="syntax-pref-copy">

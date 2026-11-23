@@ -73,16 +73,16 @@
   --bg-red: #ff8585;
 
   /* GeoCanvas palette calibrated to Brilliant Panda tokens (dark) */
-  --geo-bg: #18181b;
-  --geo-grid: #26262b;
+  --geo-bg: #161616;
+  --geo-grid: #262626;
   --geo-axis: #5c5c66;
-  --geo-halo: #18181b;
+  --geo-halo: #161616;
   --geo-ink: #ffffff;
   --geo-ink-secondary: #cccccc;
   --geo-ink-muted: #8c8c96;
   --geo-dim: #73737c;
   --geo-border: #34343c;
-  --geo-surface-subtle: #202024;
+  --geo-surface-subtle: #202020;
   --geo-blue: #7491ff;
   --geo-teal: #61c4b8;
   --geo-amber: #f9d25c;
@@ -92,7 +92,7 @@
   --geo-ghost: #7491ff;
 
   --choice-border: #3f414a;
-  --choice-shadow: #2d2f36;
+  --choice-shadow: #2c2c2c;
   --choice-hover: rgb(255 255 255 / 0.055);
   --choice-sel-border: #5c7eff;
   --choice-sel-bg: #152459;
@@ -854,6 +854,12 @@
   gap: 12px;
 }
 
+@media (max-width: 520px) {
+  .br-choice-list.is-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .br-choice-list.is-row {
   flex-wrap: wrap;
 }
@@ -1259,7 +1265,7 @@
 
 :root[data-theme='dark'] .br-plan-empty {
   outline-color: #3f3f46;
-  background: #1c1c20;
+  background: #1c1c1c;
 }
 
 .br-plan-empty[data-selected='true'],
@@ -1286,7 +1292,7 @@
 
 :root[data-theme='dark'] .br-plan-backdrop {
   outline-color: #3f3f46;
-  background: #1c1c20;
+  background: #1c1c1c;
 }
 
 .br-plan-tile-node {
@@ -1329,9 +1335,9 @@
 
 :root[data-theme='dark'] .br-plan-tile-face {
   border-color: #3f414a;
-  background: #1c1c20;
+  background: #1c1c1c;
   color: #fff;
-  box-shadow: 0 2px 0 #2d2f36;
+  box-shadow: 0 2px 0 #2c2c2c;
 }
 
 :root[data-theme='dark'] .br-plan-tile-node:hover > .br-plan-tile-face {
@@ -1341,7 +1347,7 @@
 
 :root[data-theme='dark'] .br-plan-tile-node[data-read-only='true'] > .br-plan-tile-face {
   border-color: #34343c;
-  background: #232328;
+  background: #242424;
   box-shadow: none;
 }
 
@@ -1417,7 +1423,7 @@
 
 :root[data-theme='dark'] .br-plan-floating.is-dragging > .br-plan-tile-face {
   border-color: #5c7eff;
-  background: #202436;
+  background: #222222;
   box-shadow: 0 12px 28px rgb(0 0 0 / 0.45), 0 2px 0 #3b5be0;
 }
 
@@ -2323,8 +2329,8 @@
 }
 
 :root[data-theme='dark'] .workspace-splitter-cue {
-  background: #1f222b;
-  color: #f2f3f7;
+  background: #222222;
+  color: #f2f2f2;
   border-color: #343845;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.34);
 }
@@ -2349,8 +2355,8 @@
 
 :root[data-theme='dark'] .workspace-splitter-cue-close,
 :root[data-theme='dark'] .workspace-splitter-cue-fullscreen {
-  background: #1f222b;
-  color: #f2f3f7;
+  background: #222222;
+  color: #f2f2f2;
   border-color: #343845;
 }
 
@@ -2409,7 +2415,7 @@
 .lesson-nav-icon-btn.lesson-pen-toggle:disabled,
 .lesson-nav-icon-btn.lesson-pen-toggle[data-disabled] {
   opacity: 0.34;
-  color: var(--geo-text-muted);
+  color: var(--muted, #6c7280);
   background: transparent;
   border-color: transparent;
   cursor: not-allowed;
@@ -2421,7 +2427,7 @@
 .lesson-nav-icon-btn.lesson-pen-toggle:disabled:hover {
   background: transparent;
   border-color: transparent;
-  color: var(--geo-text-muted);
+  color: var(--muted, #6c7280);
   transform: none;
 }
 
@@ -2554,6 +2560,12 @@
   grid-template-columns: 1fr;
 }
 
+@media (max-width: 1099px) {
+  .formula-dock-rail {
+    display: none;
+  }
+}
+
 /* Playbook Header Actions + Triggers & Traps Tab */
 .fm-header-actions {
   display: inline-flex;
@@ -2647,12 +2659,17 @@
   }
 
   .formula-dock-rail,
-  .practice-explanation.formula-modal {
+  .practice-explanation.formula-modal,
+  .winbox.syntax-winbox {
     position: static !important;
     width: 100% !important;
+    height: auto !important;
     max-width: 100% !important;
     box-shadow: none !important;
     border: 0 !important;
+  }
+  .winbox.syntax-winbox .wb-header {
+    display: none !important;
   }
 }
 
@@ -2969,46 +2986,6 @@
   min-width: 0;
 }
 
-.lesson-walkthrough-trigger {
-  appearance: none;
-  flex-shrink: 0;
-  margin-top: 8px;
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
-  border: 1.8px solid rgba(69, 109, 255, 0.36);
-  background: rgba(69, 109, 255, 0.08);
-  color: #456dff;
-  font: inherit;
-  font-size: 16px;
-  font-weight: 800;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: transform 140ms ease, background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
-}
-
-.lesson-walkthrough-trigger:hover {
-  transform: translateY(-1px);
-  background: #456dff;
-  border-color: #456dff;
-  color: #ffffff;
-  box-shadow: 0 4px 12px rgba(69, 109, 255, 0.25);
-}
-
-[data-theme='dark'] .lesson-walkthrough-trigger {
-  color: #8ea6ff;
-  border-color: rgba(116, 145, 255, 0.42);
-  background: rgba(116, 145, 255, 0.14);
-}
-
-[data-theme='dark'] .lesson-walkthrough-trigger:hover {
-  background: #7491ff;
-  border-color: #7491ff;
-  color: #0e1117;
-}
-
 .lesson-footer.is-draw-mode {
   display: flex;
   flex-direction: column;
@@ -3103,10 +3080,10 @@
 }
 
 :root[data-theme='dark'] .lesson-walkthrough-trigger {
-  background: #1b1f29;
-  border-color: #323747;
-  color: #f2f3f7;
-  box-shadow: 0 2px 0 #11131a;
+  background: #1e1e1e;
+  border-color: #303030;
+  color: #f2f2f2;
+  box-shadow: 0 2px 0 #0c0c0c;
 }
 
 .menu-popup {
@@ -3167,10 +3144,10 @@
 :root[data-theme='dark'] .fm-content-wrap .fm-print-btn,
 [data-theme='dark'] .winbox.syntax-winbox .wt-wb-action-btn,
 .winbox.syntax-winbox.is-dark .wt-wb-action-btn {
-  background: #1f2330;
-  border-color: #343a4d;
-  color: #eef1f8;
-  box-shadow: 0 2px 0 #101218;
+  background: #222222;
+  border-color: #323232;
+  color: #f2f2f2;
+  box-shadow: 0 2px 0 #0c0c0c;
 }
 
 :root[data-theme='dark'] .fm-content-wrap .fm-print-btn:hover,
@@ -3179,4 +3156,297 @@
   border-color: #7491ff;
   color: #9cb2ff;
   background: rgba(116, 145, 255, 0.12);
+}
+
+
+/* ==========================================================================
+   Formula Playbook Expandable "How it works" Conceptual Breakdown
+   ========================================================================== */
+.fm-explain-toggle {
+  appearance: none;
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 9px;
+  border: 1.5px solid var(--border, #e2e4ea);
+  background: transparent;
+  color: var(--text, #141414);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 140ms ease, color 140ms ease, background-color 140ms ease;
+}
+
+.fm-explain-toggle:hover,
+.fm-explain-toggle.is-open {
+  border-color: #456dff;
+  color: #456dff;
+  background: rgba(69, 109, 255, 0.06);
+}
+
+:root[data-theme='dark'] .fm-explain-toggle:hover,
+:root[data-theme='dark'] .fm-explain-toggle.is-open {
+  border-color: #7491ff;
+  color: #a5b8ff;
+  background: rgba(116, 145, 255, 0.14);
+}
+
+.fm-explain-box {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border, #e5e7eb);
+  background: var(--geo-surface-subtle, #f7f7f7);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--text, #141414);
+}
+
+.fm-explain-why,
+.fm-explain-ex {
+  margin: 0;
+}
+
+.fm-explain-ex {
+  color: var(--muted, #555555);
+}
+
+/* ==========================================================================
+   Worked Example Pre-Answer Badge & Show Solution Graph Button
+   ========================================================================== */
+.br-worked-graph-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+
+.br-worked-graph-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: var(--geo-surface-subtle, #f4f4f4);
+  border: 1px solid var(--border, #e2e4ea);
+  color: var(--muted, #5a5a5a);
+}
+
+.br-worked-solution-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1.5px solid #456dff;
+  background: rgba(69, 109, 255, 0.08);
+  color: #2f54eb;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 140ms ease, transform 90ms ease;
+}
+
+.br-worked-solution-btn:hover {
+  background: rgba(69, 109, 255, 0.16);
+}
+
+.br-worked-solution-btn:active {
+  transform: translateY(1px);
+}
+
+:root[data-theme='dark'] .br-worked-solution-btn {
+  border-color: #7491ff;
+  background: rgba(116, 145, 255, 0.14);
+  color: #a5b8ff;
+}
+
+.br-worked-prior-hidden {
+  font-style: italic;
+  color: var(--muted, #6c7280);
+  font-size: 13px;
+}
+
+.br-worked-winbox-body {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.br-worked-winbox-caption {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text, #141414);
+}
+
+/* ==========================================================================
+   ? Help Dropdown (Guided Hints vs Full Solution Walkthrough)
+   ========================================================================== */
+.lesson-help-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.lesson-help-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 80;
+  min-width: 248px;
+  padding: 6px;
+  border-radius: 16px;
+  border: 1.5px solid var(--border, #e2e4ea);
+  background: var(--surface, #ffffff);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+:root[data-theme='dark'] .lesson-help-menu {
+  background: #1c1c1c;
+  border-color: #303030;
+  box-shadow: 0 16px 38px rgba(0, 0, 0, 0.56);
+}
+
+.lesson-help-option {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text, #141414);
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font: inherit;
+  transition: background-color 120ms ease;
+}
+
+.lesson-help-option:hover {
+  background: rgba(69, 109, 255, 0.08);
+}
+
+:root[data-theme='dark'] .lesson-help-option:hover {
+  background: rgba(116, 145, 255, 0.16);
+}
+
+.lesson-help-option strong {
+  font-size: 13.5px;
+  font-weight: 700;
+}
+
+.lesson-help-option span {
+  font-size: 12px;
+  color: var(--muted, #6c7280);
+  line-height: 1.35;
+}
+
+.lesson-guided-hints-card {
+  margin: 12px 0 16px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1.5px solid rgba(69, 109, 255, 0.28);
+  background: rgba(69, 109, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+:root[data-theme='dark'] .lesson-guided-hints-card {
+  border-color: rgba(116, 145, 255, 0.34);
+  background: rgba(116, 145, 255, 0.1);
+}
+
+.lesson-guided-hints-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.lesson-guided-hints-head strong {
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #2f54eb;
+}
+
+:root[data-theme='dark'] .lesson-guided-hints-head strong {
+  color: #a5b8ff;
+}
+
+.lesson-guided-hints-close {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--muted, #6c7280);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.lesson-guided-hints-close:hover {
+  color: var(--text, #141414);
+}
+
+.lesson-guided-hints-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  line-height: 1.48;
+  color: var(--text, #141414);
+}
+
+.lesson-guided-hints-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lesson-guided-hints-btn {
+  appearance: none;
+  border: 1.5px solid var(--border, #d8dce6);
+  background: var(--surface, #ffffff);
+  color: var(--text, #141414);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.lesson-guided-hints-btn:hover {
+  border-color: #456dff;
+  color: #456dff;
 }

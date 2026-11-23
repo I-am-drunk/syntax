@@ -20,16 +20,16 @@ const CONSTRUCTED_SCENES: Record<string, GeoScene> = {
   'mp-1-median': {
     xMin: -5,
     xMax: 7,
-    yMin: -4,
-    yMax: 6,
+    yMin: -6,
+    yMax: 5,
     showAxisNumbers: false,
-    polygons: [{ vertices: [[-2, 4], [-3, -2], [5, 0]], color: 'blue', dim: true }],
-    segments: [{ from: [-2, 4], to: [1, -1], color: 'teal', label: 'Median' }],
+    polygons: [{ vertices: [[-3, 3], [2, -5], [5, 2]], color: 'blue', dim: true }],
+    segments: [{ from: [5, 2], to: [-0.5, -1], color: 'teal', label: 'Median' }],
     points: [
-      { id: 'A', x: -2, y: 4, label: 'A', color: 'teal' },
-      { id: 'B', x: -3, y: -2, label: 'B', dim: true },
-      { id: 'C', x: 5, y: 0, label: 'C', dim: true },
-      { id: 'M', x: 1, y: -1, label: 'M', color: 'amber', emphasis: true },
+      { id: 'A', x: -3, y: 3, label: 'A', dim: true },
+      { id: 'B', x: 2, y: -5, label: 'B', dim: true },
+      { id: 'C', x: 5, y: 2, label: 'C', color: 'teal', emphasis: true },
+      { id: 'M', x: -0.5, y: -1, label: 'M', color: 'amber', emphasis: true },
     ],
   },
   'mp-2-altitude': {
@@ -38,10 +38,10 @@ const CONSTRUCTED_SCENES: Record<string, GeoScene> = {
     yMin: -4,
     yMax: 6,
     showAxisNumbers: false,
-    polygons: [{ vertices: [[0, 5], [-4, -1], [4, 1]], color: 'blue', dim: true }],
-    segments: [{ from: [0, 5], to: [1.18, 0.29], color: 'amber', label: 'Altitude' }],
+    polygons: [{ vertices: [[0, 5], [-4, 0], [4, 1]], color: 'blue', dim: true }],
+    segments: [{ from: [0, 5], to: [20 / 17, 5 / 17], color: 'amber', label: 'Altitude' }],
     rightAngles: [
-      { vertex: [1.18, 0.29], dir1: [4, 1], dir2: [-1, 4], color: 'amber' },
+      { vertex: [20 / 17, 5 / 17], dir1: [4, 1], dir2: [-1, 4], color: 'amber' },
     ],
     points: [
       { id: 'A', x: 0, y: 5, label: 'A', color: 'amber', emphasis: true },
@@ -71,11 +71,11 @@ const CONSTRUCTED_SCENES: Record<string, GeoScene> = {
     yMax: 7,
     showAxisNumbers: false,
     lines: [{ a: 1, b: -2, c: 2, color: 'blue', label: 'Line' }],
-    segments: [{ from: [1, 5], to: [2.6, 2.3], color: 'green', label: 'd' }],
-    rightAngles: [{ vertex: [2.6, 2.3], dir1: [2, 1], dir2: [-1, 2], color: 'green' }],
+    segments: [{ from: [1, 5], to: [2.4, 2.2], color: 'green', label: 'd' }],
+    rightAngles: [{ vertex: [2.4, 2.2], dir1: [2, 1], dir2: [-1, 2], color: 'green' }],
     points: [
       { id: 'P', x: 1, y: 5, label: 'P', color: 'amber', emphasis: true },
-      { id: 'H', x: 2.6, y: 2.3, label: 'POI', color: 'green', emphasis: true },
+      { id: 'H', x: 2.4, y: 2.2, label: 'POI', color: 'green', emphasis: true },
     ],
   },
   'mp-8-circumcentre': {
@@ -133,21 +133,30 @@ function toPlanPage(
           math: stepLines.join('\n'),
           scene: solvedScene,
         },
-        ...(s.validPlans.length > 1
-          ? [
-              {
-                text: `Alternate valid plan (${s.validPlans[1].name}): ${s.validPlans[1].explanation}`,
-                math: s.validPlans[1].steps
-                  .map((id, i) => {
-                    const b = s.pool.find(p => p.id === id)
-                    return b ? `${i + 1}. ${b.text}` : ''
-                  })
-                  .filter(Boolean)
-                  .join('\n'),
-                scene: solvedScene,
-              },
-            ]
-          : []),
+        ...(() => {
+          const alt =
+            s.validPlans
+              .slice(1)
+              .find(
+                vp =>
+                  vp.steps.length !== best.steps.length ||
+                  vp.steps.some(id => !best.steps.includes(id)),
+              ) ?? s.validPlans[1]
+          if (!alt) return []
+          return [
+            {
+              text: `Alternate valid plan (${alt.name}): ${alt.explanation}`,
+              math: alt.steps
+                .map((id, i) => {
+                  const b = s.pool.find(p => p.id === id)
+                  return b ? `${i + 1}. ${b.text}` : ''
+                })
+                .filter(Boolean)
+                .join('\n'),
+              scene: solvedScene,
+            },
+          ]
+        })(),
       ],
     },
   }
@@ -315,6 +324,11 @@ const MP_DIAMETER_CIRCLE: PlanOrderPage = {
       steps: ['rad', 'eq'],
       explanation: 'Find the radius from origin to endpoint A, then write x² + y² = r².',
     },
+    {
+      name: 'Fast Direct Substitution',
+      steps: ['sub', 'eq'],
+      explanation: 'Since the circle is centred at (0, 0), sub an endpoint directly into x² + y² = r² to find r².',
+    },
   ],
   orderFeedback: [
     { before: 'rad', after: 'eq', message: 'Find r (or r²) before writing x² + y² = r².' },
@@ -355,9 +369,9 @@ const MP_TRAPEZOID: PlanOrderPage = {
     yMin: -4,
     yMax: 4,
     showAxisNumbers: false,
-    polygons: [{ vertices: [[-4, -1], [2, -3], [4, 1], [0, 3]], color: 'amber' }],
+    polygons: [{ vertices: [[-4, 0], [2, -3], [4, 1], [0, 3]], color: 'amber' }],
     points: [
-      { id: 'A', x: -4, y: -1, label: 'A', color: 'blue' },
+      { id: 'A', x: -4, y: 0, label: 'A', color: 'blue' },
       { id: 'B', x: 2, y: -3, label: 'B', color: 'blue' },
       { id: 'C', x: 4, y: 1, label: 'C', color: 'blue' },
       { id: 'D', x: 0, y: 3, label: 'D', color: 'blue' },
@@ -376,6 +390,12 @@ const MP_TRAPEZOID: PlanOrderPage = {
       steps: ['s1', 'par', 'nonpar'],
       explanation:
         'A trapezoid has EXACTLY one pair of parallel sides. You MUST check both pairs of slopes so it is not a parallelogram.',
+    },
+    {
+      name: 'Complete Trapezoid Proof (non-parallel first)',
+      steps: ['s1', 'nonpar', 'par'],
+      explanation:
+        'Order of the two comparisons does not matter as long as you compute all 4 slopes first and verify one pair is parallel while the other is not.',
     },
   ],
   missingFeedback: [
@@ -399,13 +419,13 @@ const MP_TRAPEZOID: PlanOrderPage = {
           yMin: -4,
           yMax: 4,
           showAxisNumbers: false,
-          polygons: [{ vertices: [[-4, -1], [2, -3], [4, 1], [0, 3]], color: 'amber', dim: true }],
+          polygons: [{ vertices: [[-4, 0], [2, -3], [4, 1], [0, 3]], color: 'amber', dim: true }],
           segments: [
-            { from: [-4, -1], to: [2, -3], color: 'green', label: '∥' },
+            { from: [-4, 0], to: [2, -3], color: 'green', label: '∥' },
             { from: [0, 3], to: [4, 1], color: 'green', label: '∥' },
           ],
           points: [
-            { id: 'A', x: -4, y: -1, label: 'A', color: 'blue' },
+            { id: 'A', x: -4, y: 0, label: 'A', color: 'blue' },
             { id: 'B', x: 2, y: -3, label: 'B', color: 'blue' },
             { id: 'C', x: 4, y: 1, label: 'C', color: 'blue' },
             { id: 'D', x: 0, y: 3, label: 'D', color: 'blue' },
@@ -498,9 +518,9 @@ const MP_VARIGNON: PlanOrderPage = {
     yMin: -4,
     yMax: 5,
     showAxisNumbers: false,
-    polygons: [{ vertices: [[-4, -1], [0, 4], [5, 2], [2, -3]], color: 'blue', dim: true }],
+    polygons: [{ vertices: [[-4, 0], [0, 4], [5, 2], [2, -3]], color: 'blue', dim: true }],
     points: [
-      { id: 'A', x: -4, y: -1, label: 'A', color: 'blue' },
+      { id: 'A', x: -4, y: 0, label: 'A', color: 'blue' },
       { id: 'B', x: 0, y: 4, label: 'B', color: 'blue' },
       { id: 'C', x: 5, y: 2, label: 'C', color: 'blue' },
       { id: 'D', x: 2, y: -3, label: 'D', color: 'blue' },
@@ -534,7 +554,7 @@ const MP_VARIGNON: PlanOrderPage = {
           yMax: 5,
           showAxisNumbers: false,
           polygons: [
-            { vertices: [[-4, -1], [0, 4], [5, 2], [2, -3]], color: 'blue', dim: true },
+            { vertices: [[-4, 0], [0, 4], [5, 2], [2, -3]], color: 'blue', dim: true },
             { vertices: [[-2, 1.5], [2.5, 3], [3.5, -0.5], [-1, -2]], color: 'green' },
           ],
           points: [
@@ -632,7 +652,7 @@ const FLAW_RB: ChoicePage = {
     yMin: -3,
     yMax: 6,
     showAxisNumbers: false,
-    polygons: [{ vertices: [[-1, 5], [-4, -1], [4, 1]], color: 'blue', dim: true }],
+    polygons: [{ vertices: [[-1, 5], [-4, 0], [4, 1]], color: 'blue', dim: true }],
     points: [
       { id: 'A', x: -1, y: 5, label: 'A', color: 'blue' },
       { id: 'B', x: -4, y: -1, label: 'B', color: 'blue' },
@@ -658,7 +678,7 @@ const FLAW_RB: ChoicePage = {
           yMin: -3,
           yMax: 6,
           showAxisNumbers: false,
-          polygons: [{ vertices: [[-1, 5], [-4, -1], [4, 1]], color: 'blue', dim: true }],
+          polygons: [{ vertices: [[-1, 5], [-4, 0], [4, 1]], color: 'blue', dim: true }],
           lines: [{ a: 4, b: 1, c: 0, color: 'violet', dashed: true, label: 'Right Bisector (uses M!)' }],
           rightAngles: [{ vertex: [0, 0], dir1: [4, 1], dir2: [-1, 4], color: 'violet' }],
           points: [{ id: 'M', x: 0, y: 0, label: 'M', color: 'violet', emphasis: true }],
@@ -692,9 +712,9 @@ const FLAW_TRAPEZOID: ChoicePage = {
           yMin: -4,
           yMax: 4,
           showAxisNumbers: false,
-          polygons: [{ vertices: [[-4, -1], [2, -3], [4, 1], [0, 3]], color: 'amber' }],
+          polygons: [{ vertices: [[-4, 0], [2, -3], [4, 1], [0, 3]], color: 'amber' }],
           points: [
-            { id: 'A', x: -4, y: -1, label: 'A', color: 'blue' },
+            { id: 'A', x: -4, y: 0, label: 'A', color: 'blue' },
             { id: 'B', x: 2, y: -3, label: 'B', color: 'blue' },
             { id: 'C', x: 4, y: 1, label: 'C', color: 'blue' },
             { id: 'D', x: 0, y: 3, label: 'D', color: 'blue' },

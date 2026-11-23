@@ -1,4 +1,11 @@
-import { isValidTailName, type SemaExpressionName, type SemaShapeName, type SemaTailName } from './mascot/bloub'
+import {
+  isValidExpressionName,
+  isValidShapeName,
+  isValidTailName,
+  type SemaExpressionName,
+  type SemaShapeName,
+  type SemaTailName,
+} from './mascot/bloub'
 
 const PREFS_KEY = 'syntax.mpm2d.prefs.v1'
 const COOKIE_NAME = 'syntax_mpm2d_prefs'
@@ -9,6 +16,7 @@ export type SyntaxPrefs = {
   onboarded: boolean
   voiceOn: boolean
   penControlsCollapsed: boolean
+  showStepPlan: boolean
   semaShape: SemaShapeName
   semaTail: SemaTailName
   semaExpression: SemaExpressionName
@@ -20,6 +28,7 @@ const DEFAULT_PREFS: SyntaxPrefs = {
   onboarded: false,
   voiceOn: true,
   penControlsCollapsed: true,
+  showStepPlan: false,
   semaShape: 'jenson',
   semaTail: 'jenson',
   semaExpression: 'neutral',
@@ -52,26 +61,49 @@ function writeCookie(name: string, value: string) {
   }
 }
 
-export function loadPrefs(): SyntaxPrefs {
+function parseRawPrefs(raw: string | null): Partial<SyntaxPrefs> | null {
+  if (!raw) return null
   try {
-    const raw = localStorage.getItem(PREFS_KEY) ?? readCookie(COOKIE_NAME)
-    if (!raw) return { ...DEFAULT_PREFS }
-    const parsed = JSON.parse(raw) as Partial<SyntaxPrefs>
-    return {
-      drawMode: Boolean(parsed.drawMode ?? DEFAULT_PREFS.drawMode),
-      showCatchupPaths: Boolean(parsed.showCatchupPaths ?? DEFAULT_PREFS.showCatchupPaths),
-      onboarded: Boolean(parsed.onboarded ?? DEFAULT_PREFS.onboarded),
-      voiceOn: parsed.voiceOn === undefined ? DEFAULT_PREFS.voiceOn : Boolean(parsed.voiceOn),
-      penControlsCollapsed:
-        parsed.penControlsCollapsed === undefined
-          ? DEFAULT_PREFS.penControlsCollapsed
-          : Boolean(parsed.penControlsCollapsed),
-      semaShape: !parsed.semaShape || parsed.semaShape === 'circle' ? DEFAULT_PREFS.semaShape : parsed.semaShape,
-      semaTail: isValidTailName(parsed.semaTail) ? parsed.semaTail : DEFAULT_PREFS.semaTail,
-      semaExpression: parsed.semaExpression ?? DEFAULT_PREFS.semaExpression,
-    }
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null
+    return parsed as Partial<SyntaxPrefs>
   } catch {
-    return { ...DEFAULT_PREFS }
+    return null
+  }
+}
+
+export function loadPrefs(): SyntaxPrefs {
+  let lsRaw: string | null = null
+  try {
+    lsRaw = localStorage.getItem(PREFS_KEY)
+  } catch {
+    // localStorage unavailable in restricted/private mode
+  }
+  const parsed = parseRawPrefs(lsRaw) ?? parseRawPrefs(readCookie(COOKIE_NAME))
+  if (!parsed) return { ...DEFAULT_PREFS }
+
+  const rawShape = parsed.semaShape
+  const validShape =
+    isValidShapeName(rawShape) && rawShape !== 'circle' ? rawShape : DEFAULT_PREFS.semaShape
+
+  return {
+    drawMode: Boolean(parsed.drawMode ?? DEFAULT_PREFS.drawMode),
+    showCatchupPaths: Boolean(parsed.showCatchupPaths ?? DEFAULT_PREFS.showCatchupPaths),
+    onboarded: Boolean(parsed.onboarded ?? DEFAULT_PREFS.onboarded),
+    voiceOn: parsed.voiceOn === undefined ? DEFAULT_PREFS.voiceOn : Boolean(parsed.voiceOn),
+    penControlsCollapsed:
+      parsed.penControlsCollapsed === undefined
+        ? DEFAULT_PREFS.penControlsCollapsed
+        : Boolean(parsed.penControlsCollapsed),
+    showStepPlan:
+      parsed.showStepPlan === undefined
+        ? DEFAULT_PREFS.showStepPlan
+        : Boolean(parsed.showStepPlan),
+    semaShape: validShape,
+    semaTail: isValidTailName(parsed.semaTail) ? parsed.semaTail : DEFAULT_PREFS.semaTail,
+    semaExpression: isValidExpressionName(parsed.semaExpression)
+      ? parsed.semaExpression
+      : DEFAULT_PREFS.semaExpression,
   }
 }
 

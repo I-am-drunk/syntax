@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 // @ts-expect-error winbox/src/js/winbox.js is pure ESM without type declarations
 import WinBoxCtor from 'winbox/src/js/winbox.js'
@@ -46,16 +46,18 @@ export function WinBoxWindow({
 
   useEffect(() => {
     if (typeof window === 'undefined') return
+    // Reset guard on mount (critical for React StrictMode double-invoke)
+    closingProgrammaticallyRef.current = false
 
     const vw = window.innerWidth
     const vh = window.innerHeight
     const isPhone = vw <= 768
     const padX = isPhone ? 10 : 24
-    const padTop = isPhone ? 58 : 70
+    const padTop = isPhone ? 70 : 76
     const padBottom = isPhone ? 12 : 20
 
-    const availW = Math.max(280, vw - padX * 2)
-    const availH = Math.max(300, vh - padTop - padBottom)
+    const availW = Math.max(260, vw - padX * 2)
+    const availH = Math.max(240, vh - padTop - padBottom)
     const w = Math.min(defaultWidth, availW)
     const h = Math.min(defaultHeight, availH)
     const x = Math.max(padX, Math.round((vw - w) / 2))
@@ -84,11 +86,11 @@ export function WinBoxWindow({
       minheight: Math.min(minHeight, availH),
       x,
       y,
-      top: isPhone ? 52 : 60,
+      top: 66,
       bottom: 8,
       left: 6,
       right: 6,
-      index: 950,
+      index: 900,
       header: 42,
       border: 0,
       onclose: () => {
@@ -103,6 +105,11 @@ export function WinBoxWindow({
     setMountNode(box.body)
 
     const dom = box.dom as HTMLElement | undefined
+    if (dom) {
+      dom.setAttribute('role', 'dialog')
+      dom.setAttribute('aria-label', eyebrow ? `${eyebrow} ${title}` : title)
+    }
+
     const headerEl = dom?.querySelector('.wb-header') as HTMLElement | null
     const controlEl = dom?.querySelector('.wb-control') as HTMLElement | null
     if (headerEl && controlEl) {
@@ -113,20 +120,21 @@ export function WinBoxWindow({
       slot.addEventListener('mousedown', stopDrag)
       slot.addEventListener('touchstart', stopDrag, { passive: true })
       slot.addEventListener('dblclick', stopDrag)
-      // .wb-header uses row-reverse, so inserting after .wb-control places the slot immediately to its left
       controlEl.insertAdjacentElement('afterend', slot)
       setActionsNode(slot)
     }
 
     const handleViewportResize = () => {
-      const b = boxRef.current
+      const b = boxRef.current as (WinBoxInstance & { minwidth?: number; minheight?: number }) | null
       if (!b || b.min || b.max) return
       const curVw = window.innerWidth
       const curVh = window.innerHeight
       const curPadX = curVw <= 768 ? 8 : 16
-      const curTop = curVw <= 768 ? 52 : 60
-      const maxW = Math.max(280, curVw - curPadX * 2)
-      const maxH = Math.max(300, curVh - curTop - 12)
+      const curTop = 66
+      const maxW = Math.max(260, curVw - curPadX * 2)
+      const maxH = Math.max(220, curVh - curTop - 12)
+      b.minwidth = Math.min(minWidth, maxW)
+      b.minheight = Math.min(minHeight, maxH)
       const curW = typeof b.width === 'number' ? b.width : defaultWidth
       const curH = typeof b.height === 'number' ? b.height : defaultHeight
       const nextW = Math.min(curW, maxW)
@@ -143,7 +151,7 @@ export function WinBoxWindow({
       }
     }
 
-    const themeObserver = new MutationObserver(() => {
+    const syncTheme = () => {
       const b = boxRef.current
       if (!b) return
       const darkNow =
@@ -154,8 +162,13 @@ export function WinBoxWindow({
       } else {
         b.removeClass('is-dark')
       }
-    })
+    }
+    const themeObserver = new MutationObserver(syncTheme)
     themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['data-theme'],
+    })
+    themeObserver.observe(document.body, {
       attributes: true,
       attributeFilter: ['data-theme'],
     })
@@ -166,6 +179,8 @@ export function WinBoxWindow({
       window.removeEventListener('resize', handleViewportResize)
       themeObserver.disconnect()
       closingProgrammaticallyRef.current = true
+      setMountNode(null)
+      setActionsNode(null)
       try {
         box.close(true)
       } catch {
@@ -181,6 +196,7 @@ export function WinBoxWindow({
     if (!box) return
     const dom = box.dom as HTMLElement | undefined
     if (!dom) return
+    dom.setAttribute('aria-label', eyebrow ? `${eyebrow} ${title}` : title)
     const titleEl = dom.querySelector('.wb-title') as HTMLElement | null
     if (!titleEl) {
       box.setTitle(eyebrow ? `${eyebrow} · ${title}` : title)

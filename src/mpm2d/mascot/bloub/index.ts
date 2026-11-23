@@ -170,3 +170,11 @@ export function resolveShapeRadii(name?: SemaShapeName | ShapeId | null): number
   const fr = (SHAPE_EN_TO_FR as Record<string, ShapeId>)[key] ?? (key as ShapeId)
   return (SHAPE_BY_ID.get(fr) ?? SHAPE_BY_ID.get('sema')!).radii
 }
+
+export function isValidShapeName(val: unknown): val is SemaShapeName {
+  return typeof val === 'string' && Object.prototype.hasOwnProperty.call(SHAPE_EN_TO_FR, val)
+}
+
+export function isValidExpressionName(val: unknown): val is SemaExpressionName {
+  return typeof val === 'string' && Object.prototype.hasOwnProperty.call(EXPR_EN_TO_FR, val)
+}

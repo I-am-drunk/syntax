@@ -46,9 +46,13 @@ export type WorkedPage = {
   source: string
   prompt: string
   plan: string[]
+  /** Optional page-wide pre-answer graph showing only the given setup */
+  preScene?: GeoScene
   steps: {
     heading: string
     mathLines: string[]
+    /** Optional pre-reveal graph showing only the given setup for this step */
+    preScene?: GeoScene
     scene: GeoScene
   }[]
   /** 3 plausible multiple-choice answers used to verify worksheet work in Draw Mode */
@@ -230,14 +234,14 @@ export function isPenEnabledForPage(page: GeoLessonPage, isCheck: boolean): bool
   if (page.kind === "choice") {
     if (page.layout === "steps") return true
     const hasMathWork =
-      /[=²√]|\(-?\d+\s*,\s*-?\d+\)/.test(page.prompt) ||
-      page.options.some(o => /[=²√]|\(-?\d+\s*,\s*-?\d+\)/.test(o.label))
+      /[=²√]|\([-−]?\d+\s*,\s*[-−]?\d+\)/.test(page.prompt) ||
+      page.options.some(o => /[=²√]|\([-−]?\d+\s*,\s*[-−]?\d+\)/.test(o.label))
     return hasMathWork
   }
   if (page.kind === "multi-choice") {
     const hasMathWork =
-      /[=²√]|\(-?\d+\s*,\s*-?\d+\)/.test(page.prompt) ||
-      page.options.some(o => /[=²√]|\(-?\d+\s*,\s*-?\d+\)/.test(o.label))
+      /[=²√]|\([-−]?\d+\s*,\s*[-−]?\d+\)/.test(page.prompt) ||
+      page.options.some(o => /[=²√]|\([-−]?\d+\s*,\s*[-−]?\d+\)/.test(o.label))
     return hasMathWork
   }
   return false
@@ -252,7 +256,7 @@ export type PageClassification = 'explore' | 'worked' | 'lesson-question' | 'che
 export function classifyLessonPage(page: GeoLessonPage, isCheck: boolean): PageClassification {
   if (isCheck) return 'check'
   if (page.kind === 'explore') return 'explore'
-  if (page.kind === 'worked') return 'worked'
+  if (page.kind === 'worked') return page.isLessonQuestion ? 'lesson-question' : 'worked'
   return 'lesson-question'
 }
 

@@ -193,6 +193,50 @@ function evaluatePlanOrder(page: PlanOrderPage, chosen: string[]): { ok: boolean
   }
 }
 
+function buildGuidedHints(
+  page: GeoLessonPage,
+  walkthroughSpec: ReturnType<typeof getWalkthroughForPage>,
+): { title: string; bullets: string[]; tip: string } {
+  const bullets: string[] = []
+  if (walkthroughSpec?.steps && walkthroughSpec.steps.length > 0) {
+    for (const st of walkthroughSpec.steps.slice(0, 4)) {
+      const label = (st.label || '').trim()
+      if (label && !bullets.includes(label)) bullets.push(label)
+    }
+  }
+  if (bullets.length === 0) {
+    if (page.kind === 'multi-step') {
+      for (const st of page.steps) bullets.push(st.label)
+    } else if (page.kind === 'worked') {
+      for (const st of page.steps) bullets.push(st.heading)
+    } else if (page.kind === 'plan-order') {
+      bullets.push('Identify the final geometric property or value asked for.')
+      bullets.push('Work backwards to find which slopes, midpoints, or lengths must come first.')
+      bullets.push(`Build a sequence of ${page.validPlans[0]?.steps.length ?? 3} ordered steps.`)
+    } else {
+      bullets.push('Write down the coordinates or equations given in the prompt.')
+      bullets.push('Pick the matching Unit 2 formula (slope, midpoint, length, or line equation).')
+      bullets.push('Substitute carefully with signs, then double-check on the graph.')
+    }
+  }
+
+  let tip = 'Use these building blocks to set up your own plan before revealing the full solution.'
+  if (page.kind === 'math-input' && page.nudge) {
+    tip = page.nudge
+  } else if (page.kind === 'multi-step') {
+    const firstNudge = page.steps.find(s => s.nudge)?.nudge
+    if (firstNudge) tip = firstNudge
+  } else if (walkthroughSpec?.title) {
+    tip = `Focus on: ${walkthroughSpec.title}`
+  }
+
+  return {
+    title: 'Components & Setup Plan (No Answer Spoiler)',
+    bullets,
+    tip,
+  }
+}
+
 export function GeoLessonPlayer({
   lesson,
   theme,
@@ -203,6 +247,7 @@ export function GeoLessonPlayer({
   semaTail = 'jenson',
   semaExpression = 'neutral',
   penControlsCollapsed = true,
+  showStepPlan = false,
   formulasOpen,
   returnToLessonLabel,
   onClose,
@@ -210,6 +255,7 @@ export function GeoLessonPlayer({
   onLaunchRescue,
   onToggleDrawMode,
   onToggleVoice,
+  onToggleShowStepPlan,
   onComplete,
   onToggleFormulas,
   onCloseFormulas,
@@ -225,6 +271,7 @@ export function GeoLessonPlayer({
   semaTail?: SemaTailName
   semaExpression?: SemaExpressionName
   penControlsCollapsed?: boolean
+  showStepPlan?: boolean
   formulasOpen: boolean
   returnToLessonLabel?: string
   onClose: () => void
@@ -232,6 +279,7 @@ export function GeoLessonPlayer({
   onLaunchRescue?: (rescueLessonId: string) => void
   onToggleDrawMode?: () => void
   onToggleVoice?: () => void
+  onToggleShowStepPlan?: () => void
   onComplete: (
     lessonId: string,
     correctChecks: number,
@@ -264,11 +312,17 @@ export function GeoLessonPlayer({
   const [states, setStates] = useState(initialResume.states)
   const [explanationOpen, setExplanationOpen] = useState(false)
   const [walkthroughOpen, setWalkthroughOpen] = useState(false)
+  const [helpMenuOpen, setHelpMenuOpen] = useState(false)
+  const [guidedHintsOpen, setGuidedHintsOpen] = useState(false)
   const [walkthroughFloating, setWalkthroughFloating] = useState(true)
   const [workedStepIndex, setWorkedStepIndex] = useState(0)
   const [playbookFloating, setPlaybookFloating] = useState(true)
   const [seenExplain, setSeenExplain] = useState(initialResume.seenExplain)
   const [finished, setFinished] = useState(false)
+  const helpMenuRef = useRef<HTMLDivElement>(null)
+  const prevLessonIdRef = useRef(lesson.id)
+  const onPenModeChangeRef = useRef(onPenModeChange)
+  onPenModeChangeRef.current = onPenModeChange
 
   // Pen Studio Mode state
   const [penWanted, setPenWanted] = useState<boolean>(() => loadBoolPref(PEN_OPEN_KEY, false))
@@ -296,8 +350,12 @@ export function GeoLessonPlayer({
   const pageRole = classifyLessonPage(page, isCheck)
   const isProblem = isInteractivePage(page, penOpen)
   const worksheetSpec = useMemo(
-    () => buildWorksheetSpec(lesson, page, pageIndex, allPages.length, isCheck),
-    [lesson, page, pageIndex, allPages.length, isCheck],
+    () => buildWorksheetSpec(lesson, page, pageIndex, allPages.length, isCheck, showStepPlan),
+    [lesson, page, pageIndex, allPages.length, isCheck, showStepPlan],
+  )
+  const walkthroughSpec = useMemo(
+    () => getWalkthroughForPage(lesson.id, page),
+    [lesson.id, page],
   )
 
   useEffect(() => {
@@ -314,8 +372,8 @@ export function GeoLessonPlayer({
   }, [penWanted])
 
   useEffect(() => {
-    return () => onPenModeChange?.(false)
-  }, [onPenModeChange])
+    return () => onPenModeChangeRef.current?.(false)
+  }, [])
 
   useEffect(() => {
     try {
@@ -344,16 +402,49 @@ export function GeoLessonPlayer({
   }, [])
 
   useEffect(() => {
+    if (prevLessonIdRef.current !== lesson.id) {
+      prevLessonIdRef.current = lesson.id
+      setPageIndex(initialResume.pageIndex)
+      setFurthest(initialResume.furthest)
+      setStates(initialResume.states)
+      setSeenExplain(initialResume.seenExplain)
+      setFinished(false)
+      setExplanationOpen(false)
+      setWalkthroughOpen(false)
+      setHelpMenuOpen(false)
+      setGuidedHintsOpen(false)
+      return
+    }
     if (!finished) {
       writeResume(lesson.id, { pageIndex, pageId: page.id, furthest, states, seenExplain })
     }
-  }, [lesson.id, page.id, pageIndex, furthest, states, seenExplain, finished])
+  }, [lesson.id, page.id, pageIndex, furthest, states, seenExplain, finished, initialResume])
 
   useEffect(() => {
     pageScrollRef.current?.scrollTo({ top: 0 })
     setExplanationOpen(false)
     setWalkthroughOpen(false)
+    setHelpMenuOpen(false)
+    setGuidedHintsOpen(false)
   }, [pageIndex])
+
+  useEffect(() => {
+    if (!helpMenuOpen) return
+    const onDown = (e: PointerEvent) => {
+      if (helpMenuRef.current && !helpMenuRef.current.contains(e.target as Node)) {
+        setHelpMenuOpen(false)
+      }
+    }
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setHelpMenuOpen(false)
+    }
+    document.addEventListener('pointerdown', onDown, true)
+    window.addEventListener('keydown', onEsc)
+    return () => {
+      document.removeEventListener('pointerdown', onDown, true)
+      window.removeEventListener('keydown', onEsc)
+    }
+  }, [helpMenuOpen])
 
   // Global 'P' shortcut to toggle Pen Studio Mode
   useEffect(() => {
@@ -365,14 +456,14 @@ export function GeoLessonPlayer({
       if ((e.key === 'p' || e.key === 'P') && penAllowed) {
         e.preventDefault()
         setPenWanted(v => !v)
-      } else if (e.key === '?') {
+      } else if (e.key === '?' && (walkthroughSpec || (page.kind !== 'explore' && page.kind !== 'worked' && page.explanation))) {
         e.preventDefault()
-        setWalkthroughOpen(v => !v)
+        setHelpMenuOpen(v => !v)
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [finished, penAllowed])
+  }, [finished, penAllowed, walkthroughSpec, page])
 
   const patchState = (id: string, patch: Partial<PageRuntime>) => {
     setStates(prev => ({
@@ -465,7 +556,8 @@ export function GeoLessonPlayer({
       feedback = `${feedback} ${sub.nudge}`
     }
 
-    if (nextSubAttempts >= 2) {
+    const maxSubTries = isCheck ? 1 : 2
+    if (nextSubAttempts >= maxSubTries) {
       // Anti-cascade: lock in the clean exact value on the ledger so the student can finish the remaining steps!
       const nextOutcomes: MultiStepOutcome[] = [...state.subOutcomes, 'revealed']
       const nextInputs = [...state.subInputs, sub.ledgerResult]
@@ -478,6 +570,19 @@ export function GeoLessonPlayer({
           subJustSolved: true,
           feedback: `${feedback ?? 'Check the algebra carefully.'} Exact value: ${sub.ledgerResult}.`,
           pinnedHint: undefined,
+        })
+        recordWorkHistoryVersion({
+          lesson,
+          page: msPage,
+          pageIndex,
+          isCheck,
+          answerSummary: msPage.steps.map((s, idx) => `${s.label}: ${nextInputs[idx] ?? ''}`).join('  →  '),
+          subSteps: msPage.steps.map((s, idx) => ({
+            label: s.label,
+            value: nextInputs[idx] ?? '',
+            outcome: nextOutcomes[idx] ?? 'revealed',
+          })),
+          evaluation: 'incorrect',
         })
         onSound?.('incorrect')
       } else {
@@ -508,8 +613,14 @@ export function GeoLessonPlayer({
     onSound?.('hint')
   }
 
-  const handleCheck = () => {
-    if (!canCheck) return
+  const handleCheck = (allowRetrySubmit = false) => {
+    const canSubmitNow =
+      canCheck ||
+      (allowRetrySubmit &&
+        state.evaluation === 'incorrect-retry' &&
+        (page.kind === 'math-input' || page.kind === 'multi-step') &&
+        state.mathValue.trim().length > 0)
+    if (!canSubmitNow) return
     if (page.kind === 'multi-step') {
       handleMultiStepCheck(page)
       return
@@ -555,7 +666,7 @@ export function GeoLessonPlayer({
       }
       ok = res.correct
       feedback = res.feedback
-      if (!ok && page.nudge && state.attempts >= 1 && feedback && !feedback.includes(page.nudge)) {
+      if (!ok && page.nudge && state.attempts + 1 >= 1 && feedback && !feedback.includes(page.nudge)) {
         feedback = `${feedback} ${page.nudge}`
       }
     } else if (page.kind === 'plan-order') {
@@ -634,13 +745,18 @@ export function GeoLessonPlayer({
 
   // Keyboard Enter for fast progression
   useEffect(() => {
-    if (finished || explanationOpen || walkthroughOpen) return
+    if (finished || explanationOpen || walkthroughOpen || formulasOpen || helpMenuOpen) return
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return
-      if ((e.target as HTMLElement | null)?.closest('[data-pen-workspace]')) return
+      const target = e.target as HTMLElement | null
+      if (target?.closest('[data-pen-workspace]')) return
       if (e.key === 'Enter') {
-        const inInput = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement
-        if (inInput) return
+        const isInteractiveEl =
+          target instanceof HTMLInputElement ||
+          target instanceof HTMLTextAreaElement ||
+          target?.isContentEditable ||
+          Boolean(target?.closest('button, a, [role="button"], select'))
+        if (isInteractiveEl) return
         if (!isProblem) {
           e.preventDefault()
           handleContinue()
@@ -659,7 +775,7 @@ export function GeoLessonPlayer({
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [finished, explanationOpen, isProblem, state, canCheck, pageIndex])
+  }, [finished, explanationOpen, walkthroughOpen, formulasOpen, helpMenuOpen, isProblem, state, canCheck, pageIndex])
 
   const handleSplitDrag = (clientPos: number) => {
     const rect = splitBoundsRef.current ?? workspaceRef.current?.getBoundingClientRect()
@@ -777,10 +893,6 @@ export function GeoLessonPlayer({
   const activeExplanation =
     page.kind !== 'explore' && page.kind !== 'worked' ? page.explanation : undefined
 
-  const walkthroughSpec = useMemo(
-    () => getWalkthroughForPage(lesson.id, page),
-    [lesson.id, page],
-  )
   const walkthroughInitialStep =
     page.kind === 'worked'
       ? workedStepIndex
@@ -913,27 +1025,65 @@ export function GeoLessonPlayer({
               onPoke={() => onSound?.('lightweight-choice')}
             />
           </div>
-          {walkthroughSpec && (
-            <button
-              type="button"
-              className="lesson-nav-icon-btn lesson-walkthrough-nav-btn"
-              data-active={walkthroughOpen || undefined}
-              onClick={() => {
-                if (penOpen && formulasOpen) onCloseFormulas()
-                if (explanationOpen) setExplanationOpen(false)
-                setWalkthroughOpen(v => !v)
-                onSound?.('lightweight-choice')
-              }}
-              aria-label="Walk me through with Sema"
-              aria-pressed={walkthroughOpen}
-              title="Walk me through with Sema (?)"
-            >
-              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="9.5" />
-                <path d="M9.4 9.3a2.7 2.7 0 0 1 5.1 1.1c0 1.9-2.6 2.3-2.6 3.9" />
-                <circle cx="12" cy="17.2" r="0.9" fill="currentColor" stroke="none" />
-              </svg>
-            </button>
+          {(walkthroughSpec || activeExplanation) && (
+            <div ref={helpMenuRef} className="lesson-help-wrap">
+              <button
+                type="button"
+                className="lesson-nav-icon-btn lesson-walkthrough-nav-btn"
+                data-active={helpMenuOpen || guidedHintsOpen || walkthroughOpen || undefined}
+                onClick={() => {
+                  setHelpMenuOpen(v => !v)
+                  onSound?.('lightweight-choice')
+                }}
+                aria-label="Help options: guided hints or full walkthrough"
+                aria-haspopup="menu"
+                aria-expanded={helpMenuOpen}
+                title="Help & Walkthrough (?)"
+              >
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9.5" />
+                  <path d="M9.4 9.3a2.7 2.7 0 0 1 5.1 1.1c0 1.9-2.6 2.3-2.6 3.9" />
+                  <circle cx="12" cy="17.2" r="0.9" fill="currentColor" stroke="none" />
+                </svg>
+              </button>
+              {helpMenuOpen && (
+                <div className="lesson-help-menu" role="menu" aria-label="Help mode">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="lesson-help-item"
+                    onClick={() => {
+                      setHelpMenuOpen(false)
+                      setGuidedHintsOpen(v => !v)
+                      onSound?.('lightweight-choice')
+                    }}
+                  >
+                    <strong>{guidedHintsOpen ? 'Hide guided hints' : 'Guided hints & components'}</strong>
+                    <span>See the formulas and setup steps without spoiling the answer.</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="lesson-help-item"
+                    onClick={() => {
+                      setHelpMenuOpen(false)
+                      if (penOpen && formulasOpen) onCloseFormulas()
+                      if (walkthroughSpec) {
+                        if (explanationOpen) setExplanationOpen(false)
+                        setWalkthroughOpen(true)
+                      } else if (activeExplanation) {
+                        setExplanationOpen(true)
+                      }
+                      setSeenExplain(prev => ({ ...prev, [page.id]: true }))
+                      onSound?.('lightweight-choice')
+                    }}
+                  >
+                    <strong>Full solution walkthrough</strong>
+                    <span>Watch Sema walk through the complete worked solution.</span>
+                  </button>
+                </div>
+              )}
+            </div>
           )}
           <button
             type="button"
@@ -941,6 +1091,7 @@ export function GeoLessonPlayer({
             data-active={formulasOpen || undefined}
             onClick={() => {
               if (penOpen && explanationOpen) setExplanationOpen(false)
+              if (penOpen && !walkthroughFloating && walkthroughOpen) setWalkthroughOpen(false)
               onToggleFormulas()
             }}
             aria-label="Unit 2 Playbook"
@@ -1045,6 +1196,7 @@ export function GeoLessonPlayer({
                   isLast={pageIndex === allPages.length - 1}
                   title="Compare with your work"
                   inline
+                  canContinue={state.evaluation === 'correct' || state.evaluation === 'incorrect'}
                   onClose={() => setExplanationOpen(false)}
                   onContinue={handleContinue}
                 />
@@ -1089,6 +1241,60 @@ export function GeoLessonPlayer({
                       <RichText text={page.prompt} />
                     </div>
 
+                    {guidedHintsOpen && (() => {
+                      const guide = buildGuidedHints(page, walkthroughSpec)
+                      return (
+                        <div className="lesson-guided-hints-card" role="region" aria-label="Guided hints">
+                          <div className="lesson-guided-hints-head">
+                            <span>{guide.title}</span>
+                            <button
+                              type="button"
+                              className="lesson-guided-hints-close"
+                              onClick={() => setGuidedHintsOpen(false)}
+                            >
+                              Hide
+                            </button>
+                          </div>
+                          <ul className="lesson-guided-hints-list">
+                            {guide.bullets.map((b, i) => (
+                              <li key={i}>
+                                <MathText text={b} />
+                              </li>
+                            ))}
+                          </ul>
+                          <p className="lesson-guided-hints-tip">
+                            <MathText text={guide.tip} />
+                          </p>
+                          <div className="lesson-guided-hints-actions">
+                            <button
+                              type="button"
+                              className="lesson-guided-hints-more"
+                              onClick={() => {
+                                setGuidedHintsOpen(false)
+                                onToggleFormulas()
+                              }}
+                            >
+                              Open Formula Playbook
+                            </button>
+                            {(walkthroughSpec || activeExplanation) && (
+                              <button
+                                type="button"
+                                className="lesson-guided-hints-more"
+                                onClick={() => {
+                                  setGuidedHintsOpen(false)
+                                  if (penOpen && formulasOpen) onCloseFormulas()
+                                  if (walkthroughSpec) setWalkthroughOpen(true)
+                                  else setExplanationOpen(true)
+                                }}
+                              >
+                                Still stuck? Show full solution
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })()}
+
                     {page.kind === 'explore' && (
                       <CompactExploration kind={page.exploration} onSound={onSound} />
                     )}
@@ -1096,6 +1302,7 @@ export function GeoLessonPlayer({
                     {page.kind === 'worked' && (
                       <div className="br-problem-body">
                         <BrilliantWorkedCard
+                          key={page.id}
                           page={page}
                           penMode={penOpen}
                           onStepChange={setWorkedStepIndex}
@@ -1110,7 +1317,7 @@ export function GeoLessonPlayer({
                               selected={state.selectedIds}
                               evaluation={state.evaluation}
                               correctIds={[page.checkChoice.correctId]}
-                              active={!explanationOpen}
+                              active={!explanationOpen && !walkthroughOpen && !formulasOpen}
                               onToggle={id => {
                                 onSound?.('lightweight-choice')
                                 patchState(page.id, { selectedIds: [id] })
@@ -1148,7 +1355,7 @@ export function GeoLessonPlayer({
                           layout={page.layout}
                           evaluation={state.evaluation}
                           correctIds={[page.correctId]}
-                          active={!explanationOpen}
+                          active={!explanationOpen && !walkthroughOpen && !formulasOpen}
                           onToggle={id => {
                             onSound?.('lightweight-choice')
                             patchState(page.id, { selectedIds: [id] })
@@ -1177,7 +1384,7 @@ export function GeoLessonPlayer({
                           multiple
                           evaluation={state.evaluation}
                           correctIds={page.correctIds}
-                          active={!explanationOpen}
+                          active={!explanationOpen && !walkthroughOpen && !formulasOpen}
                           onToggle={id => {
                             onSound?.('lightweight-choice')
                             const next = state.selectedIds.includes(id)
@@ -1218,7 +1425,7 @@ export function GeoLessonPlayer({
                           evaluation={state.evaluation}
                           feedback={state.feedback}
                           pinnedHint={state.pinnedHint}
-                          active={!explanationOpen}
+                          active={!explanationOpen && !walkthroughOpen && !formulasOpen}
                           onChange={val =>
                             patchState(page.id, {
                               mathValue: val,
@@ -1233,7 +1440,7 @@ export function GeoLessonPlayer({
                           }
                           onSubmit={() => {
                             if (state.evaluation === 'unsubmitted' && canCheck) handleCheck()
-                            else if (state.evaluation === 'incorrect-retry') handleCheck()
+                            else if (state.evaluation === 'incorrect-retry') handleCheck(true)
                             else if (state.evaluation === 'correct' || state.evaluation === 'incorrect')
                               handleContinue()
                           }}
@@ -1311,10 +1518,11 @@ export function GeoLessonPlayer({
                               evaluation={state.evaluation}
                               feedback={state.feedback}
                               pinnedHint={state.pinnedHint}
-                              active={!explanationOpen}
+                              active={!explanationOpen && !walkthroughOpen && !formulasOpen}
                               onChange={val =>
                                 patchState(page.id, {
                                   mathValue: val,
+                                  subJustSolved: false,
                                   ...(state.evaluation === 'incorrect-retry'
                                     ? {
                                         evaluation: 'unsubmitted',
@@ -1326,7 +1534,7 @@ export function GeoLessonPlayer({
                               }
                               onSubmit={() => {
                                 if (state.evaluation === 'unsubmitted' && canCheck) handleCheck()
-                                else if (state.evaluation === 'incorrect-retry') handleCheck()
+                                else if (state.evaluation === 'incorrect-retry') handleCheck(true)
                               }}
                             />
                           )}
@@ -1361,7 +1569,7 @@ export function GeoLessonPlayer({
                           defaultOralTest={page.defaultOralTest}
                           evaluation={state.evaluation}
                           feedback={state.feedback}
-                          active={!explanationOpen}
+                          active={!explanationOpen && !walkthroughOpen && !formulasOpen}
                           onSound={onSound}
                           onChange={next => {
                             patchState(page.id, { planChosen: next })
@@ -1417,7 +1625,7 @@ export function GeoLessonPlayer({
                             selected={state.selectedIds}
                             evaluation={state.evaluation}
                             correctIds={[page.correctId]}
-                            active={!explanationOpen}
+                            active={!explanationOpen && !walkthroughOpen && !formulasOpen}
                             onToggle={id => {
                               onSound?.('lightweight-choice')
                               patchState(page.id, { selectedIds: [id] })
@@ -1441,20 +1649,22 @@ export function GeoLessonPlayer({
                     className="lesson-footer is-draw-mode"
                     data-evaluation={state.evaluation}
                   >
-                    {isProblem && state.evaluation !== 'unsubmitted' && walkthroughSpec && (
+                    {isProblem && state.evaluation !== 'unsubmitted' && (walkthroughSpec || activeExplanation) && (
                       <button
                         type="button"
                         className="lesson-draw-why-btn"
                         onClick={() => {
                           if (penOpen && formulasOpen) onCloseFormulas()
-                          setWalkthroughOpen(true)
+                          setSeenExplain(prev => ({ ...prev, [page.id]: true }))
+                          if (walkthroughSpec) setWalkthroughOpen(true)
+                          else setExplanationOpen(true)
                         }}
                       >
-                        Walk me through
+                        {walkthroughSpec ? 'Walk me through' : 'Why?'}
                       </button>
                     )}
                     <CheckmarkGate
-                      key={`chk-${page.id}-${state.activeSubStep}-${state.evaluation}`}
+                      key={`chk-${page.id}-${state.activeSubStep}`}
                       label={
                         isProblem && state.evaluation === 'unsubmitted'
                           ? 'Draw a checkmark anywhere to check'
@@ -1561,6 +1771,8 @@ export function GeoLessonPlayer({
                   fullscreen={penFullscreen}
                   isCorrect={state.evaluation === 'correct'}
                   penControlsCollapsed={penControlsCollapsed}
+                  showStepPlan={showStepPlan}
+                  onToggleShowStepPlan={onToggleShowStepPlan}
                   worksheetSpec={worksheetSpec}
                   onToggleFlip={() => setPenFlipped(f => !f)}
                   onToggleFullscreen={() => {
@@ -1610,6 +1822,7 @@ export function GeoLessonPlayer({
           explanation={activeExplanation}
           open={explanationOpen}
           isLast={pageIndex === allPages.length - 1}
+          canContinue={state.evaluation === 'correct' || state.evaluation === 'incorrect'}
           onClose={() => setExplanationOpen(false)}
           onContinue={handleContinue}
         />

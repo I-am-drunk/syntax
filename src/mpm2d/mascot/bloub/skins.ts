@@ -144,12 +144,16 @@ export const DEFAULT_COLOR = 'encre'
 
 /** Melange deux couleurs hex. Sert a la brume de profondeur des particules. */
 export function mixHex(from: string, to: string, t: number): string {
+  const k = Math.max(0, Math.min(1, Number.isFinite(t) ? t : 0))
   const parse = (h: string) => {
-    const v = parseInt(h.slice(1), 16)
+    const clean = h.startsWith('#') ? h.slice(1) : h
+    const hex = clean.length === 3 ? clean.split('').map(ch => ch + ch).join('') : clean
+    const v = parseInt(hex, 16)
+    if (!Number.isFinite(v)) return [0, 0, 0]
     return [(v >> 16) & 255, (v >> 8) & 255, v & 255]
   }
   const a = parse(from)
   const b = parse(to)
-  const c = a.map((x, i) => Math.round(x + (b[i]! - x) * t))
+  const c = a.map((x, i) => Math.max(0, Math.min(255, Math.round(x + (b[i]! - x) * k))))
   return `#${c.map((x) => x.toString(16).padStart(2, '0')).join('')}`
 }

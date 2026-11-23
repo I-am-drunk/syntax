@@ -31,6 +31,13 @@ export function MathPackageWorksheet({
   const [pointerPage, setPointerPage] = useState<{ x: number; y: number } | null>(null)
   const [isResizing, setIsResizing] = useState(false)
   const dragRef = useRef<{ startClientY: number; startExtra: number } | null>(null)
+  const cleanupResizeRef = useRef<(() => void) | null>(null)
+
+  useEffect(() => {
+    return () => {
+      cleanupResizeRef.current?.()
+    }
+  }, [])
 
   const sheetH = Math.max(baseHeight, baseHeight + field.extraHeight)
   const sheetHRef = useRef(sheetH)
@@ -85,6 +92,14 @@ export function MathPackageWorksheet({
       if (e.button !== 0) return
       e.stopPropagation()
       e.preventDefault()
+      cleanupResizeRef.current?.()
+      const handleEl = e.currentTarget as HTMLDivElement
+      const pointerId = e.pointerId
+      try {
+        handleEl.setPointerCapture(pointerId)
+      } catch {
+        // ignore
+      }
       let currentExtra = field.extraHeight
       let lastClientY = e.clientY
       let lastClientX = e.clientX
@@ -109,16 +124,16 @@ export function MathPackageWorksheet({
               ...prevOpts.constraints,
               bounds: {
                 ...prevOpts.constraints.bounds,
-                h: Math.max(nextSheetH, prevOpts.constraints.bounds.h),
+                h: nextSheetH,
               },
             },
           })
         }
-        // Keep the bottom resize bar locked right at the top of the bottom footer
-        // so it NEVER slides off-screen while dragging down!
+        // Keep the bottom resize bar visible while extending and clamp when shrinking
         const minCamY = Math.min(0, rect.height / zoom - nextSheetH)
-        if (cam.y > minCamY) {
-          editor.setCamera({ x: cam.x, y: minCamY, z: zoom }, { immediate: true })
+        const clampedY = Math.max(minCamY, Math.min(0, cam.y))
+        if (cam.y > minCamY || cam.y !== clampedY) {
+          editor.setCamera({ x: cam.x, y: Math.min(clampedY, minCamY), z: zoom }, { immediate: true })
         }
       }
 
@@ -173,13 +188,21 @@ export function MathPackageWorksheet({
 
       const onUp = () => {
         if (autoRaf) cancelAnimationFrame(autoRaf)
+        autoRaf = 0
         dragRef.current = null
+        cleanupResizeRef.current = null
         setIsResizing(false)
+        try {
+          handleEl.releasePointerCapture(pointerId)
+        } catch {
+          // ignore
+        }
         window.removeEventListener('pointermove', onMove)
         window.removeEventListener('pointerup', onUp)
         window.removeEventListener('pointercancel', onUp)
       }
 
+      cleanupResizeRef.current = onUp
       window.addEventListener('pointermove', onMove)
       window.addEventListener('pointerup', onUp)
       window.addEventListener('pointercancel', onUp)

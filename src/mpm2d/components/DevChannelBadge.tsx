@@ -5,23 +5,30 @@ export function DevChannelBadge() {
 
   useEffect(() => {
     if (typeof document === 'undefined') return
-    if (!document.title.startsWith('Dev · ')) {
-      document.title = `Dev · ${document.title}`
+    const prevTitle = document.title
+    if (!prevTitle.startsWith('Dev · ')) {
+      document.title = `Dev · ${prevTitle}`
+    }
+    return () => {
+      if (document.title.startsWith('Dev · ')) {
+        document.title = document.title.slice('Dev · '.length)
+      }
     }
   }, [])
 
   return (
     <div
+      role="status"
       style={{
         position: 'fixed',
-        right: 12,
-        bottom: 12,
-        zIndex: 9999,
-        padding: '4px 9px',
+        left: 10,
+        bottom: 8,
+        zIndex: 400,
+        padding: '3px 8px',
         borderRadius: 999,
         background: 'rgba(245, 158, 11, 0.92)',
         color: '#1b1406',
-        fontSize: 11,
+        fontSize: 10.5,
         fontWeight: 800,
         letterSpacing: '0.03em',
         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)',

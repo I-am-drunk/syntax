@@ -132,7 +132,7 @@ export function CheckmarkGate({
       }
       setHoldProgress(null)
       if (strokeToFade && strokeToFade.length >= 2) {
-        dissolveStroke(strokeToFade, '#9aa1b2', 220)
+        dissolveStroke(strokeToFade, '#a3a3a3', 220)
       }
       if (reason) {
         setHintText(reason)
@@ -198,6 +198,10 @@ export function CheckmarkGate({
             holdCleanupRef.current = null
           }
           setHoldProgress(null)
+          if (disabledRef.current) {
+            dissolveStroke(pts, '#a3a3a3', 200)
+            return
+          }
           dissolveStroke(pts, '#29cc57', 240)
           onTriggerRef.current()
           return
@@ -308,6 +312,19 @@ export function CheckmarkGate({
     finishStroke('gate', e.clientX, e.clientY)
   }
 
+  const onGatePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (activePointerRef.current !== e.pointerId) return
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId)
+    } catch {
+      // ignore
+    }
+    activePointerRef.current = null
+    pointsRef.current = []
+    setIsDrawing(false)
+    clearCanvas()
+  }
+
   // Page-wide draw-anywhere capture (always active in Draw Mode even before an answer is entered!)
   useEffect(() => {
     if (!enableScreenGesture) return
@@ -318,31 +335,34 @@ export function CheckmarkGate({
       if (!(target instanceof Element)) return true
       return Boolean(
         target.closest(
-          'button, a, input, textarea, select, label, [role="button"], [role="dialog"], [role="slider"], [data-pen-workspace], .pen-workspace-surface, .workspace-splitter, .chk-gate-wrap, .br-choice-opt, .br-plan-card, .br-graph-handle, [data-draggable-handle], .sema-svg, .lesson-navigation, .winbox',
+          'button, a, input, textarea, select, label, [role="button"], [role="dialog"], [role="slider"], [data-pen-workspace], .pen-workspace-surface, .workspace-splitter, .chk-gate-wrap, .br-choice-opt, .br-choice-btn, .br-plan-card, .br-plan-problem, .grid-tile, .br-graph-handle, [data-draggable-handle], .sema-svg, .lesson-navigation, .winbox',
         ),
       )
     }
 
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0 && e.pointerType === 'mouse') return
+      if (activePointerRef.current !== null) return
       if (isExcludedTarget(e.target)) return
       const container = screenGestureContainerRef?.current
-      if (container && e.target instanceof Element && e.target.closest('.pen-workspace-surface')) {
+      if (container && (!(e.target instanceof Node) || !container.contains(e.target))) {
         return
       }
       cancelStillnessHold()
+      cancelAnimationFrame(fadeRafRef.current)
       screenPtrId = e.pointerId
       startedDrawing = false
       pointsRef.current = [{ x: e.clientX, y: e.clientY, t: performance.now() }]
     }
 
     const onMove = (e: PointerEvent) => {
-      if (screenPtrId !== e.pointerId) return
+      if (screenPtrId !== e.pointerId || activePointerRef.current !== null) return
       const pts = pointsRef.current
       const first = pts[0]
       if (!first) return
       if (!startedDrawing) {
         if (Math.hypot(e.clientX - first.x, e.clientY - first.y) < 12) return
+        cancelAnimationFrame(fadeRafRef.current)
         startedDrawing = true
         setIsDrawing(true)
         window.getSelection?.()?.removeAllRanges()
@@ -368,17 +388,26 @@ export function CheckmarkGate({
       }
     }
 
+    const onCancel = (e: PointerEvent) => {
+      if (screenPtrId !== e.pointerId) return
+      screenPtrId = null
+      startedDrawing = false
+      pointsRef.current = []
+      setIsDrawing(false)
+      clearCanvas()
+    }
+
     window.addEventListener('pointerdown', onDown)
     window.addEventListener('pointermove', onMove, { passive: true })
     window.addEventListener('pointerup', onUp)
-    window.addEventListener('pointercancel', onUp)
+    window.addEventListener('pointercancel', onCancel)
     return () => {
       window.removeEventListener('pointerdown', onDown)
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
-      window.removeEventListener('pointercancel', onUp)
+      window.removeEventListener('pointercancel', onCancel)
     }
-  }, [enableScreenGesture, screenGestureContainerRef, ensureCanvasSize, finishStroke, cancelStillnessHold])
+  }, [enableScreenGesture, screenGestureContainerRef, ensureCanvasSize, finishStroke, cancelStillnessHold, clearCanvas])
 
   const isCorrect = visualState === 'correct'
   const isWrong = visualState === 'wrong'
@@ -396,7 +425,7 @@ export function CheckmarkGate({
         onPointerDown={onGatePointerDown}
         onPointerMove={onGatePointerMove}
         onPointerUp={onGatePointerUp}
-        onPointerCancel={onGatePointerUp}
+        onPointerCancel={onGatePointerCancel}
       >
         <svg className="chk-led-svg" viewBox="0 0 440 118" preserveAspectRatio="none" aria-hidden="true">
           <rect
@@ -408,6 +437,7 @@ export function CheckmarkGate({
             rx="20"
             ry="20"
             pathLength={100}
+            vectorEffect="non-scaling-stroke"
           />
         </svg>
 

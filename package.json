@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "package:walkthroughs": "python manim-pipeline/package.py",
     "verify:walkthroughs": "python3 manim-pipeline/render.py --verify-only",
-    "render:walkthroughs": "python3 manim-pipeline/render.py"
+    "render:walkthroughs": "python3 manim-pipeline/render.py",
+    "verify:graphs": "node scripts/verify-graphs.mjs"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",

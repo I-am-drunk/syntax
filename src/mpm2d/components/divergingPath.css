@@ -13,14 +13,8 @@
 }
 
 .outline-level {
-  contain: layout style paint;
-  content-visibility: auto;
+  position: relative;
 }
-
-.outline-level:nth-of-type(1) { contain-intrinsic-block-size: auto 1374px; }
-.outline-level:nth-of-type(2) { contain-intrinsic-block-size: auto 1194px; }
-.outline-level:nth-of-type(3) { contain-intrinsic-block-size: auto 990px; }
-.outline-level:nth-of-type(4) { contain-intrinsic-block-size: auto 594px; }
 
 .outline-level-sticky-row {
   position: sticky;
@@ -43,7 +37,7 @@
   box-sizing: border-box;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 991px) {
   .outline-level-sticky-row {
     top: 20px;
   }
@@ -117,9 +111,9 @@
 }
 
 :root[data-theme='dark'] .level1-filter-popover {
-  background: #1a1d26;
+  background: #1c1c1c;
   border-color: #303545;
-  box-shadow: 0 4px 0 #11131a, 0 16px 34px rgba(0, 0, 0, 0.42);
+  box-shadow: 0 4px 0 #0c0c0c, 0 16px 34px rgba(0, 0, 0, 0.42);
 }
 
 /* ==========================================================================
@@ -156,7 +150,7 @@
 }
 
 :root[data-theme='dark'] .br-journey-curve.is-main {
-  stroke: #2f3444;
+  stroke: #2e2e2e;
 }
 
 .br-journey-curve.is-main.is-done {
@@ -241,7 +235,7 @@
 /* Catch-up nodes carry a label above the medallion. Keep their disc center on
    the curve anchor instead of shifting the whole node downward by the label. */
 .br-journey-node-wrap.is-catchup {
-  transform: translate(-50%, -57px);
+  transform: translate(-50%, -35px);
 }
 
 .br-journey-node-wrap.is-open {
@@ -315,8 +309,8 @@
 }
 
 :root[data-theme='dark'] .br-medallion.is-ready {
-  --med-face: #222633;
-  --med-base: #12151e;
+  --med-face: #242424;
+  --med-base: #121212;
   --med-rim: #393f52;
   --med-glyph: #b689ff;
   --med-sheen: rgba(255, 255, 255, 0.14);
@@ -348,9 +342,9 @@
 }
 
 :root[data-theme='dark'] .br-medallion.is-trophy-locked {
-  --med-face: #1d202b;
-  --med-base: #10121a;
-  --med-rim: #2f3445;
+  --med-face: #1f1f1f;
+  --med-base: #0d0d0d;
+  --med-rim: #2f2f2f;
   --med-glyph: #686e82;
   --med-sheen: rgba(255, 255, 255, 0.08);
 }
@@ -442,9 +436,9 @@
 }
 
 :root[data-theme='dark'] .br-node-popover {
-  background: #1a1d26;
+  background: #1c1c1c;
   border-color: #303545;
-  box-shadow: 0 4px 0 #11131a, 0 16px 38px rgba(0, 0, 0, 0.48);
+  box-shadow: 0 4px 0 #0c0c0c, 0 16px 38px rgba(0, 0, 0, 0.48);
 }
 
 @keyframes br-popover-in {
@@ -638,8 +632,8 @@
 }
 
 :root[data-theme='dark'] .syntax-settings-popup {
-  background: #14171f;
-  border-color: #2b303e;
+  background: #141414;
+  border-color: #2d2d2d;
 }
 
 .syntax-settings-bar {
@@ -973,18 +967,6 @@
   transform: translateY(-1.5px) scale(1.08);
 }
 
-.primary-nav-btn[aria-current]::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 3px;
-  border-radius: 3px 3px 0 0;
-  background: var(--text, currentColor);
-  pointer-events: none;
-}
-
 @media (max-width: 768px) {
   .app-header {
     padding: 0 12px;
@@ -993,7 +975,7 @@
   .app-header .primary-nav {
     min-width: 0;
     flex: 1 1 auto;
-    overflow: visible;
+    overflow: hidden;
   }
   .primary-nav-course-items {
     gap: 4px;
@@ -1124,7 +1106,7 @@
 }
 
 :root[data-theme='dark'] .syntax-history-page {
-  background: #0d0f14;
+  background: #141414;
   color: #f2f3f7;
 }
 
@@ -1183,8 +1165,8 @@
 }
 
 :root[data-theme='dark'] .syntax-history-back-btn {
-  background: #181c26;
-  border-color: #2d3344;
+  background: #1c1c1c;
+  border-color: #2e2e2e;
   color: #f2f3f7;
 }
 
@@ -1211,9 +1193,9 @@
 }
 
 :root[data-theme='dark'] .syntax-history-filter-bar {
-  background: #151821;
-  border-color: #292f3e;
-  box-shadow: 0 3px 0 #0b0d12;
+  background: #1a1a1a;
+  border-color: #2d2d2d;
+  box-shadow: 0 3px 0 #0a0a0a;
 }
 
 .syntax-history-filter-arrow {
@@ -1236,7 +1218,7 @@
 }
 
 :root[data-theme='dark'] .syntax-history-filter-arrow {
-  background: #1e222e;
+  background: #222222;
   border-color: #32394a;
   color: #f2f3f7;
 }
@@ -1343,8 +1325,8 @@
 }
 
 :root[data-theme='dark'] .syntax-history-wheel-column {
-  background: #141821;
-  border-color: #272d3c;
+  background: #1a1a1a;
+  border-color: #2c2c2c;
 }
 
 /* iPhone-Style Curved Tick-Tick-Tick Scroll Wheel */
@@ -1516,8 +1498,8 @@
 }
 
 :root[data-theme='dark'] .syntax-drum-rect-card {
-  background: #1b202c;
-  border-color: #2e3546;
+  background: #1e1e1e;
+  border-color: #2f2f2f;
   color: #f2f3f7;
 }
 
@@ -1594,6 +1576,7 @@
 .syntax-history-inspector {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .syntax-inspector-card {
@@ -1610,8 +1593,8 @@
 }
 
 :root[data-theme='dark'] .syntax-inspector-card {
-  background: #141821;
-  border-color: #272d3c;
+  background: #1a1a1a;
+  border-color: #2c2c2c;
 }
 
 .syntax-inspector-head {
@@ -1656,6 +1639,34 @@
   color: #b45309;
 }
 
+:root[data-theme='dark'] .syntax-inspector-status-badge[data-eval='retry'],
+:root[data-theme='dark'] .syntax-inspector-status-badge[data-eval='incorrect'] {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+}
+
+.syntax-inspector-status-badge[data-eval='scratchpad'] {
+  background: rgba(69, 109, 255, 0.14);
+  color: #2f54eb;
+}
+
+:root[data-theme='dark'] .syntax-inspector-status-badge[data-eval='scratchpad'] {
+  background: rgba(116, 145, 255, 0.2);
+  color: #a5b8ff;
+}
+
+@media (max-width: 560px) {
+  .syntax-history-wheel-column {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px;
+  }
+  .syntax-iphone-wheel {
+    width: 100%;
+    height: 150px;
+  }
+}
+
 .syntax-version-strip {
   display: flex;
   align-items: center;
@@ -1698,7 +1709,7 @@
 }
 
 :root[data-theme='dark'] .syntax-version-pill {
-  background: #1d222f;
+  background: #222222;
   border-color: #31384a;
   color: #f2f3f7;
 }
@@ -1782,7 +1793,7 @@
 }
 
 :root[data-theme='dark'] .syntax-inspector-ink-row {
-  border-top-color: #262c3a;
+  border-top-color: #2c2c2c;
 }
 
 .syntax-inspector-ink-info strong {

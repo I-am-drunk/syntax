@@ -1,4 +1,4 @@
-﻿import type { GeoLessonPage } from '../pageTypes'
+import type { GeoLessonPage } from '../pageTypes'
 import type { GeoScene } from '../types'
 import { resolveRescueLessonId } from '../data/catchupCourses'
 import { WALKTHROUGH_VIDEO_MANIFEST } from './videoManifest'
@@ -251,6 +251,14 @@ const CURATED_WALKTHROUGHS: Record<string, WalkthroughSpec> = {
   'l4-p2-worked': L4_P2_WALKTHROUGH,
 }
 
+function cleanSummary(raw: string, maxLen: number): string {
+  const plain = raw.replace(/\*\*/g, '').replace(/\s+/g, ' ').trim()
+  if (plain.length <= maxLen) return plain
+  const cut = plain.slice(0, maxLen)
+  const sp = cut.lastIndexOf(' ')
+  return (sp > maxLen * 0.55 ? cut.slice(0, sp) : cut).trim() + '...'
+}
+
 export function getWalkthroughForPage(lessonId: string, page: GeoLessonPage): WalkthroughSpec {
   const curated = CURATED_WALKTHROUGHS[page.id]
   if (curated) return curated
@@ -277,7 +285,7 @@ export function getWalkthroughForPage(lessonId: string, page: GeoLessonPage): Wa
 
     return {
       pageId: page.id,
-      title: page.prompt.replace(/\*\*/g, '').slice(0, 62),
+      title: cleanSummary(page.prompt, 62),
       steps,
       lenses: [lens(page.id, 'visual', 'Step-by-step', beats)],
       rescueLessonId,
@@ -302,7 +310,7 @@ export function getWalkthroughForPage(lessonId: string, page: GeoLessonPage): Wa
     pageId: page.id,
     title: 'Walkthrough for this problem',
     steps: [
-      { id: 'p1', stepNum: 1, label: 'Spot the strategy', equation: hintText.slice(0, 56) },
+      { id: 'p1', stepNum: 1, label: 'Spot the strategy', equation: cleanSummary(hintText, 56) },
       { id: 'p2', stepNum: 2, label: 'See the clean move', equation: 'Substitute & check signs' },
     ],
     lenses: [

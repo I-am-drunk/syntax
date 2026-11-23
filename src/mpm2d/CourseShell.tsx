@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Menu } from '@base-ui/react/menu'
 import { Toaster, toast } from 'sonner'
@@ -33,7 +33,7 @@ function loadProgress(): SavedProgress {
     const raw = localStorage.getItem(PROGRESS_KEY)
     if (raw) {
       const parsed = JSON.parse(raw) as SavedProgress
-      if (parsed && typeof parsed.completed === 'object') {
+      if (parsed && parsed.completed && typeof parsed.completed === 'object' && !Array.isArray(parsed.completed)) {
         return {
           completed: parsed.completed,
           missedCheckIds: Array.isArray(parsed.missedCheckIds) ? parsed.missedCheckIds : [],
@@ -78,7 +78,7 @@ function loadSound(): boolean {
 }
 
 function readLessonFromHash(): string | null {
-  const match = location.hash.match(/^#lesson=([a-z0-9-]+)$/i)
+  const match = location.hash.match(/^#lesson[=/]([a-z0-9-]+)$/i)
   if (!match) return null
   const id = match[1]
   return ALL_LESSONS.some(l => l.id === id) ? id : null
@@ -251,6 +251,8 @@ export function CourseShell() {
   useEffect(() => {
     const onHash = () => {
       const id = readLessonFromHash()
+      setReturnLessonId(null)
+      setVirtualReviewLesson(null)
       setActiveLessonId(id)
       setResumeMap(loadResumeMap())
       if (id && ALL_LESSONS.some(lesson => lesson.id === id)) setSelectedId(id)
@@ -280,7 +282,7 @@ export function CourseShell() {
 
   // Real scroll-spy on .course-outline: smoothly switches Unit 2 <-> Conference on scroll!
   useEffect(() => {
-    if (activeLessonId || virtualReviewLesson || settingsOpen) return
+    if (activeLessonId || virtualReviewLesson || settingsOpen || historyOpen) return
     const scroller = outlineScrollRef.current
     if (!scroller) return
 
@@ -331,7 +333,7 @@ export function CourseShell() {
       scroller.removeEventListener('scroll', onScroll)
       window.removeEventListener('resize', onResize)
     }
-  }, [activeLessonId, virtualReviewLesson, settingsOpen, prefs.showCatchupPaths])
+  }, [activeLessonId, virtualReviewLesson, settingsOpen, historyOpen, prefs.showCatchupPaths])
 
   // Passive global stylus detection -> offer Draw Mode automatically
   useEffect(() => {
@@ -358,6 +360,7 @@ export function CourseShell() {
   // Global 'F' shortcut for Playbook (when not typing in an input or pen canvas)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      if (!prefs.onboarded) return
       if (e.metaKey || e.ctrlKey || e.altKey) return
       const el = e.target as HTMLElement | null
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
@@ -369,7 +372,7 @@ export function CourseShell() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [])
+  }, [prefs.onboarded])
 
   const allChecksById = useMemo(() => {
     const map = new Map<string, GeoLessonPage>()
@@ -508,30 +511,65 @@ export function CourseShell() {
     }
   }
 
-  function jumpToCourse() {
+  function jumpToCourse(defer = false) {
     navLockUntilRef.current = Date.now() + 650
     setActiveNav('course')
-    outlineScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+    const run = () => outlineScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+    if (defer) requestAnimationFrame(run)
+    else run()
   }
 
-  function jumpToLevel(level: 3 | 4) {
+  function jumpToLevel(level: 3 | 4, defer = false) {
     navLockUntilRef.current = Date.now() + 650
     setActiveNav(level === 3 ? 'conference' : 'course')
-    const sectionEl = levelSectionRefs.current.get(level)
-    if (sectionEl && outlineScrollRef.current) {
-      const top = sectionEl.offsetTop - 20
-      outlineScrollRef.current.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
-    } else {
-      const target =
-        UNIT2_LESSONS.find(l => l.level === level) ??
-        UNIT2_LESSONS.find(l => l.level === 2) ??
-        UNIT2_LESSONS[0]
-      if (target) {
-        setSelectedId(target.id)
-        nodeRefs.current.get(target.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const run = () => {
+      const sectionEl = levelSectionRefs.current.get(level)
+      const scroller = outlineScrollRef.current
+      if (sectionEl && scroller) {
+        const sRect = scroller.getBoundingClientRect()
+        const cRect = sectionEl.getBoundingClientRect()
+        const top = cRect.top - sRect.top + scroller.scrollTop - 20
+        scroller.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+      } else {
+        const target =
+          UNIT2_LESSONS.find(l => l.level === level) ??
+          UNIT2_LESSONS.find(l => l.level === 2) ??
+          UNIT2_LESSONS[0]
+        if (target) {
+          setSelectedId(target.id)
+          nodeRefs.current.get(target.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
       }
     }
+    if (defer) requestAnimationFrame(run)
+    else run()
   }
+
+  const getPathStat = useCallback(
+    (id: string): PathLessonStat | undefined => {
+      const st = progress.completed[id]
+      if (!st) return undefined
+      return { correct: st.correct, total: st.total, tier: toPathTier(st) }
+    },
+    [progress.completed],
+  )
+
+  const hasPathResume = useCallback((id: string) => Boolean(resumeMap[id]), [resumeMap])
+
+  const registerNodeRef = useCallback((id: string, el: HTMLButtonElement | null) => {
+    if (el) nodeRefs.current.set(id, el)
+    else nodeRefs.current.delete(id)
+  }, [])
+
+  const activeLevels = useMemo(
+    () =>
+      COURSE_LEVELS.filter(lvl => UNIT2_LESSONS.some(l => l.level === lvl.level)).map(lvl => ({
+        lvl,
+        lessons: UNIT2_LESSONS.filter(l => l.level === lvl.level),
+        catchups: CATCHUP_LESSONS.filter(c => c.level === lvl.level),
+      })),
+    [],
+  )
 
   const returnLessonObj = returnLessonId ? UNIT2_LESSONS.find(l => l.id === returnLessonId) : undefined
 
@@ -550,6 +588,8 @@ export function CourseShell() {
         semaTail={prefs.semaTail}
           semaExpression={prefs.semaExpression}
           penControlsCollapsed={prefs.penControlsCollapsed}
+          showStepPlan={prefs.showStepPlan}
+          onToggleShowStepPlan={() => setPrefs(p => ({ ...p, showStepPlan: !p.showStepPlan }))}
           formulasOpen={formulasOpen}
           returnToLessonLabel={returnLessonObj?.shortTitle}
           onClose={closeLesson}
@@ -570,10 +610,7 @@ export function CourseShell() {
     )
   }
 
-  const activeLevels = COURSE_LEVELS.filter(lvl =>
-    UNIT2_LESSONS.some(l => l.level === lvl.level),
-  )
-
+  const overlayOpen = settingsOpen || historyOpen
   const currentNavKey = formulasOpen ? 'playbook' : activeNav
 
   return (
@@ -584,7 +621,7 @@ export function CourseShell() {
           <a
             className="wordmark"
             href="#top"
-            aria-label={settingsOpen ? 'Syntax: Back to Unit 2' : 'Syntax Analytic Geometry'}
+            aria-label={overlayOpen ? 'Syntax: Back to Unit 2' : 'Syntax Analytic Geometry'}
             onClick={e => {
               e.preventDefault()
               if (settingsOpen || historyOpen) {
@@ -598,7 +635,7 @@ export function CourseShell() {
             Syntax
           </a>
           <TopBarSema
-            enableRoaming={prefs.onboarded && !formulasOpen && !settingsOpen}
+            enableRoaming={prefs.onboarded && !formulasOpen && !settingsOpen && !historyOpen}
             dockedIntoLogo={settingsOpen}
             scrollContainerRef={outlineScrollRef}
             shape={prefs.semaShape}
@@ -623,16 +660,18 @@ export function CourseShell() {
               href="#course"
               aria-label="Unit 2"
               tabIndex={settingsOpen ? -1 : 0}
-              aria-current={!settingsOpen && currentNavKey === 'course' ? 'page' : undefined}
+              aria-current={!overlayOpen && currentNavKey === 'course' ? 'page' : undefined}
               onClick={e => {
                 e.preventDefault()
-                if (settingsOpen) setSettingsOpen(false); setHistoryOpen(false)
-                jumpToCourse()
+                const wasOverlay = overlayOpen
+                if (settingsOpen) setSettingsOpen(false)
+                if (historyOpen) setHistoryOpen(false)
+                jumpToCourse(wasOverlay)
               }}
             >
               <span className="icon icon-topics" aria-hidden="true" />
               <span>Unit 2</span>
-              {!settingsOpen && currentNavKey === 'course' && (
+              {!overlayOpen && currentNavKey === 'course' && (
                 <motion.span
                   layoutId="primary-nav-indicator"
                   className="primary-nav-indicator"
@@ -644,16 +683,18 @@ export function CourseShell() {
               href="#conference"
               aria-label="Conference"
               tabIndex={settingsOpen ? -1 : 0}
-              aria-current={!settingsOpen && currentNavKey === 'conference' ? 'page' : undefined}
+              aria-current={!overlayOpen && currentNavKey === 'conference' ? 'page' : undefined}
               onClick={e => {
                 e.preventDefault()
-                if (settingsOpen) setSettingsOpen(false); setHistoryOpen(false)
-                jumpToLevel(3)
+                const wasOverlay = overlayOpen
+                if (settingsOpen) setSettingsOpen(false)
+                if (historyOpen) setHistoryOpen(false)
+                jumpToLevel(3, wasOverlay)
               }}
             >
               <span className="icon icon-you" aria-hidden="true" />
               <span>Conference</span>
-              {!settingsOpen && currentNavKey === 'conference' && (
+              {!overlayOpen && currentNavKey === 'conference' && (
                 <motion.span
                   layoutId="primary-nav-indicator"
                   className="primary-nav-indicator"
@@ -666,15 +707,16 @@ export function CourseShell() {
               className="primary-nav-btn"
               tabIndex={settingsOpen ? -1 : 0}
               aria-label="Playbook & Formulas (F)"
-              aria-current={!settingsOpen && currentNavKey === 'playbook' ? 'page' : undefined}
+              aria-current={!overlayOpen && currentNavKey === 'playbook' ? 'page' : undefined}
               onClick={() => {
-                if (settingsOpen) setSettingsOpen(false); setHistoryOpen(false)
+                if (settingsOpen) setSettingsOpen(false)
+                if (historyOpen) setHistoryOpen(false)
                 setFormulasOpen(true)
               }}
             >
               <FormulasNavIcon />
               <span className="primary-nav-label">Playbook</span>
-              {!settingsOpen && currentNavKey === 'playbook' && (
+              {!overlayOpen && currentNavKey === 'playbook' && (
                 <motion.span
                   layoutId="primary-nav-indicator"
                   className="primary-nav-indicator"
@@ -760,7 +802,7 @@ export function CourseShell() {
                       onClick={() => {
                         emitSound('toggle-on')
                         setFormulasOpen(false)
-                        setSettingsOpen(false); setHistoryOpen(false)
+                        setSettingsOpen(false)
                         setHistoryOpen(v => !v)
                       }}
                     >
@@ -806,13 +848,21 @@ export function CourseShell() {
                   <Menu.Group className="menu-group">
                     <Menu.Item
                       className="menu-item"
-                      onClick={() => setFormulasOpen(true)}
+                      onClick={() => {
+                        setSettingsOpen(false)
+                        setHistoryOpen(false)
+                        setFormulasOpen(true)
+                      }}
                     >
                       Playbook &amp; Formulas
                     </Menu.Item>
                     <Menu.Item
                       className="menu-item"
-                      onClick={() => setPrefs(p => ({ ...p, onboarded: false }))}
+                      onClick={() => {
+                        setSettingsOpen(false)
+                        setHistoryOpen(false)
+                        setPrefs(p => ({ ...p, onboarded: false }))
+                      }}
                     >
                       Welcome tour with Sema
                     </Menu.Item>
@@ -847,19 +897,21 @@ export function CourseShell() {
             setHistoryOpen(false)
           }}
           onJumpToQuestion={(lessonId, pageIndex, pageId) => {
-            try {
-              const raw = localStorage.getItem(RESUME_KEY)
-              const map = raw ? JSON.parse(raw) : {}
-              const existing = map[lessonId] ?? { pageIndex: 0, furthest: 0 }
-              map[lessonId] = {
-                ...existing,
-                pageIndex,
-                pageId,
-                furthest: Math.max(existing.furthest ?? 0, pageIndex),
+            if (pageId) {
+              try {
+                const raw = localStorage.getItem(RESUME_KEY)
+                const map = raw ? JSON.parse(raw) : {}
+                const existing = map[lessonId] ?? { pageIndex: 0, furthest: 0 }
+                map[lessonId] = {
+                  ...existing,
+                  pageIndex,
+                  pageId,
+                  furthest: Math.max(existing.furthest ?? 0, pageIndex),
+                }
+                localStorage.setItem(RESUME_KEY, JSON.stringify(map))
+              } catch {
+                // ignore
               }
-              localStorage.setItem(RESUME_KEY, JSON.stringify(map))
-            } catch {
-              // ignore
             }
             setHistoryOpen(false)
             openLesson(lessonId)
@@ -916,11 +968,7 @@ export function CourseShell() {
         </aside>
 
         <div className="course-path">
-          {activeLevels.map(lvl => {
-            const lessons = UNIT2_LESSONS.filter(l => l.level === lvl.level)
-            const levelCatchups: CatchupLesson[] = CATCHUP_LESSONS.filter(
-              c => c.level === lvl.level,
-            )
+          {activeLevels.map(({ lvl, lessons, catchups: levelCatchups }) => {
             return (
               <section
                 ref={el => {
@@ -988,34 +1036,37 @@ export function CourseShell() {
                   showCatchupPaths={prefs.showCatchupPaths}
                   selectedId={selectedId}
                   popoverOpenId={popoverOpenId}
-                  getStat={id => {
-                    const st = progress.completed[id]
-                    if (!st) return undefined
-                    return { correct: st.correct, total: st.total, tier: toPathTier(st) }
-                  }}
-                  hasResume={id => Boolean(resumeMap[id])}
+                  getStat={getPathStat}
+                  hasResume={hasPathResume}
                   onSelect={selectNodeById}
                   onTogglePopover={id => setPopoverOpenId(id || null)}
                   onOpen={id => openLesson(id)}
-                  registerNodeRef={(id, el) => {
-                    if (el) nodeRefs.current.set(id, el)
-                    else nodeRefs.current.delete(id)
-                  }}
+                  registerNodeRef={registerNodeRef}
                 />
               </section>
             )
           })}
           {/* Authentic Brilliant Sticky Bottom Action Card (Start / Resume / Review) */}
           {(() => {
-            const sel = ALL_LESSONS.find(l => l.id === selectedId) ?? UNIT2_LESSONS[0]!
+            const candidate = ALL_LESSONS.find(l => l.id === selectedId)
+            const visibleCandidate =
+              candidate && (!CATCHUP_BY_ID.has(candidate.id) || prefs.showCatchupPaths)
+                ? candidate
+                : undefined
+            const sel =
+              visibleCandidate ??
+              UNIT2_LESSONS.find(l => !progress.completed[l.id]) ??
+              UNIT2_LESSONS[0]!
             const selStat = progress.completed[sel.id]
-            const selDone = Boolean(selStat)
+            const selTier = toPathTier(selStat)
+            const selDone = selTier === 'mastered' || selTier === 'good'
+            const selNeedsRetry = selTier === 'attempted'
             const selResume = resumeMap[sel.id]
             const selInProgress = Boolean(selResume)
             const selIsCatchup = CATCHUP_BY_ID.has(sel.id)
             const totalPages = sel.pages.length + sel.checks.length
             const savedPage = [...sel.pages, ...sel.checks].findIndex(page => page.id === selResume?.pageId)
-            const ctaText = selInProgress ? 'Resume' : selDone ? 'Review' : 'Start'
+            const ctaText = selInProgress ? 'Resume' : selDone ? 'Review' : selNeedsRetry ? 'Retry' : 'Start'
             const resolvedPageIdx = savedPage >= 0 ? savedPage : (selResume?.pageIndex ?? 0)
             const completionPct = selDone
               ? 100
@@ -1127,7 +1178,7 @@ export function CourseShell() {
                   >
                     {ctaText}
                   </button>
-                  {(selInProgress || selDone) && (
+                  {(selInProgress || selDone || selNeedsRetry) && (
                     <button
                       type="button"
                       className="outline-redo"

@@ -36,9 +36,11 @@ export type WorkHistoryEntry = {
   category: Exclude<WorkHistoryCategory, 'all'>
   latestTimestamp: number
   versions: WorkHistoryVersion[]
+  isDemo?: boolean
 }
 
 const HISTORY_KEY = 'mpm2d-work-history-v1'
+const MAX_VERSIONS_PER_ENTRY = 20
 
 function cleanPrompt(raw: string): string {
   const flat = raw.replace(/\*\*/g, '').replace(/\s+/g, ' ').trim()
@@ -57,8 +59,9 @@ function resolveCategory(page: GeoLessonPage, isCheck: boolean): Exclude<WorkHis
 export function loadWorkHistory(): WorkHistoryEntry[] {
   try {
     const raw = localStorage.getItem(HISTORY_KEY)
-    const saved: WorkHistoryEntry[] = raw ? JSON.parse(raw) : []
-    return mergeWithLiveStorage(Array.isArray(saved) ? saved : [])
+    const parsed = raw ? JSON.parse(raw) : []
+    const saved: WorkHistoryEntry[] = Array.isArray(parsed) ? parsed : []
+    return mergeWithLiveStorage(saved)
   } catch {
     return mergeWithLiveStorage([])
   }
@@ -76,12 +79,13 @@ export function recordWorkHistoryVersion(params: {
 }) {
   try {
     const raw = localStorage.getItem(HISTORY_KEY)
-    const list: WorkHistoryEntry[] = raw ? JSON.parse(raw) : []
+    const parsed = raw ? JSON.parse(raw) : []
+    const list: WorkHistoryEntry[] = Array.isArray(parsed) ? parsed : []
     const entryId = `${params.lesson.id}:${params.page.id}`
     const now = Date.now()
     const hasPenInk = detectPenInkForPage(params.lesson.id, params.page.id)
 
-    let entry = list.find(e => e.id === entryId)
+    let entry = list.find(e => e && e.id === entryId)
     if (!entry) {
       entry = {
         id: entryId,
@@ -101,6 +105,7 @@ export function recordWorkHistoryVersion(params: {
       list.unshift(entry)
     }
 
+    if (!Array.isArray(entry.versions)) entry.versions = []
     const lastVer = entry.versions[entry.versions.length - 1]
     if (
       lastVer &&
@@ -111,7 +116,7 @@ export function recordWorkHistoryVersion(params: {
       return
     }
 
-    const versionNum = entry.versions.length + 1
+    const versionNum = (lastVer?.versionNum ?? entry.versions.length) + 1
     entry.latestTimestamp = now
     entry.versions.push({
       versionId: `${entryId}:v${versionNum}:${now}`,
@@ -123,8 +128,10 @@ export function recordWorkHistoryVersion(params: {
       hasPenInk,
       penStepId: params.penStepId,
     })
+    if (entry.versions.length > MAX_VERSIONS_PER_ENTRY) {
+      entry.versions = entry.versions.slice(-MAX_VERSIONS_PER_ENTRY)
+    }
 
-    // Keep newest entries first
     list.sort((a, b) => b.latestTimestamp - a.latestTimestamp)
     localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(0, 120)))
   } catch {
@@ -132,13 +139,35 @@ export function recordWorkHistoryVersion(params: {
   }
 }
 
+function sheetStateHasWork(raw: string | null): boolean {
+  if (!raw) return false
+  try {
+    const parsed = JSON.parse(raw) as {
+      checked?: Record<string, boolean>
+      customFields?: unknown[]
+      extraHeights?: Record<string, number>
+    }
+    if (!parsed || typeof parsed !== 'object') return false
+    if (Array.isArray(parsed.customFields) && parsed.customFields.length > 0) return true
+    if (parsed.checked && Object.values(parsed.checked).some(Boolean)) return true
+    if (parsed.extraHeights && Object.values(parsed.extraHeights).some(v => typeof v === 'number' && v > 0)) {
+      return true
+    }
+    return false
+  } catch {
+    return false
+  }
+}
+
 export function detectPenInkForPage(lessonId: string, pageId: string): boolean {
   try {
     const sheetKey = `mpm2d-pen-brilliant-v4:${lessonId}:${pageId}`
-    if (localStorage.getItem(sheetKey)) return true
+    const direct = localStorage.getItem(sheetKey)
+    if (sheetStateHasWork(direct)) return true
+    const prefix = `${sheetKey}:`
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i)
-      if (k && k.includes(`${lessonId}:${pageId}`)) return true
+      if (k && k.startsWith(prefix) && localStorage.getItem(k)) return true
     }
   } catch {
     // ignore
@@ -149,6 +178,18 @@ export function detectPenInkForPage(lessonId: string, pageId: string): boolean {
 function mergeWithLiveStorage(existing: WorkHistoryEntry[]): WorkHistoryEntry[] {
   const byId = new Map<string, WorkHistoryEntry>()
   for (const e of existing) {
+    if (!e || typeof e !== 'object' || !e.id) continue
+    // Refresh hasPenInk on latest version if user sketched after submitting
+    const penNow = detectPenInkForPage(e.lessonId, e.pageId)
+    if (penNow && Array.isArray(e.versions) && e.versions.length > 0) {
+      const last = e.versions[e.versions.length - 1]!
+      if (!last.hasPenInk) {
+        const updatedVersions = e.versions.slice()
+        updatedVersions[updatedVersions.length - 1] = { ...last, hasPenInk: true }
+        byId.set(e.id, { ...e, versions: updatedVersions })
+        continue
+      }
+    }
     byId.set(e.id, e)
   }
 
@@ -164,6 +205,7 @@ function mergeWithLiveStorage(existing: WorkHistoryEntry[]): WorkHistoryEntry[] 
         {
           pageIndex: number
           furthest: number
+          updatedAt?: number
           states?: Record<
             string,
             {
@@ -177,61 +219,65 @@ function mergeWithLiveStorage(existing: WorkHistoryEntry[]): WorkHistoryEntry[] 
           >
         }
       >
-      for (const [lessonId, res] of Object.entries(resumeMap)) {
-        const lesson = lessonMap.get(lessonId)
-        if (!lesson || !res.states) continue
-        const allPages = [...lesson.pages, ...lesson.checks]
-        allPages.forEach((pg, idx) => {
-          const st = res.states?.[pg.id]
-          if (!st) return
-          const hasWork =
-            st.evaluation !== 'unsubmitted' ||
-            (st.mathValue && st.mathValue.trim().length > 0) ||
-            (st.subInputs && st.subInputs.length > 0) ||
-            (st.selectedIds && st.selectedIds.length > 0) ||
-            (st.planChosen && st.planChosen.length > 0)
-          if (!hasWork) return
-          const entryId = `${lesson.id}:${pg.id}`
-          if (byId.has(entryId)) return
-          const isCheck = lesson.checks.length > 0 && idx >= lesson.pages.length
-          const summary = summarizePageState(pg, st)
-          byId.set(entryId, {
-            id: entryId,
-            lessonId: lesson.id,
-            lessonTitle: lesson.title,
-            lessonShortTitle: lesson.shortTitle,
-            level: lesson.level,
-            pageId: pg.id,
-            pageIndex: idx,
-            pageKind: pg.kind,
-            isCheck,
-            promptSnippet: cleanPrompt(pg.prompt),
-            category: resolveCategory(pg, isCheck),
-            latestTimestamp: Date.now() - idx * 60_000,
-            versions: [
-              {
-                versionId: `${entryId}:v1`,
-                versionNum: 1,
-                timestamp: Date.now() - idx * 60_000,
-                answerSummary: summary,
-                evaluation:
-                  st.evaluation === 'correct'
-                    ? 'correct'
-                    : st.evaluation === 'incorrect'
-                      ? 'incorrect'
-                      : 'retry',
-                hasPenInk: detectPenInkForPage(lesson.id, pg.id),
-              },
-            ],
+      if (resumeMap && typeof resumeMap === 'object' && !Array.isArray(resumeMap)) {
+        for (const [lessonId, res] of Object.entries(resumeMap)) {
+          const lesson = lessonMap.get(lessonId)
+          if (!lesson || !res?.states) continue
+          const allPages = [...lesson.pages, ...lesson.checks]
+          const baseTs = typeof res.updatedAt === 'number' && Number.isFinite(res.updatedAt) ? res.updatedAt : 0
+          allPages.forEach((pg, idx) => {
+            const st = res.states?.[pg.id]
+            if (!st) return
+            const hasWork =
+              Boolean(st.evaluation && st.evaluation !== 'unsubmitted') ||
+              (st.mathValue && st.mathValue.trim().length > 0) ||
+              (st.subInputs && st.subInputs.some(v => v.trim().length > 0)) ||
+              (st.selectedIds && st.selectedIds.length > 0) ||
+              (st.planChosen && st.planChosen.length > 0)
+            if (!hasWork) return
+            const entryId = `${lesson.id}:${pg.id}`
+            if (byId.has(entryId)) return
+            const isCheck = lesson.checks.length > 0 && idx >= lesson.pages.length
+            const summary = summarizePageState(pg, st)
+            byId.set(entryId, {
+              id: entryId,
+              lessonId: lesson.id,
+              lessonTitle: lesson.title,
+              lessonShortTitle: lesson.shortTitle,
+              level: lesson.level,
+              pageId: pg.id,
+              pageIndex: idx,
+              pageKind: pg.kind,
+              isCheck,
+              promptSnippet: cleanPrompt(pg.prompt),
+              category: resolveCategory(pg, isCheck),
+              latestTimestamp: baseTs,
+              versions: [
+                {
+                  versionId: `${entryId}:v1`,
+                  versionNum: 1,
+                  timestamp: baseTs,
+                  answerSummary: summary,
+                  evaluation:
+                    st.evaluation === 'correct'
+                      ? 'correct'
+                      : st.evaluation === 'incorrect'
+                        ? 'incorrect'
+                        : 'retry',
+                  hasPenInk: detectPenInkForPage(lesson.id, pg.id),
+                },
+              ],
+            })
           })
-        })
+        }
       }
     }
 
-    // 2. Scan mpm2d-pen-brilliant-v4:* keys for scratchpad/worksheet progress
+    // 2. Scan mpm2d-pen-brilliant-v4:* keys for non-empty scratchpad/worksheet progress
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i)
       if (!k || !k.startsWith('mpm2d-pen-brilliant-v4:')) continue
+      if (!sheetStateHasWork(localStorage.getItem(k))) continue
       const rest = k.slice('mpm2d-pen-brilliant-v4:'.length)
       const [lessonId, pageId] = rest.split(':')
       if (!lessonId || !pageId) continue
@@ -256,12 +302,12 @@ function mergeWithLiveStorage(existing: WorkHistoryEntry[]): WorkHistoryEntry[] 
         isCheck,
         promptSnippet: cleanPrompt(pg.prompt),
         category: 'scratchpad',
-        latestTimestamp: Date.now() - 120_000,
+        latestTimestamp: 0,
         versions: [
           {
             versionId: `${entryId}:v1`,
             versionNum: 1,
-            timestamp: Date.now() - 120_000,
+            timestamp: 0,
             answerSummary: 'Handwritten Pen Studio Scratchpad & Steps',
             evaluation: 'scratchpad',
             hasPenInk: true,
@@ -286,20 +332,26 @@ function summarizePageState(
   },
 ): string {
   if (pg.kind === 'multi-step') {
-    const parts = pg.steps.map((s, i) => `${s.label}: ${st.subInputs?.[i] ?? (i === (st.subInputs?.length ?? 0) ? st.mathValue : '…')}`)
+    const parts = pg.steps.map((s, i) => {
+      const val =
+        st.subInputs?.[i]?.trim() ||
+        (i === (st.subInputs?.length ?? 0) ? st.mathValue?.trim() : '') ||
+        '…'
+      return `${s.label}: ${val}`
+    })
     return parts.join('  →  ')
   }
   if (pg.kind === 'math-input') {
     return st.mathValue?.trim() || 'In progress'
   }
   if (pg.kind === 'choice' || pg.kind === 'multi-choice' || pg.kind === 'read-plan') {
-    const labels = (st.selectedIds ?? [])
-      .map(id => pg.options.find(o => o.id === id)?.label ?? id)
+    const labels = (st.selectedIds ?? []).map(id => pg.options.find(o => o.id === id)?.label ?? id)
     return labels.join(', ') || 'Selected option'
   }
   if (pg.kind === 'plan-order') {
-    const blocks = (st.planChosen ?? [])
-      .map((id, idx) => `${idx + 1}. ${pg.pool.find(b => b.id === id)?.text ?? id}`)
+    const blocks = (st.planChosen ?? []).map(
+      (id, idx) => `${idx + 1}. ${pg.pool.find(b => b.id === id)?.text ?? id}`,
+    )
     return blocks.join(' · ') || 'Ordered strategy plan'
   }
   return 'Worked example & scratchpad'

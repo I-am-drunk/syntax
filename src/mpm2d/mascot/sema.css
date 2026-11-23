@@ -66,15 +66,7 @@
   pointer-events: none;
 }
 
-/* Floating fixed roaming host (DVD / Pong bounce) */
-.sema-roam-layer {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 420;
-  pointer-events: auto;
-  will-change: transform;
-}
+
 
 /* Crisp Brilliant-style Speech Bubble ("Hi, I'm Sema") */
 .sema-bubble-anchor {
@@ -105,10 +97,10 @@
 }
 
 :root[data-theme='dark'] .sema-speech-bubble {
-  background: #1d2029;
-  color: #f4f5f8;
-  border-color: #343947;
-  box-shadow: 0 3px 0 #12141b, 0 12px 28px rgba(0, 0, 0, 0.42);
+  background: #1c1c1c;
+  color: #f2f2f2;
+  border-color: #333333;
+  box-shadow: 0 3px 0 #0a0a0a, 0 12px 28px rgba(0, 0, 0, 0.46);
 }
 
 .sema-speech-bubble[data-placement='top'] {
@@ -132,8 +124,8 @@
 }
 
 :root[data-theme='dark'] .sema-speech-bubble::before {
-  background: #1d2029;
-  border-color: #343947;
+  background: #1c1c1c;
+  border-color: #333333;
 }
 
 .sema-speech-bubble[data-placement='top']::before {
@@ -584,4 +576,14 @@
     opacity: 0;
     transform: translateY(-50%) scale(0.55);
   }
+}
+
+
+/* Crisp soft ground shadow on Sema SVG (light & dark balanced, zero muddy halo) */
+.sema-roam-layer .sema-svg {
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.16));
+}
+
+:root[data-theme='dark'] .sema-roam-layer .sema-svg {
+  filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.52));
 }

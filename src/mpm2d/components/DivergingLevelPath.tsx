@@ -67,7 +67,7 @@ function MedallionGlyph({ kind }: { kind: GlyphKind }) {
           <line x1="33" y1="50" x2="63" y2="34" />
           <circle cx="33" cy="50" r="3.1" fill="currentColor" stroke="none" />
           <circle cx="63" cy="34" r="3.1" fill="currentColor" stroke="none" />
-          <circle cx="48" cy="42" r="5" fill="#ffffff" stroke="currentColor" strokeWidth="3" />
+          <circle cx="48" cy="42" r="5" fill="var(--med-face)" stroke="currentColor" strokeWidth="3" />
         </g>
       )
     case 'triangle':
@@ -329,17 +329,10 @@ export function DivergingLevelPath({
               id: `seg-${prevNode.id}-${c.id}`,
               route: 'catchup',
               d: cubicPath(prevNode.x, prevNode.y, cx, cy),
-              done: prevNode.done && (cDone || cResume),
-            })
-          } else {
-            curves.push({
-              id: `lead-${c.id}`,
-              route: 'catchup',
-              d: cubicPath(center, 0, cx, cy),
-              done: Boolean(cDone || cResume),
+              done: prevNode.done && Boolean(cDone),
             })
           }
-          prevNode = { id: c.id, x: cx, y: cy, done: Boolean(cDone || cResume), route: 'catchup' }
+          prevNode = { id: c.id, x: cx, y: cy, done: Boolean(cDone), route: 'catchup' }
         })
       }
 
@@ -438,6 +431,7 @@ export function DivergingLevelPath({
         width={layout.width}
         height={layout.height}
         viewBox={`0 0 ${layout.width} ${layout.height}`}
+        preserveAspectRatio="none"
         fill="none"
         shapeRendering="geometricPrecision"
         aria-hidden="true"
@@ -446,6 +440,7 @@ export function DivergingLevelPath({
           <path
             key={c.id}
             d={c.d}
+            vectorEffect="non-scaling-stroke"
             className={`br-journey-curve is-${c.route}${c.done ? ' is-done' : ''}`}
           />
         ))}
@@ -472,10 +467,11 @@ export function DivergingLevelPath({
               onClick={e => {
                 e.stopPropagation()
                 if (item.isTrophy) {
-                  const next = lessons.find(l => {
-                    const st = getStat(l.id)
-                    return !st || (st.tier !== 'mastered' && st.tier !== 'good')
-                  })
+                  const next =
+                    lessons.find(l => {
+                      const st = getStat(l.id)
+                      return !st || (st.tier !== 'mastered' && st.tier !== 'good')
+                    }) ?? lessons[0]
                   if (next) onSelect(next.id)
                   return
                 }
@@ -484,10 +480,6 @@ export function DivergingLevelPath({
                 } else {
                   onSelect(item.id)
                 }
-              }}
-              onDoubleClick={e => {
-                e.stopPropagation()
-                if (!item.isTrophy) onOpen(item.id)
               }}
             >
               <BrilliantNodeMedallion

@@ -73,6 +73,7 @@ function WalkthroughVideoStage({
   fallbackCaption,
   onPlayingChange,
   onToggleVoice,
+  onVideoError,
 }: {
   videoSrc: string
   semaTrack: SemaTrack | null
@@ -83,6 +84,7 @@ function WalkthroughVideoStage({
   fallbackCaption?: string
   onPlayingChange: (playing: boolean) => void
   onToggleVoice: () => void
+  onVideoError?: () => void
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const store = usePlayer()
@@ -96,21 +98,45 @@ function WalkthroughVideoStage({
     onPlayingChange(playing)
   }, [playing, onPlayingChange])
 
+  const autoMutedRef = useRef(false)
+  const syncingExternalRef = useRef(false)
+  const savedPlaybackRef = useRef<{ time: number; rate: number; wasPaused: boolean } | null>(null)
+  const prevSrcRef = useRef(videoSrc)
+
+  // Preserve time, rate & pause state when light/dark theme swaps videoSrc
+  useEffect(() => {
+    if (prevSrcRef.current !== videoSrc) {
+      const v = videoRef.current
+      if (v && Number.isFinite(v.currentTime) && v.currentTime > 0.1) {
+        savedPlaybackRef.current = {
+          time: v.currentTime,
+          rate: v.playbackRate || 1,
+          wasPaused: v.paused,
+        }
+      }
+      prevSrcRef.current = videoSrc
+      autoMutedRef.current = false
+    }
+  }, [videoSrc])
+
   // Sync external voice preference into the player store
   useEffect(() => {
     const v = videoRef.current
     if (v && v.muted === voiceActive) {
+      syncingExternalRef.current = true
       store.setMuted(!voiceActive)
     }
   }, [voiceActive, store, videoSrc])
-
-  const autoMutedRef = useRef(false)
 
   // Propagate user clicks on Video.js MuteButton back to app voice setting
   const prevMutedRef = useRef(muted)
   useEffect(() => {
     if (prevMutedRef.current !== muted) {
       prevMutedRef.current = muted
+      if (syncingExternalRef.current) {
+        syncingExternalRef.current = false
+        return
+      }
       if (autoMutedRef.current && muted) {
         autoMutedRef.current = false
         return
@@ -146,9 +172,21 @@ function WalkthroughVideoStage({
         preload="auto"
         muted={!voiceActive}
         onClick={handleSurfaceToggle}
+        onError={() => onVideoError?.()}
         onLoadedMetadata={e => {
           const v = e.currentTarget
           v.muted = !voiceActive
+          const saved = savedPlaybackRef.current
+          if (saved) {
+            savedPlaybackRef.current = null
+            try {
+              v.currentTime = Math.min(saved.time, Math.max(0, (v.duration || saved.time) - 0.1))
+              v.playbackRate = saved.rate
+            } catch {
+              // ignore seek error
+            }
+            if (saved.wasPaused) return
+          }
           v.play().catch(() => {
             autoMutedRef.current = true
             v.muted = true
@@ -349,6 +387,7 @@ export function WalkthroughContent({
   const [playing, setPlaying] = useState(true)
   const [showRescue, setShowRescue] = useState(false)
   const [semaTrack, setSemaTrack] = useState<SemaTrack | null>(null)
+  const [videoFailed, setVideoFailed] = useState(false)
   const shellRef = useRef<HTMLDivElement | null>(null)
   const [isCompact, setIsCompact] = useState(false)
   const [topBarRevealed, setTopBarRevealed] = useState(false)
@@ -411,7 +450,11 @@ export function WalkthroughContent({
   const videoSrc = videoPath ? assetUrl(videoPath) : null
   const trackPath = beatAsset?.sema ?? asset?.sema ?? null
   const trackUrl = trackPath ? assetUrl(trackPath) : null
-  const isManimVideo = Boolean(videoSrc)
+  const isManimVideo = Boolean(videoSrc) && !videoFailed
+
+  useEffect(() => {
+    setVideoFailed(false)
+  }, [videoSrc])
   const voiceActive = soundOn && voiceOn
 
   // Load Sema choreography track for the active step
@@ -426,12 +469,16 @@ export function WalkthroughContent({
       return
     }
     let cancelled = false
+    setSemaTrack(null)
     fetch(trackUrl)
       .then(r => (r.ok ? r.json() : null))
       .then((data: SemaTrack | null) => {
-        if (!cancelled && data && Array.isArray(data.keyframes)) {
+        if (cancelled) return
+        if (data && Array.isArray(data.keyframes)) {
           TRACK_CACHE.set(trackUrl, data)
           setSemaTrack(data)
+        } else {
+          setSemaTrack(null)
         }
       })
       .catch(() => {
@@ -620,21 +667,32 @@ export function WalkthroughContent({
 
         <div className={`wt-stage-frame${isManimVideo ? ' is-manim-video' : ''}`}>
           {isManimVideo && videoSrc ? (
-            <Player key={videoSrc}>
+            <Player key={`${spec.pageId}-${lens.id}-${beat.id}`}>
               <WalkthroughVideoStage
                 videoSrc={videoSrc}
                 semaTrack={semaTrack}
                 voiceActive={voiceActive}
                 promptMode={promptMode}
                 semaShape={semaShape}
-        semaTail={semaTail}
+                semaTail={semaTail}
                 fallbackCaption={beat.caption}
                 onPlayingChange={setPlaying}
                 onToggleVoice={onToggleVoice}
+                onVideoError={() => setVideoFailed(true)}
               />
             </Player>
           ) : (
             <div className="wt-static-fallback">
+              <div className="wt-fallback-head">
+                <strong className="wt-fallback-title">
+                  <MathText text={beat.title} />
+                </strong>
+                {activeStep?.equation && (
+                  <div className="wt-fallback-eq">
+                    <MathText text={activeStep.equation} />
+                  </div>
+                )}
+              </div>
               {beat.scene && (
                 <div className="wt-fallback-graph">
                   <BrilliantGraph mode="display" scene={beat.scene} />

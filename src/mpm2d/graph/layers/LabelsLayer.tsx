@@ -59,6 +59,7 @@ export function LabelsLayer({
             const basePy = activeDragBadge.py
             const above = basePy > vp.plotY + 42
             const ly = above ? basePy - 30 : basePy + 32
+            const clampedLx = Math.max(vp.plotX + 38, Math.min(vp.plotX + vp.plotW - 38, basePx))
             const text = activeDragBadge.label
               ? `${activeDragBadge.label} ${fmtCoord(activeDragBadge.x, activeDragBadge.y)}`
               : fmtCoord(activeDragBadge.x, activeDragBadge.y)
@@ -66,7 +67,7 @@ export function LabelsLayer({
             return (
               <g className="bg-drag-coord-pop">
                 <text
-                  x={basePx}
+                  x={clampedLx}
                   y={ly}
                   textAnchor="middle"
                   dominantBaseline="central"

@@ -72,6 +72,18 @@ export const UNIT2_LEVEL2: GeoLesson[] = [
           'Check if m₁ · m₂ = −1 (negative reciprocals).',
           'Or verify with Pythagoras: AC² + BC² = AB².',
         ],
+        preScene: {
+          xMin: -5,
+          xMax: 7,
+          yMin: -5,
+          yMax: 7,
+          polygons: [{ vertices: [[5, 5], [-3, -1], [1, -3]], color: 'blue', fillOpacity: 0.08 }],
+          points: [
+            { id: 'a', x: 5, y: 5, label: 'A(5, 5)', color: 'blue' },
+            { id: 'b', x: -3, y: -1, label: 'B(−3, −1)', color: 'blue' },
+            { id: 'c', x: 1, y: -3, label: 'C(1, −3)', color: 'blue' },
+          ],
+        },
         steps: [
           {
             heading: 'Check the slopes at C(1, −3)',
@@ -428,6 +440,14 @@ export const UNIT2_LEVEL2: GeoLesson[] = [
           'Solve the system of two lines for the POI.',
           'Use the length formula from the point to the POI.',
         ],
+        preScene: {
+          xMin: -2,
+          xMax: 8,
+          yMin: -8,
+          yMax: 3,
+          lines: [lineEq(2, -10, { color: 'blue', label: 'y = 2x − 10' })],
+          points: [{ id: 'o', x: 0, y: 0, label: 'O(0, 0)', color: 'amber', emphasis: true }],
+        },
         steps: [
           {
             heading: 'Write the perpendicular line through (0, 0)',
@@ -854,6 +874,17 @@ export const UNIT2_LEVEL2: GeoLesson[] = [
           'Find slope of AB and take its negative reciprocal m_⊥.',
           'Sub m_⊥ and midpoint M into y = mx + b.',
         ],
+        preScene: {
+          xMin: -5,
+          xMax: 7,
+          yMin: -2,
+          yMax: 6,
+          segments: [{ from: [-3, 4], to: [5, 0], color: 'blue' }],
+          points: [
+            { id: 'a', x: -3, y: 4, label: 'A(−3, 4)', color: 'blue' },
+            { id: 'b', x: 5, y: 0, label: 'B(5, 0)', color: 'blue' },
+          ],
+        },
         steps: [
           {
             heading: 'Find midpoint M of AB',
@@ -1171,6 +1202,19 @@ export const UNIT2_LEVEL2: GeoLesson[] = [
           'Check all 4 side lengths: equal lengths prove a rhombus.',
           'Check 1 corner with slopes: 90° upgrades a rhombus to a square.',
         ],
+        preScene: {
+          xMin: -4,
+          xMax: 5,
+          yMin: -3,
+          yMax: 6,
+          polygons: [{ vertices: [[3, 2], [0, 4], [-2, 1], [1, -1]], color: 'blue', fillOpacity: 0.08 }],
+          points: [
+            { id: 'r', x: 3, y: 2, label: 'R', showCoords: true, color: 'blue' },
+            { id: 's', x: 0, y: 4, label: 'S', showCoords: true, color: 'blue' },
+            { id: 't', x: -2, y: 1, label: 'T', showCoords: true, color: 'blue' },
+            { id: 'u', x: 1, y: -1, label: 'U', showCoords: true, color: 'blue' },
+          ],
+        },
         steps: [
           {
             heading: 'Check all 4 side lengths',
@@ -1381,7 +1425,7 @@ export const UNIT2_LEVEL2: GeoLesson[] = [
                 xMax: 5,
                 yMin: -4,
                 yMax: 4,
-                polygons: [{ vertices: [[-4, -1], [2, -3], [4, 1], [0, 3]], color: 'amber', fillOpacity: 0.1 }],
+                polygons: [{ vertices: [[-4, 0], [2, -3], [4, 1], [0, 3]], color: 'amber', fillOpacity: 0.1 }],
               },
             },
           ],
@@ -1578,18 +1622,21 @@ export const UNIT2_LEVEL2: GeoLesson[] = [
         source: 'Handout W4 #2',
         prompt: 'Midsegment PQ joins the midpoints of KL and ML in △KLM. Base KM has slope −4/3 and length 10. What are the slope and length of PQ?',
         scene: {
-          xMin: -1,
-          xMax: 11,
-          yMin: -1,
-          yMax: 11,
-          polygons: [{ vertices: [[2, 10], [4, 6], [8, 2]], color: 'blue', fillOpacity: 0.06 }],
+          xMin: 0,
+          xMax: 10,
+          yMin: -4,
+          yMax: 12,
+          polygons: [{ vertices: [[2, 6], [4, 10], [8, -2]], color: 'blue', fillOpacity: 0.06 }],
           segments: [
-            { from: [2, 10], to: [8, 2], color: 'blue', label: 'KM = 10' },
+            { from: [2, 6], to: [8, -2], color: 'blue', label: 'KM = 10' },
             { from: [3, 8], to: [6, 4], color: 'amber', width: 2.8, label: 'PQ' },
           ],
           points: [
-            { id: 'p', x: 3, y: 8, label: 'P', color: 'amber' },
-            { id: 'q', x: 6, y: 4, label: 'Q', color: 'amber' },
+            { id: 'k', x: 2, y: 6, label: 'K', color: 'blue' },
+            { id: 'l', x: 4, y: 10, label: 'L', color: 'blue' },
+            { id: 'm', x: 8, y: -2, label: 'M', color: 'blue' },
+            { id: 'p', x: 3, y: 8, label: 'P', color: 'amber', emphasis: true },
+            { id: 'q', x: 6, y: 4, label: 'Q', color: 'amber', emphasis: true },
           ],
         },
         options: [
@@ -1603,13 +1650,14 @@ export const UNIT2_LEVEL2: GeoLesson[] = [
             {
               text: 'Every triangle midsegment is parallel to the third side (same slope −4/3) and exactly half its length (10 ÷ 2 = 5).',
               scene: {
-                xMin: -1,
-                xMax: 11,
-                yMin: -1,
-                yMax: 11,
+                xMin: 0,
+                xMax: 10,
+                yMin: -4,
+                yMax: 12,
+                polygons: [{ vertices: [[2, 6], [4, 10], [8, -2]], color: 'blue', fillOpacity: 0.06 }],
                 segments: [
-                  { from: [2, 10], to: [8, 2], color: 'blue', label: '10' },
-                  { from: [3, 8], to: [6, 4], color: 'green', width: 3, label: '5' },
+                  { from: [2, 6], to: [8, -2], color: 'blue', label: 'KM = 10' },
+                  { from: [3, 8], to: [6, 4], color: 'green', width: 3, label: 'PQ = 5' },
                 ],
               },
             },

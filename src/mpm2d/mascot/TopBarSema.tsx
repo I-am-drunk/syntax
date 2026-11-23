@@ -145,7 +145,7 @@ export function TopBarSema({
     setPhase('returning')
   }
 
-  // Idle timer for sleepy -> auto-roaming (respects cooldown; does NOT recall when clicking/scrolling page)
+  // Idle timer for sleepy -> auto-roaming; ANY click, scroll, wheel, touch, or keypress immediately recalls Sema home!
   useEffect(() => {
     if (!enableRoaming) {
       if (phaseRef.current === 'roaming') recallToDock()
@@ -166,8 +166,15 @@ export function TopBarSema({
       }
     }
 
-    const pauseForScroll = () => {
+    const onUserInteract = () => {
       bumpActivity()
+      if (phaseRef.current === 'roaming') {
+        recallToDock()
+      }
+    }
+
+    const pauseForScroll = () => {
+      onUserInteract()
       if (!scrollingRef.current) {
         scrollingRef.current = true
         setScrolling(true)
@@ -180,9 +187,11 @@ export function TopBarSema({
     }
 
     window.addEventListener('pointermove', bumpActivity, { passive: true })
-    window.addEventListener('keydown', bumpActivity, { passive: true })
+    window.addEventListener('keydown', onUserInteract, { passive: true })
+    window.addEventListener('pointerdown', onUserInteract, { passive: true })
+    window.addEventListener('touchstart', onUserInteract, { passive: true })
     window.addEventListener('wheel', pauseForScroll, { passive: true })
-    window.addEventListener('pointerdown', bumpActivity, { passive: true })
+    window.addEventListener('scroll', pauseForScroll, { passive: true })
     scroller?.addEventListener('scroll', pauseForScroll, { passive: true })
 
     const idleCheck = window.setInterval(() => {
@@ -200,23 +209,29 @@ export function TopBarSema({
 
     return () => {
       window.removeEventListener('pointermove', bumpActivity)
-      window.removeEventListener('keydown', bumpActivity)
+      window.removeEventListener('keydown', onUserInteract)
+      window.removeEventListener('pointerdown', onUserInteract)
+      window.removeEventListener('touchstart', onUserInteract)
       window.removeEventListener('wheel', pauseForScroll)
-      window.removeEventListener('pointerdown', bumpActivity)
+      window.removeEventListener('scroll', pauseForScroll)
       scroller?.removeEventListener('scroll', pauseForScroll)
       window.clearInterval(idleCheck)
       window.clearTimeout(scrollEndTimerRef.current)
       scrollingRef.current = false
+      setScrolling(false)
     }
   }, [enableRoaming, scrollContainerRef])
 
-  // Wall-bouncing + smooth critically-damped return flight physics loop
+  // Wall-bouncing + smooth critically-damped return flight physics loop (never freeze 'returning' on scroll!)
   useEffect(() => {
-    if (phase === 'docked' || scrolling) return
+    if (phase === 'docked' || (scrolling && phase === 'roaming')) return
     let raf = 0
     let lastTs = performance.now()
     let lookUpdateAcc = 0
     let bounceIdx = 0
+    let cachedTarget: { x: number; y: number } | null = null
+    const onResizeTarget = () => { cachedTarget = null }
+    window.addEventListener('resize', onResizeTarget, { passive: true })
 
     const applyHostTransform = (cx: number, cy: number, scale = 1) => {
       const host = roamHostRef.current
@@ -298,9 +313,15 @@ export function TopBarSema({
         syncBubblePlacement(p.y)
         applyHostTransform(p.x, p.y)
       } else if (phaseRef.current === 'returning') {
-        const rect = dockRef.current?.getBoundingClientRect()
-        const tx = rect ? rect.left + rect.width / 2 : 140
-        const ty = rect ? rect.top + rect.height / 2 : 32
+        if (!cachedTarget) {
+          const rect = dockRef.current?.getBoundingClientRect()
+          cachedTarget = {
+            x: rect ? rect.left + rect.width / 2 : 140,
+            y: rect ? rect.top + rect.height / 2 : 32,
+          }
+        }
+        const tx = cachedTarget.x
+        const ty = cachedTarget.y
 
         // Critically-damped spring toward the exact docked slot center
         const omega = 13.5
@@ -360,6 +381,7 @@ export function TopBarSema({
 
     return () => {
       cancelAnimationFrame(raf)
+      window.removeEventListener('resize', onResizeTarget)
       window.clearTimeout(moodTimerRef.current)
     }
   }, [phase, scrolling])
@@ -430,21 +452,12 @@ export function TopBarSema({
               size={SEMA_SIZE}
               interactive={!dockedIntoLogo && !isAway}
               followCursor={!dockedIntoLogo && !isAway}
-              animationPaused={scrolling || phase === 'roaming'}
+              animationPaused={scrolling || phase === 'roaming' || dockedIntoLogo}
               ariaLabel="Sema: poke for expressions or drag to stretch"
               onPoke={() => {
                 clearHover()
+                lastActivityRef.current = Date.now()
                 onPoke?.()
-                if (!enableRoaming || dockedIntoLogo) return
-                const now = Date.now()
-                if (now < cooldownUntilRef.current) {
-                  pokeCountRef.current = 0
-                  return
-                }
-                pokeCountRef.current += 1
-                if (pokeCountRef.current >= BOUNCE_CLICK_THRESHOLD) {
-                  launchRoaming()
-                }
               }}
             />
           </div>
@@ -516,7 +529,7 @@ export function TopBarSema({
                   size={SEMA_SIZE}
                   interactive={false}
                   followCursor={false}
-                  animationPaused={scrolling}
+                  animationPaused={scrolling && phase === 'roaming'}
                   lookAt={roamLook}
                   ariaLabel="Roaming Sema"
                 />

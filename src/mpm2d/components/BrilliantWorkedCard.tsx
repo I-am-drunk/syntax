@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { WorkedPage } from '../pageTypes'
 import { BrilliantGraph } from '../graph'
 import { MathText } from './MathText'
+import { WinBoxWindow } from './WinBoxWindow'
 
 const CIRCLED = ['①', '②', '③', '④', '⑤', '⑥']
 
@@ -16,11 +17,14 @@ export function BrilliantWorkedCard({
 }) {
   const [stepIdx, setStepIdx] = useState(0)
   const [revealedSteps, setRevealedSteps] = useState<Record<number, boolean>>({})
+  const [solutionGraphOpen, setSolutionGraphOpen] = useState(false)
 
   useEffect(() => {
     setStepIdx(0)
     setRevealedSteps({})
+    setSolutionGraphOpen(false)
     onStepChange?.(0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page.id])
 
   useEffect(() => {
@@ -30,28 +34,63 @@ export function BrilliantWorkedCard({
   const step = page.steps[stepIdx] ?? page.steps[0]
   const priorSteps = page.steps.slice(0, stepIdx)
   const algebraVisible = Boolean(revealedSteps[stepIdx])
+  const preScene = step.preScene ?? page.preScene
+  const hasSeparateSolutionGraph = Boolean(preScene)
+  const mainScene = preScene ?? step.scene
 
   return (
     <div className="br-worked">
       <div className="geo-frame">
-        <BrilliantGraph mode="display" scene={step.scene} caption={step.heading} />
+        <BrilliantGraph
+          mode="display"
+          scene={mainScene}
+          caption={hasSeparateSolutionGraph ? 'Given setup' : step.heading}
+        />
       </div>
+
+      {hasSeparateSolutionGraph && (
+        <div className="br-worked-graph-bar">
+          <span className="br-worked-graph-hint">
+            {algebraVisible
+              ? 'Given diagram shown above. Open the full plotted solution when ready.'
+              : 'Given diagram only. Reveal algebra to unlock the solution graph.'}
+          </span>
+          {algebraVisible && (
+            <button
+              type="button"
+              className="br-worked-solution-btn"
+              onClick={() => setSolutionGraphOpen(true)}
+            >
+              Show solution graph
+            </button>
+          )}
+        </div>
+      )}
 
       {priorSteps.length > 0 && (
         <div className="br-worked-prior" aria-label="Previous steps">
-          {priorSteps.map((ps, i) => (
-            <button
-              key={i}
-              type="button"
-              className="br-worked-prior-row"
-              onClick={() => setStepIdx(i)}
-            >
-              <span className="br-worked-prior-num">{CIRCLED[i] ?? `${i + 1}.`}</span>
-              <span className="br-worked-prior-val">
-                <MathText text={ps.mathLines[ps.mathLines.length - 1] ?? ps.heading} />
-              </span>
-            </button>
-          ))}
+          {priorSteps.map((ps, i) => {
+            const priorRevealed = Boolean(revealedSteps[i])
+            return (
+              <button
+                key={i}
+                type="button"
+                className="br-worked-prior-row"
+                onClick={() => setStepIdx(i)}
+              >
+                <span className="br-worked-prior-num">{CIRCLED[i] ?? `${i + 1}.`}</span>
+                <span className="br-worked-prior-val">
+                  {priorRevealed ? (
+                    <MathText text={ps.mathLines[ps.mathLines.length - 1] ?? ps.heading} />
+                  ) : (
+                    <>
+                      <MathText text={ps.heading} /> (not revealed yet)
+                    </>
+                  )}
+                </span>
+              </button>
+            )
+          })}
         </div>
       )}
 
@@ -93,7 +132,9 @@ export function BrilliantWorkedCard({
           </div>
         ) : (
           <div className="br-worked-pen-gate">
-            <span className="br-worked-pen-prompt">{penMode ? "Try this step on your worksheet first" : "Work this step out on paper first"}</span>
+            <span className="br-worked-pen-prompt">
+              {penMode ? 'Try this step on your worksheet first' : 'Work this step out on paper first'}
+            </span>
             <button
               type="button"
               className="br-worked-reveal-btn"
@@ -104,6 +145,23 @@ export function BrilliantWorkedCard({
           </div>
         )}
       </div>
+
+      {hasSeparateSolutionGraph && solutionGraphOpen && (
+        <WinBoxWindow
+          id={`worked-solution-graph-${page.id}`}
+          eyebrow={`Step ${stepIdx + 1}`}
+          title={step.heading}
+          defaultWidth={560}
+          defaultHeight={490}
+          minWidth={360}
+          minHeight={340}
+          onClose={() => setSolutionGraphOpen(false)}
+        >
+          <div className="br-worked-winbox-body">
+            <BrilliantGraph mode="display" scene={step.scene} caption={step.heading} />
+          </div>
+        </WinBoxWindow>
+      )}
     </div>
   )
 }

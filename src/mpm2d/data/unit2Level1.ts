@@ -92,6 +92,14 @@ export const UNIT2_LEVEL_1: GeoLesson[] = [
           'Take the negative reciprocal m⊥.',
           'Sub m⊥ and P(6, 1) into y = mx + b to solve for b.',
         ],
+        preScene: {
+          xMin: -6,
+          xMax: 8,
+          yMin: -6,
+          yMax: 5,
+          lines: [{ a: 3, b: 1, c: 3, color: 'blue', label: '3x + y = −3' }],
+          points: [{ id: 'p', x: 6, y: 1, label: 'P', showCoords: true, color: 'amber' }],
+        },
         steps: [
           {
             heading: 'Isolate y to read m',
@@ -118,9 +126,9 @@ export const UNIT2_LEVEL_1: GeoLesson[] = [
               yMax: 5,
               lines: [
                 { a: 3, b: 1, c: 3, color: 'blue', dim: true, label: 'm = −3' },
-                { a: 1, b: -3, c: 0, color: 'teal', dashed: true, label: 'm⊥ = 1/3' },
+                { a: 1, b: -3, c: -3, color: 'teal', dashed: true, label: 'm⊥ = 1/3' },
               ],
-              rightAngles: [{ vertex: [-0.9, -0.3], dir1: [1, -3], dir2: [3, 1], color: 'green' }],
+              rightAngles: [{ vertex: [-0.6, -1.2], dir1: [1, -3], dir2: [3, 1], color: 'green' }],
               points: [{ id: 'p', x: 6, y: 1, label: 'P', showCoords: true, color: 'amber' }],
             },
           },
@@ -431,6 +439,17 @@ export const UNIT2_LEVEL_1: GeoLesson[] = [
           {
             heading: 'A(11, 14) and B(3, 5)',
             mathLines: ['M = ((11 + 3)/2, (14 + 5)/2)', 'M = (7, 9.5)'],
+            preScene: {
+              xMin: 1,
+              xMax: 13,
+              yMin: 3,
+              yMax: 16,
+              segments: [{ from: [3, 5], to: [11, 14], color: 'blue' }],
+              points: [
+                { id: 'a', x: 11, y: 14, label: 'A', showCoords: true, color: 'blue' },
+                { id: 'b', x: 3, y: 5, label: 'B', showCoords: true, color: 'blue' },
+              ],
+            },
             scene: {
               xMin: 1,
               xMax: 13,
@@ -450,6 +469,17 @@ export const UNIT2_LEVEL_1: GeoLesson[] = [
           {
             heading: 'Negative coordinates: P(−4, −8) and Q(−3, −1)',
             mathLines: ['M = ((−4 + (−3))/2, (−8 + (−1))/2)', 'M = (−3.5, −4.5)'],
+            preScene: {
+              xMin: -7,
+              xMax: 1,
+              yMin: -10,
+              yMax: 1,
+              segments: [{ from: [-4, -8], to: [-3, -1], color: 'teal' }],
+              points: [
+                { id: 'p', x: -4, y: -8, label: 'P', showCoords: true, color: 'teal' },
+                { id: 'q', x: -3, y: -1, label: 'Q', showCoords: true, color: 'teal' },
+              ],
+            },
             scene: {
               xMin: -7,
               xMax: 1,
@@ -541,6 +571,17 @@ export const UNIT2_LEVEL_1: GeoLesson[] = [
         prompt:
           '**M(0, −4)** is the midpoint of segment **DE**, and **D(3, 1)**. Find the other endpoint **E**.',
         plan: ['Set (3 + x)/2 = 0 and solve for x.', 'Set (1 + y)/2 = −4 and solve for y.'],
+        preScene: {
+          xMin: -6,
+          xMax: 6,
+          yMin: -11,
+          yMax: 3,
+          segments: [{ from: [3, 1], to: [0, -4], color: 'blue' }],
+          points: [
+            { id: 'd', x: 3, y: 1, label: 'D', showCoords: true, color: 'blue' },
+            { id: 'm', x: 0, y: -4, label: 'M', showCoords: true, color: 'amber', emphasis: true },
+          ],
+        },
         steps: [
           {
             heading: 'Solve the midpoint equation backwards',
@@ -801,6 +842,18 @@ export const UNIT2_LEVEL_1: GeoLesson[] = [
         source: "Alex's Notes · Oct 22",
         prompt: 'Find the equation of the **median from C** in **△ABC** with A(−3, 3), B(2, −5), C(5, 2).',
         plan: ['Find midpoint M of AB.', 'Find slope of CM.', 'Sub C(5, 2) into y = mx + b.'],
+        preScene: {
+          xMin: -5,
+          xMax: 7,
+          yMin: -6,
+          yMax: 5,
+          polygons: [{ vertices: [[-3, 3], [2, -5], [5, 2]], color: 'blue', fillOpacity: 0.08 }],
+          points: [
+            { id: 'a', x: -3, y: 3, label: 'A', showCoords: true, color: 'blue' },
+            { id: 'b', x: 2, y: -5, label: 'B', showCoords: true, color: 'blue' },
+            { id: 'c', x: 5, y: 2, label: 'C', showCoords: true, color: 'amber', emphasis: true },
+          ],
+        },
         steps: [
           {
             heading: 'Midpoint M of opposite side AB',
@@ -812,6 +865,8 @@ export const UNIT2_LEVEL_1: GeoLesson[] = [
               yMax: 5,
               polygons: [{ vertices: [[-3, 3], [2, -5], [5, 2]], color: 'blue', fillOpacity: 0.08 }],
               points: [
+                { id: 'a', x: -3, y: 3, label: 'A', showCoords: true, color: 'blue' },
+                { id: 'b', x: 2, y: -5, label: 'B', showCoords: true, color: 'blue' },
                 { id: 'c', x: 5, y: 2, label: 'C', showCoords: true, color: 'amber' },
                 { id: 'm', x: -0.5, y: -1, label: 'M', showCoords: true, color: 'teal', emphasis: true },
               ],
@@ -832,6 +887,8 @@ export const UNIT2_LEVEL_1: GeoLesson[] = [
               polygons: [{ vertices: [[-3, 3], [2, -5], [5, 2]], color: 'blue', fillOpacity: 0.08 }],
               lines: [{ a: 6, b: -11, c: -8, color: 'teal', label: 'y = 6/11 x − 8/11' }],
               points: [
+                { id: 'a', x: -3, y: 3, label: 'A', showCoords: true, color: 'blue' },
+                { id: 'b', x: 2, y: -5, label: 'B', showCoords: true, color: 'blue' },
                 { id: 'c', x: 5, y: 2, label: 'C', showCoords: true, color: 'amber' },
                 { id: 'm', x: -0.5, y: -1, label: 'M', showCoords: true, color: 'teal' },
               ],
@@ -1085,6 +1142,17 @@ export const UNIT2_LEVEL_1: GeoLesson[] = [
           {
             heading: 'Exact length AB',
             mathLines: ['d_AB = √((6 − 3)² + (9 − 1)²)', 'd_AB = √(9 + 64) = √73 ≈ 8.54'],
+            preScene: {
+              xMin: 0,
+              xMax: 10,
+              yMin: -1,
+              yMax: 11,
+              segments: [{ from: [3, 1], to: [6, 9], color: 'blue' }],
+              points: [
+                { id: 'a', x: 3, y: 1, label: 'A', showCoords: true, color: 'blue' },
+                { id: 'b', x: 6, y: 9, label: 'B', showCoords: true, color: 'blue' },
+              ],
+            },
             scene: {
               xMin: 0,
               xMax: 10,
@@ -1101,6 +1169,18 @@ export const UNIT2_LEVEL_1: GeoLesson[] = [
           {
             heading: 'Classify △DEF',
             mathLines: ['DE = √17,  EF = √17,  DF = √34', 'Two equal sides → Isosceles'],
+            preScene: {
+              xMin: -5,
+              xMax: 3,
+              yMin: -4,
+              yMax: 5,
+              polygons: [{ vertices: [[1, 3], [-3, 2], [-2, -2]], color: 'blue', fillOpacity: 0.08 }],
+              points: [
+                { id: 'd', x: 1, y: 3, label: 'D', showCoords: true, color: 'blue' },
+                { id: 'e', x: -3, y: 2, label: 'E', showCoords: true, color: 'blue' },
+                { id: 'f', x: -2, y: -2, label: 'F', showCoords: true, color: 'blue' },
+              ],
+            },
             scene: {
               xMin: -5,
               xMax: 3,
@@ -1111,6 +1191,11 @@ export const UNIT2_LEVEL_1: GeoLesson[] = [
                 { from: [1, 3], to: [-3, 2], color: 'teal', ticks: 1, label: '√17' },
                 { from: [-3, 2], to: [-2, -2], color: 'teal', ticks: 1, label: '√17' },
                 { from: [1, 3], to: [-2, -2], color: 'blue', label: '√34' },
+              ],
+              points: [
+                { id: 'd', x: 1, y: 3, label: 'D', showCoords: true, color: 'blue' },
+                { id: 'e', x: -3, y: 2, label: 'E', showCoords: true, color: 'blue' },
+                { id: 'f', x: -2, y: -2, label: 'F', showCoords: true, color: 'blue' },
               ],
             },
           },

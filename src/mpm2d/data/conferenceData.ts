@@ -461,6 +461,12 @@ export const MAKE_PLAN_SCENARIOS: MakePlanScenario[] = [
         explanation:
           'Area needs a perpendicular height, not a slanted median! Base line + altitude + POI gives you the exact height.',
       },
+      {
+        name: 'Altitude first × Base height',
+        steps: ['alt-eq', 'base-eq', 'poi', 'lengths', 'area'],
+        explanation:
+          'Finding the altitude equation before the base line equation is equally valid; you just need both lines before solving their POI.',
+      },
     ],
     missingFeedback: [
       { missingId: 'alt-eq', message: 'Height must meet the base at 90°, so you need the altitude from L.' },

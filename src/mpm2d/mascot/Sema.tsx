@@ -289,7 +289,7 @@ export function Sema({
   /** Freeze the expensive SVG engine while another interaction needs the frame budget. */
   animationPaused?: boolean
 }) {
-  const uid = useId().replace(/:/g, '')
+  const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '')
   const maskId = `sema-mask-${uid}`
 
   const svgRef = useRef<SVGSVGElement | null>(null)
@@ -444,7 +444,7 @@ export function Sema({
       ro.disconnect()
       window.removeEventListener('resize', updateCache)
     }
-  }, [size])
+  }, [size, showTail])
 
   // Track pointer for smooth cursor-following eye gaze (only attached when followCursor is enabled)
   useEffect(() => {
@@ -495,6 +495,9 @@ export function Sema({
     let lastInk = ''
     let lastPaper = ''
     const gradNodes = new Map<string, SVGLinearGradientElement>()
+    if (defsRef.current) {
+      defsRef.current.querySelectorAll('linearGradient').forEach(el => el.remove())
+    }
 
     const tick = (nowMs: number) => {
       raf = requestAnimationFrame(tick)

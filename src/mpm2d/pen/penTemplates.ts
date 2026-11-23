@@ -88,11 +88,14 @@ export function stampPlanTemplate(editor: Editor, steps: string[]) {
   })
 }
 
+let axesStampSeq = 0
+
 export function stampCoordinateAxes(editor: Editor) {
   const vp = editor.getViewportPageBounds()
-  const cx = vp.maxX - 160
-  const cy = vp.y + 170
+  const bump = (axesStampSeq++ % 4) * 26
   const arm = 96
+  const cx = Math.max(vp.x + arm + 32, Math.min(vp.maxX - arm - 32, vp.x + vp.w * 0.5 + bump - 30))
+  const cy = Math.max(vp.y + arm + 110, Math.min(vp.maxY - arm - 36, vp.y + Math.max(210, vp.h * 0.42) + bump))
 
   editor.run(() => {
     editor.markHistoryStoppingPoint('stamp-axes')

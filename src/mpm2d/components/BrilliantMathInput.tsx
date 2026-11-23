@@ -42,8 +42,9 @@ export function BrilliantMathInput({
       onChange(value + token)
       return
     }
-    const start = el.selectionStart ?? value.length
-    const end = el.selectionEnd ?? value.length
+    const focused = document.activeElement === el
+    const start = focused ? (el.selectionStart ?? value.length) : value.length
+    const end = focused ? (el.selectionEnd ?? value.length) : value.length
     const next = value.slice(0, start) + token + value.slice(end)
     onChange(next)
     requestAnimationFrame(() => {
@@ -128,8 +129,8 @@ export function BrilliantMathInput({
         </div>
       )}
 
-      {evaluation === 'correct' && (
-        <div className="br-inline-note is-correct">
+      {(evaluation === 'correct' || evaluation === 'incorrect') && (
+        <div className={`br-inline-note ${evaluation === 'correct' ? 'is-correct' : 'is-hint'}`}>
           Answer: <strong><MathText text={spec.display} /></strong>
         </div>
       )}

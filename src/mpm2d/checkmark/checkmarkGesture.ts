@@ -90,7 +90,7 @@ function angleBetweenDeg(ax: number, ay: number, bx: number, by: number): number
  * - Giant squiggles, circles, loops, zigzags, straight lines, radical signs (√)
  */
 export function recognizeCheckmark(rawPoints: StrokePoint[]): CheckmarkResult {
-  if (rawPoints.length < 6) {
+  if (rawPoints.length < 4) {
     return { ok: false, score: 0, reason: 'too-few-points' }
   }
 

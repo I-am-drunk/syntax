@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Dialog } from '@base-ui/react/dialog'
 import { Sema, type SemaShapeName, type SemaTailName } from '../mascot/Sema'
@@ -25,21 +25,26 @@ export function OnboardingModal({
 }) {
   const [beat, setBeat] = useState<0 | 1 | 2>(0)
   const [penDetected, setPenDetected] = useState(false)
+  const onSelectDrawModeRef = useRef(onSelectDrawMode)
+  onSelectDrawModeRef.current = onSelectDrawMode
 
   useEffect(() => {
     if (!open) return
     const onPtr = (e: PointerEvent) => {
       if (e.pointerType === 'pen') {
         setPenDetected(true)
-        onSelectDrawMode(true)
+        onSelectDrawModeRef.current(true)
       }
     }
     window.addEventListener('pointerdown', onPtr, { passive: true })
     return () => window.removeEventListener('pointerdown', onPtr)
-  }, [open, onSelectDrawMode])
+  }, [open])
 
   useEffect(() => {
-    if (open) setBeat(0)
+    if (open) {
+      setBeat(0)
+      setPenDetected(false)
+    }
   }, [open])
 
   return (
@@ -51,7 +56,7 @@ export function OnboardingModal({
     >
       <Dialog.Portal>
         <Dialog.Backdrop className="ob-backdrop" />
-        <Dialog.Popup className="ob-popup" initialFocus={false}>
+        <Dialog.Popup className="ob-popup">
           <div className="ob-dots" aria-hidden="true">
             {[0, 1, 2].map(i => (
               <span key={i} className={`ob-dot${beat === i ? ' is-active' : ''}`} />
@@ -98,6 +103,7 @@ export function OnboardingModal({
               <div className="ob-card-grid">
                 <button
                   type="button"
+                  aria-pressed={theme === 'light'}
                   className={`ob-choice-card is-light${theme === 'light' ? ' is-selected' : ''}`}
                   onClick={() => onSelectTheme('light')}
                 >
@@ -110,6 +116,7 @@ export function OnboardingModal({
                 </button>
                 <button
                   type="button"
+                  aria-pressed={theme === 'dark'}
                   className={`ob-choice-card is-dark${theme === 'dark' ? ' is-selected' : ''}`}
                   onClick={() => onSelectTheme('dark')}
                 >
@@ -144,6 +151,7 @@ export function OnboardingModal({
               <div className="ob-card-grid">
                 <button
                   type="button"
+                  aria-pressed={drawMode}
                   className={`ob-choice-card${drawMode ? ' is-selected' : ''}`}
                   onClick={() => onSelectDrawMode(true)}
                 >
@@ -160,6 +168,7 @@ export function OnboardingModal({
                 </button>
                 <button
                   type="button"
+                  aria-pressed={!drawMode}
                   className={`ob-choice-card${!drawMode ? ' is-selected' : ''}`}
                   onClick={() => onSelectDrawMode(false)}
                 >

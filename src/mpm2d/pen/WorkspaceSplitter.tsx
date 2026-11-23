@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export type SplitterTension = 'none' | 'close' | 'fullscreen'
 
@@ -28,8 +28,21 @@ export function WorkspaceSplitter({
   const [isHovered, setIsHovered] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const draggingRef = useRef(false)
+  const activePointerIdRef = useRef<number | null>(null)
   const downPosRef = useRef(0)
   const movedRef = useRef(false)
+  const onDragEndRef = useRef(onDragEnd)
+  onDragEndRef.current = onDragEnd
+
+  useEffect(() => {
+    return () => {
+      if (draggingRef.current) {
+        draggingRef.current = false
+        activePointerIdRef.current = null
+        onDragEndRef.current()
+      }
+    }
+  }, [])
 
   const showFullscreenCue = fullscreen && (isHovered || isDragging)
   const showTensionCue = !fullscreen && tension !== 'none'
@@ -51,20 +64,50 @@ export function WorkspaceSplitter({
           ? 'Show question'
           : 'Drag to resize · Double-click to reset'
       }
-      onDoubleClick={fullscreen ? onExitFullscreen : onReset}
+      onDoubleClick={() => {
+        if (fullscreen) {
+          onExitFullscreen?.()
+        } else {
+          onReset()
+        }
+      }}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          if (fullscreen) onExitFullscreen?.()
+          else onReset()
+        } else if (
+          (orientation === 'vertical' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) ||
+          (orientation === 'horizontal' && (e.key === 'ArrowUp' || e.key === 'ArrowDown'))
+        ) {
+          e.preventDefault()
+          const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
+          const base = orientation === 'vertical' ? rect.left + rect.width / 2 : rect.top + rect.height / 2
+          const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 28 : -28
+          onDragStart()
+          onDelta(base + step)
+          onDragEnd()
+        }
+      }}
       onPointerEnter={() => setIsHovered(true)}
       onPointerLeave={() => setIsHovered(false)}
       onPointerDown={e => {
+        if (e.button !== 0 || draggingRef.current) return
         e.preventDefault()
         draggingRef.current = true
+        activePointerIdRef.current = e.pointerId
         setIsDragging(true)
         movedRef.current = false
         downPosRef.current = orientation === 'vertical' ? e.clientX : e.clientY
         onDragStart()
-        ;(e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId)
+        try {
+          ;(e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId)
+        } catch {
+          // ignore
+        }
       }}
       onPointerMove={e => {
-        if (!draggingRef.current) return
+        if (!draggingRef.current || activePointerIdRef.current !== e.pointerId) return
         const pos = orientation === 'vertical' ? e.clientX : e.clientY
         if (Math.abs(pos - downPosRef.current) > 4) {
           movedRef.current = true
@@ -72,8 +115,9 @@ export function WorkspaceSplitter({
         onDelta(pos)
       }}
       onPointerUp={e => {
-        if (!draggingRef.current) return
+        if (!draggingRef.current || activePointerIdRef.current !== e.pointerId) return
         draggingRef.current = false
+        activePointerIdRef.current = null
         setIsDragging(false)
         const wasClick = !movedRef.current
         onDragEnd()
@@ -86,9 +130,10 @@ export function WorkspaceSplitter({
           onExitFullscreen?.()
         }
       }}
-      onPointerCancel={() => {
-        if (!draggingRef.current) return
+      onPointerCancel={e => {
+        if (!draggingRef.current || activePointerIdRef.current !== e.pointerId) return
         draggingRef.current = false
+        activePointerIdRef.current = null
         setIsDragging(false)
         onDragEnd()
       }}

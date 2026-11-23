@@ -29,6 +29,7 @@ export function GeoExplanationContent({
   isLast,
   title = 'Explanation',
   inline = false,
+  canContinue = true,
   onClose,
   onContinue,
 }: {
@@ -36,6 +37,7 @@ export function GeoExplanationContent({
   isLast: boolean
   title?: string
   inline?: boolean
+  canContinue?: boolean
   onClose: () => void
   onContinue: () => void
 }) {
@@ -47,10 +49,20 @@ export function GeoExplanationContent({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement | null)?.closest('[data-pen-workspace]')) return
+      const target = e.target as HTMLElement | null
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target?.isContentEditable ||
+        target?.closest('[data-pen-workspace]')
+      ) {
+        return
+      }
       if (e.key === 'ArrowRight') {
+        e.preventDefault()
         setIndex(i => Math.min(explanation.steps.length - 1, i + 1))
       } else if (e.key === 'ArrowLeft') {
+        e.preventDefault()
         setIndex(i => Math.max(0, i - 1))
       } else if (e.key === 'Escape' && inline) {
         onClose()
@@ -166,10 +178,10 @@ export function GeoExplanationContent({
             className="lesson-action explanation-advance"
             onClick={() => {
               onClose()
-              onContinue()
+              if (canContinue) onContinue()
             }}
           >
-            <span>{isLast ? 'Finish' : 'Continue'}</span>
+            <span>{!canContinue ? 'Done' : isLast ? 'Finish' : 'Continue'}</span>
           </button>
         )}
       </footer>
@@ -181,12 +193,14 @@ export function GeoExplanationModal({
   explanation,
   open,
   isLast,
+  canContinue = true,
   onClose,
   onContinue,
 }: {
   explanation: GeoExplanation
   open: boolean
   isLast: boolean
+  canContinue?: boolean
   onClose: () => void
   onContinue: () => void
 }) {
@@ -204,6 +218,7 @@ export function GeoExplanationModal({
             <GeoExplanationContent
               explanation={explanation}
               isLast={isLast}
+              canContinue={canContinue}
               onClose={onClose}
               onContinue={onContinue}
             />

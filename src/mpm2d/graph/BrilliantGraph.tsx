@@ -63,6 +63,13 @@ export function BrilliantGraph({
   const svgRef = useRef<SVGSVGElement | null>(null)
 
   const [pressedId, setPressedId] = useState<string | null>(null)
+  useEffect(() => {
+    if (pressedId && !draggablePoints?.some(d => d.id === pressedId)) {
+      dragSessionRef.current = null
+      setPressedId(null)
+      setDragOffset({ dx: 0, dy: 0 })
+    }
+  }, [pressedId, draggablePoints])
   const [dragOffset, setDragOffset] = useState<{ dx: number; dy: number }>({ dx: 0, dy: 0 })
   const [hoverGroup, setHoverGroup] = useState<string | null>(null)
 
@@ -184,19 +191,20 @@ export function BrilliantGraph({
       let sy = rawMathY
       if (pt.constrain) {
         ;[sx, sy] = pt.constrain(rawMathX, rawMathY)
-      } else if (snapToGrid && snapToGrid > 0) {
-        sx = Math.round(rawMathX / snapToGrid) * snapToGrid
-        sy = Math.round(rawMathY / snapToGrid) * snapToGrid
+      } else {
+        if (snapToGrid && snapToGrid > 0) {
+          sx = Math.round(rawMathX / snapToGrid) * snapToGrid
+          sy = Math.round(rawMathY / snapToGrid) * snapToGrid
+        }
+        sx = Math.max(
+          Math.ceil(vp.bounds.xMin * 2) / 2,
+          Math.min(Math.floor(vp.bounds.xMax * 2) / 2, sx),
+        )
+        sy = Math.max(
+          Math.ceil(vp.bounds.yMin * 2) / 2,
+          Math.min(Math.floor(vp.bounds.yMax * 2) / 2, sy),
+        )
       }
-
-      sx = Math.max(
-        Math.ceil(vp.bounds.xMin * 2) / 2,
-        Math.min(Math.floor(vp.bounds.xMax * 2) / 2, sx),
-      )
-      sy = Math.max(
-        Math.ceil(vp.bounds.yMin * 2) / 2,
-        Math.min(Math.floor(vp.bounds.yMax * 2) / 2, sy),
-      )
 
       if (
         Math.abs(sx - session.lastSnappedX) > 1e-6 ||
@@ -361,10 +369,10 @@ export function BrilliantGraph({
         <defs>
           <clipPath id={clipPathId}>
             <rect
-              x={vp.plotX - 2}
-              y={vp.plotY - 2}
-              width={vp.plotW + 4}
-              height={vp.plotH + 4}
+              x={vp.plotX}
+              y={vp.plotY}
+              width={vp.plotW}
+              height={vp.plotH}
             />
           </clipPath>
 

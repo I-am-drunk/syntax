@@ -1,20 +1,19 @@
-﻿/* WinBox custom theme for Syntax MPM2D (Light & Dark) */
+/* WinBox custom theme for Syntax MPM2D (Light & Dark) */
 .winbox.syntax-winbox {
   background: var(--bg-surface, #ffffff);
   border-radius: 18px;
-  border: 1.5px solid rgba(15, 23, 42, 0.14);
+  border: 1.5px solid rgba(20, 20, 20, 0.14);
   box-shadow:
-    0 24px 64px rgba(15, 23, 42, 0.22),
-    0 4px 16px rgba(15, 23, 42, 0.08);
+    0 24px 64px rgba(0, 0, 0, 0.18),
+    0 4px 16px rgba(0, 0, 0, 0.08);
   overflow: hidden;
-  font-family: var(--font-sans, 'Inter', -apple-system, BlinkMacSystemFont, sans-serif);
-  z-index: 940;
+  font-family: var(--font-sans, 'CoFo Brilliant', -apple-system, BlinkMacSystemFont, sans-serif);
 }
 
 .winbox.syntax-winbox.focus {
   border-color: rgba(55, 92, 227, 0.42);
   box-shadow:
-    0 28px 72px rgba(15, 23, 42, 0.26),
+    0 28px 72px rgba(0, 0, 0, 0.22),
     0 6px 20px rgba(55, 92, 227, 0.12);
 }
 
@@ -40,8 +39,8 @@
 .winbox.syntax-winbox .wb-header {
   height: 42px;
   line-height: 42px;
-  background: #f7f8fb;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  background: #f7f7f7;
+  border-bottom: 1px solid rgba(20, 20, 20, 0.08);
   color: #141414;
   display: flex;
   flex-direction: row-reverse;
@@ -54,9 +53,9 @@
 
 [data-theme='dark'] .winbox.syntax-winbox .wb-header,
 .winbox.syntax-winbox.is-dark .wb-header {
-  background: #1a1c22;
-  border-bottom-color: rgba(255, 255, 255, 0.08);
-  color: #f2f4fa;
+  background: #1c1c1c;
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
 }
 
 .winbox.syntax-winbox .wb-header-actions {
@@ -95,7 +94,7 @@
   overflow: hidden;
 }
 
-/* Eyebrow truncates FIRST when window is narrow so the main title stays readable! */
+/* Eyebrow truncates FIRST when window is narrow so the main title stays readable */
 .winbox.syntax-winbox .wb-title-eyebrow {
   font-size: 10.5px;
   font-weight: 800;
@@ -161,8 +160,14 @@
   background-color: rgba(127, 127, 127, 0.16);
 }
 
+/* Pre-invert hover red in light mode so filter: invert(0.82) renders true crimson instead of cyan */
 .winbox.syntax-winbox .wb-control .wb-close:hover {
-  background-color: rgba(239, 68, 68, 0.18);
+  background-color: rgba(20, 210, 210, 0.22);
+}
+
+[data-theme='dark'] .winbox.syntax-winbox .wb-control .wb-close:hover,
+.winbox.syntax-winbox.is-dark .wb-control .wb-close:hover {
+  background-color: rgba(239, 68, 68, 0.24);
 }
 
 .winbox.syntax-winbox .wb-body {

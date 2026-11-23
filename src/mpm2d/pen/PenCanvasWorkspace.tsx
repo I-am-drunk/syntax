@@ -162,7 +162,9 @@ export function PenCanvasWorkspace({
   fullscreen,
   isCorrect = false,
   penControlsCollapsed = true,
+  showStepPlan = false,
   worksheetSpec,
+  onToggleShowStepPlan,
   onToggleFlip,
   onToggleFullscreen,
   onSound,
@@ -173,7 +175,9 @@ export function PenCanvasWorkspace({
   fullscreen: boolean
   isCorrect?: boolean
   penControlsCollapsed?: boolean
+  showStepPlan?: boolean
   worksheetSpec: WorksheetSpec
+  onToggleShowStepPlan?: () => void
   onToggleFlip: () => void
   onToggleFullscreen: () => void
   onSound?: (cue: LessonSound) => void
@@ -212,8 +216,10 @@ export function PenCanvasWorkspace({
   const [activeOpacity, setActiveOpacity] = useState<number>(1)
   const [canUndo, setCanUndo] = useState(false)
   const [canRedo, setCanRedo] = useState(false)
+  const [hasInk, setHasInk] = useState(false)
   const [isStroking, setIsStroking] = useState(false)
   const [canvasPointerEpoch, setCanvasPointerEpoch] = useState(0)
+  const loadedPageKeyRef = useRef<string>(pageKey)
 
   const [radial, setRadial] = useState<RadialMenuState>(CLOSED_RADIAL)
   const radialRef = useRef<RadialMenuState>(CLOSED_RADIAL)
@@ -230,14 +236,16 @@ export function PenCanvasWorkspace({
   const preSpaceToolRef = useRef<PenToolId | null>(null)
   const preEraserToolRef = useRef<PenToolId | null>(null)
 
-  // Reload steps whenever the student navigates to a different lesson page
+  // Reload steps whenever the student navigates to a different lesson page or toggles step plan
   useEffect(() => {
+    loadedPageKeyRef.current = pageKey
     setFields(loadWorksheetFields(pageKey, worksheetSpec))
     setStepIndex(0)
   }, [pageKey, worksheetSpec])
 
-  // Persist step completion & custom height/pages
+  // Persist step completion & custom height/pages (never overwrite another page before reload!)
   useEffect(() => {
+    if (loadedPageKeyRef.current !== pageKey) return
     saveWorksheetFields(pageKey, fields)
   }, [pageKey, fields])
 
@@ -287,6 +295,7 @@ export function PenCanvasWorkspace({
     const vp = viewportRef.current
     if (!vp) return
     let lastW = vp.clientWidth
+    let lastH = vp.clientHeight
 
     const updateDimensions = (w: number, h: number) => {
       if (w <= 40 || h <= 40) return
@@ -294,26 +303,25 @@ export function PenCanvasWorkspace({
       const nextBaseH = Math.max(MIN_SHEET_HEIGHT, Math.ceil(h / fitZoom))
       setBaseSheetHeight(nextBaseH)
 
-      if (Math.abs(w - lastW) >= 2) {
+      if (Math.abs(w - lastW) >= 2 || Math.abs(h - lastH) >= 2) {
         const prevW = lastW > 40 ? lastW : w
         const prevFitZoom = prevW / SHEET_WIDTH
         lastW = w
+        lastH = h
         const editor = editorRef.current
         if (editor) {
           const cam = editor.getCamera()
           const wasAtBaseFit = cam.z <= prevFitZoom * 1.06
-          // Capture exact world center horizontally so resizing keeps focused title centered
           const worldCenterX = -cam.x + prevW / (2 * cam.z)
           editor.updateViewportScreenBounds(vp)
           editor.setCameraOptions(buildStepCameraOptions(Math.max(nextBaseH, sheetHeightRef.current)))
           if (wasAtBaseFit) {
-            // Keep sheet width cleanly fitted without abrupt jumping
             editor.setCamera({ x: 0, y: Math.min(0, cam.y), z: fitZoom }, { immediate: true })
           } else {
-            // Preserve exact zoom scale AND horizontal center point while dragging divider
             const nextZ = Math.max(fitZoom, cam.z)
-            const nextX = Math.min(0, -(worldCenterX - w / (2 * nextZ)))
-            editor.setCamera({ x: nextX, y: cam.y, z: nextZ }, { immediate: true })
+            const minX = Math.min(0, w / nextZ - SHEET_WIDTH)
+            const nextX = Math.max(minX, Math.min(0, -(worldCenterX - w / (2 * nextZ))))
+            editor.setCamera({ x: nextX, y: Math.min(0, cam.y), z: nextZ }, { immediate: true })
           }
         }
       }
@@ -444,8 +452,11 @@ export function PenCanvasWorkspace({
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `mpm2d-${pageKey.replace(/[^a-z0-9-_]/gi, '-')}-step-${safeStepIdx + 1}.png`
+      a.download = `mpm2d-${pageKey.replace(/[^a-z0-9-_]/gi, '-')}-page-${safeStepIdx + 1}.png`
+      a.style.display = 'none'
+      document.body.appendChild(a)
       a.click()
+      document.body.removeChild(a)
       setTimeout(() => URL.revokeObjectURL(url), 1500)
     } catch {
       // ignore export failure
@@ -466,39 +477,49 @@ export function PenCanvasWorkspace({
     onSound?.('toggle-on')
   }, [activeField.id, onSound])
 
-  const handleDeleteStep = useCallback((idxToDelete: number) => {
-    setFields(prev => {
-      const target = prev[idxToDelete]
-      if (!target || !target.isCustom) return prev // only custom scratch pages can be deleted
-      const next = prev.filter((_, i) => i !== idxToDelete)
-      // Re-index remaining fields
-      const reindexed = next.map((f, i) => ({ ...f, index: i + 1 }))
-      setStepIndex(curr => Math.min(reindexed.length - 1, Math.max(0, curr >= idxToDelete ? curr - 1 : curr)))
-      return reindexed
-    })
-    onSound?.('toggle-on')
-  }, [onSound])
+  const handleDeleteStep = useCallback(
+    (idxToDelete: number) => {
+      const target = fields[idxToDelete]
+      if (!target || !target.isCustom) return
+      const next = fields
+        .filter((_, i) => i !== idxToDelete)
+        .map((f, i) => ({ ...f, index: i + 1 }))
+      setFields(next)
+      setStepIndex(curr =>
+        Math.min(Math.max(0, next.length - 1), Math.max(0, curr >= idxToDelete ? curr - 1 : curr)),
+      )
+      try {
+        indexedDB.deleteDatabase(`TLDRAW_DOCUMENT_v2mpm2d-pen-br-v4:${pageKey}:${target.id}`)
+      } catch {
+        // ignore IDB cleanup failures
+      }
+      onSound?.('toggle-on')
+    },
+    [fields, pageKey, onSound],
+  )
 
-    const handleAddStep = useCallback(() => {
-    setFields(prev => {
-      const extraNum = prev.filter(f => f.isCustom).length + 1
-      const next: WorksheetField[] = [
-        ...prev,
-        {
-          id: `extra-${Date.now().toString(36)}`,
-          index: prev.length + 1,
-          title: `Extra Scratch Page ${extraNum}`,
-          subtitle: 'Additional workspace for algebra or verification',
-          extraHeight: 0,
-          checked: false,
-          isCustom: true,
-        },
-      ]
-      setStepIndex(next.length - 1)
-      return next
-    })
+  const handleAddStep = useCallback(() => {
+    const usedNums = fields
+      .map(f => {
+        const m = f.title.match(/(\d+)$/)
+        return m ? Number(m[1]) : 0
+      })
+      .filter(n => Number.isFinite(n))
+    const nextNum = (usedNums.length ? Math.max(...usedNums) : fields.length) + 1
+    const nextField: WorksheetField = {
+      id: `extra-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+      index: fields.length + 1,
+      title: showStepPlan ? `Extra Page ${nextNum}` : `Page ${nextNum}`,
+      subtitle: 'Blank workspace for your own steps or sketches',
+      extraHeight: 0,
+      checked: false,
+      isCustom: true,
+    }
+    const next = [...fields, nextField]
+    setFields(next)
+    setStepIndex(next.length - 1)
     onSound?.('toggle-on')
-  }, [onSound])
+  }, [fields, showStepPlan, onSound])
 
   const commitRadialAction = useCallback(
     (actionId: RadialActionId) => {
@@ -552,19 +573,30 @@ export function PenCanvasWorkspace({
 
       editor.focus()
 
+      setCanUndo(false)
+      setCanRedo(false)
+      setHasInk(false)
+      setIsStroking(false)
+
       let prevTool = editor.getCurrentToolId()
       let previousUndo = false
       let previousRedo = false
+      let previousHasInk = false
       const syncFromEditor = () => {
-        const canUndo = editor.getCanUndo()
-        const canRedo = editor.getCanRedo()
-        if (canUndo !== previousUndo) {
-          previousUndo = canUndo
-          setCanUndo(canUndo)
+        const canUndoNow = editor.getCanUndo()
+        const canRedoNow = editor.getCanRedo()
+        const hasInkNow = editor.getCurrentPageShapeIds().size > 0
+        if (canUndoNow !== previousUndo) {
+          previousUndo = canUndoNow
+          setCanUndo(canUndoNow)
         }
-        if (canRedo !== previousRedo) {
-          previousRedo = canRedo
-          setCanRedo(canRedo)
+        if (canRedoNow !== previousRedo) {
+          previousRedo = canRedoNow
+          setCanRedo(canRedoNow)
+        }
+        if (hasInkNow !== previousHasInk) {
+          previousHasInk = hasInkNow
+          setHasInk(hasInkNow)
         }
         const t = editor.getCurrentToolId()
         if (t !== prevTool) {
@@ -597,7 +629,12 @@ export function PenCanvasWorkspace({
       syncFromEditor()
 
       return () => {
-                unsubSideEffects?.()
+        cancelAnimationFrame(rafFit)
+        window.clearTimeout(tFit)
+        setIsStroking(false)
+        setCanUndo(false)
+        setCanRedo(false)
+        unsubSideEffects?.()
         unsubStore?.()
         editor.off('event', onEditorEvent)
         if (editorRef.current === editor) editorRef.current = null
@@ -648,7 +685,7 @@ export function PenCanvasWorkspace({
         e.stopPropagation()
 
         const rect = vp.getBoundingClientRect()
-        const margin = 86
+        const margin = 108
         const originX = Math.max(
           rect.left + margin,
           Math.min(rect.right - margin, e.clientX),
@@ -738,15 +775,30 @@ export function PenCanvasWorkspace({
       }
     }
 
+    const onAbortTransient = () => {
+      if (preEraserToolRef.current) {
+        const restore = preEraserToolRef.current
+        preEraserToolRef.current = null
+        applyTool(restore)
+      }
+      if (radialRef.current.open) {
+        setRadial(CLOSED_RADIAL)
+      }
+    }
+
     vp.addEventListener('contextmenu', onContextMenu, true)
     vp.addEventListener('pointerdown', onPointerDownCapture, true)
     window.addEventListener('pointermove', onWindowPointerMove)
     window.addEventListener('pointerup', onWindowPointerUp)
+    window.addEventListener('pointercancel', onAbortTransient)
+    window.addEventListener('blur', onAbortTransient)
     return () => {
       vp.removeEventListener('contextmenu', onContextMenu, true)
       vp.removeEventListener('pointerdown', onPointerDownCapture, true)
       window.removeEventListener('pointermove', onWindowPointerMove)
       window.removeEventListener('pointerup', onWindowPointerUp)
+      window.removeEventListener('pointercancel', onAbortTransient)
+      window.removeEventListener('blur', onAbortTransient)
     }
   }, [applyTool, commitRadialAction])
 
@@ -758,8 +810,12 @@ export function PenCanvasWorkspace({
         target &&
         (target.tagName === 'INPUT' ||
           target.tagName === 'TEXTAREA' ||
-          target.isContentEditable)
+          target.isContentEditable ||
+          Boolean(target.closest('button, a, [role="dialog"], [role="menu"], .winbox')))
       ) {
+        return
+      }
+      if (document.querySelector('[role="dialog"], .winbox')) {
         return
       }
 
@@ -814,11 +870,21 @@ export function PenCanvasWorkspace({
       }
     }
 
+    const onWindowBlur = () => {
+      if (preSpaceToolRef.current !== null) {
+        const prev = preSpaceToolRef.current
+        preSpaceToolRef.current = null
+        applyTool(prev)
+      }
+    }
+
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
+    window.addEventListener('blur', onWindowBlur)
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('blur', onWindowBlur)
     }
   }, [applyTool, handleRedo, handleResetZoom, handleUndo])
 
@@ -871,8 +937,11 @@ export function PenCanvasWorkspace({
         fullscreen={fullscreen}
         flipped={flipped}
         planSteps={worksheetSpec.planSteps}
+        showStepPlan={showStepPlan}
+        hasInk={hasInk}
         dimmed={radial.open || isStroking}
         canvasPointerEpoch={canvasPointerEpoch}
+        onToggleShowStepPlan={onToggleShowStepPlan}
         onSelectTool={applyTool}
         onSelectColor={applyColor}
         onSelectSize={applySize}
@@ -919,6 +988,8 @@ export function PenCanvasWorkspace({
         stepIndex={safeStepIdx}
         totalSteps={fields.length}
         checkedSteps={fields.map(f => f.checked)}
+        stepIds={fields.map(f => f.id)}
+        showStepPlan={showStepPlan}
         currentChecked={activeField.checked}
         dimmed={radial.open}
         onPrevStep={() => {

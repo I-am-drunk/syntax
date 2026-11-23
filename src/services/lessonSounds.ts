@@ -27,8 +27,12 @@ export type LessonSound =
   | 'xp-tally-final'
   | 'grid-snap';
 
-const cueToFile = (cue: LessonSound): string =>
-  cue === 'grid-snap' ? 'toggle-on' : cue;
+const cueToFile = (cue: LessonSound): string => {
+  if (cue === 'grid-snap') return 'toggle-on';
+  if (cue === 'course-complete') return 'lesson-complete';
+  if (cue.startsWith('xp-tally')) return 'lightweight-choice';
+  return cue;
+};
 
 const source = (file: string) => assetUrl(`/assets/sounds/${file}.mp3`);
 const howlCache = new Map<string, Howl>();
@@ -43,6 +47,9 @@ function getHowl(file: string): Howl {
       html5: false,
       volume: 1,
       pool: file === 'toggle-on' ? 10 : 5,
+      onloaderror: () => {
+        howlCache.delete(file);
+      },
     });
     howlCache.set(file, h);
   }
@@ -63,10 +70,11 @@ export function preloadLessonSounds() {
 
 export function playLessonSound(cue: LessonSound) {
   try {
-    if (Howler.ctx && Howler.ctx.state === 'suspended') {
-      Howler.ctx.resume().catch(() => {});
-    }
     const h = getHowl(cueToFile(cue));
+    if (Howler.ctx && Howler.ctx.state === 'suspended') {
+      Howler.ctx.resume().then(() => h.play()).catch(() => {});
+      return;
+    }
     h.play();
   } catch {
     /* Sound failure does not cancel a lesson action. */

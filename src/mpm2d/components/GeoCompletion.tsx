@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { CompletionFrame } from '../../lessons/CompletionFrame'
 import { useCompletionAnimation } from '../../lessons/useCompletionAnimation'
@@ -24,20 +24,35 @@ export function GeoCompletion({
   onSound?: (cue: LessonSound) => void
 }) {
   const [revealed, setRevealed] = useState(false)
+  const soundPlayedRef = useRef(false)
   const mastered = totalCount === 0 || correctCount === totalCount
+
+  const playOnce = () => {
+    if (soundPlayedRef.current) return
+    soundPlayedRef.current = true
+    onSound?.(mastered ? 'lesson-complete' : 'skill-check-failed')
+  }
+
   const canvas = useCompletionAnimation({
     color: riveColor,
     levelNumber,
     mastered,
     onReveal: () => setRevealed(true),
-    onError: () => setRevealed(true),
-    onTransition: () => onSound?.(mastered ? 'lesson-complete' : 'skill-check-failed'),
+    onError: () => {
+      playOnce()
+      setRevealed(true)
+    },
+    onTransition: () => playOnce(),
   })
 
   useEffect(() => {
     if (revealed) return
-    const timer = setTimeout(() => setRevealed(true), 2200)
+    const timer = setTimeout(() => {
+      playOnce()
+      setRevealed(true)
+    }, 2200)
     return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revealed])
 
   return (

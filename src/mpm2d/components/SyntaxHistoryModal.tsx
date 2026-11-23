@@ -49,6 +49,7 @@ function playScrollWheelTick(soundOn: boolean, pitchMultiplier = 1) {
 }
 
 function formatRelativeTime(ts: number): string {
+  if (!ts || ts <= 0) return 'Saved'
   const diffSec = Math.max(1, Math.floor((Date.now() - ts) / 1000))
   if (diffSec < 60) return 'Just now'
   const diffMin = Math.floor(diffSec / 60)
@@ -79,6 +80,7 @@ function buildFallbackDemoEntries(): WorkHistoryEntry[] {
       isCheck: false,
       promptSnippet: 'Find the equation of the line perpendicular to 3x + y = −3 passing through P(6, 1).',
       category: 'multi-step',
+      isDemo: true,
       latestTimestamp: now - 180_000,
       versions: [
         {
@@ -118,6 +120,7 @@ function buildFallbackDemoEntries(): WorkHistoryEntry[] {
       isCheck: false,
       promptSnippet: 'Midpoint & endpoint backwards solver: M = ((x1 + x2)/2, (y1 + y2)/2).',
       category: 'math-input',
+      isDemo: true,
       latestTimestamp: now - 540_000,
       versions: [
         {
@@ -144,6 +147,7 @@ function buildFallbackDemoEntries(): WorkHistoryEntry[] {
       isCheck: false,
       promptSnippet: 'Exact radical distance & Pythagorean right-triangle verification.',
       category: 'scratchpad',
+      isDemo: true,
       latestTimestamp: now - 920_000,
       versions: [
         {
@@ -170,14 +174,23 @@ export function SyntaxHistoryPage({
   onJumpToQuestion: (lessonId: string, pageIndex: number, pageId: string) => void
 }) {
   const [filter, setFilter] = useState<WorkHistoryCategory>('all')
-  const [rawEntries, setRawEntries] = useState<WorkHistoryEntry[]>(() => {
+  const [rawEntries] = useState<WorkHistoryEntry[]>(() => {
     const loaded = loadWorkHistory()
     return loaded.length > 0 ? loaded : buildFallbackDemoEntries()
   })
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
 
   useEffect(() => {
-    const loaded = loadWorkHistory()
-    if (loaded.length > 0) setRawEntries(loaded)
+    window.scrollTo({ top: 0 })
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      if (document.querySelector('[role="dialog"], [role="menu"]')) return
+      e.preventDefault()
+      onCloseRef.current()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [])
 
   const filteredEntries = useMemo(() => {
@@ -189,6 +202,7 @@ export function SyntaxHistoryPage({
   const [wheelNotch, setWheelNotch] = useState(0)
   const [selectedVerIdx, setSelectedVerIdx] = useState<Record<string, number>>({})
   const filterStripRef = useRef<HTMLDivElement>(null)
+  const wheelColRef = useRef<HTMLDivElement>(null)
   const wheelDragRef = useRef<{ startY: number; startNotch: number; lastIntNotch: number } | null>(null)
   const wheelAccumRef = useRef(0)
 
@@ -198,19 +212,17 @@ export function SyntaxHistoryPage({
 
   const stepWheelBy = useCallback(
     (deltaNotches: number) => {
-      if (deltaNotches === 0) return
-      setWheelNotch(prev => {
-        const next = prev + deltaNotches
-        playScrollWheelTick(soundOn, deltaNotches > 0 ? 1.04 : 0.96)
-        return next
-      })
+      if (deltaNotches === 0 || count <= 1) return
+      setWheelNotch(prev => prev + deltaNotches)
+      playScrollWheelTick(soundOn, deltaNotches > 0 ? 1.04 : 0.96)
     },
-    [soundOn],
+    [soundOn, count],
   )
 
   const handleSelectFilter = (next: WorkHistoryCategory) => {
     setFilter(next)
     setWheelNotch(0)
+    wheelAccumRef.current = 0
     playScrollWheelTick(soundOn, 1.12)
   }
 
@@ -224,20 +236,32 @@ export function SyntaxHistoryPage({
     el?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' })
   }
 
-  const onWheelScroll = (e: React.WheelEvent) => {
-    e.preventDefault()
-    wheelAccumRef.current += e.deltaY
-    const threshold = 28
-    if (Math.abs(wheelAccumRef.current) >= threshold) {
-      const steps = Math.trunc(wheelAccumRef.current / threshold)
-      wheelAccumRef.current -= steps * threshold
-      stepWheelBy(steps)
+  useEffect(() => {
+    const el = wheelColRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      if (count <= 1) return
+      e.preventDefault()
+      wheelAccumRef.current += e.deltaY
+      const threshold = 28
+      if (Math.abs(wheelAccumRef.current) >= threshold) {
+        const steps = Math.trunc(wheelAccumRef.current / threshold)
+        wheelAccumRef.current -= steps * threshold
+        stepWheelBy(steps)
+      }
     }
-  }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [count, stepWheelBy])
 
   const onWheelPointerDown = (e: React.PointerEvent) => {
+    if (count <= 1) return
     e.preventDefault()
-    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    try {
+      ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    } catch {
+      // ignore
+    }
     wheelDragRef.current = {
       startY: e.clientY,
       startNotch: wheelNotch,
@@ -247,7 +271,7 @@ export function SyntaxHistoryPage({
 
   const onWheelPointerMove = (e: React.PointerEvent) => {
     const d = wheelDragRef.current
-    if (!d) return
+    if (!d || count <= 1) return
     const dy = d.startY - e.clientY
     const rawNotch = d.startNotch + Math.round(dy / 22)
     if (rawNotch !== d.lastIntNotch) {
@@ -293,9 +317,10 @@ export function SyntaxHistoryPage({
   const visibleCards = useMemo(() => {
     if (count === 0) return []
     const span = Math.min(count, 7)
-    const half = Math.floor(span / 2)
+    const start = -Math.floor((span - 1) / 2)
+    const end = Math.ceil((span - 1) / 2)
     const cards: { entry: WorkHistoryEntry; relOffset: number; entryIdx: number }[] = []
-    for (let rel = -half; rel <= half; rel++) {
+    for (let rel = start; rel <= end; rel++) {
       const idx = ((activeIndex + rel) % count + count) % count
       const entry = filteredEntries[idx]
       if (entry) {
@@ -376,9 +401,9 @@ export function SyntaxHistoryPage({
         </header>
 
         {/* Main Split: Left iPhone Curved Tick-Tick-Tick Scroll Wheel + Scroll Rectangle Stack + Right Version Inspector */}
-        <div className="syntax-history-stage" onWheel={onWheelScroll}>
+        <div className="syntax-history-stage">
           {/* Left Curved Tactile Scroll Wheel + Rectangular Thumb Drum */}
-          <div className="syntax-history-wheel-column">
+          <div className="syntax-history-wheel-column" ref={wheelColRef}>
             <div
               className="syntax-iphone-wheel"
               role="slider"
@@ -386,7 +411,7 @@ export function SyntaxHistoryPage({
               aria-label="Tactile history scroll wheel"
               aria-valuemin={1}
               aria-valuemax={Math.max(1, count)}
-              aria-valuenow={activeIndex + 1}
+              aria-valuenow={count > 0 ? activeIndex + 1 : 0}
               onPointerDown={onWheelPointerDown}
               onPointerMove={onWheelPointerMove}
               onPointerUp={onWheelPointerUp}
@@ -497,7 +522,7 @@ export function SyntaxHistoryPage({
                 <div className="syntax-inspector-head">
                   <div>
                     <div className="syntax-inspector-kicker">
-                      Level {activeEntry.level} · {activeEntry.lessonTitle} · Question {activeEntry.pageIndex + 1}
+                      {activeEntry.isDemo ? 'Sample Preview · ' : ''}Level {activeEntry.level} · {activeEntry.lessonTitle} · Question {activeEntry.pageIndex + 1}
                     </div>
                     <h2 className="syntax-inspector-prompt">
                       <MathText text={activeEntry.promptSnippet} />
@@ -585,12 +610,12 @@ export function SyntaxHistoryPage({
                       playScrollWheelTick(soundOn, 1.15)
                       onJumpToQuestion(
                         activeEntry.lessonId,
-                        activeEntry.pageIndex,
+                        activeEntry.isDemo ? 0 : activeEntry.pageIndex,
                         activeEntry.pageId,
                       )
                     }}
                   >
-                    Resume Question &amp; Ink →
+                    {activeEntry.isDemo ? 'Open Lesson →' : 'Resume Question & Ink →'}
                   </button>
                 </div>
               </div>

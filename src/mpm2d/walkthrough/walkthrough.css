@@ -735,7 +735,7 @@
 }
 
 [data-theme='dark'] .wt-caption-card {
-  background: #1a1d26;
+  background: #1c1c1c;
   border-color: rgba(255, 255, 255, 0.1);
 }
 
@@ -1146,10 +1146,10 @@
 
 :root[data-theme='dark'] .wt-still-stuck-btn,
 :root[data-theme='dark'] .wt-br-mini-btn {
-  background: #1f2330;
+  background: #222222;
   border-color: #343a4d;
   color: #eef1f8;
-  box-shadow: 0 2px 0 #101218;
+  box-shadow: 0 2px 0 #0c0c0c;
 }
 
 :root[data-theme='dark'] .wt-still-stuck-btn:hover,
@@ -1211,10 +1211,10 @@
 }
 
 :root[data-theme='dark'] .wt-side-arrow {
-  background: #1f2330;
+  background: #222222;
   border-color: #343a4d;
   color: #eef1f8;
-  box-shadow: 0 2px 0 #101218;
+  box-shadow: 0 2px 0 #0c0c0c;
 }
 
 .wt-footer.is-clean {
@@ -1392,4 +1392,69 @@
 .wt-shell.is-floating.is-compact .wt-vjs-btn {
   width: 24px;
   height: 24px;
+}
+
+
+/* Top/Bottom prompt alignment, static fallback header, fullscreen WinBox sizing & improved Sema shadow */
+.sema-runtime-callout.is-top,
+.sema-runtime-bubble.is-top {
+  left: 50%;
+  right: auto;
+  bottom: calc(100% + 10px);
+  top: auto;
+  transform: translateX(-50%);
+}
+
+.sema-runtime-callout.is-bottom,
+.sema-runtime-bubble.is-bottom {
+  left: 50%;
+  right: auto;
+  top: calc(100% + 10px);
+  bottom: auto;
+  transform: translateX(-50%);
+}
+
+.sema-runtime-halo {
+  filter: blur(4px);
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.24) 0%, rgba(0, 0, 0, 0) 72%);
+}
+
+[data-theme='dark'] .sema-runtime-halo {
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.48) 0%, rgba(0, 0, 0, 0) 74%);
+}
+
+.wt-fallback-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.wt-fallback-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text, #141414);
+}
+
+.wt-fallback-eq {
+  font-size: 14px;
+  font-weight: 700;
+  color: #456dff;
+}
+
+:root[data-theme='dark'] .wt-fallback-eq {
+  color: #8ea6ff;
+}
+
+.wt-vjs-container:fullscreen {
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  max-height: none !important;
+  border-radius: 0 !important;
+}
+
+.wt-vjs-rate {
+  min-width: 34px;
+  flex-shrink: 0;
 }

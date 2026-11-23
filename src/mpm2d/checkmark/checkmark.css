@@ -33,9 +33,9 @@
 :root[data-theme='dark'] .chk-gate {
   background:
     radial-gradient(circle, rgba(132, 160, 255, 0.15) 1px, transparent 1px) 0 0 / 16px 16px,
-    #181b23;
-  border-color: #2f3545;
-  box-shadow: 0 4px 0 #0f1118;
+    #1c1c1c;
+  border-color: #2f2f2f;
+  box-shadow: 0 4px 0 #0a0a0a;
 }
 
 .chk-gate:hover:not(.is-disabled) {
@@ -52,7 +52,8 @@
   border-color: #456dff;
   background:
     radial-gradient(circle, rgba(69, 109, 255, 0.18) 1px, transparent 1px) 0 0 / 16px 16px,
-    rgba(69, 109, 255, 0.04);
+    linear-gradient(rgba(69, 109, 255, 0.06), rgba(69, 109, 255, 0.06)),
+    var(--surface, #ffffff);
   box-shadow: 0 0 0 3px rgba(69, 109, 255, 0.14);
 }
 
@@ -60,7 +61,8 @@
   border-color: #29cc57;
   background:
     radial-gradient(circle, rgba(41, 204, 87, 0.18) 1px, transparent 1px) 0 0 / 16px 16px,
-    rgba(41, 204, 87, 0.06);
+    linear-gradient(rgba(41, 204, 87, 0.08), rgba(41, 204, 87, 0.08)),
+    var(--surface, #ffffff);
   box-shadow: 0 4px 0 rgba(41, 204, 87, 0.28);
 }
 
@@ -100,7 +102,7 @@
 }
 
 :root[data-theme='dark'] .chk-dotted-guide {
-  stroke: #eef0f6;
+  stroke: #e5e5e5;
   opacity: 0.4;
 }
 
@@ -155,7 +157,7 @@
 }
 
 .chk-gate-subrow {
-  min-height: 18px;
+  min-height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -209,7 +211,8 @@
   border-color: #29cc57;
   background:
     radial-gradient(circle, rgba(41, 204, 87, 0.16) 1px, transparent 1px) 0 0 / 16px 16px,
-    rgba(41, 204, 87, 0.05);
+    linear-gradient(rgba(41, 204, 87, 0.06), rgba(41, 204, 87, 0.06)),
+    var(--surface, #ffffff);
   box-shadow: 0 0 0 3px rgba(41, 204, 87, 0.16);
 }
 

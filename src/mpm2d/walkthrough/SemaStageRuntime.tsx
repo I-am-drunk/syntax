@@ -70,7 +70,8 @@ export function SemaStageRuntime({
   })
 
   const [isStretching, setIsStretching] = useState(false)
-  const [snapReactUntil, setSnapReactUntil] = useState(0)
+  const [justSnapped, setJustSnapped] = useState(false)
+  const snapTimerRef = useRef<number | null>(null)
   const [pokeQuip, setPokeQuip] = useState<string | null>(null)
   const pokeTimerRef = useRef<number | null>(null)
   const quipIdxRef = useRef(0)
@@ -109,8 +110,14 @@ export function SemaStageRuntime({
   useEffect(() => {
     return () => {
       if (pokeTimerRef.current) window.clearTimeout(pokeTimerRef.current)
+      if (snapTimerRef.current) window.clearTimeout(snapTimerRef.current)
     }
   }, [])
+
+  useEffect(() => {
+    physRef.current.initialized = false
+    setHud(prev => ({ ...prev, t: 0, activeWordIdx: -1, speakingNow: false }))
+  }, [track])
 
   const showTempQuip = (msg: string, durationMs = 2100) => {
     setPokeQuip(msg)
@@ -120,6 +127,7 @@ export function SemaStageRuntime({
 
   // 60fps requestAnimationFrame loop locked directly to video.currentTime
   useEffect(() => {
+    if (!track) return
     let rafId = 0
     let lastHudCommit = 0
 
@@ -238,11 +246,16 @@ export function SemaStageRuntime({
             lookY = Math.max(-1, Math.min(1, -p.pullY / 55))
           }
 
+          const nextExpr = (sample.expression ?? undefined) as SemaExpressionName | undefined
+          const nextIsRight = p.x > 0.6
           setHud(prev => {
             if (
               Math.abs(prev.t - t) < 0.04 &&
               prev.activeWordIdx === wordIdx &&
               prev.state === sample.state &&
+              prev.expression === nextExpr &&
+              prev.shape === resolvedShape &&
+              prev.isRightSide === nextIsRight &&
               prev.speakingNow === isVocalizing &&
               Math.abs(prev.lookX - lookX) < 0.08 &&
               Math.abs(prev.lookY - lookY) < 0.08
@@ -290,6 +303,7 @@ export function SemaStageRuntime({
 
   // Interactive elastic grab-and-stretch handlers (completely isolated from video click-to-pause!)
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return
     e.stopPropagation()
     e.preventDefault()
     const el = e.currentTarget
@@ -342,7 +356,9 @@ export function SemaStageRuntime({
     setIsStretching(false)
 
     if (maxPull > 16) {
-      setSnapReactUntil(Date.now() + 950)
+      setJustSnapped(true)
+      if (snapTimerRef.current) window.clearTimeout(snapTimerRef.current)
+      snapTimerRef.current = window.setTimeout(() => setJustSnapped(false), 950)
       const msg = STRETCH_QUIPS[quipIdxRef.current % STRETCH_QUIPS.length]!
       quipIdxRef.current += 1
       showTempQuip(msg, 1900)
@@ -354,8 +370,6 @@ export function SemaStageRuntime({
   }
 
   if (!track) return null
-
-  const justSnapped = Date.now() < snapReactUntil
   const resolvedState: SemaState = isStretching
     ? 'wide'
     : justSnapped
@@ -389,14 +403,18 @@ export function SemaStageRuntime({
       ? 'is-left'
       : activePrompt?.side === 'right'
         ? 'is-right'
-        : hud.isRightSide
-          ? 'is-left'
-          : 'is-right'
+        : activePrompt?.side === 'top'
+          ? 'is-top'
+          : activePrompt?.side === 'bottom'
+            ? 'is-bottom'
+            : hud.isRightSide
+              ? 'is-left'
+              : 'is-right'
 
   const accentClass = activePrompt?.accent ? `accent-${activePrompt.accent}` : 'accent-blue'
 
   return (
-    <div className="sema-runtime-layer" aria-live="polite">
+    <div className="sema-runtime-layer">
       {/* Physically Flying, Grab-and-Stretchable Interactive Sema */}
       <div ref={actorRef} className="sema-runtime-actor">
         {/* Elastic tether SVG rendered behind Sema when stretched */}

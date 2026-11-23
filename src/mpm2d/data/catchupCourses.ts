@@ -397,6 +397,13 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
           'Drop y = 1, m = 1/3, and x = 6 into their slots.',
           'Multiply (1/3)(6) = 2 first, then subtract 2 from both sides.',
         ],
+        preScene: {
+          xMin: -3,
+          xMax: 8,
+          yMin: -3,
+          yMax: 4,
+          points: [{ id: 'p', x: 6, y: 1, label: 'P(6, 1)', color: 'amber', emphasis: true }],
+        },
         steps: [
           {
             heading: 'Plug in, multiply, isolate b',
@@ -486,6 +493,17 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
           'Always put brackets around negative differences: (−4)² = +16.',
           'Add the two positive squares BEFORE taking the square root.',
         ],
+        preScene: {
+          xMin: -5,
+          xMax: 3,
+          yMin: -1,
+          yMax: 6,
+          segments: [{ from: [0, 0], to: [-3, 4], color: 'blue' }],
+          points: [
+            { id: 'o', x: 0, y: 0, label: '(0, 0)', color: 'blue' },
+            { id: 'p', x: -3, y: 4, label: '(−3, 4)', color: 'amber' },
+          ],
+        },
         steps: [
           {
             heading: 'Compute d = √((Δx)² + (Δy)²)',
@@ -573,6 +591,16 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
           'Collect x-terms on one side and constants on the other.',
           'Plug x back into either equation to get y.',
         ],
+        preScene: {
+          xMin: -2,
+          xMax: 6,
+          yMin: -2,
+          yMax: 6,
+          lines: [
+            { a: 2, b: -1, c: -1, color: 'blue', label: 'y = 2x − 1' },
+            { a: 1, b: 1, c: -5, color: 'teal', label: 'y = −x + 5' },
+          ],
+        },
         steps: [
           {
             heading: 'Solve for x, then substitute for y',
@@ -733,7 +761,7 @@ export const CATCHUP_BY_ID = new Map(CATCHUP_LESSONS.map(l => [l.id, l]))
 /** Map any Unit 2 lesson or page to its best matching Catch-Up rescue lesson */
 export function resolveRescueLessonId(lessonId: string, pageId?: string): string {
   if (pageId) {
-    if (pageId.includes('worked') || pageId.includes('isolate') || pageId === 'l1-p3-worked') {
+    if (pageId === 'l1-p3-worked' || pageId.includes('isolate')) {
       return 'rescue-isolate-y'
     }
     if (pageId.includes('slope') || pageId.includes('perp')) return 'rescue-slope-signs'
@@ -748,7 +776,7 @@ export function resolveRescueLessonId(lessonId: string, pageId?: string): string
     case 'u2-l1-slopes':
       return 'rescue-isolate-y'
     case 'u2-l2-midpoint':
-      return 'rescue-slope-signs'
+      return 'rescue-solve-b'
     case 'u2-l3-medians':
       return 'rescue-solve-b'
     case 'u2-l4-length-circles':
