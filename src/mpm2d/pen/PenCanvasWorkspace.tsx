@@ -63,16 +63,34 @@ import {
 import './penStudio.css'
 
 const PEN_SDK_TOOLS = [...defaultTools, ...defaultShapeTools]
-const PAPER_STYLE_KEY = 'mpm2d-pen-paper-style-v4'
+const PAPER_STYLE_BY_PAGE_KEY = 'mpm2d-pen-paper-by-page-v1'
 
-function loadPaperStyle(): PaperStyle {
+function loadPaperStyleForPage(pageKey: string, recommended: PaperStyle): PaperStyle {
   try {
-    const raw = localStorage.getItem(PAPER_STYLE_KEY)
-    if (raw === 'dots' || raw === 'grid' || raw === 'lined' || raw === 'blank') return raw
+    const raw = localStorage.getItem(PAPER_STYLE_BY_PAGE_KEY)
+    if (raw) {
+      const map = JSON.parse(raw) as Record<string, unknown>
+      const saved = map?.[pageKey]
+      if (saved === 'dots' || saved === 'grid' || saved === 'lined' || saved === 'blank') {
+        return saved
+      }
+    }
   } catch {
     // ignore
   }
-  return 'dots'
+  return recommended
+}
+
+function savePaperStyleForPage(pageKey: string, style: PaperStyle) {
+  try {
+    const raw = localStorage.getItem(PAPER_STYLE_BY_PAGE_KEY)
+    const map = raw ? (JSON.parse(raw) as Record<string, PaperStyle>) : {}
+    const next = map && typeof map === 'object' && !Array.isArray(map) ? { ...map } : {}
+    next[pageKey] = style
+    localStorage.setItem(PAPER_STYLE_BY_PAGE_KEY, JSON.stringify(next))
+  } catch {
+    // ignore
+  }
 }
 
 function buildStepCameraOptions(sheetHeight: number): TLCameraOptions {
@@ -203,7 +221,9 @@ export function PenCanvasWorkspace({
     setUserPreferences: noopSetUserPreferences,
   })
 
-  const [paperStyle, setPaperStyle] = useState<PaperStyle>(loadPaperStyle)
+  const [paperStyle, setPaperStyle] = useState<PaperStyle>(() =>
+    loadPaperStyleForPage(pageKey, worksheetSpec.defaultPaperStyle),
+  )
   const [fields, setFields] = useState<WorksheetField[]>(() =>
     loadWorksheetFields(pageKey, worksheetSpec),
   )
@@ -236,10 +256,11 @@ export function PenCanvasWorkspace({
   const preSpaceToolRef = useRef<PenToolId | null>(null)
   const preEraserToolRef = useRef<PenToolId | null>(null)
 
-  // Reload steps whenever the student navigates to a different lesson page or toggles step plan
+  // Reload steps & smart per-question paper style whenever navigating to a different lesson page
   useEffect(() => {
     loadedPageKeyRef.current = pageKey
     setFields(loadWorksheetFields(pageKey, worksheetSpec))
+    setPaperStyle(loadPaperStyleForPage(pageKey, worksheetSpec.defaultPaperStyle))
     setStepIndex(0)
   }, [pageKey, worksheetSpec])
 
@@ -386,14 +407,13 @@ export function PenCanvasWorkspace({
     }
   }, [])
 
-  const handleSetPaperStyle = useCallback((style: PaperStyle) => {
-    setPaperStyle(style)
-    try {
-      localStorage.setItem(PAPER_STYLE_KEY, style)
-    } catch {
-      // ignore
-    }
-  }, [])
+  const handleSetPaperStyle = useCallback(
+    (style: PaperStyle) => {
+      setPaperStyle(style)
+      savePaperStyleForPage(pageKey, style)
+    },
+    [pageKey],
+  )
 
   const handleResetZoom = useCallback(() => {
     const editor = editorRef.current

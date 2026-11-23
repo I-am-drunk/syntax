@@ -1,4 +1,5 @@
 import type { GeoLesson, GeoLessonPage } from '../pageTypes'
+import type { PaperStyle } from './MathPackageWorksheet'
 
 /**
  * Full-page Brilliant digital paper geometry.
@@ -30,6 +31,42 @@ export type WorksheetSpec = {
   prompt: string
   planSteps: string[]
   defaultFields: Omit<WorksheetField, 'checked' | 'extraHeight'>[]
+  defaultPaperStyle: PaperStyle
+}
+
+export function pickQuestionPaperStyle(page: GeoLessonPage): PaperStyle {
+  const promptLower = (page.prompt ?? '').toLowerCase()
+  const hasCoordinateScene =
+    ('scene' in page && Boolean(page.scene)) ||
+    ('preScene' in page && Boolean(page.preScene)) ||
+    (page.kind === 'multi-step' && page.steps.some(s => Boolean(s.scene))) ||
+    (page.kind === 'worked' && page.steps.some(s => Boolean(s.scene)))
+
+  if (page.kind === 'plan-order' || page.kind === 'read-plan') {
+    return 'lined'
+  }
+  if (page.kind === 'explore') {
+    return 'dots'
+  }
+  if (
+    /plot|graph|sketch|triangle|circle|quadrilateral|parallelogram|rhombus|rectangle|square|trapezoid|midpoint|bisector|altitude|median|circumcentre|centroid|orthocentre|distance|perpendicular|parallel|slope/.test(
+      promptLower,
+    ) ||
+    hasCoordinateScene
+  ) {
+    // Pure equation isolation / algebra without coordinates -> lined paper
+    if (
+      /isolate|rearrange|solve for|simplify|expand|factor/.test(promptLower) &&
+      !/\(-?\d+,\s*-?\d+\)|graph|plot|midpoint|distance|circle|triangle/.test(promptLower)
+    ) {
+      return 'lined'
+    }
+    return 'grid'
+  }
+  if (/equation|algebra|solve|prove|justify|explain|verify/.test(promptLower)) {
+    return 'lined'
+  }
+  return 'dots'
 }
 
 type PersistedSheetState = {
@@ -190,6 +227,7 @@ export function buildWorksheetSpec(
     prompt: page.prompt,
     planSteps,
     defaultFields,
+    defaultPaperStyle: pickQuestionPaperStyle(page),
   }
 }
 

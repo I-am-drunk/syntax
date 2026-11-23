@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Frac, Sqrt } from './MathText'
+import { MathText, Frac, Sqrt } from './MathText'
 import { WinBoxWindow } from './WinBoxWindow'
 
 type SheetTab = 'formulas' | 'lines' | 'shapes' | 'plans' | 'traps'
@@ -360,13 +360,13 @@ export function FormulaSheetContent({
               </div>
             
               <button type="button" className="fm-explain-toggle" aria-expanded={expandedGuide === 'slope'} onClick={() => setExpandedGuide(prev => (prev === 'slope' ? null : 'slope'))}>
-                {expandedGuide === 'slope' ? 'Hide guide' : 'How it works'}
+                {expandedGuide === 'slope' ? 'Hide guide' : 'Text guide'}
               </button>
               {expandedGuide === 'slope' && (
                 <div className="fm-explain-box">
                   <strong>{FORMULA_EXPLAINERS.slope!.title}</strong>
-                  <ol>{FORMULA_EXPLAINERS.slope!.steps.map((st, idx) => <li key={idx}>{st}</li>)}</ol>
-                  <p className="fm-explain-tip">{FORMULA_EXPLAINERS.slope!.tip}</p>
+                  <ol>{FORMULA_EXPLAINERS.slope!.steps.map((st, idx) => <li key={idx}><MathText text={st} /></li>)}</ol>
+                  <p className="fm-explain-tip"><MathText text={FORMULA_EXPLAINERS.slope!.tip} /></p>
                 </div>
               )}
             </article>
@@ -385,13 +385,13 @@ export function FormulaSheetContent({
               </div>
             
               <button type="button" className="fm-explain-toggle" aria-expanded={expandedGuide === 'midpoint'} onClick={() => setExpandedGuide(prev => (prev === 'midpoint' ? null : 'midpoint'))}>
-                {expandedGuide === 'midpoint' ? 'Hide guide' : 'How it works'}
+                {expandedGuide === 'midpoint' ? 'Hide guide' : 'Text guide'}
               </button>
               {expandedGuide === 'midpoint' && (
                 <div className="fm-explain-box">
                   <strong>{FORMULA_EXPLAINERS.midpoint!.title}</strong>
-                  <ol>{FORMULA_EXPLAINERS.midpoint!.steps.map((st, idx) => <li key={idx}>{st}</li>)}</ol>
-                  <p className="fm-explain-tip">{FORMULA_EXPLAINERS.midpoint!.tip}</p>
+                  <ol>{FORMULA_EXPLAINERS.midpoint!.steps.map((st, idx) => <li key={idx}><MathText text={st} /></li>)}</ol>
+                  <p className="fm-explain-tip"><MathText text={FORMULA_EXPLAINERS.midpoint!.tip} /></p>
                 </div>
               )}
             </article>
@@ -406,13 +406,13 @@ export function FormulaSheetContent({
               </div>
             
               <button type="button" className="fm-explain-toggle" aria-expanded={expandedGuide === 'length'} onClick={() => setExpandedGuide(prev => (prev === 'length' ? null : 'length'))}>
-                {expandedGuide === 'length' ? 'Hide guide' : 'How it works'}
+                {expandedGuide === 'length' ? 'Hide guide' : 'Text guide'}
               </button>
               {expandedGuide === 'length' && (
                 <div className="fm-explain-box">
                   <strong>{FORMULA_EXPLAINERS.length!.title}</strong>
-                  <ol>{FORMULA_EXPLAINERS.length!.steps.map((st, idx) => <li key={idx}>{st}</li>)}</ol>
-                  <p className="fm-explain-tip">{FORMULA_EXPLAINERS.length!.tip}</p>
+                  <ol>{FORMULA_EXPLAINERS.length!.steps.map((st, idx) => <li key={idx}><MathText text={st} /></li>)}</ol>
+                  <p className="fm-explain-tip"><MathText text={FORMULA_EXPLAINERS.length!.tip} /></p>
                 </div>
               )}
             </article>
@@ -429,13 +429,13 @@ export function FormulaSheetContent({
               </div>
             
               <button type="button" className="fm-explain-toggle" aria-expanded={expandedGuide === 'perp'} onClick={() => setExpandedGuide(prev => (prev === 'perp' ? null : 'perp'))}>
-                {expandedGuide === 'perp' ? 'Hide guide' : 'How it works'}
+                {expandedGuide === 'perp' ? 'Hide guide' : 'Text guide'}
               </button>
               {expandedGuide === 'perp' && (
                 <div className="fm-explain-box">
                   <strong>{FORMULA_EXPLAINERS.perp!.title}</strong>
-                  <ol>{FORMULA_EXPLAINERS.perp!.steps.map((st, idx) => <li key={idx}>{st}</li>)}</ol>
-                  <p className="fm-explain-tip">{FORMULA_EXPLAINERS.perp!.tip}</p>
+                  <ol>{FORMULA_EXPLAINERS.perp!.steps.map((st, idx) => <li key={idx}><MathText text={st} /></li>)}</ol>
+                  <p className="fm-explain-tip"><MathText text={FORMULA_EXPLAINERS.perp!.tip} /></p>
                 </div>
               )}
             </article>
@@ -451,13 +451,13 @@ export function FormulaSheetContent({
               </div>
             
               <button type="button" className="fm-explain-toggle" aria-expanded={expandedGuide === 'line'} onClick={() => setExpandedGuide(prev => (prev === 'line' ? null : 'line'))}>
-                {expandedGuide === 'line' ? 'Hide guide' : 'How it works'}
+                {expandedGuide === 'line' ? 'Hide guide' : 'Text guide'}
               </button>
               {expandedGuide === 'line' && (
                 <div className="fm-explain-box">
                   <strong>{FORMULA_EXPLAINERS.line!.title}</strong>
-                  <ol>{FORMULA_EXPLAINERS.line!.steps.map((st, idx) => <li key={idx}>{st}</li>)}</ol>
-                  <p className="fm-explain-tip">{FORMULA_EXPLAINERS.line!.tip}</p>
+                  <ol>{FORMULA_EXPLAINERS.line!.steps.map((st, idx) => <li key={idx}><MathText text={st} /></li>)}</ol>
+                  <p className="fm-explain-tip"><MathText text={FORMULA_EXPLAINERS.line!.tip} /></p>
                 </div>
               )}
             </article>
@@ -473,13 +473,13 @@ export function FormulaSheetContent({
               </div>
             
               <button type="button" className="fm-explain-toggle" aria-expanded={expandedGuide === 'circle'} onClick={() => setExpandedGuide(prev => (prev === 'circle' ? null : 'circle'))}>
-                {expandedGuide === 'circle' ? 'Hide guide' : 'How it works'}
+                {expandedGuide === 'circle' ? 'Hide guide' : 'Text guide'}
               </button>
               {expandedGuide === 'circle' && (
                 <div className="fm-explain-box">
                   <strong>{FORMULA_EXPLAINERS.circle!.title}</strong>
-                  <ol>{FORMULA_EXPLAINERS.circle!.steps.map((st, idx) => <li key={idx}>{st}</li>)}</ol>
-                  <p className="fm-explain-tip">{FORMULA_EXPLAINERS.circle!.tip}</p>
+                  <ol>{FORMULA_EXPLAINERS.circle!.steps.map((st, idx) => <li key={idx}><MathText text={st} /></li>)}</ol>
+                  <p className="fm-explain-tip"><MathText text={FORMULA_EXPLAINERS.circle!.tip} /></p>
                 </div>
               )}
             </article>
@@ -510,9 +510,9 @@ export function FormulaSheetContent({
             </div>
 
             <div className="fm-centres-bar">
-              <div><strong>Centroid</strong><span>POI of 2 medians (verify with average of 3 vertices)</span></div>
-              <div><strong>Orthocentre</strong><span>POI of 2 altitudes</span></div>
-              <div><strong>Circumcentre</strong><span>POI of 2 right bisectors (equidistant to all 3 vertices)</span></div>
+              <div><strong>Centroid</strong><span>Where 2 medians cross (the balance point: average all 3 vertices to check)</span></div>
+              <div><strong>Orthocentre</strong><span>Where 2 altitudes cross (each meets the opposite side at 90°)</span></div>
+              <div><strong>Circumcentre</strong><span>Where 2 right bisectors cross (same distance to all 3 corners)</span></div>
             </div>
           </div>
         )}
@@ -520,14 +520,14 @@ export function FormulaSheetContent({
         {tab === 'shapes' && (
           <div className="fm-shapes-grid">
             {[
-              { kind: 'right-tri', name: 'Right Triangle', rule: '2 slopes multiply to −1  or  a² + b² = c²' },
+              { kind: 'right-tri', name: 'Right Triangle', rule: 'Two sides meet at 90° (slopes multiply to −1) or a² + b² = c²' },
               { kind: 'isosceles', name: 'Isosceles / Equilateral', rule: '2 equal side lengths / all 3 equal lengths' },
               { kind: 'parallelogram', name: 'Parallelogram', rule: 'Both pairs of opposite sides have equal slopes' },
-              { kind: 'rhombus', name: 'Rhombus', rule: 'All 4 sides have equal length (or diagonals ⊥ bisect)' },
-              { kind: 'rectangle', name: 'Rectangle', rule: 'Opposite sides ∥  +  one 90° corner' },
+              { kind: 'rhombus', name: 'Rhombus', rule: 'All 4 sides are equal length (or diagonals cross at 90° at their midpoints)' },
+              { kind: 'rectangle', name: 'Rectangle', rule: 'Opposite sides are parallel AND at least one corner is 90°' },
               { kind: 'square', name: 'Square', rule: 'All 4 sides equal  +  one 90° corner' },
-              { kind: 'trapezoid', name: 'Trapezoid', rule: '1 pair ∥ AND the other pair NOT ∥' },
-              { kind: 'chord', name: 'Chord & Midsegment', rule: 'Chord RB hits (0, 0) · Midsegment ∥ base & ½ length' },
+              { kind: 'trapezoid', name: 'Trapezoid', rule: 'Exactly 1 pair of opposite sides is parallel (the other pair is not)' },
+              { kind: 'chord', name: 'Chord & Midsegment', rule: 'Right bisector of a chord hits centre (0, 0) · Midsegment is parallel to base and half as long' },
             ].map(item => (
               <div key={item.name} className="fm-shape-card">
                 <ShapeMiniSvg kind={item.kind} />

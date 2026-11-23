@@ -1069,15 +1069,18 @@ export function GeoLessonPlayer({
                   <button
                     type="button"
                     role="menuitem"
-                    className="lesson-help-item"
+                    className="lesson-help-item is-primary"
                     onClick={() => {
                       setHelpMenuOpen(false)
                       setGuidedHintsOpen(v => !v)
                       onSound?.('lightweight-choice')
                     }}
                   >
-                    <strong>{guidedHintsOpen ? 'Hide guided hints' : 'Guided hints & components'}</strong>
-                    <span>See the formulas and setup steps without spoiling the answer.</span>
+                    <span className="lesson-help-item-head">
+                      <strong>{guidedHintsOpen ? 'Hide guided hints' : 'Guided hints'}</strong>
+                      <span className="lesson-help-rec-pill">Recommended</span>
+                    </span>
+                    <span>Step-by-step setup cues and formulas without giving away the answer.</span>
                   </button>
                   {(walkthroughSpec || activeExplanation) && (
                     <button
@@ -1098,7 +1101,7 @@ export function GeoLessonPlayer({
                       }}
                     >
                       <strong>
-                        {walkthroughSpec ? 'Full solution walkthrough' : 'View full explanation'}
+                        {walkthroughSpec ? 'Video walkthrough' : 'View full explanation'}
                       </strong>
                       <span>
                         {walkthroughSpec
@@ -1333,7 +1336,12 @@ export function GeoLessonPlayer({
                           penMode={penOpen}
                           onStepChange={setWorkedStepIndex}
                         />
-                        {penOpen && page.checkChoice && (
+                        {penOpen && page.checkChoice && workedStepIndex < page.steps.length - 1 && (
+                          <div className="br-worked-step-note">
+                            Step {workedStepIndex + 1} of {page.steps.length}: work this step on your sheet, then move to the final step to check your equation.
+                          </div>
+                        )}
+                        {penOpen && page.checkChoice && workedStepIndex >= page.steps.length - 1 && (
                           <div className="br-worked-mc-block">
                             <div className="br-worked-mc-label">
                               {page.checkChoice.prompt ?? 'Select the answer you got on your worksheet:'}
@@ -1723,6 +1731,19 @@ export function GeoLessonPlayer({
                         }
                       }}
                     />
+                    {isProblem &&
+                      (state.evaluation === 'unsubmitted' || state.evaluation === 'incorrect-retry') && (
+                        <button
+                          type="button"
+                          className="lesson-skip-link"
+                          onClick={() => {
+                            onSound?.('lightweight-choice')
+                            handleContinue()
+                          }}
+                        >
+                          Skip
+                        </button>
+                      )}
                   </footer>
                 ) : (
                   <LessonFooter
@@ -1735,6 +1756,10 @@ export function GeoLessonPlayer({
                     onCheck={handleCheck}
                     onRetry={handleRetry}
                     onContinue={handleContinue}
+                    onSkip={() => {
+                      onSound?.('lightweight-choice')
+                      handleContinue()
+                    }}
                     onExplain={
                       walkthroughSpec
                         ? () => {

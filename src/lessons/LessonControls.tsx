@@ -48,11 +48,12 @@ export function LessonNavigation({ page, total, furthest, xp, closeHref, onNavig
   </header>;
 }
 
-export function LessonFooter({ evaluation, isProblem, isLast, isCheck = false, canCheck, onCheck, onRetry, onContinue, onReport, onExplain, explanationSeen = false, allowWhyOnRetry = false }: {
+export function LessonFooter({ evaluation, isProblem, isLast, isCheck = false, canCheck, onCheck, onRetry, onContinue, onSkip, onReport, onExplain, explanationSeen = false, allowWhyOnRetry = false }: {
   evaluation: 'unsubmitted' | 'incorrect-retry' | 'incorrect' | 'correct';
   isProblem: boolean; isLast: boolean; canCheck: boolean;
   isCheck?: boolean;
   onCheck(): void; onRetry(): void; onContinue(): void;
+  onSkip?(): void;
   onReport?(): void;
   onExplain?(): void; explanationSeen?: boolean;
   allowWhyOnRetry?: boolean;
@@ -78,6 +79,11 @@ export function LessonFooter({ evaluation, isProblem, isLast, isCheck = false, c
       <button type="button" className={`lesson-action${emphasizeWhy ? ' explanation-secondary-action' : ''}`} disabled={isProblem && !feedback && !canCheck}
         onClick={retry ? onRetry : isProblem && !feedback ? onCheck : onContinue}>
         <span><span className="lesson-action-content">{label}</span></span></button>
+      {isProblem && (!feedback || retry) && onSkip && (
+        <button type="button" className="lesson-skip-link" onClick={onSkip}>
+          Skip
+        </button>
+      )}
     </div>
   </footer>;
 }

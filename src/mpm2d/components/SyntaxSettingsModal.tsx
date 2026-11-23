@@ -178,6 +178,18 @@ export function SyntaxSettingsPage({
                 ]}
               />
             </div>
+
+            <div className="preference-row">
+              <div className="syntax-pref-copy">
+                <p>Window momentum slide</p>
+                <span>Glide dragged pop-up windows smoothly at high refresh rates when released</span>
+              </div>
+              <Toggle
+                label="Window momentum slide"
+                checked={prefs.windowInertia}
+                onChange={v => onPatchPrefs({ windowInertia: v })}
+              />
+            </div>
           </div>
         </section>
 

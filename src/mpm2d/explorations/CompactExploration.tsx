@@ -3,6 +3,7 @@ import { BrilliantGraph } from '../graph'
 import type { DraggablePointSpec } from '../graph'
 import type { GeoScene } from '../types'
 import type { ExplorationKind } from '../pageTypes'
+import { Frac } from '../components/MathText'
 
 type SoundFn = (cue: 'drag-started' | 'drag-released' | 'grid-snap') => void
 
@@ -17,19 +18,55 @@ function gcd(a: number, b: number): number {
   return x || 1
 }
 
-function fmtFrac(num: number, den: number, forceFraction = false): string {
+function reduceFrac(num: number, den: number): {
+  kind: 'undefined' | 'zero' | 'int' | 'frac'
+  neg: boolean
+  rn: number
+  rd: number
+} {
   const qn = Math.round(num * 2)
   const qd = Math.round(den * 2)
-  if (qd === 0) return 'undefined'
-  if (qn === 0) return '0'
-  const sign = (qn < 0) !== (qd < 0) ? '−' : ''
+  if (qd === 0) return { kind: 'undefined', neg: false, rn: Math.abs(qn), rd: 0 }
+  if (qn === 0) return { kind: 'zero', neg: false, rn: 0, rd: Math.abs(qd) }
+  const neg = (qn < 0) !== (qd < 0)
   const an = Math.abs(qn)
   const ad = Math.abs(qd)
   const g = gcd(an, ad)
   const rn = an / g
   const rd = ad / g
-  if (rd === 1) return forceFraction ? `${sign}${rn}/1` : `${sign}${rn}`
-  return `${sign}${rn}/${rd}`
+  if (rd === 1) return { kind: 'int', neg, rn, rd: 1 }
+  return { kind: 'frac', neg, rn, rd }
+}
+
+function SlopeFrac({
+  num,
+  den,
+  forceFraction = false,
+}: {
+  num: number
+  den: number
+  forceFraction?: boolean
+}) {
+  const r = reduceFrac(num, den)
+  if (r.kind === 'undefined') return <>undefined</>
+  if (r.kind === 'zero') {
+    if (forceFraction) return <Frac num={0} den={1} />
+    return <>0</>
+  }
+  if (r.kind === 'int' && !forceFraction) {
+    return (
+      <>
+        {r.neg ? '−' : ''}
+        {r.rn}
+      </>
+    )
+  }
+  return (
+    <span className="m-frac-wrap">
+      {r.neg && <span className="m-sign">−</span>}
+      <Frac num={r.rn} den={r.rd} />
+    </span>
+  )
 }
 
 function fmtSignedSum(a: number, b: number): string {
@@ -161,22 +198,30 @@ function SlopePerpCompact({ onSound }: { onSound?: SoundFn }) {
           <>
             <div className="is-base">
               <span>Slope (horizontal)</span>
-              <strong>m = 0 / {Math.abs(Math.round(dx))} = 0</strong>
+              <strong>
+                m = <Frac num={0} den={Math.abs(Math.round(dx))} /> = 0
+              </strong>
             </div>
             <div className="is-perp">
               <span>90° slope (vertical)</span>
-              <strong>undefined (flip 0/1 → ÷0)</strong>
+              <strong>
+                undefined (flip <Frac num={0} den={1} /> → <Frac num={1} den={0} />)
+              </strong>
             </div>
           </>
         ) : Math.abs(dx) < 1e-6 ? (
           <>
             <div className="is-base">
               <span>Slope (vertical)</span>
-              <strong>m = {Math.abs(Math.round(dy))} / 0 = undefined</strong>
+              <strong>
+                m = <Frac num={Math.abs(Math.round(dy))} den={0} /> = undefined
+              </strong>
             </div>
             <div className="is-perp">
               <span>90° slope (horizontal)</span>
-              <strong>0 (0 / {Math.abs(Math.round(dy))})</strong>
+              <strong>
+                0 (<Frac num={0} den={Math.abs(Math.round(dy))} />)
+              </strong>
             </div>
           </>
         ) : (
@@ -184,15 +229,19 @@ function SlopePerpCompact({ onSound }: { onSound?: SoundFn }) {
             <div className="is-base">
               <span>Slope</span>
               <strong>
-                m = {fmtFrac(dy, dx)}
-                {!fmtFrac(dy, dx).includes('/') ? ` (${fmtFrac(dy, dx, true)})` : ''}
+                m = <SlopeFrac num={dy} den={dx} />
+                {reduceFrac(dy, dx).kind === 'int' && (
+                  <> (<SlopeFrac num={dy} den={dx} forceFraction />)</>
+                )}
               </strong>
             </div>
             <div className="is-perp">
               <span>90° slope (flip &amp; negate)</span>
               <strong>
-                m⊥ = {fmtFrac(-dx, dy)}
-                {!fmtFrac(-dx, dy).includes('/') ? ` (${fmtFrac(-dx, dy, true)})` : ''}
+                m⊥ = <SlopeFrac num={-dx} den={dy} />
+                {reduceFrac(-dx, dy).kind === 'int' && (
+                  <> (<SlopeFrac num={-dx} den={dy} forceFraction />)</>
+                )}
               </strong>
             </div>
           </>
@@ -380,7 +429,7 @@ function MedianCompact({ onSound }: { onSound?: SoundFn }) {
         </div>
         <div className="geo-stat-chip is-amber">
           <span>Slope of median CM</span>
-          <strong>{validMedian ? fmtFrac(dy, dx) : 'C is on M'}</strong>
+          <strong>{validMedian ? <SlopeFrac num={dy} den={dx} /> : 'C is on M'}</strong>
         </div>
       </div>
     </div>
@@ -548,7 +597,13 @@ function RightTriangleCompact({ onSound }: { onSound?: SoundFn }) {
               ? 'C overlaps A or B (move C apart)'
               : axisPerp
                 ? 'Horizontal ⊥ Vertical ✓'
-                : `${fmtFrac(a[1] - c[1], a[0] - c[0])} · ${fmtFrac(b[1] - c[1], b[0] - c[0])} ${isRight ? '= −1 ✓' : '≠ −1'}`}
+                : (
+                    <>
+                      <SlopeFrac num={a[1] - c[1]} den={a[0] - c[0]} /> ·{' '}
+                      <SlopeFrac num={b[1] - c[1]} den={b[0] - c[0]} />{' '}
+                      {isRight ? '= −1 ✓' : '≠ −1'}
+                    </>
+                  )}
           </strong>
         </div>
         <div className={`geo-stat-chip ${isRight ? 'is-green' : ''}`}>
@@ -631,7 +686,14 @@ function ShortestDistanceCompact({ onSound }: { onSound?: SoundFn }) {
         <div className={`geo-stat-chip ${isPerp ? 'is-green' : ''}`}>
           <span>Slope of OQ</span>
           <strong>
-            {fmtFrac(qy, qx)} {isPerp ? '⊥ 2 ✓' : '(need −1/2)'}
+            <SlopeFrac num={qy} den={qx} />{' '}
+            {isPerp ? (
+              '⊥ 2 ✓'
+            ) : (
+              <>
+                (need <span className="m-frac-wrap"><span className="m-sign">−</span><Frac num={1} den={2} /></span>)
+              </>
+            )}
           </strong>
         </div>
       </div>

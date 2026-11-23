@@ -17,6 +17,7 @@ export type SyntaxPrefs = {
   voiceOn: boolean
   penControlsCollapsed: boolean
   showStepPlan: boolean
+  windowInertia: boolean
   semaShape: SemaShapeName
   semaTail: SemaTailName
   semaExpression: SemaExpressionName
@@ -29,6 +30,7 @@ const DEFAULT_PREFS: SyntaxPrefs = {
   voiceOn: true,
   penControlsCollapsed: true,
   showStepPlan: false,
+  windowInertia: true,
   semaShape: 'jenson',
   semaTail: 'jenson',
   semaExpression: 'neutral',
@@ -99,6 +101,10 @@ export function loadPrefs(): SyntaxPrefs {
       parsed.showStepPlan === undefined
         ? DEFAULT_PREFS.showStepPlan
         : Boolean(parsed.showStepPlan),
+    windowInertia:
+      parsed.windowInertia === undefined
+        ? DEFAULT_PREFS.windowInertia
+        : Boolean(parsed.windowInertia),
     semaShape: validShape,
     semaTail: isValidTailName(parsed.semaTail) ? parsed.semaTail : DEFAULT_PREFS.semaTail,
     semaExpression: isValidExpressionName(parsed.semaExpression)
@@ -115,6 +121,9 @@ export function savePrefs(next: SyntaxPrefs) {
     // ignore storage quota errors
   }
   writeCookie(COOKIE_NAME, serialized)
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("syntax:prefs-changed", { detail: next }))
+  }
 }
 
 export function updatePrefs(patch: Partial<SyntaxPrefs>): SyntaxPrefs {

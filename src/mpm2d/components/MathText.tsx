@@ -25,7 +25,12 @@ function renderMathTokens(text: string, stackedFractions: boolean, keyPrefix: st
     const k = `${keyPrefix}-${idx++}`
 
     const fracMatch = stackedFractions ? (match[1] ?? match[2]) : undefined
-    if (fracMatch) {
+    const beforeSlice = text.slice(0, match.index)
+    const afterSlice = text.slice(match.index + full.length)
+    const skipNonMathSlash =
+      /(?:grade|level|lesson|page|unit|step|part|section)\s+$/i.test(beforeSlice) ||
+      /^\s*(?:checks|lessons|pages|questions|items|correct)\b/i.test(afterSlice)
+    if (fracMatch && !skipNonMathSlash) {
       const neg = full.startsWith('-') || full.startsWith('−')
       const clean = neg ? full.slice(1) : full
       const [num, den] = clean.split('/')
@@ -70,7 +75,7 @@ function renderMathTokens(text: string, stackedFractions: boolean, keyPrefix: st
 
 export function MathText({
   text,
-  stackedFractions = false,
+  stackedFractions = true,
 }: {
   text: string
   stackedFractions?: boolean

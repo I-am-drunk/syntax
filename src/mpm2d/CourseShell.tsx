@@ -15,6 +15,11 @@ import { SyntaxHistoryPage } from './components/SyntaxHistoryModal'
 import { TopBarSema } from './mascot/TopBarSema'
 import { loadPrefs, savePrefs, type SyntaxPrefs } from './storage'
 import { assetUrl } from './assetUrl'
+import {
+  DevMetricsMicroBar,
+  isDevEnvironment,
+  resetAllDevStateAndCookies,
+} from './components/DevChannelBadge'
 
 type SavedProgress = {
   completed: Record<string, { correct: number; total: number }>
@@ -216,11 +221,20 @@ export function CourseShell() {
   const [outlineAtBottom, setOutlineAtBottom] = useState(false)
   const [formulasOpen, setFormulasOpen] = useState(false)
   const [penModeActive, setPenModeActive] = useState(false)
+  const [dockVisible, setDockVisible] = useState(true)
+  const [dockCardHeight, setDockCardHeight] = useState(148)
+  const [dockBounceNonce, setDockBounceNonce] = useState(0)
+  const [fitnessOpen, setFitnessOpen] = useState(false)
+  const [hoveredRing, setHoveredRing] = useState<'course' | 'mastery' | 'lesson' | null>(null)
+  const [devResetting, setDevResetting] = useState(false)
+  const isDev = useMemo(() => isDevEnvironment(), [])
 
   const outlineScrollRef = useRef<HTMLElement>(null)
   const levelSectionRefs = useRef(new Map<number, HTMLElement>())
   const nodeRefs = useRef(new Map<string, HTMLButtonElement>())
   const filterWrapRef = useRef<HTMLDivElement>(null)
+  const dockCardRef = useRef<HTMLDivElement>(null)
+  const fitnessDockRef = useRef<HTMLDivElement>(null)
   const penNotifiedRef = useRef(false)
   const navLockUntilRef = useRef(0)
   const jumpRafRef = useRef(0)
@@ -427,6 +441,131 @@ export function CourseShell() {
     [progress],
   )
 
+  const completedLessonCount = useMemo(
+    () =>
+      UNIT2_LESSONS.filter(l => {
+        const t = toPathTier(progress.completed[l.id])
+        return t === 'mastered' || t === 'good'
+      }).length,
+    [progress],
+  )
+
+  const coursePct = useMemo(() => {
+    if (UNIT2_LESSONS.length === 0) return 0
+    let units = 0
+    for (const l of UNIT2_LESSONS) {
+      const t = toPathTier(progress.completed[l.id])
+      if (t === 'mastered' || t === 'good') {
+        units += 1
+      } else {
+        const res = resumeMap[l.id]
+        const total = l.pages.length + l.checks.length
+        if (res && total > 0) {
+          const allPages = [...l.pages, ...l.checks]
+          const foundIdx = res.pageId ? allPages.findIndex(p => p.id === res.pageId) : -1
+          const pageIdx = foundIdx >= 0 ? foundIdx : (res.pageIndex ?? 0)
+          units += Math.min(0.95, (pageIdx + 1) / total)
+        }
+      }
+    }
+    return Math.round((units / UNIT2_LESSONS.length) * 100)
+  }, [progress, resumeMap])
+
+  const masteryPct = useMemo(
+    () => Math.round((masteredCount / Math.max(1, UNIT2_LESSONS.length)) * 100),
+    [masteredCount],
+  )
+
+  const resolvedSelectedLesson = useMemo(() => {
+    const candidate = ALL_LESSONS.find(l => l.id === selectedId)
+    const visibleCandidate =
+      candidate && (!CATCHUP_BY_ID.has(candidate.id) || prefs.showCatchupPaths)
+        ? candidate
+        : undefined
+    return (
+      visibleCandidate ??
+      UNIT2_LESSONS.find(l => !progress.completed[l.id]) ??
+      UNIT2_LESSONS[0]!
+    )
+  }, [selectedId, prefs.showCatchupPaths, progress.completed])
+
+  // Brilliant scroll-away hide: observe selected node visibility inside .course-outline
+  useEffect(() => {
+    if (activeLessonId || virtualReviewLesson || settingsOpen || historyOpen) return
+    const scroller = outlineScrollRef.current
+    const nodeEl = nodeRefs.current.get(resolvedSelectedLesson.id)
+    if (!scroller || !nodeEl || typeof IntersectionObserver === 'undefined') {
+      setDockVisible(true)
+      return
+    }
+    const observer = new IntersectionObserver(
+      entries => {
+        const entry = entries[0]
+        if (!entry) return
+        setDockVisible(entry.isIntersecting)
+      },
+      {
+        root: scroller,
+        rootMargin: '-110px 0px -100px 0px',
+        threshold: [0.25, 0.75],
+      },
+    )
+    observer.observe(nodeEl)
+    return () => observer.disconnect()
+  }, [
+    resolvedSelectedLesson.id,
+    activeLessonId,
+    virtualReviewLesson,
+    settingsOpen,
+    historyOpen,
+    prefs.showCatchupPaths,
+  ])
+
+  // Track thick tab card height so the parallel floating row glides cleanly above it
+  useEffect(() => {
+    if (activeLessonId || virtualReviewLesson || settingsOpen || historyOpen) return
+    const el = dockCardRef.current
+    if (!el) return
+    const update = () => {
+      const h = Math.round(el.getBoundingClientRect().height)
+      if (h > 40) setDockCardHeight(h)
+    }
+    update()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [
+    resolvedSelectedLesson.id,
+    activeLessonId,
+    virtualReviewLesson,
+    settingsOpen,
+    historyOpen,
+  ])
+
+  // Close Fitness progress drawer on outside click or Escape
+  useEffect(() => {
+    if (!fitnessOpen) return
+    const onDown = (e: PointerEvent) => {
+      if (fitnessDockRef.current && !fitnessDockRef.current.contains(e.target as Node)) {
+        setFitnessOpen(false)
+        setHoveredRing(null)
+      }
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setFitnessOpen(false)
+        setHoveredRing(null)
+      }
+    }
+    window.addEventListener('pointerdown', onDown)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('pointerdown', onDown)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [fitnessOpen])
+
   const emitSound = (cue: LessonSound) => {
     if (soundOn) playLessonSound(cue)
   }
@@ -524,7 +663,11 @@ export function CourseShell() {
   }
 
   function selectNodeById(id: string) {
+    if (id === selectedId) {
+      setDockBounceNonce(n => n + 1)
+    }
     setSelectedId(id)
+    setDockVisible(true)
     const found = ALL_LESSONS.find(l => l.id === id)
     if (found) {
       setActiveNav(found.level === 3 ? 'conference' : 'course')
@@ -651,23 +794,26 @@ export function CourseShell() {
     <>
       <Toaster position="bottom-center" theme={theme} />
       <header className="app-header" data-settings-open={settingsOpen || undefined}>
-        <div className="brand-lockup" data-settings-open={settingsOpen || undefined}>
-          <a
-            className="wordmark"
-            href="#top"
-            aria-label={overlayOpen ? 'Syntax: Back to Unit 2' : 'Syntax Analytic Geometry'}
-            onClick={e => {
-              e.preventDefault()
-              if (settingsOpen || historyOpen) {
-                emitSound('lightweight-choice')
-                setSettingsOpen(false); setHistoryOpen(false)
-              } else {
-                jumpToCourse()
-              }
-            }}
-          >
-            Syntax
-          </a>
+        <div className={`brand-lockup${isDev ? ' is-dev-brand' : ''}`} data-settings-open={settingsOpen || undefined}>
+          <div className="brand-wordmark-stack">
+            {isDev && <DevMetricsMicroBar compact />}
+            <a
+              className="wordmark"
+              href="#top"
+              aria-label={overlayOpen ? 'Syntax: Back to Unit 2' : isDev ? 'Syntax Dev Analytic Geometry' : 'Syntax Analytic Geometry'}
+              onClick={e => {
+                e.preventDefault()
+                if (settingsOpen || historyOpen) {
+                  emitSound('lightweight-choice')
+                  setSettingsOpen(false); setHistoryOpen(false)
+                } else {
+                  jumpToCourse()
+                }
+              }}
+            >
+              Syntax{isDev && <span className="dev-rainbow-text"> Dev</span>}
+            </a>
+          </div>
           <TopBarSema
             enableRoaming={prefs.onboarded && !formulasOpen && !settingsOpen && !historyOpen}
             dockedIntoLogo={settingsOpen}
@@ -960,6 +1106,27 @@ export function CourseShell() {
             height="100"
             alt=""
           />
+          {isDev && (
+            <div className="dev-sidebar-strip" aria-label="Developer tools and live metrics">
+              <div className="dev-sidebar-top">
+                <span className="dev-sidebar-badge">
+                  Syntax <span className="dev-rainbow-text">Dev</span>
+                </span>
+                <button
+                  type="button"
+                  className="dev-reset-btn"
+                  disabled={devResetting}
+                  onClick={() => {
+                    setDevResetting(true)
+                    void resetAllDevStateAndCookies()
+                  }}
+                >
+                  {devResetting ? 'Resetting...' : 'Reset state & cookies'}
+                </button>
+              </div>
+              <DevMetricsMicroBar />
+            </div>
+          )}
           <h1>Analytic Geometry</h1>
           <p>MPM2D Unit 2: slopes, midpoints, distances, triangle lines, and geometric proofs.</p>
           <div className="course-counts">
@@ -994,11 +1161,7 @@ export function CourseShell() {
             </button>
           )}
 
-          {masteredCount > 0 && (
-            <div className="course-progress-meta">
-              {masteredCount} of {UNIT2_LESSONS.length} lessons mastered
-            </div>
-          )}
+
         </aside>
 
         <div className="course-path">
@@ -1014,7 +1177,7 @@ export function CourseShell() {
                 key={lvl.level}
                 aria-labelledby={`level-${lvl.level}`}
               >
-                <div className="outline-level-sticky-row">
+                <div className={`outline-level-sticky-row${lvl.level === 1 && filterOpen ? ' is-filter-open' : ''}`}>
                   <div className="outline-level-heading" id={`level-${lvl.level}`}>
                     <span>{lvl.label}</span>
                     <h2>{lvl.title}</h2>
@@ -1080,17 +1243,9 @@ export function CourseShell() {
               </section>
             )
           })}
-          {/* Authentic Brilliant Sticky Bottom Action Card (Start / Resume / Review) */}
+          {/* Brilliant Sticky Footer Anchor: parallel floating Jump + Apple Fitness Progress above scroll-away thick tab */}
           {(() => {
-            const candidate = ALL_LESSONS.find(l => l.id === selectedId)
-            const visibleCandidate =
-              candidate && (!CATCHUP_BY_ID.has(candidate.id) || prefs.showCatchupPaths)
-                ? candidate
-                : undefined
-            const sel =
-              visibleCandidate ??
-              UNIT2_LESSONS.find(l => !progress.completed[l.id]) ??
-              UNIT2_LESSONS[0]!
+            const sel = resolvedSelectedLesson
             const selStat = progress.completed[sel.id]
             const selTier = toPathTier(selStat)
             const selDone = selTier === 'mastered' || selTier === 'good'
@@ -1102,132 +1257,253 @@ export function CourseShell() {
             const savedPage = [...sel.pages, ...sel.checks].findIndex(page => page.id === selResume?.pageId)
             const ctaText = selInProgress ? 'Resume' : selDone ? 'Review' : selNeedsRetry ? 'Retry' : 'Start'
             const resolvedPageIdx = savedPage >= 0 ? savedPage : (selResume?.pageIndex ?? 0)
-            const completionPct = selDone
+            const lessonPct = selDone
               ? 100
               : selInProgress && totalPages > 0
                 ? Math.min(99, Math.max(8, Math.round(((resolvedPageIdx + 1) / totalPages) * 100)))
                 : 0
-            const ringRadius = 16.5
-            const ringCircumference = 2 * Math.PI * ringRadius
-            const ringOffset = ringCircumference * (1 - completionPct / 100)
-            const ringGradId = selDone
-              ? 'outline-ring-done'
-              : selIsCatchup
-                ? 'outline-ring-catchup'
-                : 'outline-ring-active'
+            const lessonCaption = selInProgress
+              ? `Page ${Math.min(resolvedPageIdx + 1, totalPages)} of ${totalPages}`
+              : selDone
+                ? 'Completed'
+                : selNeedsRetry
+                  ? 'Needs retry'
+                  : 'Not started'
+            const courseCaption = `${completedLessonCount} of ${UNIT2_LESSONS.length} lessons`
+            const masteryCaption = `${masteredCount} of ${UNIT2_LESSONS.length} mastered`
+            const kickerText = selIsCatchup
+              ? 'Catch-up review'
+              : `Level ${sel.level} · Lesson ${sel.number}`
+
+            // Concentric Apple Fitness 3-ring geometry (viewBox 40x40)
+            const rOuter = 16
+            const rMid = 11.4
+            const rInner = 6.8
+            const cOuter = 2 * Math.PI * rOuter
+            const cMid = 2 * Math.PI * rMid
+            const cInner = 2 * Math.PI * rInner
+            const oOuter = cOuter * (1 - Math.max(coursePct, 3) / 100)
+            const oMid = cMid * (1 - Math.max(masteryPct, 3) / 100)
+            const oInner = cInner * (1 - Math.max(lessonPct, 3) / 100)
+
+            const fitnessRows: Array<{
+              key: 'course' | 'mastery' | 'lesson'
+              label: string
+              pct: number
+              caption: string
+              tone: string
+            }> = [
+              {
+                key: 'course',
+                label: 'Course',
+                pct: coursePct,
+                caption: courseCaption,
+                tone: 'is-course',
+              },
+              {
+                key: 'mastery',
+                label: 'Mastery',
+                pct: masteryPct,
+                caption: masteryCaption,
+                tone: 'is-mastery',
+              },
+              {
+                key: 'lesson',
+                label: 'This lesson',
+                pct: lessonPct,
+                caption: lessonCaption,
+                tone: selIsCatchup ? 'is-catchup' : 'is-lesson',
+              },
+            ]
+
             return (
-              <div className={`outline-action${selIsCatchup ? ' is-catchup' : ''}${completionPct > 0 ? ' has-ring' : ''}`}>
-                {/* Brilliant tactile circular scroll-to-bottom down-arrow button above the action pill */}
-                <button
-                  className={`outline-scroll-btn${outlineAtBottom ? ' is-at-bottom' : ''}`}
-                  aria-label={outlineAtBottom ? 'Scroll back to top' : 'Scroll to bottom of course'}
-                  title={outlineAtBottom ? 'Back to top' : 'Jump to bottom'}
-                  type="button"
-                  onClick={() => {
-                    emitSound('lightweight-choice')
-                    const scroller = outlineScrollRef.current
-                    if (scroller) {
-                      scroller.scrollTo({
-                        top: outlineAtBottom ? 0 : scroller.scrollHeight,
-                        behavior: 'smooth',
-                      })
-                    }
-                  }}
+              <div className={`outline-footer-anchor${dockVisible ? ' is-dock-visible' : ' is-dock-hidden'}`}>
+                {/* Parallel floating row: Jump to top/bottom (left) + Apple Fitness Multi-Bar Progress (right) */}
+                <div
+                  className="outline-floating-row"
+                  style={{ bottom: dockVisible ? dockCardHeight + 12 : 0 }}
                 >
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <line x1="12" y1="5" x2="12" y2="19" />
-                    <polyline points="6 13 12 19 18 13" />
-                  </svg>
-                </button>
-
-                {/* Compact Apple Fitness-style circular progress ring in top-left: tight circle at rest, expands on hover/focus with % + mini Page pill */}
-                {completionPct > 0 && (() => {
-                  const miniPillLabel =
-                    selInProgress && selResume
-                      ? `Page ${Math.min((savedPage >= 0 ? savedPage : selResume.pageIndex) + 1, totalPages)} of ${totalPages}`
-                      : selDone && selStat && selStat.total > 0
-                        ? `${selStat.correct}/${selStat.total} checks`
-                        : selDone
-                          ? 'Completed'
-                          : null
-                  return (
-                    <div
-                      className={`outline-progress-anchor${selDone ? ' is-done' : selIsCatchup ? ' is-catchup' : ''}`}
-                      tabIndex={0}
-                      role="progressbar"
-                      aria-label={`${sel.title} completion: ${completionPct}%${miniPillLabel ? `, ${miniPillLabel}` : ''}`}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
-                      aria-valuenow={completionPct}
-                    >
-                      <div className={`outline-fitness-ring${selDone ? ' is-done' : selIsCatchup ? ' is-catchup' : ''}`}>
-                        <svg className="outline-fitness-svg" viewBox="0 0 44 44" aria-hidden="true">
-                          <defs>
-                            <linearGradient id={ringGradId} x1="0%" y1="0%" x2="100%" y2="100%">
-                              <stop offset="0%" stopColor={selDone ? '#2dd45c' : selIsCatchup ? '#fbbf24' : '#6f8eff'} />
-                              <stop offset="100%" stopColor={selDone ? '#15b441' : selIsCatchup ? '#d97706' : '#456dff'} />
-                            </linearGradient>
-                          </defs>
-                          <circle className="outline-fitness-track" cx="22" cy="22" r={ringRadius} />
-                          <circle
-                            className="outline-fitness-arc"
-                            cx="22"
-                            cy="22"
-                            r={ringRadius}
-                            stroke={`url(#${ringGradId})`}
-                            strokeDasharray={ringCircumference.toFixed(2)}
-                            strokeDashoffset={ringOffset.toFixed(2)}
-                          />
-                        </svg>
-                        <span className="outline-fitness-pct">{completionPct}%</span>
-                      </div>
-                      {miniPillLabel && (
-                        <span className={`outline-progress-mini-pill${selDone ? ' is-done' : selIsCatchup ? ' is-catchup' : ''}`}>
-                          <span className="outline-progress-mini-track" aria-hidden="true">
-                            <span className="outline-progress-mini-fill" style={{ width: `${completionPct}%` }} />
-                          </span>
-                          <span>{miniPillLabel}</span>
-                        </span>
-                      )}
-                    </div>
-                  )
-                })()}
-
-                <h2 className="outline-action-title">{sel.title}</h2>
-                <div className="outline-course-actions">
                   <button
+                    className={`outline-scroll-btn${outlineAtBottom ? ' is-at-bottom' : ''}`}
+                    aria-label={outlineAtBottom ? 'Jump back to top' : 'Jump to bottom of course'}
+                    title={outlineAtBottom ? 'Back to top' : 'Jump to bottom'}
                     type="button"
-                    className={`course-button${selIsCatchup ? ' is-catchup-cta' : ''}`}
-                    onClick={() => openLesson(sel.id)}
+                    onClick={() => {
+                      emitSound('lightweight-choice')
+                      const scroller = outlineScrollRef.current
+                      if (scroller) {
+                        scroller.scrollTo({
+                          top: outlineAtBottom ? 0 : scroller.scrollHeight,
+                          behavior: 'smooth',
+                        })
+                      }
+                    }}
                   >
-                    {ctaText}
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <line x1="12" y1="5" x2="12" y2="19" />
+                      <polyline points="6 13 12 19 18 13" />
+                    </svg>
                   </button>
-                  {(selInProgress || selDone || selNeedsRetry) && (
+
+                  {/* Flat Apple Fitness concentric multi-ring pill with smooth slide-out multi-bar drawer */}
+                  <div
+                    ref={fitnessDockRef}
+                    className={`outline-fitness-dock${fitnessOpen ? ' is-open' : ''}${hoveredRing ? ` has-hover-ring is-hover-${hoveredRing}` : ''}`}
+                    onPointerEnter={() => setFitnessOpen(true)}
+                    onPointerLeave={() => {
+                      setFitnessOpen(false)
+                      setHoveredRing(null)
+                    }}
+                  >
+                    <div
+                      className="outline-fitness-drawer"
+                      aria-hidden={!fitnessOpen}
+                    >
+                      <div className="outline-fitness-drawer-inner">
+                        <div className="outline-fitness-header">
+                          <span>Progress rings</span>
+                          <span className="outline-fitness-summary-pct">{coursePct}% course</span>
+                        </div>
+                        <div className="outline-fitness-rows">
+                          {fitnessRows.map(row => (
+                            <div
+                              key={row.key}
+                              className={`outline-fitness-row ${row.tone}${hoveredRing === row.key ? ' is-active' : hoveredRing ? ' is-dimmed' : ''}`}
+                              tabIndex={fitnessOpen ? 0 : -1}
+                              onPointerEnter={() => setHoveredRing(row.key)}
+                              onPointerLeave={() => setHoveredRing(null)}
+                              onFocus={() => setHoveredRing(row.key)}
+                              onBlur={() => setHoveredRing(null)}
+                            >
+                              <div className="outline-fitness-row-top">
+                                <span className="outline-fitness-row-name">
+                                  <span className="outline-fitness-dot" aria-hidden="true" />
+                                  {row.label}
+                                </span>
+                                <span className="outline-fitness-row-pct">{row.pct}%</span>
+                              </div>
+                              <div className="outline-fitness-bar-track" aria-hidden="true">
+                                <div
+                                  className="outline-fitness-bar-fill"
+                                  style={{ width: `${row.pct}%` }}
+                                />
+                              </div>
+                              <span className="outline-fitness-row-caption">{row.caption}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
                     <button
                       type="button"
-                      className="outline-redo"
-                      aria-label="Start lesson from beginning"
-                      title="Start over from page 1"
+                      className="outline-fitness-trigger"
+                      aria-expanded={fitnessOpen}
+                      aria-label={`Progress: ${coursePct}% course, ${masteryPct}% mastery, ${lessonPct}% current lesson`}
                       onClick={() => {
-                        clearLessonResume(sel.id)
-                        setResumeMap(loadResumeMap())
-                        openLesson(sel.id)
+                        emitSound('lightweight-choice')
+                        setFitnessOpen(v => !v)
                       }}
                     >
-                      <RedoOutlineIcon />
+                      <svg className="outline-fitness-rings-svg" viewBox="0 0 40 40" aria-hidden="true">
+                        <g className={`of-ring-group of-ring-course${hoveredRing === 'course' ? ' is-highlighted' : hoveredRing ? ' is-dimmed' : ''}`}>
+                          <circle className="of-ring-track" cx="20" cy="20" r={rOuter} />
+                          <circle
+                            className="of-ring-arc"
+                            cx="20"
+                            cy="20"
+                            r={rOuter}
+                            strokeDasharray={cOuter.toFixed(2)}
+                            strokeDashoffset={oOuter.toFixed(2)}
+                          />
+                        </g>
+                        <g className={`of-ring-group of-ring-mastery${hoveredRing === 'mastery' ? ' is-highlighted' : hoveredRing ? ' is-dimmed' : ''}`}>
+                          <circle className="of-ring-track" cx="20" cy="20" r={rMid} />
+                          <circle
+                            className="of-ring-arc"
+                            cx="20"
+                            cy="20"
+                            r={rMid}
+                            strokeDasharray={cMid.toFixed(2)}
+                            strokeDashoffset={oMid.toFixed(2)}
+                          />
+                        </g>
+                        <g className={`of-ring-group ${selIsCatchup ? 'of-ring-catchup' : 'of-ring-lesson'}${hoveredRing === 'lesson' ? ' is-highlighted' : hoveredRing ? ' is-dimmed' : ''}`}>
+                          <circle className="of-ring-track" cx="20" cy="20" r={rInner} />
+                          <circle
+                            className="of-ring-arc"
+                            cx="20"
+                            cy="20"
+                            r={rInner}
+                            strokeDasharray={cInner.toFixed(2)}
+                            strokeDashoffset={oInner.toFixed(2)}
+                          />
+                        </g>
+                      </svg>
+                      <span className="outline-fitness-trigger-pct">{coursePct}%</span>
                     </button>
-                  )}
+                  </div>
                 </div>
+
+                {/* Brilliant Thick Tab Card (smoothly slides down & fades away when scrolled past active node) */}
+                <motion.div
+                  ref={dockCardRef}
+                  key={`dock-bounce-${dockBounceNonce}`}
+                  className={`outline-action${selIsCatchup ? ' is-catchup' : ''}${dockVisible ? ' is-visible' : ' is-hidden'}`}
+                  initial={dockBounceNonce > 0 ? { y: -8, opacity: 1 } : false}
+                  animate={dockVisible ? { y: 0, opacity: 1 } : { y: 88, opacity: 0 }}
+                  transition={{
+                    type: 'spring',
+                    stiffness: 420,
+                    damping: 32,
+                    mass: 0.85,
+                  }}
+                >
+                  <div className="outline-action-head">
+                    <span className={`outline-action-kicker${selIsCatchup ? ' is-catchup' : ''}`}>
+                      {kickerText}
+                    </span>
+                    {selInProgress && (
+                      <span className="outline-action-page-pill">{lessonCaption}</span>
+                    )}
+                  </div>
+                  <h2 className="outline-action-title">{sel.title}</h2>
+                  <div className="outline-course-actions">
+                    <button
+                      type="button"
+                      className={`course-button${selIsCatchup ? ' is-catchup-cta' : ''}`}
+                      onClick={() => openLesson(sel.id)}
+                    >
+                      {ctaText}
+                    </button>
+                    {(selInProgress || selDone || selNeedsRetry) && (
+                      <button
+                        type="button"
+                        className="outline-redo-pill"
+                        aria-label={`Start ${sel.title} over from page 1`}
+                        title="Start over from page 1"
+                        onClick={() => {
+                          clearLessonResume(sel.id)
+                          setResumeMap(loadResumeMap())
+                          openLesson(sel.id)
+                        }}
+                      >
+                        <RedoOutlineIcon />
+                        <span>Start over</span>
+                      </button>
+                    )}
+                  </div>
+                </motion.div>
               </div>
             )
           })()}

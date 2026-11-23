@@ -70,11 +70,14 @@ export function BrilliantWorkedCard({
         </div>
       )}
 
-      {priorSteps.length > 0 && (
-        <div className="br-worked-prior" aria-label="Previous steps">
-          {priorSteps.map((ps, i) => {
-            const priorRevealed = Boolean(revealedSteps[i])
-            return (
+      {(() => {
+        const revealedPrior = priorSteps
+          .map((ps, i) => ({ ps, i }))
+          .filter(({ i }) => Boolean(revealedSteps[i]))
+        if (revealedPrior.length === 0) return null
+        return (
+          <div className="br-worked-prior" aria-label="Revealed previous steps">
+            {revealedPrior.map(({ ps, i }) => (
               <button
                 key={i}
                 type="button"
@@ -83,19 +86,13 @@ export function BrilliantWorkedCard({
               >
                 <span className="br-worked-prior-num">{CIRCLED[i] ?? `${i + 1}.`}</span>
                 <span className="br-worked-prior-val">
-                  {priorRevealed ? (
-                    <MathText text={ps.mathLines[ps.mathLines.length - 1] ?? ps.heading} />
-                  ) : (
-                    <>
-                      <MathText text={ps.heading} /> (not revealed yet)
-                    </>
-                  )}
+                  <MathText text={ps.mathLines[ps.mathLines.length - 1] ?? ps.heading} />
                 </span>
               </button>
-            )
-          })}
-        </div>
-      )}
+            ))}
+          </div>
+        )
+      })()}
 
       <div className="br-worked-step">
         <div className="br-worked-step-head">
