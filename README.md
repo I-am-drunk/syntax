@@ -42,3 +42,5 @@ npm run dev
 ```
 
 Then open the local URL printed in your terminal.
+
+> Note: Cut each stable release and alpha pre-release on a distinct commit SHA (and keep the `github-pages` environment policy allowing `main` and `v*` tags) so GitHub Pages updates the combined artifact cleanly.
