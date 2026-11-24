@@ -34,12 +34,22 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
         id: 'rc-read-1',
         kind: 'worked',
         source: 'Catch-Up · Prerequisite',
-        prompt: 'In **y = mx + b**, the number glued to **x** is the slope **m**, and the lone constant is **b**.',
+        prompt: 'Identify the slope **m** and y-intercept **b** for **y = 2x − 5**, **y = −x**, and **y = 4**.',
         plan: [
-          'Find the coefficient in front of x → that is m.',
-          'Find the constant term with its sign → that is b.',
-          'Missing constant means b = 0; missing number before x means m = 1 (or −1).',
+          'Read the coefficient multiplied by x to get slope m.',
+          'Read the constant term (with its sign) to get y-intercept b.',
+          'Missing constant means b = 0; missing number before x means m = 1 (or −1); missing x means m = 0.',
         ],
+        preScene: {
+          xMin: -5,
+          xMax: 5,
+          yMin: -6,
+          yMax: 6,
+          lines: [
+            { a: 2, b: -1, c: -5, color: 'blue', label: 'Line 1' },
+            { a: 0, b: 1, c: -4, color: 'teal', dashed: true, label: 'Line 2' },
+          ],
+        },
         steps: [
           {
             heading: 'Read m and b directly',
@@ -72,6 +82,15 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
           yMin: -4,
           yMax: 6,
           lines: [{ a: 3, b: 1, c: -4, color: 'blue', label: 'y = 4 − 3x' }],
+        },
+        solvedScene: {
+          xMin: -4,
+          xMax: 5,
+          yMin: -4,
+          yMax: 6,
+          lines: [{ a: 3, b: 1, c: -4, color: 'teal', label: 'm = −3, b = 4' }],
+          riseRuns: [{ from: [0, 4], to: [1, 1], color: 'amber', showLabels: true }],
+          points: [{ id: 'b', x: 0, y: 4, label: 'b = 4', color: 'amber', emphasis: true }],
         },
         options: [
           { id: 'a', label: '4', hint: '4 is the lone constant (b). Slope m is always attached to x.' },
@@ -110,6 +129,14 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
           yMin: -2,
           yMax: 8,
           lines: [{ a: 1, b: 1, c: -6, color: 'blue', label: 'y = −x + 6' }],
+        },
+        solvedScene: {
+          xMin: -3,
+          xMax: 7,
+          yMin: -2,
+          yMax: 8,
+          lines: [{ a: 1, b: 1, c: -6, color: 'teal', label: 'm = −1' }],
+          riseRuns: [{ from: [1, 5], to: [3, 3], color: 'amber', showLabels: true }],
         },
         answer: {
           kind: 'number',
@@ -152,12 +179,19 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
         id: 'rc-iso-1',
         kind: 'worked',
         source: 'Catch-Up · Prerequisite',
-        prompt: 'Rearrange **2x − 3y = 12** into **y = mx + b** without dropping a sign.',
+        prompt: 'Rearrange **2x − 3y = 12** into slope-intercept form (**y = mx + b**) and state its slope.',
         plan: [
-          'Subtract 2x from both sides to isolate the y-term.',
-          'Divide EVERY term by −3 (including the constant!).',
-          'Simplify the double negative (−2)/(−3) = +2/3.',
+          'Move +2x across = so the y-term stands alone: −3y = −2x + 12.',
+          'Divide EVERY term by −3 (including the constant 12).',
+          'Simplify (−2)/(−3) = +2/3 and 12/(−3) = −4.',
         ],
+        preScene: {
+          xMin: -4,
+          xMax: 8,
+          yMin: -6,
+          yMax: 4,
+          lines: [{ a: 2, b: -3, c: -12, color: 'blue', label: '2x − 3y = 12' }],
+        },
         steps: [
           {
             heading: 'Move 2x, then divide every term by −3',
@@ -181,13 +215,21 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
       {
         id: 'rc-iso-2',
         kind: 'choice',
-        prompt: 'Isolate **y** in **3x + y = −3**. Which equation is right?',
+        prompt: 'Rearrange **3x + y = −3** into **y = mx + b** form. Which equation is correct?',
         scene: {
           xMin: -5,
           xMax: 5,
           yMin: -6,
           yMax: 4,
           lines: [{ a: 3, b: 1, c: 3, color: 'blue', label: '3x + y = −3' }],
+        },
+        solvedScene: {
+          xMin: -5,
+          xMax: 5,
+          yMin: -6,
+          yMax: 4,
+          lines: [{ a: 3, b: 1, c: 3, color: 'teal', label: 'y = −3x − 3' }],
+          points: [{ id: 'b', x: 0, y: -3, label: '(0, −3)', color: 'amber', emphasis: true }],
         },
         options: [
           { id: 'a', label: 'y = 3x − 3', hint: 'To cancel +3x on the left, subtract 3x on the right.' },
@@ -222,6 +264,14 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
           yMin: -3,
           yMax: 7,
           lines: [{ a: 4, b: 2, c: -10, color: 'blue', label: '4x + 2y = 10' }],
+        },
+        solvedScene: {
+          xMin: -3,
+          xMax: 6,
+          yMin: -3,
+          yMax: 7,
+          lines: [{ a: 4, b: 2, c: -10, color: 'teal', label: 'y = −2x + 5' }],
+          points: [{ id: 'b', x: 0, y: 5, label: '(0, 5)', color: 'amber', emphasis: true }],
         },
         answer: {
           kind: 'line',
@@ -270,11 +320,23 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
         id: 'rc-slp-1',
         kind: 'worked',
         source: 'Catch-Up · Prerequisite',
-        prompt: 'Two rules: wrap negative coordinates in **parentheses**, and for **m⊥**, do BOTH **flip** and **sign switch**.',
+        prompt: 'Find the slope of **AB** from **A(−2, 1)** to **B(2, 4)**, then find its perpendicular slope **m⊥**.',
         plan: [
-          'm = (y₂ − y₁) / (x₂ − x₁) with brackets around negatives.',
+          'Compute m = (y₂ − y₁) / (x₂ − x₁) with brackets around negative coordinates.',
+          'For m⊥, do BOTH moves: flip the fraction upside down AND switch the sign.',
           'Write whole numbers over 1 before flipping (e.g. −3 = −3/1 → +1/3).',
         ],
+        preScene: {
+          xMin: -4,
+          xMax: 5,
+          yMin: -2,
+          yMax: 6,
+          segments: [{ from: [-2, 1], to: [2, 4], color: 'blue' }],
+          points: [
+            { id: 'a', x: -2, y: 1, label: 'A', showCoords: true, color: 'blue' },
+            { id: 'b', x: 2, y: 4, label: 'B', showCoords: true, color: 'blue' },
+          ],
+        },
         steps: [
           {
             heading: 'Check the double negative and the flip',
@@ -311,6 +373,17 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
           yMin: -5,
           yMax: 5,
           lines: [{ a: 5, b: 2, c: 0, color: 'blue', label: 'm = −5/2' }],
+        },
+        solvedScene: {
+          xMin: -5,
+          xMax: 5,
+          yMin: -5,
+          yMax: 5,
+          lines: [
+            { a: 5, b: 2, c: 0, color: 'blue', dim: true, label: 'm = −5/2' },
+            { a: 2, b: -5, c: 0, color: 'teal', label: 'm⊥ = +2/5' },
+          ],
+          rightAngles: [{ vertex: [0, 0], dir1: [2, -5], dir2: [5, 2], color: 'green' }],
         },
         answer: {
           kind: 'number',
@@ -358,13 +431,24 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
       {
         id: 'rc-b-0',
         kind: 'choice',
-        prompt: 'A line with slope **m = 2** passes through **(3, 1)**. Which equation plugs these values into **y = mx + b** correctly?',
+        prompt: 'A line with slope **m = 2** passes through **(3, 1)**. Which equation substitutes these values into **y = mx + b** correctly?',
         scene: {
           xMin: -2,
           xMax: 6,
           yMin: -6,
           yMax: 4,
           points: [{ id: 'p0', x: 3, y: 1, label: '(3, 1)', color: 'amber' }],
+        },
+        solvedScene: {
+          xMin: -2,
+          xMax: 6,
+          yMin: -6,
+          yMax: 4,
+          lines: [{ a: 2, b: -1, c: -5, color: 'teal', label: 'y = 2x − 5' }],
+          points: [
+            { id: 'p0', x: 3, y: 1, label: '(3, 1)', color: 'amber', emphasis: true },
+            { id: 'b0', x: 0, y: -5, label: 'b = −5', color: 'green' },
+          ],
         },
         options: [
           { id: 'a', label: '3 = 2(1) + b', hint: 'Watch the order: in (3, 1), x = 3 and y = 1.' },
@@ -431,7 +515,7 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
       {
         id: 'rc-b-chk',
         kind: 'math-input',
-        prompt: 'A line has slope **m = −1/2** and passes through **(4, 3)**. What is **b**?',
+        prompt: 'A line has slope **m = −1/2** and passes through **(4, 3)**. Find its y-intercept **b**.',
         placeholder: 'e.g. 5',
         scene: {
           xMin: -2,
@@ -439,6 +523,17 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
           yMin: -1,
           yMax: 7,
           points: [{ id: 'p', x: 4, y: 3, label: '(4, 3)', color: 'amber' }],
+        },
+        solvedScene: {
+          xMin: -2,
+          xMax: 8,
+          yMin: -1,
+          yMax: 7,
+          lines: [{ a: 1, b: 2, c: -10, color: 'teal', label: 'y = −1/2 x + 5' }],
+          points: [
+            { id: 'p', x: 4, y: 3, label: '(4, 3)', color: 'amber' },
+            { id: 'b', x: 0, y: 5, label: 'b = 5', color: 'green', emphasis: true },
+          ],
         },
         answer: {
           kind: 'number',
@@ -488,7 +583,7 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
         id: 'rc-rad-1',
         kind: 'worked',
         source: 'Catch-Up · Prerequisite',
-        prompt: 'Distance formula squares every difference, so both squared terms are **always positive**.',
+        prompt: 'Find the exact length from **(0, 0)** to **(−3, 4)** without losing a negative sign.',
         plan: [
           'Always put brackets around negative differences: (−4)² = +16.',
           'Add the two positive squares BEFORE taking the square root.',
@@ -531,7 +626,7 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
       {
         id: 'rc-rad-chk',
         kind: 'math-input',
-        prompt: 'Evaluate **√((−6)² + 8²)**.',
+        prompt: 'Find the exact length **d = √((−6)² + 8²)** between **(0, 0)** and **(−6, 8)**.',
         placeholder: 'e.g. 10',
         scene: {
           xMin: -8,
@@ -539,6 +634,18 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
           yMin: -1,
           yMax: 10,
           segments: [{ from: [0, 0], to: [-6, 8], color: 'blue', label: 'd = ?' }],
+          points: [
+            { id: 'a', x: 0, y: 0, label: '(0,0)', color: 'blue' },
+            { id: 'b', x: -6, y: 8, label: '(−6,8)', color: 'amber' },
+          ],
+        },
+        solvedScene: {
+          xMin: -8,
+          xMax: 2,
+          yMin: -1,
+          yMax: 10,
+          riseRuns: [{ from: [0, 0], to: [-6, 8], color: 'amber', showLabels: true }],
+          segments: [{ from: [0, 0], to: [-6, 8], color: 'teal', label: 'd = 10' }],
           points: [
             { id: 'a', x: 0, y: 0, label: '(0,0)', color: 'blue' },
             { id: 'b', x: -6, y: 8, label: '(−6,8)', color: 'amber' },
@@ -628,7 +735,7 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
       {
         id: 'rc-poi-chk',
         kind: 'math-input',
-        prompt: 'Find the **point of intersection** of **y = x + 1** and **y = −x + 5**.',
+        prompt: 'Find the **point of intersection (POI)** of **y = x + 1** and **y = −x + 5**.',
         placeholder: '(x, y)',
         scene: {
           xMin: -1,
@@ -639,6 +746,17 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
             { a: 1, b: -1, c: 1, color: 'blue', label: 'y = x + 1' },
             { a: 1, b: 1, c: -5, color: 'teal', label: 'y = −x + 5' },
           ],
+        },
+        solvedScene: {
+          xMin: -1,
+          xMax: 6,
+          yMin: -1,
+          yMax: 6,
+          lines: [
+            { a: 1, b: -1, c: 1, color: 'blue', label: 'y = x + 1' },
+            { a: 1, b: 1, c: -5, color: 'teal', label: 'y = −x + 5' },
+          ],
+          points: [{ id: 'poi', x: 2, y: 3, label: 'POI(2, 3)', color: 'green', emphasis: true }],
         },
         answer: {
           kind: 'point',
@@ -690,12 +808,24 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
         id: 'rc-voc-1',
         kind: 'worked',
         source: 'Catch-Up · Prerequisite',
-        prompt: 'Every special triangle line is defined by **two ingredients**: where it starts and what angle it hits.',
+        prompt: 'Compare the **median**, **altitude**, and **right bisector** of **△ABC** using their two key ingredients.',
         plan: [
           'Median = Vertex → Opposite Midpoint (no 90° needed).',
           'Altitude = Vertex → 90° to opposite side (no midpoint needed).',
           'Right Bisector = Midpoint → 90° (usually misses the opposite vertex!).',
         ],
+        preScene: {
+          xMin: -1,
+          xMax: 7,
+          yMin: -1,
+          yMax: 6,
+          segments: [
+            { from: [0, 0], to: [6, 0], color: 'blue' },
+            { from: [6, 0], to: [2, 5], color: 'blue' },
+            { from: [2, 5], to: [0, 0], color: 'blue' },
+          ],
+          points: [{ id: 'a', x: 2, y: 5, label: 'A', color: 'blue' }],
+        },
         steps: [
           {
             heading: 'Check the two ingredients',
@@ -730,7 +860,28 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
       {
         id: 'rc-voc-chk',
         kind: 'choice',
-        prompt: 'Which line uses BOTH the **midpoint** of a side AND the **negative reciprocal slope m⊥**?',
+        prompt: 'Which special triangle line uses BOTH the **midpoint** of a side AND the **negative reciprocal slope m⊥**?',
+        scene: {
+          xMin: -1,
+          xMax: 7,
+          yMin: -1,
+          yMax: 6,
+          segments: [{ from: [0, 0], to: [6, 0], color: 'blue' }],
+          points: [
+            { id: 'b', x: 0, y: 0, label: 'B', color: 'blue' },
+            { id: 'c', x: 6, y: 0, label: 'C', color: 'blue' },
+          ],
+        },
+        solvedScene: {
+          xMin: -1,
+          xMax: 7,
+          yMin: -1,
+          yMax: 6,
+          segments: [{ from: [0, 0], to: [6, 0], color: 'blue' }],
+          lines: [{ a: 1, b: 0, c: -3, color: 'teal', label: 'Right Bisector' }],
+          rightAngles: [{ vertex: [3, 0], dir1: [1, 0], dir2: [0, 1], color: 'green' }],
+          points: [{ id: 'm', x: 3, y: 0, label: 'M(3, 0)', color: 'violet', emphasis: true }],
+        },
         options: [
           { id: 'a', label: 'Median', hint: 'A median uses the midpoint and the opposite vertex (no m⊥).' },
           { id: 'b', label: 'Altitude', hint: 'An altitude uses m⊥ and the opposite vertex (no midpoint).' },

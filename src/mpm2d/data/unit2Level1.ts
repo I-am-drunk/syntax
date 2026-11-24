@@ -323,6 +323,14 @@ export const UNIT2_LEVEL_1: GeoLesson[] = [
           yMax: 9,
           lines: [{ a: 2, b: -1, c: 7, color: 'blue', label: '2x − y + 7 = 0' }],
         },
+        solvedScene: {
+          xMin: -6,
+          xMax: 4,
+          yMin: -2,
+          yMax: 9,
+          lines: [{ a: 2, b: -1, c: 7, color: 'teal', label: 'y = 2x + 7' }],
+          points: [{ id: 'b', x: 0, y: 7, label: '(0, 7)', color: 'amber', emphasis: true }],
+        },
         answer: {
           kind: 'line',
           expected: { a: 2, b: -1, c: 7 },
@@ -1350,7 +1358,20 @@ export const UNIT2_LEVEL_1: GeoLesson[] = [
           yMin: -1,
           yMax: 13,
           circles: [{ cx: 3, cy: 6, r: Math.sqrt(37), color: 'teal', dashed: true }],
-          segments: [{ from: [3, 6], to: [9, 7], color: 'amber', width: 2.5 }],
+          segments: [{ from: [3, 6], to: [9, 7], color: 'amber', width: 2.5, label: 'r = ?' }],
+          points: [
+            { id: 'c', x: 3, y: 6, label: 'C', showCoords: true, color: 'amber' },
+            { id: 'n', x: 9, y: 7, label: 'N', showCoords: true, color: 'blue' },
+          ],
+        },
+        solvedScene: {
+          xMin: -5,
+          xMax: 11,
+          yMin: -1,
+          yMax: 13,
+          circles: [{ cx: 3, cy: 6, r: Math.sqrt(37), color: 'teal' }],
+          riseRuns: [{ from: [3, 6], to: [9, 7], color: 'blue', showLabels: true }],
+          segments: [{ from: [3, 6], to: [9, 7], color: 'green', width: 3, label: 'r = √37' }],
           points: [
             { id: 'c', x: 3, y: 6, label: 'C', showCoords: true, color: 'amber' },
             { id: 'n', x: 9, y: 7, label: 'N', showCoords: true, color: 'blue' },

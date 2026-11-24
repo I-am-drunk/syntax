@@ -153,6 +153,20 @@ export const UNIT2_LEVEL2: GeoLesson[] = [
             { id: 'e', x: 3, y: 1, label: 'E', showCoords: true, color: 'blue' },
           ],
         },
+        solvedScene: {
+          xMin: -4,
+          xMax: 5,
+          yMin: -1,
+          yMax: 6,
+          polygons: [{ vertices: [[1, 4], [-2, 2], [3, 1]], color: 'blue', fillOpacity: 0.08 }],
+          riseRuns: [{ from: [-2, 2], to: [1, 4], color: 'teal', showLabels: true }],
+          segments: [{ from: [-2, 2], to: [1, 4], color: 'teal', width: 3, label: 'm = 2/3' }],
+          points: [
+            { id: 'c', x: 1, y: 4, label: 'C', showCoords: true, color: 'blue' },
+            { id: 'd', x: -2, y: 2, label: 'D', showCoords: true, color: 'amber' },
+            { id: 'e', x: 3, y: 1, label: 'E', showCoords: true, color: 'blue' },
+          ],
+        },
         answer: { kind: 'number', expected: 2 / 3, display: '2/3' },
         explanation: {
           steps: [
@@ -196,6 +210,23 @@ export const UNIT2_LEVEL2: GeoLesson[] = [
             { id: 'c', x: 1, y: 4, label: 'C', showCoords: true, color: 'blue' },
             { id: 'd', x: -2, y: 2, label: 'D', color: 'blue' },
             { id: 'e', x: 3, y: 1, label: 'E', showCoords: true, color: 'amber' },
+          ],
+        },
+        solvedScene: {
+          xMin: -4,
+          xMax: 5,
+          yMin: -1,
+          yMax: 6,
+          polygons: [{ vertices: [[1, 4], [-2, 2], [3, 1]], color: 'blue', fillOpacity: 0.08 }],
+          rightAngles: [rightAngleAt([1, 4], [-2, 2], [3, 1], 'green')],
+          segments: [
+            { from: [-2, 2], to: [1, 4], color: 'blue', label: 'm = 2/3' },
+            { from: [1, 4], to: [3, 1], color: 'green', width: 3, label: 'm = −3/2' },
+          ],
+          points: [
+            { id: 'c', x: 1, y: 4, label: 'C (90°)', color: 'green', emphasis: true },
+            { id: 'd', x: -2, y: 2, label: 'D', color: 'blue' },
+            { id: 'e', x: 3, y: 1, label: 'E', color: 'amber' },
           ],
         },
         answer: { kind: 'number', expected: -3 / 2, display: '−3/2' },
@@ -372,6 +403,24 @@ export const UNIT2_LEVEL2: GeoLesson[] = [
             { id: 'k', x: -2, y: 2, label: 'K', color: 'green' },
             { id: 'l', x: 1, y: 5, label: 'L', showCoords: true, color: 'amber' },
             { id: 'm', x: 3, y: -3, label: 'M', showCoords: true, color: 'amber' },
+          ],
+        },
+        solvedScene: {
+          xMin: -4,
+          xMax: 5,
+          yMin: -4,
+          yMax: 6,
+          polygons: [{ vertices: [[-2, 2], [1, 5], [3, -3]], color: 'blue', fillOpacity: 0.08 }],
+          rightAngles: [rightAngleAt([-2, 2], [1, 5], [3, -3], 'green')],
+          segments: [
+            { from: [1, 5], to: [3, -3], color: 'amber', width: 2.5 },
+            { from: [-2, 2], to: [2, 1], color: 'teal', dashed: true },
+          ],
+          points: [
+            { id: 'k', x: -2, y: 2, label: 'K', color: 'green' },
+            { id: 'l', x: 1, y: 5, label: 'L', color: 'amber' },
+            { id: 'm', x: 3, y: -3, label: 'M', color: 'amber' },
+            { id: 'n', x: 2, y: 1, label: 'N(2, 1)', color: 'teal', emphasis: true },
           ],
         },
         answer: { kind: 'point', expected: [2, 1], display: '(2, 1)' },
@@ -692,6 +741,21 @@ export const UNIT2_LEVEL2: GeoLesson[] = [
           ],
           points: [{ id: 'd', x: 4, y: -2, label: 'D(4, −2)', color: 'amber' }],
         },
+        solvedScene: {
+          xMin: -5,
+          xMax: 6,
+          yMin: -4,
+          yMax: 5,
+          lines: [
+            lineEq(1, 2, { color: 'blue', label: 'y = x + 2' }),
+            lineEq(-1, 2, { color: 'amber', dashed: true, label: 'y = −x + 2' }),
+          ],
+          rightAngles: [rightAngleAt([0, 2], [4, -2], [2, 4], 'green')],
+          points: [
+            { id: 'd', x: 4, y: -2, label: 'D(4, −2)', color: 'amber' },
+            { id: 'poi', x: 0, y: 2, label: 'POI(0, 2)', color: 'green', emphasis: true },
+          ],
+        },
         answer: { kind: 'point', expected: [0, 2], display: '(0, 2)' },
         explanation: {
           steps: [
@@ -728,7 +792,21 @@ export const UNIT2_LEVEL2: GeoLesson[] = [
           yMin: -4,
           yMax: 5,
           lines: [lineEq(1, 2, { color: 'blue' })],
-          segments: [{ from: [4, -2], to: [0, 2], color: 'amber', width: 2.8 }],
+          segments: [{ from: [4, -2], to: [0, 2], color: 'amber', width: 2.8, label: 'd = ?' }],
+          rightAngles: [rightAngleAt([0, 2], [4, -2], [2, 4], 'green')],
+          points: [
+            { id: 'd', x: 4, y: -2, label: 'D', showCoords: true, color: 'amber' },
+            { id: 'q', x: 0, y: 2, label: 'POI', showCoords: true, color: 'green' },
+          ],
+        },
+        solvedScene: {
+          xMin: -3,
+          xMax: 6,
+          yMin: -4,
+          yMax: 5,
+          lines: [lineEq(1, 2, { color: 'blue' })],
+          riseRuns: [{ from: [0, 2], to: [4, -2], color: 'teal', showLabels: true }],
+          segments: [{ from: [4, -2], to: [0, 2], color: 'green', width: 3, label: 'd = √32 ≈ 5.7' }],
           rightAngles: [rightAngleAt([0, 2], [4, -2], [2, 4], 'green')],
           points: [
             { id: 'd', x: 4, y: -2, label: 'D', showCoords: true, color: 'amber' },
@@ -1729,6 +1807,24 @@ export const UNIT2_LEVEL2: GeoLesson[] = [
             { id: 'z', x: 8, y: -4, label: 'Z', showCoords: true, color: 'blue' },
           ],
         },
+        solvedScene: {
+          xMin: -1,
+          xMax: 9,
+          yMin: -5,
+          yMax: 5,
+          polygons: [{ vertices: [[0, 0], [4, 4], [8, -4]], color: 'blue', fillOpacity: 0.08 }],
+          segments: [
+            { from: [0, 0], to: [6, 0], color: 'teal', dashed: true },
+            { from: [4, 4], to: [4, -2], color: 'teal', dashed: true },
+            { from: [8, -4], to: [2, 2], color: 'teal', dashed: true },
+          ],
+          points: [
+            { id: 'x', x: 0, y: 0, label: 'X', color: 'blue' },
+            { id: 'y', x: 4, y: 4, label: 'Y', color: 'blue' },
+            { id: 'z', x: 8, y: -4, label: 'Z', color: 'blue' },
+            { id: 'g', x: 4, y: 0, label: 'G(4, 0)', color: 'green', emphasis: true },
+          ],
+        },
         answer: { kind: 'point', expected: [4, 0], display: '(4, 0)' },
         explanation: {
           steps: [
@@ -1766,6 +1862,21 @@ export const UNIT2_LEVEL2: GeoLesson[] = [
           segments: [
             { from: [0, 0], to: [6, 8], color: 'blue', label: 'DF' },
             { from: [1, 4], to: [4, 8], color: 'amber', width: 2.6, label: '?' },
+          ],
+          points: [
+            { id: 'd', x: 0, y: 0, label: 'D(0,0)', color: 'blue' },
+            { id: 'f', x: 6, y: 8, label: 'F(6,8)', color: 'blue' },
+          ],
+        },
+        solvedScene: {
+          xMin: -1,
+          xMax: 8,
+          yMin: -1,
+          yMax: 10,
+          polygons: [{ vertices: [[0, 0], [2, 8], [6, 8]], color: 'blue', fillOpacity: 0.07 }],
+          segments: [
+            { from: [0, 0], to: [6, 8], color: 'blue', label: 'DF = 10' },
+            { from: [1, 4], to: [4, 8], color: 'green', width: 3, label: 'Midsegment = 5' },
           ],
           points: [
             { id: 'd', x: 0, y: 0, label: 'D(0,0)', color: 'blue' },
