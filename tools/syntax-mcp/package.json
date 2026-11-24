@@ -1,0 +1,24 @@
+{
+  "name": "syntax-mcp",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "syntax-mcp": "./dist/server.js",
+    "syntax-cli": "./dist/cli.js"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && npx esbuild src/server.ts src/cli.ts --bundle --platform=node --format=esm --packages=external --outdir=dist",
+    "start": "node dist/server.js",
+    "cli": "node dist/cli.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "esbuild": "^0.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.2"
+  }
+}

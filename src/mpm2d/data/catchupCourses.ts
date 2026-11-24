@@ -313,7 +313,7 @@ export const CATCHUP_LESSONS: CatchupLesson[] = [
       {
         id: 'rc-slp-0',
         kind: 'explore',
-        prompt: 'Drag the line to test positive, negative, and perpendicular slopes: watch the product **m₁ · m₂ = −1** hold.',
+        prompt: 'Drag the line to test positive, negative, and perpendicular slopes. Watch how **m₁ · m₂ = −1** always holds.',
         exploration: 'slope-perp',
       },
       {
