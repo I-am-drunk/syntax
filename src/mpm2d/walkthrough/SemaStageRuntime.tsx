@@ -24,28 +24,22 @@ const STRETCH_QUIPS = [
 export function SemaStageRuntime({
   track,
   videoRef,
-  getCurrentTime,
   playing,
   voiceOn,
   displayMode,
   userShape = 'jenson',
   userTail = 'jenson',
   fallbackCaption,
-  hideSubtitleBar = false,
 }: {
   track: SemaTrack | null
-  videoRef?: React.RefObject<HTMLVideoElement | null>
-  getCurrentTime?: () => number
+  videoRef: React.RefObject<HTMLVideoElement | null>
   playing: boolean
   voiceOn: boolean
   displayMode: SemaPromptDisplayMode
   userShape?: SemaShapeName
   userTail?: SemaTailName
   fallbackCaption?: string
-  hideSubtitleBar?: boolean
 }) {
-  const getTimeRef = useRef(getCurrentTime)
-  getTimeRef.current = getCurrentTime
   const actorRef = useRef<HTMLDivElement | null>(null)
   const stretchWrapRef = useRef<HTMLDivElement | null>(null)
   const haloRef = useRef<HTMLDivElement | null>(null)
@@ -142,11 +136,8 @@ export function SemaStageRuntime({
       const dt = p.lastFrameMs ? Math.min(0.05, (nowMs - p.lastFrameMs) / 1000) : 1 / 60
       p.lastFrameMs = nowMs
 
-      const t = getTimeRef.current
-        ? getTimeRef.current()
-        : videoRef?.current
-          ? videoRef.current.currentTime
-          : 0
+      const video = videoRef.current
+      const t = video ? video.currentTime : 0
 
       if (track) {
         const sample = sampleSemaTrack(track, t)
@@ -405,8 +396,7 @@ export function SemaStageRuntime({
     !isStretching &&
     (Boolean(pokeQuip) || ((displayMode === 'bubble' || displayMode === 'all') && Boolean(activePrompt?.say)))
 
-  // Subtitles stay prioritized and visible whenever prompts are active, even while stretching Sema
-  const showSubtitle = !hideSubtitleBar && displayMode !== 'off'
+  const showSubtitle = displayMode === 'subtitle' || displayMode === 'all'
 
   const sideClass =
     activePrompt?.side === 'left'

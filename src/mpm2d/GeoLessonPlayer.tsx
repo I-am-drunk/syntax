@@ -16,7 +16,7 @@ import { CompactExploration } from './explorations/CompactExploration'
 import { WorkspaceSplitter, type SplitterTension } from './pen/WorkspaceSplitter'
 import { buildWorksheetSpec } from './pen/worksheetModel'
 import { CheckmarkGate } from './checkmark/CheckmarkGate'
-import { buildFullSolutionProgram, buildGuidedHintProgram } from './walkthrough/lessonVideoDirector'
+import { getWalkthroughForPage } from './walkthrough/walkthroughData'
 import { WalkthroughContent, WalkthroughModal } from './walkthrough/WalkthroughPlayer'
 import { Sema, type SemaExpressionName, type SemaShapeName, type SemaState, type SemaTailName } from './mascot/Sema'
 import { recordWorkHistoryVersion } from './historyStore'
@@ -194,6 +194,50 @@ function evaluatePlanOrder(page: PlanOrderPage, chosen: string[]): { ok: boolean
   }
 }
 
+function buildGuidedHints(
+  page: GeoLessonPage,
+  walkthroughSpec: ReturnType<typeof getWalkthroughForPage>,
+): { title: string; bullets: string[]; tip: string } {
+  const bullets: string[] = []
+  if (walkthroughSpec?.steps && walkthroughSpec.steps.length > 0) {
+    for (const st of walkthroughSpec.steps.slice(0, 4)) {
+      const label = (st.label || '').trim()
+      if (label && !bullets.includes(label)) bullets.push(label)
+    }
+  }
+  if (bullets.length === 0) {
+    if (page.kind === 'multi-step') {
+      for (const st of page.steps) bullets.push(st.label)
+    } else if (page.kind === 'worked') {
+      for (const st of page.steps) bullets.push(st.heading)
+    } else if (page.kind === 'plan-order') {
+      bullets.push('Identify the final geometric property or value asked for.')
+      bullets.push('Work backwards to find which slopes, midpoints, or lengths must come first.')
+      bullets.push(`Build a sequence of ${page.validPlans[0]?.steps.length ?? 3} ordered steps.`)
+    } else {
+      bullets.push('Write down the coordinates or equations given in the prompt.')
+      bullets.push('Pick the matching Unit 2 formula (slope, midpoint, length, or line equation).')
+      bullets.push('Substitute carefully with signs, then double-check on the graph.')
+    }
+  }
+
+  let tip = 'Use these building blocks to set up your own plan before revealing the full solution.'
+  if (page.kind === 'math-input' && page.nudge) {
+    tip = page.nudge
+  } else if (page.kind === 'multi-step') {
+    const firstNudge = page.steps.find(s => s.nudge)?.nudge
+    if (firstNudge) tip = firstNudge
+  } else if (walkthroughSpec?.title) {
+    tip = `Focus on: ${walkthroughSpec.title}`
+  }
+
+  return {
+    title: 'Components & Setup Plan (No Answer Spoiler)',
+    bullets,
+    tip,
+  }
+}
+
 export function GeoLessonPlayer({
   lesson,
   theme,
@@ -272,7 +316,6 @@ export function GeoLessonPlayer({
   const [helpMenuOpen, setHelpMenuOpen] = useState(false)
   const [guidedHintsOpen, setGuidedHintsOpen] = useState(false)
   const [walkthroughFloating, setWalkthroughFloating] = useState(true)
-  const [hintFloating, setHintFloating] = useState(false)
   const [workedStepIndex, setWorkedStepIndex] = useState(0)
   const [playbookFloating, setPlaybookFloating] = useState(true)
   const [seenExplain, setSeenExplain] = useState(initialResume.seenExplain)
@@ -311,15 +354,10 @@ export function GeoLessonPlayer({
     () => buildWorksheetSpec(lesson, page, pageIndex, allPages.length, isCheck, showStepPlan),
     [lesson, page, pageIndex, allPages.length, isCheck, showStepPlan],
   )
-  const guidedHintProgram = useMemo(
-    () => buildGuidedHintProgram(lesson.id, page),
+  const walkthroughSpec = useMemo(
+    () => getWalkthroughForPage(lesson.id, page),
     [lesson.id, page],
   )
-  const solutionProgram = useMemo(
-    () => buildFullSolutionProgram(lesson.id, page),
-    [lesson.id, page],
-  )
-  const walkthroughSpec = solutionProgram
 
   useEffect(() => {
     if (!penOpen) setPenFullscreen(false)
@@ -376,7 +414,6 @@ export function GeoLessonPlayer({
       setWalkthroughOpen(false)
       setHelpMenuOpen(false)
       setGuidedHintsOpen(false)
-    setHintFloating(false)
       setWorkedStepIndex(0)
       return
     }
@@ -1035,34 +1072,44 @@ export function GeoLessonPlayer({
                     className="lesson-help-item is-primary"
                     onClick={() => {
                       setHelpMenuOpen(false)
-                      setHintFloating(false)
                       setGuidedHintsOpen(v => !v)
                       onSound?.('lightweight-choice')
                     }}
                   >
                     <span className="lesson-help-item-head">
-                      <strong>{guidedHintsOpen ? 'Hide hint video' : 'Guided hint video'}</strong>
+                      <strong>{guidedHintsOpen ? 'Hide guided hints' : 'Guided hints'}</strong>
                       <span className="lesson-help-rec-pill">Recommended</span>
                     </span>
-                    <span>Short animated setup &amp; formula video with zero answer spoilers.</span>
+                    <span>Step-by-step setup cues and formulas without giving away the answer.</span>
                   </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="lesson-help-item"
-                    onClick={() => {
-                      setHelpMenuOpen(false)
-                      setGuidedHintsOpen(false)
-                      if (penOpen && formulasOpen) onCloseFormulas()
-                      if (explanationOpen) setExplanationOpen(false)
-                      setWalkthroughOpen(true)
-                      setSeenExplain(prev => ({ ...prev, [page.id]: true }))
-                      onSound?.('lightweight-choice')
-                    }}
-                  >
-                    <strong>Full solution video (Visual + Algebra)</strong>
-                    <span>Watch the animated step-by-step Visual &amp; Algebra solution with Sema.</span>
-                  </button>
+                  {(walkthroughSpec || activeExplanation) && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="lesson-help-item"
+                      onClick={() => {
+                        setHelpMenuOpen(false)
+                        if (penOpen && formulasOpen) onCloseFormulas()
+                        if (walkthroughSpec) {
+                          if (explanationOpen) setExplanationOpen(false)
+                          setWalkthroughOpen(true)
+                        } else if (activeExplanation) {
+                          setExplanationOpen(true)
+                        }
+                        setSeenExplain(prev => ({ ...prev, [page.id]: true }))
+                        onSound?.('lightweight-choice')
+                      }}
+                    >
+                      <strong>
+                        {walkthroughSpec ? 'Video walkthrough' : 'View full explanation'}
+                      </strong>
+                      <span>
+                        {walkthroughSpec
+                          ? 'Watch Sema walk through the complete worked solution.'
+                          : 'Read the complete step-by-step worked solution.'}
+                      </span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -1151,12 +1198,12 @@ export function GeoLessonPlayer({
             {leftSlot === 'walkthrough' && walkthroughSpec && (
               <div className="lesson-left-slot-panel is-walkthrough">
                 <WalkthroughContent
-                  program={solutionProgram}
+                  spec={walkthroughSpec}
                   soundOn={soundOn}
                   voiceOn={voiceOn}
                   drawMode={drawMode}
                   semaShape={semaShape}
-                  semaTail={semaTail}
+          semaTail={semaTail}
                   inline
                   floating={false}
                   initialStepIndex={walkthroughInitialStep}
@@ -1195,72 +1242,20 @@ export function GeoLessonPlayer({
                   data-is-check={isCheck}
                 >
                   <div className="lesson-content">
-                    <div className="lesson-stage-ribbon" aria-label="Lesson learning flow">
-                      {(
-                        [
-                          { id: 'explore', label: '1. Explore' },
-                          { id: 'worked', label: '2. Worked Example' },
-                          { id: 'practice', label: '3. Practice' },
-                          { id: 'check', label: '4. Mastery Check' },
-                        ] as const
-                      ).map(stage => {
-                        const activeStage = isCheck
-                          ? 'check'
-                          : page.kind === 'explore'
-                            ? 'explore'
-                            : page.kind === 'worked'
-                              ? 'worked'
-                              : 'practice'
-                        const isActive = stage.id === activeStage
-                        return (
-                          <span
-                            key={stage.id}
-                            className={`lesson-stage-pill${isActive ? ' is-active' : ''}`}
-                          >
-                            {stage.label}
-                          </span>
-                        )
-                      })}
-                      {'source' in page && page.source && (
-                        <span className="lesson-source-pill">{page.source}</span>
-                      )}
-                    </div>
-                    <div className="lesson-kicker-row">
-                      <div className="lesson-kicker-line">
-                        {lesson.shortTitle} · Page {pageIndex + 1} of {allPages.length}
-                      </div>
-                      {page.kind !== 'explore' && (
-                        <div className="lesson-kicker-actions">
-                          <button
-                            type="button"
-                            className={`lesson-hint-video-pill${guidedHintsOpen ? ' is-open' : ''}`}
-                            aria-expanded={guidedHintsOpen}
-                            onClick={() => {
-                              setHintFloating(false)
-                              setGuidedHintsOpen(v => !v)
-                              onSound?.('lightweight-choice')
-                            }}
-                          >
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                              <polygon points="6,4 20,12 6,20" />
-                            </svg>
-                            <span>{guidedHintsOpen ? 'Hide Hint Video' : 'Hint Video'}</span>
-                          </button>
-                          <button
-                            type="button"
-                            className="lesson-solution-video-pill"
-                            onClick={() => {
-                              setGuidedHintsOpen(false)
-                              if (penOpen && formulasOpen) onCloseFormulas()
-                              setSeenExplain(prev => ({ ...prev, [page.id]: true }))
-                              setWalkthroughOpen(true)
-                              onSound?.('lightweight-choice')
-                            }}
-                          >
-                            <span>Why? Video</span>
-                          </button>
-                        </div>
-                      )}
+                    <div className="lesson-kicker-line">
+                      {page.kind === 'worked'
+                        ? lesson.id.startsWith('rescue-')
+                          ? 'Catch-Up Worked Example'
+                          : `Level ${lesson.level} Worked Example`
+                        : `${lesson.id.startsWith('rescue-') ? 'Catch-Up' : `Level ${lesson.level}`} · ${
+                            isCheck
+                              ? 'Mastery Check'
+                              : page.kind === 'explore'
+                                ? 'Interactive Lab'
+                                : penAllowed
+                                  ? 'Lesson · Notebook'
+                                  : 'Lesson'
+                          }`}
                     </div>
                     {returnToLessonLabel && onReturnToLesson && (
                       <button
@@ -1275,34 +1270,59 @@ export function GeoLessonPlayer({
                       <RichText text={page.prompt} />
                     </div>
 
-                    {guidedHintsOpen && !hintFloating && (
-                      <div role="region" aria-label="Guided hint video">
-                        <WalkthroughContent
-                          program={guidedHintProgram}
-                          soundOn={soundOn}
-                          voiceOn={voiceOn}
-                          drawMode={drawMode}
-                          semaShape={semaShape}
-                          semaTail={semaTail}
-                          inline
-                          slideDown
-                          onToggleFloat={() => setHintFloating(true)}
-                          onToggleVoice={() => onToggleVoice?.()}
-                          onClose={() => setGuidedHintsOpen(false)}
-                          onOpenFormulas={() => onToggleFormulas()}
-                          onEscalateToSolution={() => {
-                            setGuidedHintsOpen(false)
-                            if (penOpen && formulasOpen) onCloseFormulas()
-                            setSeenExplain(prev => ({ ...prev, [page.id]: true }))
-                            setWalkthroughOpen(true)
-                          }}
-                          onLaunchRescue={rescueId => {
-                            setGuidedHintsOpen(false)
-                            onLaunchRescue?.(rescueId)
-                          }}
-                        />
-                      </div>
-                    )}
+                    {guidedHintsOpen && (() => {
+                      const guide = buildGuidedHints(page, walkthroughSpec)
+                      return (
+                        <div className="lesson-guided-hints-card" role="region" aria-label="Guided hints">
+                          <div className="lesson-guided-hints-head">
+                            <span>{guide.title}</span>
+                            <button
+                              type="button"
+                              className="lesson-guided-hints-close"
+                              onClick={() => setGuidedHintsOpen(false)}
+                            >
+                              Hide
+                            </button>
+                          </div>
+                          <ul className="lesson-guided-hints-list">
+                            {guide.bullets.map((b, i) => (
+                              <li key={i}>
+                                <MathText text={b} />
+                              </li>
+                            ))}
+                          </ul>
+                          <p className="lesson-guided-hints-tip">
+                            <MathText text={guide.tip} />
+                          </p>
+                          <div className="lesson-guided-hints-actions">
+                            <button
+                              type="button"
+                              className="lesson-guided-hints-more"
+                              onClick={() => {
+                                setGuidedHintsOpen(false)
+                                onToggleFormulas()
+                              }}
+                            >
+                              Open Formula Playbook
+                            </button>
+                            {(walkthroughSpec || activeExplanation) && (
+                              <button
+                                type="button"
+                                className="lesson-guided-hints-more"
+                                onClick={() => {
+                                  setGuidedHintsOpen(false)
+                                  if (penOpen && formulasOpen) onCloseFormulas()
+                                  if (walkthroughSpec) setWalkthroughOpen(true)
+                                  else setExplanationOpen(true)
+                                }}
+                              >
+                                Still stuck? Show full solution
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })()}
 
                     {page.kind === 'explore' && (
                       <CompactExploration kind={page.exploration} onSound={onSound} />
@@ -1756,7 +1776,7 @@ export function GeoLessonPlayer({
                           : undefined
                     }
                     explanationSeen={!!seenExplain[page.id]}
-                    allowWhyOnRetry={state.attempts >= 1}
+                    allowWhyOnRetry={state.attempts >= 2}
                   />
                 )}
               </>
@@ -1819,10 +1839,10 @@ export function GeoLessonPlayer({
         )}
       </div>
 
-      {/* Full Solution Video renders as a draggable floating window by default (or docks to left pane in Pen Mode when toggled) */}
-      {(!penOpen || walkthroughFloating) && (
+      {/* Walk me through renders as a draggable floating window by default (or docks to left pane in Pen Mode when toggled) */}
+      {walkthroughSpec && (!penOpen || walkthroughFloating) && (
         <WalkthroughModal
-          program={solutionProgram}
+          spec={walkthroughSpec}
           open={walkthroughOpen}
           soundOn={soundOn}
           voiceOn={voiceOn}
@@ -1835,30 +1855,6 @@ export function GeoLessonPlayer({
           onClose={() => setWalkthroughOpen(false)}
           onLaunchRescue={rescueId => {
             setWalkthroughOpen(false)
-            onLaunchRescue?.(rescueId)
-          }}
-        />
-      )}
-
-      {/* Popped-out Guided Hint Video window */}
-      {guidedHintsOpen && hintFloating && (
-        <WalkthroughModal
-          program={guidedHintProgram}
-          open={guidedHintsOpen && hintFloating}
-          soundOn={soundOn}
-          voiceOn={voiceOn}
-          drawMode={drawMode}
-          semaShape={semaShape}
-          semaTail={semaTail}
-          onToggleFloat={() => setHintFloating(false)}
-          onToggleVoice={() => onToggleVoice?.()}
-          onClose={() => {
-            setHintFloating(false)
-            setGuidedHintsOpen(false)
-          }}
-          onLaunchRescue={rescueId => {
-            setHintFloating(false)
-            setGuidedHintsOpen(false)
             onLaunchRescue?.(rescueId)
           }}
         />
