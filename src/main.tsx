@@ -7,14 +7,17 @@ import './lessons/practiceExplanation.css'
 import './lessons/completion.css'
 import './interactives/gridView.css'
 import './mpm2d/mpm2dBrilliant.css'
-import { CourseShell } from './mpm2d/CourseShell'
+import { initGlobalErrorCapture } from './core/logger'
+import { SyntaxApp } from './ui/SyntaxApp'
 import { DevChannelBadge, isDevEnvironment } from './mpm2d/components/DevChannelBadge'
+
+initGlobalErrorCapture()
 
 const isDevChannel = isDevEnvironment()
 
 createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <CourseShell />
+    <SyntaxApp />
     {isDevChannel ? <DevChannelBadge /> : null}
   </React.StrictMode>,
 )

@@ -627,11 +627,13 @@ export function FormulaSheetModal({
   open,
   onClose,
   dockable = false,
+  floatingEnabled = true,
   onToggleFloat,
 }: {
   open: boolean
   onClose: () => void
   dockable?: boolean
+  floatingEnabled?: boolean
   onToggleFloat?: () => void
 }) {
   const [floating, setFloating] = useState(true)
@@ -650,33 +652,60 @@ export function FormulaSheetModal({
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
+  const effectiveDockable = dockable && canDockViewport
+  const isDockedRail = effectiveDockable && (!floating || !floatingEnabled)
+  const isStaticModal = !floatingEnabled && !isDockedRail
+
   useEffect(() => {
-    if (!open || (dockable && canDockViewport && floating) || !(dockable && canDockViewport)) return
+    if (!open || (!isDockedRail && !isStaticModal)) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !e.defaultPrevented) {
-        if (document.querySelector('[role="dialog"], [role="menu"]')) return
+        if (isDockedRail && document.querySelector('[role="dialog"], [role="menu"]')) return
         e.preventDefault()
         onClose()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [open, dockable, canDockViewport, floating, onClose])
+  }, [open, isDockedRail, isStaticModal, onClose])
 
   if (!open) return null
 
-  const effectiveDockable = dockable && canDockViewport
-
-  if (effectiveDockable && !floating) {
+  if (isDockedRail) {
     return (
       <aside className="formula-dock-rail" aria-label="Unit 2 Playbook">
         <FormulaSheetContent
           onClose={onClose}
           closeLabel="Close Playbook"
           floating={false}
-          onToggleFloat={() => setFloating(true)}
+          onToggleFloat={floatingEnabled ? () => setFloating(true) : undefined}
         />
       </aside>
+    )
+  }
+
+  if (isStaticModal) {
+    return (
+      <div
+        className="sx-modal-backdrop"
+        onClick={e => {
+          if (e.target === e.currentTarget) onClose()
+        }}
+      >
+        <div
+          className="sx-modal is-wide"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Unit 2 Playbook"
+          style={{ padding: 0, overflow: 'hidden', maxHeight: '86vh', display: 'flex', flexDirection: 'column' }}
+        >
+          <FormulaSheetContent
+            onClose={onClose}
+            closeLabel="Close Playbook"
+            floating={false}
+          />
+        </div>
+      </div>
     )
   }
 

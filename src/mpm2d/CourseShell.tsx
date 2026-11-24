@@ -14,6 +14,7 @@ import { SyntaxSettingsPage } from './components/SyntaxSettingsModal'
 import { SyntaxHistoryPage } from './components/SyntaxHistoryModal'
 import { TopBarSema } from './mascot/TopBarSema'
 import { loadPrefs, savePrefs, type SyntaxPrefs } from './storage'
+import { usePluginActive } from '../core/registry'
 import { assetUrl } from './assetUrl'
 import {
   DevMetricsMicroBar,
@@ -195,10 +196,39 @@ function toPathTier(stat?: { correct: number; total: number }): PathLessonStat['
   return 'attempted'
 }
 
-export function CourseShell() {
+export type CourseShellProps = {
+  onExitCourse?: () => void
+  onOpenHub?: () => void
+  onOpenPlugins?: () => void
+  onOpenProfile?: () => void
+  externalTheme?: 'light' | 'dark'
+  onExternalThemeChange?: (next: 'light' | 'dark') => void
+  hideToaster?: boolean
+}
+
+export function CourseShell({
+  onExitCourse,
+  onOpenHub,
+  onOpenPlugins,
+  onOpenProfile,
+  externalTheme,
+  onExternalThemeChange,
+  hideToaster = false,
+}: CourseShellProps = {}) {
+  const playbookPluginOn = usePluginActive('formula-playbook')
+  const historyPluginOn = usePluginActive('work-history')
+  const penPluginOn = usePluginActive('pen-studio')
+  const checkmarkPluginOn = usePluginActive('checkmark-gate')
+  const floatingWindowsPluginOn = usePluginActive('floating-windows')
   const [progress, setProgress] = useState<SavedProgress>(loadProgress)
   const [resumeMap, setResumeMap] = useState(loadResumeMap)
-  const [theme, setTheme] = useState<'light' | 'dark'>(loadTheme)
+  const [localTheme, setLocalTheme] = useState<'light' | 'dark'>(loadTheme)
+  const theme = externalTheme ?? localTheme
+  const setTheme = (updater: 'light' | 'dark' | ((prev: 'light' | 'dark') => 'light' | 'dark')) => {
+    const next = typeof updater === 'function' ? updater(theme) : updater
+    setLocalTheme(next)
+    onExternalThemeChange?.(next)
+  }
   const [soundOn, setSoundOn] = useState<boolean>(loadSound)
   const [prefs, setPrefs] = useState<SyntaxPrefs>(loadPrefs)
   const [filterOpen, setFilterOpen] = useState(false)
@@ -360,8 +390,9 @@ export function CourseShell() {
     }
   }, [activeLessonId, virtualReviewLesson, settingsOpen, historyOpen, prefs.showCatchupPaths])
 
-  // Passive global stylus detection -> offer Draw Mode automatically
+  // Passive global stylus detection -> offer Draw Mode automatically (only when stylus plugins are active)
   useEffect(() => {
+    if (!penPluginOn && !checkmarkPluginOn) return
     const onPtr = (e: PointerEvent) => {
       if (e.pointerType !== 'pen' || penNotifiedRef.current) return
       penNotifiedRef.current = true
@@ -380,7 +411,7 @@ export function CourseShell() {
     }
     window.addEventListener('pointerdown', onPtr, { passive: true })
     return () => window.removeEventListener('pointerdown', onPtr)
-  }, [])
+  }, [penPluginOn, checkmarkPluginOn])
 
   // Global 'F' shortcut for Playbook (when not typing in an input or pen canvas)
   useEffect(() => {
@@ -399,14 +430,14 @@ export function CourseShell() {
       }
       if (el?.closest('[data-pen-workspace]')) return
       if (document.querySelector('[role="dialog"]:not(#syntax-playbook-winbox), [role="menu"]')) return
-      if (e.key === 'f' || e.key === 'F') {
+      if ((e.key === 'f' || e.key === 'F') && playbookPluginOn) {
         e.preventDefault()
         setFormulasOpen(v => !v)
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [prefs.onboarded])
+  }, [prefs.onboarded, playbookPluginOn])
 
   const allChecksById = useMemo(() => {
     const map = new Map<string, GeoLessonPage>()
@@ -615,8 +646,12 @@ export function CourseShell() {
     setVirtualReviewLesson(null)
     setActiveLessonId(null)
     setResumeMap(loadResumeMap())
-    if (location.hash) {
-      history.pushState(null, '', location.pathname + location.search)
+    if (onExitCourse) {
+      if (location.hash !== '#/course/mpm2d-analytic-geometry') {
+        history.replaceState(null, '', '#/course/mpm2d-analytic-geometry')
+      }
+    } else if (location.hash) {
+      history.replaceState(null, '', location.pathname + location.search)
     }
   }
 
@@ -753,7 +788,7 @@ export function CourseShell() {
   if (activeLesson) {
     return (
       <>
-        <Toaster position="bottom-center" theme={theme} />
+        {!hideToaster && <Toaster position="bottom-center" theme={theme} />}
         <GeoLessonPlayer
           key={activeLesson.id}
           lesson={activeLesson}
@@ -780,8 +815,8 @@ export function CourseShell() {
           onPenModeChange={setPenModeActive}
           onSound={emitSound}
         />
-        {!penModeActive && (
-          <FormulaSheetModal open={formulasOpen} dockable onClose={() => setFormulasOpen(false)} />
+        {!penModeActive && playbookPluginOn && (
+          <FormulaSheetModal open={formulasOpen} dockable floatingEnabled={floatingWindowsPluginOn} onClose={() => setFormulasOpen(false)} />
         )}
       </>
     )
@@ -792,7 +827,7 @@ export function CourseShell() {
 
   return (
     <>
-      <Toaster position="bottom-center" theme={theme} />
+      {!hideToaster && <Toaster position="bottom-center" theme={theme} />}
       <header className="app-header" data-settings-open={settingsOpen || undefined}>
         <div className={`brand-lockup${isDev ? ' is-dev-brand' : ''}`} data-settings-open={settingsOpen || undefined}>
           <div className="brand-wordmark-stack">
@@ -882,6 +917,7 @@ export function CourseShell() {
                 />
               )}
             </a>
+            {playbookPluginOn && (
             <button
               type="button"
               className="primary-nav-btn"
@@ -904,6 +940,7 @@ export function CourseShell() {
                 />
               )}
             </button>
+            )}
           </div>
 
           {/* Pixar wipe-in Settings nav tab (slides right-to-left from Playbook, dims & hides course tabs behind it) */}
@@ -965,6 +1002,31 @@ export function CourseShell() {
                       />
                     </svg>
                   </Menu.Arrow>
+                  {onExitCourse && (
+                    <>
+                      <Menu.Group className="menu-group">
+                        <Menu.Item className="menu-item" onClick={onExitCourse}>
+                          ← Syntax Library
+                        </Menu.Item>
+                        {onOpenHub && (
+                          <Menu.Item className="menu-item" onClick={onOpenHub}>
+                            Community Hub
+                          </Menu.Item>
+                        )}
+                        {onOpenPlugins && (
+                          <Menu.Item className="menu-item" onClick={onOpenPlugins}>
+                            Plugins &amp; Libraries
+                          </Menu.Item>
+                        )}
+                        {onOpenProfile && (
+                          <Menu.Item className="menu-item" onClick={onOpenProfile}>
+                            Profile
+                          </Menu.Item>
+                        )}
+                      </Menu.Group>
+                      <Menu.Separator className="menu-separator" />
+                    </>
+                  )}
                   <Menu.Group className="menu-group">
                     <Menu.Item
                       className="menu-item"
@@ -977,37 +1039,41 @@ export function CourseShell() {
                     >
                       {settingsOpen ? 'Back to Unit 2' : 'Settings'}
                     </Menu.Item>
-                    <Menu.Item
-                      className="menu-item"
-                      onClick={() => {
-                        emitSound('toggle-on')
-                        setFormulasOpen(false)
-                        setSettingsOpen(false)
-                        setHistoryOpen(v => !v)
-                      }}
-                    >
-                      <span className="menu-item-row">
-                        <span>History</span>
-                        <span className={`menu-item-pill${historyOpen ? ' is-on' : ''}`}>
-                          {historyOpen ? 'OPEN' : 'TIME'}
+                    {historyPluginOn && (
+                      <Menu.Item
+                        className="menu-item"
+                        onClick={() => {
+                          emitSound('toggle-on')
+                          setFormulasOpen(false)
+                          setSettingsOpen(false)
+                          setHistoryOpen(v => !v)
+                        }}
+                      >
+                        <span className="menu-item-row">
+                          <span>History</span>
+                          <span className={`menu-item-pill${historyOpen ? ' is-on' : ''}`}>
+                            {historyOpen ? 'OPEN' : 'TIME'}
+                          </span>
                         </span>
-                      </span>
-                    </Menu.Item>
-                    <Menu.Item
-                      className="menu-item"
-                      closeOnClick={false}
-                      onClick={() => {
-                        emitSound('toggle-on')
-                        setPrefs(p => ({ ...p, drawMode: !p.drawMode }))
-                      }}
-                    >
-                      <span className="menu-item-row">
-                        <span>Draw Mode</span>
-                        <span className={`menu-item-pill${prefs.drawMode ? ' is-on' : ''}`}>
-                          {prefs.drawMode ? 'ON' : 'OFF'}
+                      </Menu.Item>
+                    )}
+                    {penPluginOn && (
+                      <Menu.Item
+                        className="menu-item"
+                        closeOnClick={false}
+                        onClick={() => {
+                          emitSound('toggle-on')
+                          setPrefs(p => ({ ...p, drawMode: !p.drawMode }))
+                        }}
+                      >
+                        <span className="menu-item-row">
+                          <span>Draw Mode</span>
+                          <span className={`menu-item-pill${prefs.drawMode ? ' is-on' : ''}`}>
+                            {prefs.drawMode ? 'ON' : 'OFF'}
+                          </span>
                         </span>
-                      </span>
-                    </Menu.Item>
+                      </Menu.Item>
+                    )}
                     <Menu.Item
                       className="menu-item"
                       closeOnClick={false}
@@ -1026,16 +1092,18 @@ export function CourseShell() {
                   </Menu.Group>
                   <Menu.Separator className="menu-separator" />
                   <Menu.Group className="menu-group">
-                    <Menu.Item
-                      className="menu-item"
-                      onClick={() => {
-                        setSettingsOpen(false)
-                        setHistoryOpen(false)
-                        setFormulasOpen(true)
-                      }}
-                    >
-                      Playbook &amp; Formulas
-                    </Menu.Item>
+                    {playbookPluginOn && (
+                      <Menu.Item
+                        className="menu-item"
+                        onClick={() => {
+                          setSettingsOpen(false)
+                          setHistoryOpen(false)
+                          setFormulasOpen(true)
+                        }}
+                      >
+                        Playbook &amp; Formulas
+                      </Menu.Item>
+                    )}
                     <Menu.Item
                       className="menu-item"
                       onClick={() => {
@@ -1509,7 +1577,9 @@ export function CourseShell() {
           })()}
         </div>
       </main>
-      <FormulaSheetModal open={formulasOpen} onClose={() => setFormulasOpen(false)} />
+      {playbookPluginOn && (
+        <FormulaSheetModal open={formulasOpen} dockable={false} floatingEnabled={floatingWindowsPluginOn} onClose={() => setFormulasOpen(false)} />
+      )}
 
       <OnboardingModal
         open={!prefs.onboarded}

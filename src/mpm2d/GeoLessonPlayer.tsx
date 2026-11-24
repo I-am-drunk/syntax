@@ -20,6 +20,7 @@ import { getWalkthroughForPage } from './walkthrough/walkthroughData'
 import { WalkthroughContent, WalkthroughModal } from './walkthrough/WalkthroughPlayer'
 import { Sema, type SemaExpressionName, type SemaShapeName, type SemaState, type SemaTailName } from './mascot/Sema'
 import { recordWorkHistoryVersion } from './historyStore'
+import { usePluginActive } from '../core/registry'
 
 const PenCanvasWorkspace = lazy(() => import('./pen/PenCanvasWorkspace'))
 
@@ -196,7 +197,7 @@ function evaluatePlanOrder(page: PlanOrderPage, chosen: string[]): { ok: boolean
 
 function buildGuidedHints(
   page: GeoLessonPage,
-  walkthroughSpec: ReturnType<typeof getWalkthroughForPage>,
+  walkthroughSpec?: ReturnType<typeof getWalkthroughForPage>,
 ): { title: string; bullets: string[]; tip: string } {
   const bullets: string[] = []
   if (walkthroughSpec?.steps && walkthroughSpec.steps.length > 0) {
@@ -346,7 +347,13 @@ export function GeoLessonPlayer({
   const isCheck = lesson.checks.length > 0 && pageIndex >= lesson.pages.length
   const checkIndex = isCheck ? pageIndex - lesson.pages.length : undefined
   const state = states[page.id] ?? emptyState
-  const penAllowed = isPenEnabledForPage(page, isCheck)
+  const penPluginOn = usePluginActive('pen-studio')
+  const walkthroughPluginOn = usePluginActive('walkthrough-player')
+  const checkmarkPluginOn = usePluginActive('checkmark-gate')
+  const historyPluginOn = usePluginActive('work-history')
+  const playbookPluginOn = usePluginActive('formula-playbook')
+  const floatingWindowsPluginOn = usePluginActive('floating-windows')
+  const penAllowed = penPluginOn && isPenEnabledForPage(page, isCheck)
   const penOpen = penWanted && penAllowed
   const pageRole = classifyLessonPage(page, isCheck)
   const isProblem = isInteractivePage(page, penOpen)
@@ -355,8 +362,8 @@ export function GeoLessonPlayer({
     [lesson, page, pageIndex, allPages.length, isCheck, showStepPlan],
   )
   const walkthroughSpec = useMemo(
-    () => getWalkthroughForPage(lesson.id, page),
-    [lesson.id, page],
+    () => (walkthroughPluginOn ? getWalkthroughForPage(lesson.id, page) : undefined),
+    [walkthroughPluginOn, lesson.id, page],
   )
 
   useEffect(() => {
@@ -532,7 +539,7 @@ export function GeoLessonPlayer({
           feedback: undefined,
           pinnedHint: undefined,
         })
-        recordWorkHistoryVersion({
+        if (historyPluginOn) recordWorkHistoryVersion({
           lesson,
           page: msPage,
           pageIndex,
@@ -586,7 +593,7 @@ export function GeoLessonPlayer({
           feedback: `${feedback ?? 'Check the algebra carefully.'} Exact value: ${sub.ledgerResult}.`,
           pinnedHint: undefined,
         })
-        recordWorkHistoryVersion({
+        if (historyPluginOn) recordWorkHistoryVersion({
           lesson,
           page: msPage,
           pageIndex,
@@ -711,7 +718,7 @@ export function GeoLessonPlayer({
           : page.kind === 'plan-order'
             ? state.planChosen.map((id, idx) => `${idx + 1}. ${page.pool.find(b => b.id === id)?.text ?? id}`).join(" · ")
             : "Completed"
-    recordWorkHistoryVersion({
+    if (historyPluginOn) recordWorkHistoryVersion({
       lesson,
       page,
       pageIndex,
@@ -918,13 +925,15 @@ export function GeoLessonPlayer({
         ? Math.min(state.activeSubStep, page.steps.length - 1)
         : 0
 
-  // Left-pane slot architecture in Pen Mode: floats by default so question stays visible, or docks if user clicks Dock!
+  // Left-pane slot architecture in Pen Mode: floats by default so question stays visible, or docks if user clicks Dock (or when Floating Windows plugin is disabled).
+  const effectiveWalkthroughFloating = walkthroughFloating && floatingWindowsPluginOn
+  const effectivePlaybookFloating = playbookFloating && floatingWindowsPluginOn
   const leftSlot: 'problem' | 'compare' | 'playbook' | 'walkthrough' =
-    penOpen && !walkthroughFloating && walkthroughOpen && walkthroughSpec
+    penOpen && !effectiveWalkthroughFloating && walkthroughOpen && walkthroughSpec
       ? 'walkthrough'
       : penOpen && explanationOpen && activeExplanation
         ? 'compare'
-        : penOpen && !playbookFloating && formulasOpen
+        : penOpen && playbookPluginOn && !effectivePlaybookFloating && formulasOpen
           ? 'playbook'
           : 'problem'
 
@@ -1114,6 +1123,7 @@ export function GeoLessonPlayer({
               )}
             </div>
           )}
+          {playbookPluginOn && (
           <button
             type="button"
             className="lesson-nav-icon-btn"
@@ -1133,7 +1143,9 @@ export function GeoLessonPlayer({
               <path d="M9 8h6M9 12h4" />
             </svg>
           </button>
+          )}
 
+          {penPluginOn && (
           <button
             type="button"
             className="lesson-nav-icon-btn lesson-pen-toggle"
@@ -1165,6 +1177,7 @@ export function GeoLessonPlayer({
               <path d="m15 5 4 4" />
             </svg>
           </button>
+          )}
         </div>
       </header>
 
@@ -1183,12 +1196,12 @@ export function GeoLessonPlayer({
           data-evaluation={isProblem ? state.evaluation : 'unsubmitted'}
         >
           <div className="lesson-surface-inner">
-            {leftSlot === 'playbook' && (
+            {leftSlot === 'playbook' && playbookPluginOn && (
               <div className="lesson-left-slot-panel">
                 <FormulaSheetContent
                   compact
                   floating={false}
-                  onToggleFloat={() => setPlaybookFloating(true)}
+                  onToggleFloat={floatingWindowsPluginOn ? () => setPlaybookFloating(true) : undefined}
                   closeLabel="Back to problem"
                   onClose={onCloseFormulas}
                 />
@@ -1207,7 +1220,7 @@ export function GeoLessonPlayer({
                   inline
                   floating={false}
                   initialStepIndex={walkthroughInitialStep}
-                  onToggleFloat={() => setWalkthroughFloating(true)}
+                  onToggleFloat={floatingWindowsPluginOn ? () => setWalkthroughFloating(true) : undefined}
                   onToggleVoice={() => onToggleVoice?.()}
                   onClose={() => setWalkthroughOpen(false)}
                   onLaunchRescue={rescueId => {
@@ -1295,16 +1308,18 @@ export function GeoLessonPlayer({
                             <MathText text={guide.tip} />
                           </p>
                           <div className="lesson-guided-hints-actions">
-                            <button
-                              type="button"
-                              className="lesson-guided-hints-more"
-                              onClick={() => {
-                                setGuidedHintsOpen(false)
-                                onToggleFormulas()
-                              }}
-                            >
-                              Open Formula Playbook
-                            </button>
+                            {playbookPluginOn && (
+                              <button
+                                type="button"
+                                className="lesson-guided-hints-more"
+                                onClick={() => {
+                                  setGuidedHintsOpen(false)
+                                  onToggleFormulas()
+                                }}
+                              >
+                                Open Formula Playbook
+                              </button>
+                            )}
                             {(walkthroughSpec || activeExplanation) && (
                               <button
                                 type="button"
@@ -1679,7 +1694,7 @@ export function GeoLessonPlayer({
                   </div>
                 </section>
 
-                {drawMode ? (
+                {drawMode && checkmarkPluginOn ? (
                   <footer
                     className="lesson-footer is-draw-mode"
                     data-evaluation={state.evaluation}
@@ -1840,7 +1855,7 @@ export function GeoLessonPlayer({
       </div>
 
       {/* Walk me through renders as a draggable floating window by default (or docks to left pane in Pen Mode when toggled) */}
-      {walkthroughSpec && (!penOpen || walkthroughFloating) && (
+      {walkthroughSpec && (!penOpen || effectiveWalkthroughFloating) && (
         <WalkthroughModal
           spec={walkthroughSpec}
           open={walkthroughOpen}
@@ -1850,7 +1865,8 @@ export function GeoLessonPlayer({
           semaShape={semaShape}
           semaTail={semaTail}
           initialStepIndex={walkthroughInitialStep}
-          onToggleFloat={penOpen ? () => setWalkthroughFloating(false) : undefined}
+          floatingEnabled={floatingWindowsPluginOn}
+          onToggleFloat={penOpen && floatingWindowsPluginOn ? () => setWalkthroughFloating(false) : undefined}
           onToggleVoice={() => onToggleVoice?.()}
           onClose={() => setWalkthroughOpen(false)}
           onLaunchRescue={rescueId => {
@@ -1860,9 +1876,10 @@ export function GeoLessonPlayer({
         />
       )}
 
-      {penOpen && playbookFloating && formulasOpen && (
+      {penOpen && playbookPluginOn && effectivePlaybookFloating && formulasOpen && (
         <FormulaSheetModal
           open={formulasOpen}
+          floatingEnabled={floatingWindowsPluginOn}
           onToggleFloat={() => setPlaybookFloating(false)}
           onClose={onCloseFormulas}
         />

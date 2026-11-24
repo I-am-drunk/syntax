@@ -760,6 +760,7 @@ export function WalkthroughModal({
   semaShape = 'jenson',
   semaTail = 'jenson',
   initialStepIndex = 0,
+  floatingEnabled = true,
   onToggleFloat,
   onToggleVoice,
   onClose,
@@ -773,12 +774,58 @@ export function WalkthroughModal({
   semaShape?: SemaShapeName
   semaTail?: SemaTailName
   initialStepIndex?: number
+  floatingEnabled?: boolean
   onToggleFloat?: () => void
   onToggleVoice: () => void
   onClose: () => void
   onLaunchRescue: (rescueLessonId: string) => void
 }) {
+  useEffect(() => {
+    if (!open || !spec || floatingEnabled) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !e.defaultPrevented) {
+        e.preventDefault()
+        onClose()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, spec, floatingEnabled, onClose])
+
   if (!spec || !open) return null
+
+  if (!floatingEnabled) {
+    return (
+      <div
+        className="sx-modal-backdrop"
+        onClick={e => {
+          if (e.target === e.currentTarget) onClose()
+        }}
+      >
+        <div
+          className="sx-modal is-wide"
+          role="dialog"
+          aria-modal="true"
+          aria-label={spec.title}
+          style={{ padding: 0, overflow: 'hidden', maxHeight: '88vh', display: 'flex', flexDirection: 'column' }}
+        >
+          <WalkthroughContent
+            spec={spec}
+            soundOn={soundOn}
+            voiceOn={voiceOn}
+            drawMode={drawMode}
+            semaShape={semaShape}
+            semaTail={semaTail}
+            floating={false}
+            initialStepIndex={initialStepIndex}
+            onToggleVoice={onToggleVoice}
+            onClose={onClose}
+            onLaunchRescue={onLaunchRescue}
+          />
+        </div>
+      </div>
+    )
+  }
 
   const headerActions = onToggleFloat ? (
     <button
