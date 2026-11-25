@@ -24,6 +24,7 @@ const NAV_SECTIONS: { id: SettingsSectionId; label: string }[] = [
 
 export function SyntaxSettingsPage({
   onClose,
+  backLabel = 'Back',
   theme,
   onChangeTheme,
   soundOn,
@@ -33,6 +34,7 @@ export function SyntaxSettingsPage({
   onReplayWelcome,
 }: {
   onClose: () => void
+  backLabel?: string
   theme: 'light' | 'dark'
   onChangeTheme: (t: 'light' | 'dark') => void
   soundOn: boolean
@@ -124,14 +126,14 @@ export function SyntaxSettingsPage({
     <main className="settings-layout syntax-settings-page" aria-label="Settings">
       <nav className="settings-nav" aria-label="Settings">
         <a
-          href="#back-to-course"
+          href="#back"
           className="settings-nav-back-link"
           onClick={e => {
             e.preventDefault()
             onClose()
           }}
         >
-          ← Back to Unit 2
+          ← {backLabel}
         </a>
         {NAV_SECTIONS.map(sec => (
           <a
@@ -150,8 +152,8 @@ export function SyntaxSettingsPage({
 
       <a
         className="settings-back"
-        href="#back-to-course"
-        aria-label="Back to Unit 2"
+        href="#back"
+        aria-label={backLabel}
         onClick={e => {
           e.preventDefault()
           onClose()
@@ -164,7 +166,7 @@ export function SyntaxSettingsPage({
 
       <article className="preferences syntax-settings-article" aria-label="Preferences" data-ready="true">
         <section id="pref-appearance" aria-labelledby="pref-appearance-h">
-          <h2 id="pref-appearance-h">Appearance</h2>
+          <h2 id="pref-appearance-h">Appearance &amp; Navigation</h2>
           <div className="preference-rows">
             <div className="preference-row preference-choices">
               <p>Choose your preferred color mode</p>
@@ -175,6 +177,22 @@ export function SyntaxSettingsPage({
                 options={[
                   { value: 'light', label: 'Light' },
                   { value: 'dark', label: 'Dark' },
+                ]}
+              />
+            </div>
+
+            <div className="preference-row preference-choices">
+              <div className="syntax-pref-copy">
+                <p>Clicking the Syntax logo opens</p>
+                <span>Choose whether clicking Syntax returns to your Library or Home</span>
+              </div>
+              <Segmented
+                label="Syntax logo destination"
+                value={prefs.logoClickTarget}
+                onChange={v => onPatchPrefs({ logoClickTarget: v })}
+                options={[
+                  { value: 'library', label: 'Library' },
+                  { value: 'home', label: 'Home' },
                 ]}
               />
             </div>

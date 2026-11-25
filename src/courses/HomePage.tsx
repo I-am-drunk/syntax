@@ -17,7 +17,7 @@ export interface HomePageProps {
   onOpenMpm2dCourse?: () => void
   onOpenMpm2dLesson?: (lessonId: string) => void
   onOpenCustomCourse?: (courseId: string) => void
-  onOpenPlugins?: () => void
+  onOpenLibrary?: () => void
 }
 
 interface HomeCourseEntry {
@@ -43,7 +43,7 @@ export function HomePage({
   onOpenMpm2dCourse = () => {},
   onOpenMpm2dLesson = () => {},
   onOpenCustomCourse = () => {},
-  onOpenPlugins = () => {},
+  onOpenLibrary = () => {},
 }: HomePageProps = {}) {
   const account = useAccount()
   const records = useInstalledPackages()
@@ -74,7 +74,7 @@ export function HomePage({
           id: pkg.id,
           title: 'Thinking in Code',
           levelLabel: 'Level 1',
-          image: assetUrl('/assets/courses/Coordinate_Plane-TjmV5y.png'),
+          image: assetUrl('/assets/courses/thinking-in-code-DolooX.png'),
           iconSvg: pkg.iconSvg,
           primaryStep: 'Writing Programs',
           secondaryStep: 'Sequencing Commands',
@@ -200,8 +200,8 @@ export function HomePage({
           </section>
         )}
 
-        <button className="home-tutor" type="button" onClick={onOpenPlugins}>
-          Manage plugins or browse community courses…
+        <button className="home-tutor" type="button" onClick={onOpenLibrary}>
+          Open your Library to switch courses…
         </button>
       </div>
     </main>

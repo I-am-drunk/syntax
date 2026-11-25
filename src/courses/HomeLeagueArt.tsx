@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Rive, RuntimeLoader } from '@rive-app/webgl2'
+import { assetUrl } from '../mpm2d/assetUrl'
 
-RuntimeLoader.setWasmUrl('/assets/completion/rive.449izq9w_ee8i.wasm')
+RuntimeLoader.setWasmUrl(assetUrl('/assets/completion/rive.449izq9w_ee8i.wasm'))
 RuntimeLoader.setWasmFallbackUrl(null)
 
 export function HomeLeagueArt() {
@@ -28,7 +29,7 @@ export function HomeLeagueArt() {
     motion.observe(document.documentElement, { attributes: true, attributeFilter: ['data-reduced-motion'] })
     const load = async () => {
       try {
-        const response = await fetch('/assets/home/leagues-badges.45867fa0.riv', { signal: request.signal })
+        const response = await fetch(assetUrl('/assets/home/leagues-badges.45867fa0.riv'), { signal: request.signal })
         if (!response.ok) return
         const buffer = await response.arrayBuffer()
         if (disposed) return
@@ -59,7 +60,7 @@ export function HomeLeagueArt() {
     }
   }, [])
   return <span className="home-league-art" role="img" aria-label="Hydrogen League badge" data-ready={ready}>
-    <img src="/assets/home/hydrogen-badge.png" width="112" height="112" alt="" />
+    <img src={assetUrl('/assets/home/hydrogen-badge.png')} width="112" height="112" alt="" />
     <canvas ref={canvas} width="112" height="112" aria-hidden="true" />
   </span>
 }

@@ -25,6 +25,8 @@ import {
   useRegistryStore,
 } from '../core/registry'
 import { OFFICIAL_CATALOG } from '../packages/catalog'
+import { LibraryPage } from '../ui/LibraryPage'
+import { ProfilePage } from '../ui/ProfilePage'
 import { PluginsPage } from '../ui/PluginsPage'
 import { InstallModal } from '../ui/InstallModal'
 import { DependencyGate } from '../ui/DependencyGate'
@@ -130,11 +132,24 @@ function clearInstallFromUrl() {
   }
 }
 
-function readInitialTopTab(): 'home' | 'course' | 'plugins' {
+type TopTab = 'home' | 'library' | 'course' | 'plugins' | 'profile'
+
+function readInitialTopTab(): TopTab {
   const h = location.hash.toLowerCase()
+  if (h.startsWith('#/library') || h === '#library') return 'library'
   if (h.startsWith('#/plugins') || h === '#plugins') return 'plugins'
+  if (h.startsWith('#/profile') || h === '#profile') return 'profile'
   if (h.startsWith('#/course') || h === '#course' || h.startsWith('#lesson')) return 'course'
   return 'home'
+}
+
+function BackArrowIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <line x1="19" y1="12" x2="5" y2="12" />
+      <polyline points="12 19 5 12 12 5" />
+    </svg>
+  )
 }
 
 function clearLessonResume(lessonId: string) {
@@ -269,7 +284,7 @@ export function CourseShell({
   const penPluginOn = usePluginActive('pen-studio')
   const checkmarkPluginOn = usePluginActive('checkmark-gate')
   const floatingWindowsPluginOn = usePluginActive('floating-windows')
-  const [topTab, setTopTab] = useState<'home' | 'course' | 'plugins'>(readInitialTopTab)
+  const [topTab, setTopTab] = useState<TopTab>(readInitialTopTab)
   const [activeCourseId, setActiveCourseId] = useState<string>('mpm2d-analytic-geometry')
   const [catalogPackages, setCatalogPackages] = useState<SyntaxPackageManifest[]>(OFFICIAL_CATALOG)
   const [inspectPackage, setInspectPackage] = useState<{
@@ -287,7 +302,6 @@ export function CourseShell({
   const [prefs, setPrefs] = useState<SyntaxPrefs>(loadPrefs)
   const [filterOpen, setFilterOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const historyOpen = false
   const [activeLessonId, setActiveLessonId] = useState<string | null>(readLessonFromHash)
   const [returnLessonId, setReturnLessonId] = useState<string | null>(null)
   const [virtualReviewLesson, setVirtualReviewLesson] = useState<GeoLesson | null>(null)
@@ -301,7 +315,6 @@ export function CourseShell({
     return latest ?? firstIncomplete?.id ?? UNIT2_LESSONS[0].id
   })
   const [popoverOpenId, setPopoverOpenId] = useState<string | null>(null)
-  const [activeNav, setActiveNav] = useState<'course' | 'conference'>('course')
   const [outlineAtBottom, setOutlineAtBottom] = useState(false)
   const [formulasOpen, setFormulasOpen] = useState(false)
   const [penModeActive, setPenModeActive] = useState(false)
@@ -338,6 +351,8 @@ export function CourseShell({
   useEffect(() => {
     document.documentElement.dataset.theme = theme
     document.documentElement.style.colorScheme = theme
+    const meta = document.querySelector('meta[name="theme-color"]')
+    if (meta) meta.setAttribute('content', theme === 'dark' ? '#141414' : '#ffffff')
     try {
       localStorage.setItem(THEME_KEY, theme)
     } catch {
@@ -472,7 +487,6 @@ export function CourseShell({
       const inConference = relTop <= triggerLine
       if (inConference !== lastInConf) {
         lastInConf = inConference
-        setActiveNav(inConference ? 'conference' : 'course')
       }
     }
 
@@ -807,15 +821,10 @@ export function CourseShell({
     }
     setSelectedId(id)
     setDockVisible(true)
-    const found = ALL_LESSONS.find(l => l.id === id)
-    if (found) {
-      setActiveNav(found.level === 3 ? 'conference' : 'course')
-    }
   }
 
   function jumpToCourse(defer = false) {
     navLockUntilRef.current = Date.now() + 650
-    setActiveNav('course')
     const run = () => outlineScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
     if (jumpRafRef.current) cancelAnimationFrame(jumpRafRef.current)
     if (defer) {
@@ -830,7 +839,6 @@ export function CourseShell({
 
   function jumpToLevel(level: 3 | 4, defer = false) {
     navLockUntilRef.current = Date.now() + 650
-    setActiveNav(level === 3 ? 'conference' : 'course')
     const run = () => {
       const sectionEl = levelSectionRefs.current.get(level)
       const scroller = outlineScrollRef.current
@@ -887,6 +895,38 @@ export function CourseShell({
     [],
   )
 
+  const installedCourses = useMemo(
+    () => installedRecords.filter(r => r.manifest.kind === 'course' && r.enabled).map(r => r.manifest),
+    [installedRecords],
+  )
+  const activeCourseManifest = useMemo(
+    () =>
+      installedRecords.find(r => r.manifest.id === activeCourseId)?.manifest ??
+      installedRecords.find(r => r.manifest.id === 'mpm2d-analytic-geometry')?.manifest,
+    [installedRecords, activeCourseId],
+  )
+  const activeCourseDepStatus = useMemo(
+    () => (activeCourseManifest ? getCourseDependencyStatus(activeCourseManifest.id) : { ok: true, missing: [], disabled: [] }),
+    [activeCourseManifest, installedRecords],
+  )
+
+  useEffect(() => {
+    const label = activeLesson
+      ? `${activeLesson.title} · Syntax`
+      : settingsOpen
+        ? 'Settings · Syntax'
+        : topTab === 'library'
+          ? 'Library · Syntax'
+          : topTab === 'plugins'
+            ? 'Plugins · Syntax'
+            : topTab === 'profile'
+              ? 'Profile · Syntax'
+              : topTab === 'course'
+                ? `${activeCourseId === 'mpm2d-analytic-geometry' ? 'Analytic Geometry' : (activeCourseManifest?.name ?? 'Course')} · Syntax`
+                : 'Syntax'
+    document.title = isDev ? `${label} (Dev)` : label
+  }, [activeLesson, settingsOpen, topTab, activeCourseId, activeCourseManifest?.name, isDev])
+
   const returnLessonObj = returnLessonId ? UNIT2_LESSONS.find(l => l.id === returnLessonId) : undefined
 
   if (activeLesson) {
@@ -901,7 +941,7 @@ export function CourseShell({
           drawMode={prefs.drawMode}
           voiceOn={prefs.voiceOn}
           semaShape={prefs.semaShape}
-        semaTail={prefs.semaTail}
+          semaTail={prefs.semaTail}
           semaExpression={prefs.semaExpression}
           penControlsCollapsed={prefs.penControlsCollapsed}
           showStepPlan={prefs.showStepPlan}
@@ -926,21 +966,6 @@ export function CourseShell({
     )
   }
 
-  const installedCourses = useMemo(
-    () => installedRecords.filter(r => r.manifest.kind === 'course' && r.enabled).map(r => r.manifest),
-    [installedRecords],
-  )
-  const activeCourseManifest = useMemo(
-    () =>
-      installedRecords.find(r => r.manifest.id === activeCourseId)?.manifest ??
-      installedRecords.find(r => r.manifest.id === 'mpm2d-analytic-geometry')?.manifest,
-    [installedRecords, activeCourseId],
-  )
-  const activeCourseDepStatus = useMemo(
-    () => (activeCourseManifest ? getCourseDependencyStatus(activeCourseManifest.id) : { ok: true, missing: [], disabled: [] }),
-    [activeCourseManifest, installedRecords],
-  )
-
   const nextLessonIdx = Math.max(
     0,
     UNIT2_LESSONS.findIndex(l => l.id === resolvedSelectedLesson.id),
@@ -951,16 +976,37 @@ export function CourseShell({
     topTab === 'course' &&
     activeCourseId === 'mpm2d-analytic-geometry' &&
     activeCourseDepStatus.ok
-  const courseTabLabel =
-    activeCourseId === 'mpm2d-analytic-geometry'
-      ? 'Unit 2'
-      : activeCourseManifest?.name ?? 'Courses'
+
+  const settingsBackLabel =
+    topTab === 'library'
+      ? 'Back to Library'
+      : topTab === 'plugins'
+        ? 'Back to Plugins'
+        : topTab === 'profile'
+          ? 'Back to Profile'
+          : topTab === 'course'
+            ? activeCourseId === 'mpm2d-analytic-geometry'
+              ? 'Back to Unit 2'
+              : `Back to ${activeCourseManifest?.name ?? 'Course'}`
+            : 'Back to Home'
 
   function openCourseById(courseId: string) {
     setActiveCourseId(courseId)
     setSettingsOpen(false)
     setTopTab('course')
+    if (courseId === 'mpm2d-analytic-geometry') {
+      jumpToCourse(true)
+    }
   }
+
+  function handleLogoClick() {
+    emitSound('lightweight-choice')
+    setSettingsOpen(false)
+    setTopTab(prefs.logoClickTarget === 'home' ? 'home' : 'library')
+  }
+
+  const navActiveKey: 'home' | 'library' | 'plugins' | 'profile' =
+    topTab === 'course' ? 'library' : topTab
 
   return (
     <>
@@ -971,13 +1017,15 @@ export function CourseShell({
             {isDev && <DevMetricsMicroBar compact />}
             <a
               className="wordmark"
-              href="#home"
-              aria-label={isDev ? 'Syntax Dev Home' : 'Syntax Home'}
+              href={prefs.logoClickTarget === 'home' ? '#home' : '#library'}
+              aria-label={
+                prefs.logoClickTarget === 'home'
+                  ? isDev ? 'Syntax Dev Home' : 'Syntax Home'
+                  : isDev ? 'Syntax Dev Library' : 'Syntax Library'
+              }
               onClick={e => {
                 e.preventDefault()
-                emitSound('lightweight-choice')
-                setSettingsOpen(false)
-                setTopTab('home')
+                handleLogoClick()
               }}
             >
               Syntax{isDev && <span className="dev-rainbow-text"> Dev</span>}
@@ -992,11 +1040,7 @@ export function CourseShell({
             expression={prefs.semaExpression}
             hasNotification={validMissedIds.length > 0}
             onPoke={() => emitSound('lightweight-choice')}
-            onLogoClick={() => {
-              emitSound('lightweight-choice')
-              setSettingsOpen(false)
-              setTopTab('home')
-            }}
+            onLogoClick={handleLogoClick}
           />
         </div>
 
@@ -1010,7 +1054,7 @@ export function CourseShell({
               href="#home"
               aria-label="Home"
               tabIndex={settingsOpen ? -1 : 0}
-              aria-current={!settingsOpen && topTab === 'home' ? 'page' : undefined}
+              aria-current={!settingsOpen && navActiveKey === 'home' ? 'page' : undefined}
               onClick={e => {
                 e.preventDefault()
                 setSettingsOpen(false)
@@ -1019,7 +1063,7 @@ export function CourseShell({
             >
               <span className="icon icon-home" aria-hidden="true" />
               <span>Home</span>
-              {!settingsOpen && topTab === 'home' && (
+              {navActiveKey === 'home' && (
                 <motion.span
                   layoutId="primary-nav-indicator"
                   className="primary-nav-indicator"
@@ -1029,23 +1073,19 @@ export function CourseShell({
             </a>
 
             <a
-              href="#course"
-              aria-label={courseTabLabel}
+              href="#library"
+              aria-label="Library"
               tabIndex={settingsOpen ? -1 : 0}
-              aria-current={!settingsOpen && topTab === 'course' ? 'page' : undefined}
+              aria-current={!settingsOpen && navActiveKey === 'library' ? 'page' : undefined}
               onClick={e => {
                 e.preventDefault()
-                const wasDifferent = settingsOpen || topTab !== 'course'
                 setSettingsOpen(false)
-                setTopTab('course')
-                if (activeCourseId === 'mpm2d-analytic-geometry') {
-                  jumpToCourse(wasDifferent)
-                }
+                setTopTab('library')
               }}
             >
               <span className="icon icon-topics" aria-hidden="true" />
-              <span>{courseTabLabel}</span>
-              {!settingsOpen && topTab === 'course' && (
+              <span>Library</span>
+              {navActiveKey === 'library' && (
                 <motion.span
                   layoutId="primary-nav-indicator"
                   className="primary-nav-indicator"
@@ -1059,7 +1099,7 @@ export function CourseShell({
               className="primary-nav-btn"
               tabIndex={settingsOpen ? -1 : 0}
               aria-label="Plugins"
-              aria-current={!settingsOpen && topTab === 'plugins' ? 'page' : undefined}
+              aria-current={!settingsOpen && navActiveKey === 'plugins' ? 'page' : undefined}
               onClick={() => {
                 setSettingsOpen(false)
                 setTopTab('plugins')
@@ -1067,7 +1107,7 @@ export function CourseShell({
             >
               <PluginsNavIcon />
               <span className="primary-nav-label">Plugins</span>
-              {!settingsOpen && topTab === 'plugins' && (
+              {navActiveKey === 'plugins' && (
                 <motion.span
                   layoutId="primary-nav-indicator"
                   className="primary-nav-indicator"
@@ -1075,6 +1115,28 @@ export function CourseShell({
                 />
               )}
             </button>
+
+            <a
+              href="#profile"
+              aria-label="Profile"
+              tabIndex={settingsOpen ? -1 : 0}
+              aria-current={!settingsOpen && navActiveKey === 'profile' ? 'page' : undefined}
+              onClick={e => {
+                e.preventDefault()
+                setSettingsOpen(false)
+                setTopTab('profile')
+              }}
+            >
+              <span className="icon icon-you" aria-hidden="true" />
+              <span>Profile</span>
+              {navActiveKey === 'profile' && (
+                <motion.span
+                  layoutId="primary-nav-indicator"
+                  className="primary-nav-indicator"
+                  transition={{ type: 'spring', stiffness: 460, damping: 36 }}
+                />
+              )}
+            </a>
           </div>
 
           {/* Pixar wipe-in Settings nav tab */}
@@ -1099,6 +1161,22 @@ export function CourseShell({
         </nav>
 
         <div className="header-actions">
+          {!settingsOpen && topTab === 'course' && (
+            <button
+              type="button"
+              className="sx-back-library-btn"
+              aria-label="Back to Library"
+              title="Back to Library"
+              onClick={() => {
+                emitSound('lightweight-choice')
+                setTopTab('library')
+              }}
+            >
+              <BackArrowIcon />
+              <span className="sx-back-library-label">Library</span>
+            </button>
+          )}
+
           {playbookPluginOn && (
             <button
               type="button"
@@ -1131,7 +1209,9 @@ export function CourseShell({
             {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
           </button>
 
-          {account ? (
+          {auth.isClerkActive && !auth.isLoaded ? (
+            <span className="sx-header-avatar-skeleton" aria-hidden="true" />
+          ) : account ? (
             auth.isClerkActive ? (
               <ClerkHeaderAvatar />
             ) : (
@@ -1139,8 +1219,11 @@ export function CourseShell({
                 type="button"
                 className="sx-header-avatar-btn"
                 title={`Signed in as @${account.handle}`}
-                aria-label={`Account @${account.handle}`}
-                onClick={() => auth.openAccount()}
+                aria-label={`Profile @${account.handle}`}
+                onClick={() => {
+                  setSettingsOpen(false)
+                  setTopTab('profile')
+                }}
               >
                 {account.displayName.slice(0, 1).toUpperCase()}
               </button>
@@ -1199,6 +1282,17 @@ export function CourseShell({
                     <Menu.Item
                       className="menu-item"
                       onClick={() => {
+                        emitSound('lightweight-choice')
+                        setFormulasOpen(false)
+                        setSettingsOpen(false)
+                        setTopTab('library')
+                      }}
+                    >
+                      Library
+                    </Menu.Item>
+                    <Menu.Item
+                      className="menu-item"
+                      onClick={() => {
                         emitSound('toggle-on')
                         setFormulasOpen(false)
                         setSettingsOpen(false)
@@ -1206,6 +1300,17 @@ export function CourseShell({
                       }}
                     >
                       Plugins
+                    </Menu.Item>
+                    <Menu.Item
+                      className="menu-item"
+                      onClick={() => {
+                        emitSound('lightweight-choice')
+                        setFormulasOpen(false)
+                        setSettingsOpen(false)
+                        setTopTab('profile')
+                      }}
+                    >
+                      Profile
                     </Menu.Item>
                     <Menu.Item
                       className="menu-item"
@@ -1312,6 +1417,7 @@ export function CourseShell({
             emitSound('lightweight-choice')
             setSettingsOpen(false)
           }}
+          backLabel={settingsBackLabel}
           theme={theme}
           onChangeTheme={setTheme}
           soundOn={soundOn}
@@ -1337,13 +1443,28 @@ export function CourseShell({
             openLesson(id)
           }}
           onOpenCustomCourse={id => openCourseById(id)}
+          onOpenLibrary={() => setTopTab('library')}
+        />
+      )}
+
+      {!settingsOpen && topTab === 'library' && (
+        <LibraryPage
+          mpm2dPercent={coursePct}
+          mpm2dCompletedCount={completedLessonCount}
+          onOpenCourse={id => openCourseById(id)}
           onOpenPlugins={() => setTopTab('plugins')}
+          onInspectCourse={manifest =>
+            setInspectPackage({
+              manifest,
+              source: manifest.builtIn ? 'official' : 'community',
+            })
+          }
         />
       )}
 
       {!settingsOpen && topTab === 'plugins' && (
         <PluginsPage
-          onBack={() => setTopTab('home')}
+          onBack={() => setTopTab('library')}
           onSelectPackage={manifest =>
             setInspectPackage({
               manifest,
@@ -1360,12 +1481,25 @@ export function CourseShell({
         />
       )}
 
+      {!settingsOpen && topTab === 'profile' && (
+        <ProfilePage
+          prefs={prefs}
+          completedLessonCount={completedLessonCount}
+          masteredCount={masteredCount}
+          coursePct={coursePct}
+          onOpenCourse={id => openCourseById(id)}
+          onOpenLibrary={() => setTopTab('library')}
+          onOpenPlugins={() => setTopTab('plugins')}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
+      )}
+
       {!settingsOpen && topTab === 'course' && activeCourseManifest && !activeCourseDepStatus.ok && (
         <DependencyGate
           course={activeCourseManifest}
           status={activeCourseDepStatus}
           signedIn={Boolean(account)}
-          onBack={() => setTopTab('home')}
+          onBack={() => setTopTab('library')}
           onEnableAll={() => {
             for (const d of activeCourseDepStatus.disabled) {
               setPackageEnabled(d.id, true)
@@ -1383,9 +1517,7 @@ export function CourseShell({
       {!settingsOpen &&
         topTab === 'course' &&
         activeCourseDepStatus.ok &&
-        activeCourseId === 'thinking-in-code' && (
-          <ThinkingInCodeCourseView onBack={() => setTopTab('home')} />
-        )}
+        activeCourseId === 'thinking-in-code' && <ThinkingInCodeCourseView />}
 
       {!settingsOpen &&
         topTab === 'course' &&
@@ -1393,11 +1525,7 @@ export function CourseShell({
         activeCourseManifest &&
         activeCourseId !== 'mpm2d-analytic-geometry' &&
         activeCourseId !== 'thinking-in-code' && (
-          <CustomCourseView
-            course={activeCourseManifest}
-            theme={theme}
-            onBack={() => setTopTab('home')}
-          />
+          <CustomCourseView course={activeCourseManifest} theme={theme} />
         )}
 
       <main ref={outlineScrollRef} className="course-outline" style={!showMpm2dOutline ? { display: 'none' } : undefined}>

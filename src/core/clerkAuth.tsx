@@ -20,6 +20,18 @@ const AuthActionsContext = createContext<AuthActions>({
   signOut: async () => {},
 })
 
+const USER_BUTTON_APPEARANCE = {
+  elements: {
+    avatarBox: { width: 32, height: 32 },
+  },
+}
+
+const ALLOWED_REDIRECT_ORIGINS = [
+  'https://i-am-drunk.github.io',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+]
+
 export function useAuthActions(): AuthActions {
   return useContext(AuthActionsContext)
 }
@@ -30,7 +42,6 @@ function useDocumentDarkMode(): boolean {
   )
   useEffect(() => {
     const read = () => setIsDark(document.documentElement.dataset.theme === 'dark')
-    read()
     const obs = new MutationObserver(read)
     obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
     return () => obs.disconnect()
@@ -94,15 +105,7 @@ function ClerkAccountBridge({ children }: { children: ReactNode }) {
 export function ClerkHeaderAvatar() {
   const { isClerkActive } = useAuthActions()
   if (!isClerkActive) return null
-  return (
-    <UserButton
-      appearance={{
-        elements: {
-          avatarBox: { width: 32, height: 32 },
-        },
-      }}
-    />
-  )
+  return <UserButton appearance={USER_BUTTON_APPEARANCE} />
 }
 
 export function SyntaxAuthProvider({
@@ -131,6 +134,21 @@ export function SyntaxAuthProvider({
     [onOpenLocalSignIn, signOutLocal],
   )
 
+  const clerkAppearance = useMemo(
+    () => ({
+      theme: isDark ? dark : undefined,
+      variables: {
+        colorPrimary: '#456dff',
+        colorBackground: isDark ? '#171717' : '#ffffff',
+        colorInput: isDark ? '#202020' : '#f8f8f8',
+        colorForeground: isDark ? '#ffffff' : '#141414',
+        borderRadius: '14px',
+        fontFamily: "'CoFo Brilliant', system-ui, -apple-system, sans-serif",
+      },
+    }),
+    [isDark],
+  )
+
   if (!clerkEnabled) {
     return (
       <AuthActionsContext.Provider value={localActions}>
@@ -145,22 +163,8 @@ export function SyntaxAuthProvider({
       signInFallbackRedirectUrl={basePath}
       signUpFallbackRedirectUrl={basePath}
       afterSignOutUrl={basePath}
-      allowedRedirectOrigins={[
-        'https://i-am-drunk.github.io',
-        'http://localhost:5173',
-        'http://127.0.0.1:5173',
-      ]}
-      appearance={{
-        theme: isDark ? dark : undefined,
-        variables: {
-          colorPrimary: '#456dff',
-          colorBackground: isDark ? '#171717' : '#ffffff',
-          colorInput: isDark ? '#202020' : '#f8f8f8',
-          colorForeground: isDark ? '#ffffff' : '#141414',
-          borderRadius: '14px',
-          fontFamily: "'CoFo Brilliant', system-ui, -apple-system, sans-serif",
-        },
-      }}
+      allowedRedirectOrigins={ALLOWED_REDIRECT_ORIGINS}
+      appearance={clerkAppearance}
     >
       <ClerkAccountBridge>{children}</ClerkAccountBridge>
     </ClerkProvider>

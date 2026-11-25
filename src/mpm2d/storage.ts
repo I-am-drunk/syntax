@@ -10,6 +10,8 @@ import {
 const PREFS_KEY = 'syntax.mpm2d.prefs.v1'
 const COOKIE_NAME = 'syntax_mpm2d_prefs'
 
+export type LogoClickTarget = 'library' | 'home'
+
 export type SyntaxPrefs = {
   drawMode: boolean
   showCatchupPaths: boolean
@@ -18,6 +20,7 @@ export type SyntaxPrefs = {
   penControlsCollapsed: boolean
   showStepPlan: boolean
   windowInertia: boolean
+  logoClickTarget: LogoClickTarget
   semaShape: SemaShapeName
   semaTail: SemaTailName
   semaExpression: SemaExpressionName
@@ -31,6 +34,7 @@ const DEFAULT_PREFS: SyntaxPrefs = {
   penControlsCollapsed: true,
   showStepPlan: false,
   windowInertia: true,
+  logoClickTarget: 'library',
   semaShape: 'jenson',
   semaTail: 'jenson',
   semaExpression: 'neutral',
@@ -88,6 +92,12 @@ export function loadPrefs(): SyntaxPrefs {
   const validShape =
     isValidShapeName(rawShape) && rawShape !== 'circle' ? rawShape : DEFAULT_PREFS.semaShape
 
+  const rawLogoTarget = parsed.logoClickTarget
+  const logoClickTarget: LogoClickTarget =
+    rawLogoTarget === 'home' || rawLogoTarget === 'library'
+      ? rawLogoTarget
+      : DEFAULT_PREFS.logoClickTarget
+
   return {
     drawMode: Boolean(parsed.drawMode ?? DEFAULT_PREFS.drawMode),
     showCatchupPaths: Boolean(parsed.showCatchupPaths ?? DEFAULT_PREFS.showCatchupPaths),
@@ -105,6 +115,7 @@ export function loadPrefs(): SyntaxPrefs {
       parsed.windowInertia === undefined
         ? DEFAULT_PREFS.windowInertia
         : Boolean(parsed.windowInertia),
+    logoClickTarget,
     semaShape: validShape,
     semaTail: isValidTailName(parsed.semaTail) ? parsed.semaTail : DEFAULT_PREFS.semaTail,
     semaExpression: isValidExpressionName(parsed.semaExpression)
@@ -121,8 +132,8 @@ export function savePrefs(next: SyntaxPrefs) {
     // ignore storage quota errors
   }
   writeCookie(COOKIE_NAME, serialized)
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new CustomEvent("syntax:prefs-changed", { detail: next }))
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('syntax:prefs-changed', { detail: next }))
   }
 }
 

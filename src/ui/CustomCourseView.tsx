@@ -9,6 +9,7 @@ import { sequencingCommands } from '../lessons/sequencingCommands'
 import { repeatingPatterns } from '../lessons/repeatingPatterns'
 import { debuggingPrograms } from '../lessons/debuggingPrograms'
 import { playLessonSound } from '../services/lessonSounds'
+import { assetUrl } from '../mpm2d/assetUrl'
 import { PackageIcon } from './PackageIcon'
 
 const THINKING_LESSONS = [
@@ -19,7 +20,7 @@ const THINKING_LESSONS = [
   debuggingPrograms,
 ]
 
-export function ThinkingInCodeCourseView({ onBack }: { onBack: () => void }) {
+export function ThinkingInCodeCourseView() {
   const [activeSlug, setActiveSlug] = useState<string | null>(null)
   const activeLesson = THINKING_LESSONS.find(l => l.slug === activeSlug)
 
@@ -27,7 +28,12 @@ export function ThinkingInCodeCourseView({ onBack }: { onBack: () => void }) {
     return (
       <div>
         <div className="sx-course-page" style={{ marginBlock: '16px 0' }}>
-          <button type="button" className="sx-btn-ghost" style={{ alignSelf: 'flex-start' }} onClick={() => setActiveSlug(null)}>
+          <button
+            type="button"
+            className="sx-btn-ghost"
+            style={{ alignSelf: 'flex-start' }}
+            onClick={() => setActiveSlug(null)}
+          >
             ← Thinking in Code
           </button>
         </div>
@@ -42,11 +48,17 @@ export function ThinkingInCodeCourseView({ onBack }: { onBack: () => void }) {
 
   return (
     <main className="sx-course-page">
-      <button type="button" className="sx-btn-ghost" style={{ alignSelf: 'flex-start' }} onClick={onBack}>
-        ← Back
-      </button>
       <div className="sx-course-hero">
-        <h1>Thinking in Code</h1>
+        <img
+          src={assetUrl('/assets/courses/thinking-in-code-DolooX.png')}
+          alt=""
+          width={64}
+          height={64}
+        />
+        <div>
+          <h1>Thinking in Code</h1>
+          <span className="sx-modal-meta">5 interactive lessons</span>
+        </div>
       </div>
       <div className="preference-rows">
         {THINKING_LESSONS.map((lesson, idx) => (
@@ -72,10 +84,9 @@ export function ThinkingInCodeCourseView({ onBack }: { onBack: () => void }) {
 type CustomCourseViewProps = {
   course: SyntaxPackageManifest
   theme: 'light' | 'dark'
-  onBack: () => void
 }
 
-export function CustomCourseView({ course, theme, onBack }: CustomCourseViewProps) {
+export function CustomCourseView({ course, theme }: CustomCourseViewProps) {
   const installed = useInstalledPackages()
   const units = course.customCourse?.units ?? []
   const [selectedChoice, setSelectedChoice] = useState<Record<string, number>>({})
@@ -91,10 +102,6 @@ export function CustomCourseView({ course, theme, onBack }: CustomCourseViewProp
 
   return (
     <main className="sx-course-page">
-      <button type="button" className="sx-btn-ghost" style={{ alignSelf: 'flex-start' }} onClick={onBack}>
-        ← Back
-      </button>
-
       <div className="sx-course-hero">
         <PackageIcon svg={course.iconSvg} size={52} />
         <div>
