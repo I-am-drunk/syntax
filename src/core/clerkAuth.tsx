@@ -116,6 +116,7 @@ export function SyntaxAuthProvider({
   const publishableKey = (import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ?? '').trim()
   const clerkEnabled = isClerkConfigured()
   const signOutLocal = useAccountStore(s => s.signOutLocal)
+  const basePath = import.meta.env.BASE_URL || '/'
 
   const localActions = useMemo<AuthActions>(
     () => ({
@@ -141,6 +142,14 @@ export function SyntaxAuthProvider({
   return (
     <ClerkProvider
       publishableKey={publishableKey}
+      signInFallbackRedirectUrl={basePath}
+      signUpFallbackRedirectUrl={basePath}
+      afterSignOutUrl={basePath}
+      allowedRedirectOrigins={[
+        'https://i-am-drunk.github.io',
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+      ]}
       appearance={{
         theme: isDark ? dark : undefined,
         variables: {
