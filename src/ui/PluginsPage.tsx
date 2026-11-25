@@ -1,334 +1,255 @@
-import { useEffect, useRef, useState, type DragEvent } from 'react'
-import { toast } from 'sonner'
+import { useMemo, useRef, useState } from 'react'
+import { Toggle } from '../settings/Controls'
+import { COMMUNITY_HUB_WEB_URL } from '../core/community'
+import { OFFICIAL_BY_ID } from '../packages/catalog'
 import {
-  exportPackageFile,
-  parsePackageFile,
+  sanitizeUntrustedManifest,
+  validatePackageManifest,
   type SyntaxPackageManifest,
 } from '../core/packages'
-import {
-  getDependentsOf,
-  resetOfficialDefaults,
-  setPackageEnabled,
-  uninstallPackage,
-  useInstalledPackages,
-} from '../core/registry'
-import { PluginSandboxFrame } from '../core/sandbox'
-import { CoreTouchWarning } from './CoreTouchWarning'
+import { useInstalledPackages, useRegistryStore } from '../core/registry'
 import { PackageIcon } from './PackageIcon'
+import { CoreTouchIcon } from './CoreTouchWarning'
 
-type PluginsPageProps = {
-  theme: 'light' | 'dark'
-  onRequestInstall: (pkg: SyntaxPackageManifest, source: 'local-file') => void
+type PluginSectionId = 'app-plugins' | 'embedded' | 'courses'
+
+const OFFICIAL_ID_SET = new Set(OFFICIAL_BY_ID.keys())
+
+interface PluginsPageProps {
+  onBack: () => void
+  onSelectPackage: (pkg: SyntaxPackageManifest) => void
+  onOpenCourse: (courseId: string) => void
+  onImportPackage: (pkg: SyntaxPackageManifest) => void
 }
 
-export function PluginsPage({ theme, onRequestInstall }: PluginsPageProps) {
-  const installed = useInstalledPackages()
-  const [dragOver, setDragOver] = useState(false)
-  const [importError, setImportError] = useState<string | null>(null)
-  const [previewPlugin, setPreviewPlugin] = useState<SyntaxPackageManifest | null>(null)
+export function PluginsPage({
+  onBack,
+  onSelectPackage,
+  onOpenCourse,
+  onImportPackage,
+}: PluginsPageProps) {
+  const entries = useInstalledPackages()
+  const setPackageEnabled = useRegistryStore(s => s.setPackageEnabled)
+  const [activeSection, setActiveSection] = useState<PluginSectionId>('app-plugins')
+  const [importError, setImportError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    if (!previewPlugin) return
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setPreviewPlugin(null)
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [previewPlugin])
+  const appPlugins = useMemo(
+    () => entries.filter(e => e.manifest.kind === 'plugin'),
+    [entries],
+  )
+  const embeddedPlugins = useMemo(
+    () => entries.filter(e => e.manifest.kind === 'embedded-plugin'),
+    [entries],
+  )
+  const courses = useMemo(
+    () => entries.filter(e => e.manifest.kind === 'course'),
+    [entries],
+  )
 
-  const appPlugins = installed.filter(r => r.manifest.kind === 'plugin')
-  const embeddedPlugins = installed.filter(r => r.manifest.kind === 'embedded-plugin')
-
-  async function handleFiles(files: FileList | null) {
-    if (!files || files.length === 0) return
-    setImportError(null)
-    const file = files[0]
-    const result = await parsePackageFile(file)
-    if (!result.ok) {
-      setImportError(result.errors.join(' '))
-      return
+  function scrollTo(id: PluginSectionId) {
+    setActiveSection(id)
+    const el = document.getElementById(`plugins-${id}`)
+    if (el) {
+      const top = Math.max(0, el.getBoundingClientRect().top + window.scrollY - 88)
+      window.scrollTo({ top, behavior: 'smooth' })
     }
-    onRequestInstall(result.manifest, 'local-file')
   }
 
-  function handleDrop(e: DragEvent<HTMLDivElement>) {
-    e.preventDefault()
-    setDragOver(false)
-    void handleFiles(e.dataTransfer.files)
-  }
-
-  function handleUninstall(pkg: SyntaxPackageManifest) {
-    const deps = getDependentsOf(pkg.id)
-    if (deps.length > 0) {
-      toast.warning(
-        `${pkg.name} is required by ${deps.map(d => d.manifest.name).join(', ')}. Removing it will pause those courses until reinstalled.`,
+  async function handleImportFile(file: File) {
+    setImportError('')
+    try {
+      const text = await file.text()
+      const raw = JSON.parse(text) as unknown
+      const parsed = validatePackageManifest(raw)
+      if (!parsed.ok) {
+        setImportError(parsed.errors[0] || 'Invalid package file.')
+        return
+      }
+      onImportPackage(
+        sanitizeUntrustedManifest(parsed.manifest, OFFICIAL_ID_SET, { isLocalFile: true }),
       )
-    }
-    const res = uninstallPackage(pkg.id)
-    if (res.ok) {
-      toast.success(`Removed ${pkg.name}`)
+    } catch {
+      setImportError('Could not read package file.')
     }
   }
 
   return (
-    <main className="sx-page">
-      <div className="sx-page-header">
-        <div>
-          <h1>Plugins &amp; Embedded Libraries</h1>
-          <p className="sx-page-subtitle">
-            Toggle global app plugins (<code>.syntaxplugin</code>) or manage course libraries (
-            <code>.syntaxembeddedplugin</code>). Sema stays in Syntax Core and cannot break your
-            plugins.
-          </p>
-        </div>
-        <button
-          type="button"
-          className="sx-btn sx-btn-sm"
-          onClick={() => {
-            resetOfficialDefaults()
-            toast.success('Restored official Syntax packages')
+    <main className="settings-layout sx-plugins-page" aria-label="Plugins">
+      <nav className="settings-nav" aria-label="Plugins sections">
+        <a
+          href="#back-home"
+          className="settings-nav-back-link"
+          onClick={e => {
+            e.preventDefault()
+            onBack()
           }}
         >
-          Restore official defaults
-        </button>
-      </div>
+          ← Back
+        </a>
+        <a
+          href="#plugins-app-plugins"
+          aria-current={activeSection === 'app-plugins' ? 'location' : undefined}
+          onClick={e => {
+            e.preventDefault()
+            scrollTo('app-plugins')
+          }}
+        >
+          App Plugins
+        </a>
+        <a
+          href="#plugins-embedded"
+          aria-current={activeSection === 'embedded' ? 'location' : undefined}
+          onClick={e => {
+            e.preventDefault()
+            scrollTo('embedded')
+          }}
+        >
+          Embedded
+        </a>
+        <a
+          href="#plugins-courses"
+          aria-current={activeSection === 'courses' ? 'location' : undefined}
+          onClick={e => {
+            e.preventDefault()
+            scrollTo('courses')
+          }}
+        >
+          Courses
+        </a>
+      </nav>
 
-      {/* Drag & Drop Local Package Importer */}
-      <div
-        className={`sx-dropzone${dragOver ? ' is-dragover' : ''}`}
-        onDragOver={e => {
-          e.preventDefault()
-          setDragOver(true)
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={handleDrop}
-      >
-        <strong>Import a Syntax package file</strong>
-        <p className="sx-card-tagline" style={{ marginTop: 6 }}>
-          Drop a <code>.syntaxcourse</code>, <code>.syntaxplugin</code>, or{' '}
-          <code>.syntaxembeddedplugin</code> file here, or choose one from your device.
-        </p>
-        <div style={{ marginTop: 12 }}>
+      <div className="preferences">
+        <header className="sx-plugins-header">
+          <div className="sx-plugins-title-row">
+            <h2>Plugins</h2>
+            <div className="sx-plugins-cta-group">
+              <button
+                type="button"
+                className="sx-btn-ghost"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                Import
+              </button>
+              <a
+                href={COMMUNITY_HUB_WEB_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="sx-browse-hub-btn"
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.1"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M2 12h20" />
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z" />
+                </svg>
+                <span>Browse Community Hub</span>
+                <span className="sx-browse-arrow" aria-hidden="true">↗</span>
+              </a>
+            </div>
+          </div>
           <input
             ref={fileInputRef}
             type="file"
-            accept=".syntaxcourse,.syntaxplugin,.syntaxembeddedplugin"
+            accept=".syntaxcourse,.syntaxplugin,.syntaxembeddedplugin,.json"
             style={{ display: 'none' }}
             onChange={e => {
-              void handleFiles(e.target.files)
+              const file = e.target.files?.[0]
+              if (file) void handleImportFile(file)
               e.target.value = ''
             }}
           />
-          <button
-            type="button"
-            className="sx-btn sx-btn-sm sx-btn-primary"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            Choose package file
-          </button>
-        </div>
-        {importError && (
-          <div className="sx-error-badge" style={{ marginTop: 12, display: 'inline-block' }}>
-            {importError}
-          </div>
-        )}
-      </div>
+          {importError && <p className="sx-field-error">{importError}</p>}
+        </header>
 
-      {/* Global App Plugins */}
-      <div className="sx-section-title">
-        <span>App Plugins (.syntaxplugin) · {appPlugins.length}</span>
-      </div>
-      <div className="sx-grid">
-        {appPlugins.map(({ manifest, enabled }) => (
-          <article key={manifest.id} className="sx-card">
-            <div className="sx-card-top">
-              <PackageIcon svg={manifest.iconSvg} name={manifest.name} />
-              <div className="sx-card-meta">
-                <div className="sx-card-title-row">
-                  <h2 className="sx-card-title">{manifest.name}</h2>
-                  {manifest.author.official && (
-                    <span className="sx-pill sx-pill-official">Official</span>
-                  )}
-                </div>
-                <div className="sx-card-author">
-                  v{manifest.version} · <code>{manifest.extension}</code>
-                </div>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={enabled}
-                aria-label={`Toggle ${manifest.name}`}
-                className={`sx-switch${enabled ? ' is-on' : ''}`}
-                onClick={() => {
-                  setPackageEnabled(manifest.id, !enabled)
-                  toast(`${manifest.name} ${!enabled ? 'enabled' : 'turned off'}`)
-                }}
-              />
-            </div>
-
-            <p className="sx-card-tagline">{manifest.tagline}</p>
-
-            {manifest.touchesCore && (
-              <CoreTouchWarning variant="banner" reason={manifest.coreTouchReason} />
-            )}
-
-            <div className="sx-card-footer">
-              <div style={{ display: 'flex', gap: 6 }}>
+        <section id="plugins-app-plugins">
+          <h3>App Plugins</h3>
+          <div className="preference-rows">
+            {appPlugins.map(({ manifest, enabled }) => (
+              <div key={manifest.id} className="preference-row sx-plugin-row">
                 <button
                   type="button"
-                  className="sx-btn sx-btn-sm sx-btn-ghost"
-                  onClick={() => exportPackageFile(manifest)}
+                  className="sx-plugin-row-main"
+                  onClick={() => onSelectPackage(manifest)}
                 >
-                  Export
+                  <PackageIcon svg={manifest.iconSvg} size={34} />
+                  <span className="sx-plugin-name">{manifest.name}</span>
+                  {manifest.touchesCore && <CoreTouchIcon />}
+                  <span className="sx-plugin-ver">v{manifest.version}</span>
                 </button>
-                {manifest.sandboxHtml && (
-                  <button
-                    type="button"
-                    className="sx-btn sx-btn-sm"
-                    onClick={() => setPreviewPlugin(manifest)}
-                  >
-                    Preview sandbox
-                  </button>
-                )}
-              </div>
-              <button
-                type="button"
-                className="sx-btn sx-btn-sm sx-btn-danger"
-                onClick={() => handleUninstall(manifest)}
-              >
-                Remove
-              </button>
-            </div>
-          </article>
-        ))}
-      </div>
-
-      {/* Embedded Course Plugins */}
-      <div className="sx-section-title">
-        <span>Embedded Course Plugins (.syntaxembeddedplugin) · {embeddedPlugins.length}</span>
-      </div>
-      <div className="sx-grid">
-        {embeddedPlugins.map(({ manifest, enabled }) => {
-          const usedBy = getDependentsOf(manifest.id)
-          return (
-            <article key={manifest.id} className="sx-card">
-              <div className="sx-card-top">
-                <PackageIcon svg={manifest.iconSvg} name={manifest.name} />
-                <div className="sx-card-meta">
-                  <div className="sx-card-title-row">
-                    <h2 className="sx-card-title">{manifest.name}</h2>
-                    {manifest.author.official && (
-                      <span className="sx-pill sx-pill-official">Official</span>
-                    )}
-                  </div>
-                  <div className="sx-card-author">
-                    v{manifest.version} · <code>{manifest.extension}</code>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={enabled}
-                  aria-label={`Toggle ${manifest.name}`}
-                  className={`sx-switch${enabled ? ' is-on' : ''}`}
-                  onClick={() => {
-                    setPackageEnabled(manifest.id, !enabled)
-                    toast(`${manifest.name} ${!enabled ? 'enabled' : 'turned off'}`)
-                  }}
+                <Toggle
+                  label={`Enable ${manifest.name}`}
+                  checked={enabled}
+                  onChange={next => setPackageEnabled(manifest.id, next)}
                 />
               </div>
+            ))}
+          </div>
+        </section>
 
-              <p className="sx-card-tagline">{manifest.tagline}</p>
+        <hr />
 
-              {usedBy.length > 0 && (
-                <div className="sx-inline-note" style={{ fontSize: 12.5, padding: '8px 10px' }}>
-                  Required by: <strong>{usedBy.map(d => d.manifest.name).join(', ')}</strong>
-                </div>
-              )}
-
-              {manifest.aiUsage && (
-                <div className="sx-ai-card">
-                  <span className="sx-ai-card-title">AI Usage Card</span>
-                  <div className="sx-pill-row">
-                    {manifest.aiUsage.blocks.map(block => (
-                      <span key={block} className="sx-pill sx-pill-ext">
-                        {block}
-                      </span>
-                    ))}
-                  </div>
-                  <pre className="sx-code">{manifest.aiUsage.example}</pre>
-                </div>
-              )}
-
-              <div className="sx-card-footer">
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button
-                    type="button"
-                    className="sx-btn sx-btn-sm sx-btn-ghost"
-                    onClick={() => exportPackageFile(manifest)}
-                  >
-                    Export
-                  </button>
-                  {manifest.sandboxHtml && (
-                    <button
-                      type="button"
-                      className="sx-btn sx-btn-sm"
-                      onClick={() => setPreviewPlugin(manifest)}
-                    >
-                      Run Sandbox
-                    </button>
-                  )}
-                </div>
+        <section id="plugins-embedded">
+          <h3>Embedded Plugins</h3>
+          <div className="preference-rows">
+            {embeddedPlugins.map(({ manifest, enabled }) => (
+              <div key={manifest.id} className="preference-row sx-plugin-row">
                 <button
                   type="button"
-                  className="sx-btn sx-btn-sm sx-btn-danger"
-                  onClick={() => handleUninstall(manifest)}
+                  className="sx-plugin-row-main"
+                  onClick={() => onSelectPackage(manifest)}
                 >
-                  Remove
+                  <PackageIcon svg={manifest.iconSvg} size={34} />
+                  <span className="sx-plugin-name">{manifest.name}</span>
+                  <span className="sx-status-pill is-ok">Installed</span>
+                </button>
+                <Toggle
+                  label={`Enable ${manifest.name}`}
+                  checked={enabled}
+                  onChange={next => setPackageEnabled(manifest.id, next)}
+                />
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <hr />
+
+        <section id="plugins-courses">
+          <h3>Courses</h3>
+          <div className="preference-rows">
+            {courses.map(({ manifest }) => (
+              <div key={manifest.id} className="preference-row sx-plugin-row">
+                <button
+                  type="button"
+                  className="sx-plugin-row-main"
+                  onClick={() => onSelectPackage(manifest)}
+                >
+                  <PackageIcon svg={manifest.iconSvg} size={34} />
+                  <span className="sx-plugin-name">{manifest.name}</span>
+                  <span className="sx-plugin-ver">@{manifest.author.handle}</span>
+                </button>
+                <button
+                  type="button"
+                  className="sx-btn-ghost"
+                  onClick={() => onOpenCourse(manifest.id)}
+                >
+                  Open
                 </button>
               </div>
-            </article>
-          )
-        })}
-      </div>
-
-      {/* Sandboxed Plugin Preview Modal */}
-      {previewPlugin && previewPlugin.sandboxHtml && (
-        <div
-          className="sx-modal-backdrop"
-          role="dialog"
-          aria-modal="true"
-          onClick={e => {
-            if (e.target === e.currentTarget) setPreviewPlugin(null)
-          }}
-        >
-          <div className="sx-modal is-wide">
-            <div className="sx-modal-head">
-              <div>
-                <h2>{previewPlugin.name}</h2>
-                <div className="sx-card-author">
-                  Isolated iframe sandbox · network access: {previewPlugin.safety.networkAccess}
-                </div>
-              </div>
-              <button
-                type="button"
-                className="sx-btn sx-btn-sm sx-btn-ghost"
-                onClick={() => setPreviewPlugin(null)}
-              >
-                Close
-              </button>
-            </div>
-            <PluginSandboxFrame
-              pluginId={previewPlugin.id}
-              title={previewPlugin.name}
-              html={previewPlugin.sandboxHtml}
-              theme={theme}
-            />
+            ))}
           </div>
-        </div>
-      )}
+        </section>
+      </div>
     </main>
   )
 }

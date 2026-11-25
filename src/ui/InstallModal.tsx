@@ -1,139 +1,220 @@
-import { useEffect } from 'react'
-import { PACKAGE_LABEL_BY_KIND, type SyntaxPackageManifest } from '../core/packages'
-import { useIsPackageInstalled } from '../core/registry'
-import { CoreTouchWarning } from './CoreTouchWarning'
+import { useEffect, useState } from 'react'
+import type { SyntaxPackageManifest } from '../core/packages'
+import { useAccount } from '../core/account'
+import { useInstalledPackages, useRegistryStore } from '../core/registry'
+import { PluginSandboxFrame } from '../core/sandbox'
 import { PackageIcon } from './PackageIcon'
+import { CoreTouchWarning } from './CoreTouchWarning'
 
-type InstallModalProps = {
-  pkg: SyntaxPackageManifest | null
-  signedIn: boolean
+interface InstallModalProps {
+  manifest: SyntaxPackageManifest | null
+  allKnownPackages: SyntaxPackageManifest[]
+  theme: 'light' | 'dark'
+  source?: 'official' | 'community' | 'local-file'
   onClose: () => void
-  onConfirmInstall: (pkg: SyntaxPackageManifest) => void
+  onRequireSignIn: (pending: SyntaxPackageManifest) => void
+  onInstalled?: (manifest: SyntaxPackageManifest) => void
+  onOpenCourse?: (courseId: string) => void
 }
 
 export function InstallModal({
-  pkg,
-  signedIn,
+  manifest,
+  allKnownPackages,
+  theme,
+  source = 'community',
   onClose,
-  onConfirmInstall,
+  onRequireSignIn,
+  onInstalled,
+  onOpenCourse,
 }: InstallModalProps) {
-  const alreadyInstalled = useIsPackageInstalled(pkg?.id ?? '')
+  const account = useAccount()
+  const records = useInstalledPackages()
+  const installPackage = useRegistryStore(s => s.installPackage)
+  const uninstallPackage = useRegistryStore(s => s.uninstallPackage)
+  const setPackageEnabled = useRegistryStore(s => s.setPackageEnabled)
+  const [showSandbox, setShowSandbox] = useState(false)
+  const [installError, setInstallError] = useState('')
 
   useEffect(() => {
-    if (!pkg) return
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+    setShowSandbox(false)
+    setInstallError('')
+  }, [manifest?.id])
+
+  useEffect(() => {
+    if (!manifest) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !e.defaultPrevented) {
+        e.preventDefault()
+        onClose()
+      }
     }
-    window.addEventListener('keydown', onKeyDown)
-    return () => window.removeEventListener('keydown', onKeyDown)
-  }, [pkg, onClose])
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [manifest, onClose])
 
-  if (!pkg) return null
+  if (!manifest) return null
 
-  const requiredDeps = pkg.requires ?? []
+  const entry = records.find(r => r.manifest.id === manifest.id)
+  const isInstalled = Boolean(entry)
+  const isEnabled = Boolean(entry?.enabled)
+  const requires = manifest.requires ?? []
+
+  function handleAdd() {
+    if (!manifest) return
+    setInstallError('')
+    if (!account) {
+      onRequireSignIn(manifest)
+      return
+    }
+    const res = installPackage(manifest, {
+      source,
+      catalogPool: allKnownPackages,
+    })
+    if (!res.ok) {
+      if (res.needsSignIn) {
+        onRequireSignIn(manifest)
+        return
+      }
+      setInstallError(res.error)
+      return
+    }
+    onInstalled?.(manifest)
+    onClose()
+  }
 
   return (
     <div
       className="sx-modal-backdrop"
       role="dialog"
       aria-modal="true"
-      aria-labelledby="sx-install-title"
+      aria-label={manifest.name}
       onClick={e => {
         if (e.target === e.currentTarget) onClose()
       }}
     >
       <div className="sx-modal">
         <div className="sx-modal-head">
-          <div className="sx-card-top">
-            <PackageIcon svg={pkg.iconSvg} name={pkg.name} size="lg" />
-            <div>
-              <h2 id="sx-install-title">{pkg.name}</h2>
-              <div className="sx-card-author">
-                by @{pkg.author.handle} · v{pkg.version} · <code>{pkg.extension}</code>
-              </div>
-              <div className="sx-pill-row" style={{ marginTop: 6 }}>
-                <span className="sx-pill">{PACKAGE_LABEL_BY_KIND[pkg.kind]}</span>
-                {pkg.author.official && (
-                  <span className="sx-pill sx-pill-official">Official</span>
-                )}
-              </div>
+          <div className="sx-modal-identity">
+            <PackageIcon svg={manifest.iconSvg} size={46} />
+            <div className="sx-modal-titles">
+              <h2>{manifest.name}</h2>
+              <span className="sx-modal-meta">
+                @{manifest.author.handle} · v{manifest.version}
+              </span>
             </div>
           </div>
-          <button type="button" className="sx-btn sx-btn-sm sx-btn-ghost" onClick={onClose}>
-            Close
+          <button type="button" className="sx-icon-close" onClick={onClose} aria-label="Close">
+            ✕
           </button>
         </div>
 
-        <p className="sx-card-tagline">{pkg.description}</p>
+        <p className="sx-modal-copy">{manifest.description}</p>
 
-        {pkg.touchesCore && <CoreTouchWarning variant="banner" reason={pkg.coreTouchReason} />}
+        {manifest.touchesCore && <CoreTouchWarning reason={manifest.coreTouchReason} />}
 
-        <div className="sx-scorecard" aria-label="Safety scorecard">
-          <div className="sx-score-item">
-            <span>Automated Scan</span>
-            <strong>
-              {pkg.safety.automatedScan === 'passed'
-                ? 'Passed'
-                : pkg.safety.automatedScan === 'warning'
-                  ? 'Review Warning'
-                  : 'Unverified'}
-            </strong>
-          </div>
-          <div className="sx-score-item">
-            <span>Isolation</span>
-            <strong>{pkg.touchesCore ? 'Core Integration' : 'Sandboxed'}</strong>
-          </div>
-          <div className="sx-score-item">
-            <span>Network Access</span>
-            <strong>{pkg.safety.networkAccess === 'none' ? 'None' : 'Allowlisted'}</strong>
-          </div>
-        </div>
-
-        {requiredDeps.length > 0 && (
-          <div className="sx-inline-note">
-            <strong>Required embedded plugins included automatically:</strong>{' '}
-            {requiredDeps.map(d => `${d.name} (.syntaxembeddedplugin)`).join(', ')}.
+        {manifest.kind === 'embedded-plugin' && (
+          <div className="sx-account-status-row">
+            <span>Embedded plugin</span>
+            <span className={`sx-status-pill${isInstalled ? ' is-ok' : ''}`}>
+              {isInstalled ? 'Installed on your account' : 'Not installed yet'}
+            </span>
           </div>
         )}
 
-        {pkg.aiUsage && (
-          <div className="sx-ai-card">
-            <span className="sx-ai-card-title">AI Usage Card (MCP Discovery)</span>
-            <p className="sx-card-tagline">{pkg.aiUsage.summary}</p>
-            <div className="sx-pill-row">
-              {pkg.aiUsage.blocks.map(b => (
-                <span key={b} className="sx-pill sx-pill-ext">
-                  {b}
-                </span>
-              ))}
+        {requires.length > 0 && (
+          <div className="sx-dep-list">
+            <span className="sx-dep-heading">Required embedded plugins</span>
+            {requires.map(dep => {
+              const depInstalled = records.some(r => r.manifest.id === dep.id)
+              return (
+                <div key={dep.id} className="sx-dep-item">
+                  <span>{dep.name}</span>
+                  <span className={`sx-status-pill${depInstalled ? ' is-ok' : ''}`}>
+                    {depInstalled ? 'Installed on your account' : 'Will install automatically'}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {manifest.aiUsage && (
+          <details className="sx-disclosure">
+            <summary>AI usage (MCP)</summary>
+            <div className="sx-disclosure-body">
+              <p>{manifest.aiUsage.summary}</p>
+              <pre>{manifest.aiUsage.example}</pre>
             </div>
-            <pre className="sx-code">{pkg.aiUsage.example}</pre>
+          </details>
+        )}
+
+        {isInstalled && isEnabled && manifest.sandboxHtml && (
+          <div className="sx-sandbox-section">
+            <button
+              type="button"
+              className="sx-btn-ghost"
+              onClick={() => setShowSandbox(v => !v)}
+            >
+              {showSandbox ? 'Hide preview' : 'Open preview'}
+            </button>
+            {showSandbox && (
+              <PluginSandboxFrame
+                key={manifest.id}
+                pluginId={manifest.id}
+                title={manifest.name}
+                html={manifest.sandboxHtml}
+                theme={theme}
+              />
+            )}
           </div>
         )}
 
-        {!signedIn && (
-          <div className="sx-inline-note">
-            You need to sign in to your Syntax account before installing packages. Clicking{' '}
-            <strong>Sign in &amp; Install</strong> will open sign-in and finish this install
-            automatically.
-          </div>
-        )}
+        {installError && <p className="sx-field-error">{installError}</p>}
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <button type="button" className="sx-btn sx-btn-ghost" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="sx-btn sx-btn-primary"
-            onClick={() => onConfirmInstall(pkg)}
-          >
-            {alreadyInstalled
-              ? 'Reinstall / Update'
-              : signedIn
-                ? `Install ${PACKAGE_LABEL_BY_KIND[pkg.kind]}`
-                : 'Sign in & Install'}
-          </button>
+        <div className="sx-modal-actions">
+          {isInstalled && !manifest.builtIn && (
+            <button
+              type="button"
+              className="sx-btn-danger-ghost"
+              onClick={() => {
+                uninstallPackage(manifest.id)
+                onClose()
+              }}
+            >
+              Remove
+            </button>
+          )}
+          <div className="sx-modal-actions-right">
+            {isInstalled ? (
+              manifest.kind === 'course' && onOpenCourse ? (
+                <button
+                  type="button"
+                  className="sx-btn-primary"
+                  onClick={() => {
+                    onOpenCourse(manifest.id)
+                    onClose()
+                  }}
+                >
+                  Open course
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="sx-btn-primary"
+                  onClick={() => {
+                    setPackageEnabled(manifest.id, !isEnabled)
+                    onClose()
+                  }}
+                >
+                  {isEnabled ? 'Disable' : 'Enable'}
+                </button>
+              )
+            ) : (
+              <button type="button" className="sx-btn-primary" onClick={handleAdd}>
+                {account ? 'Add to Syntax' : 'Sign in to add'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

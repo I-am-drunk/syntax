@@ -41,10 +41,7 @@ jobs:
           VITE_BASE: /${{ github.event.repository.name }}/
           VITE_CHANNEL: stable
           VITE_RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag || github.ref_name }}
-          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
-          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
-          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY }}
         run: npm run build
 
       - name: Package main channel archive
@@ -57,20 +54,40 @@ jobs:
         run: |
           gh release upload "${{ github.event.release.tag_name }}" site-main.tar.gz --clobber --repo "${{ github.repository }}"
 
-      - name: Assemble combined Pages output (main + latest dev)
+      - name: Build fresh dev preview channel
+        env:
+          VITE_BASE: /${{ github.event.repository.name }}/dev/
+          VITE_CHANNEL: dev
+          VITE_RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}-dev
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY }}
+        run: npm run build
+
+      - name: Package fresh dev archive
+        run: tar -czf site-dev-fresh.tar.gz -C dist .
+
+      - name: Assemble combined Pages output (main + dev)
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mkdir -p _site
+          mkdir -p _site _site/dev
           tar -xzf site-main.tar.gz -C _site
           touch _site/.nojekyll
+          USE_FRESH_DEV=1
           DEV_TAG="$(gh release list --repo "${{ github.repository }}" --limit 30 --json tagName,isPrerelease --jq '[.[] | select(.isPrerelease == true)][0].tagName // empty')"
-          if [ -n "$DEV_TAG" ]; then
-            echo "Restoring dev site from pre-release $DEV_TAG"
+          if [ -n "$DEV_TAG" ] && [ "${{ github.event_name }}" = "release" ]; then
             if gh release download "$DEV_TAG" --pattern "site-dev.tar.gz" --repo "${{ github.repository }}"; then
-              mkdir -p _site/dev
               tar -xzf site-dev.tar.gz -C _site/dev
+              if grep -q "/${{ github.event.repository.name }}/dev/" _site/dev/index.html; then
+                echo "Restored valid dev site from pre-release $DEV_TAG"
+                USE_FRESH_DEV=0
+              else
+                echo "Pre-release $DEV_TAG has stale base path; using fresh dev build"
+                rm -rf _site/dev/*
+              fi
             fi
+          fi
+          if [ "$USE_FRESH_DEV" = "1" ]; then
+            tar -xzf site-dev-fresh.tar.gz -C _site/dev
           fi
 
       - name: Upload Pages artifact

@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import {
   clearLogs,
   exportLogsText,
-  getRegisteredSinkCounts,
   useSyntaxLogs,
   type LogLevel,
 } from '../core/logger'
@@ -28,7 +27,6 @@ export function DiagnosticsModal({ open, onClose }: DiagnosticsModalProps) {
 
   if (!open) return null
 
-  const sinks = getRegisteredSinkCounts()
   const visible = filter === 'all' ? logs : logs.filter(e => e.level === filter)
 
   async function handleCopy() {
@@ -53,64 +51,47 @@ export function DiagnosticsModal({ open, onClose }: DiagnosticsModalProps) {
     >
       <div className="sx-modal is-wide">
         <div className="sx-modal-head">
-          <div>
-            <h2 id="sx-diag-title">Diagnostics &amp; Event Log</h2>
-            <p className="sx-page-subtitle" style={{ marginTop: 4, fontSize: 13 }}>
-              Every runtime error, plugin event, and install action is captured here. External sinks
-              connected: {sinks.errorSinks} error (Sentry-ready), {sinks.analyticsSinks} analytics
-              (PostHog-ready).
-            </p>
-          </div>
-          <button type="button" className="sx-btn sx-btn-sm sx-btn-ghost" onClick={onClose}>
-            Close
+          <h2 id="sx-diag-title">Dev Diagnostics</h2>
+          <button type="button" className="sx-icon-close" onClick={onClose} aria-label="Close">
+            ✕
           </button>
         </div>
 
-        <div className="sx-toolbar" style={{ marginBottom: 0 }}>
-          <div className="sx-tabs" role="tablist">
+        <div className="sx-modal-actions">
+          <div style={{ display: 'flex', gap: 6 }}>
             {(['all', 'error', 'warn', 'info'] as const).map(lvl => (
               <button
                 key={lvl}
                 type="button"
-                role="tab"
-                aria-selected={filter === lvl}
-                className={`sx-tab${filter === lvl ? ' is-active' : ''}`}
+                className={filter === lvl ? 'sx-btn-primary' : 'sx-btn-ghost'}
+                style={{ minHeight: 32, padding: '0 12px', fontSize: 12 }}
                 onClick={() => setFilter(lvl)}
               >
                 {lvl === 'all' ? `All (${logs.length})` : lvl.toUpperCase()}
               </button>
             ))}
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button type="button" className="sx-btn sx-btn-sm" onClick={() => void handleCopy()}>
-              {copied ? 'Copied!' : 'Copy bug report'}
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button type="button" className="sx-btn-ghost" onClick={() => void handleCopy()}>
+              {copied ? 'Copied' : 'Copy'}
             </button>
-            <button type="button" className="sx-btn sx-btn-sm sx-btn-ghost" onClick={clearLogs}>
+            <button type="button" className="sx-btn-ghost" onClick={clearLogs}>
               Clear
             </button>
           </div>
         </div>
 
-        <div className="sx-log-list">
+        <div className="sx-diag-list">
           {visible.length === 0 ? (
-            <div className="sx-inline-note">No log entries match this filter yet.</div>
+            <div className="sx-diag-row">No log entries yet.</div>
           ) : (
             visible.map(entry => (
-              <div
-                key={entry.id}
-                className={`sx-log-row${entry.level === 'error' ? ' is-error' : entry.level === 'warn' ? ' is-warn' : ''}`}
-              >
-                <div className="sx-log-meta">
-                  <span>{new Date(entry.ts).toISOString().slice(11, 23)}</span>
-                  <strong>{entry.level.toUpperCase()}</strong>
-                  <span>[{entry.scope}]</span>
+              <div key={entry.id} className="sx-diag-row">
+                <div>
+                  <strong>{entry.level.toUpperCase()}</strong> [{entry.scope}]{' '}
+                  {new Date(entry.ts).toISOString().slice(11, 23)} · {entry.message}
                 </div>
-                <div>{entry.message}</div>
-                {entry.detail && (
-                  <pre className="sx-code" style={{ marginTop: 6 }}>
-                    {entry.detail}
-                  </pre>
-                )}
+                {entry.detail && <pre style={{ margin: '6px 0 0', overflowX: 'auto' }}>{entry.detail}</pre>}
               </div>
             ))
           )}

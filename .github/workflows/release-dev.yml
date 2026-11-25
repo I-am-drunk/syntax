@@ -41,10 +41,7 @@ jobs:
           VITE_BASE: /${{ github.event.repository.name }}/dev/
           VITE_CHANNEL: dev
           VITE_RELEASE_TAG: ${{ github.event.release.tag_name || github.event.inputs.tag || github.ref_name }}
-          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
-          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
-          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY }}
         run: npm run build
 
       - name: Package dev channel archive
@@ -61,14 +58,23 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mkdir -p _site/dev
+          mkdir -p _site _site/dev
           MAIN_TAG="$(gh release list --repo "${{ github.repository }}" --limit 30 --json tagName,isPrerelease --jq '[.[] | select(.isPrerelease == false)][0].tagName // empty')"
+          USE_FRESH_MAIN=1
           if [ -n "$MAIN_TAG" ]; then
-            echo "Restoring main site from stable release $MAIN_TAG"
             if gh release download "$MAIN_TAG" --pattern "site-main.tar.gz" --repo "${{ github.repository }}"; then
-              mkdir -p _site
               tar -xzf site-main.tar.gz -C _site
+              if grep -q "/${{ github.event.repository.name }}/assets/" _site/index.html; then
+                USE_FRESH_MAIN=0
+              else
+                rm -rf _site/*
+                mkdir -p _site/dev
+              fi
             fi
+          fi
+          if [ "$USE_FRESH_MAIN" = "1" ]; then
+            VITE_BASE="/${{ github.event.repository.name }}/" VITE_CHANNEL="stable" VITE_RELEASE_TAG="main" VITE_CLERK_PUBLISHABLE_KEY="${{ vars.VITE_CLERK_PUBLISHABLE_KEY }}" npm run build
+            cp -r dist/. _site/
           fi
           tar -xzf site-dev.tar.gz -C _site/dev
           touch _site/.nojekyll

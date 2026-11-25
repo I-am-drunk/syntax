@@ -26,15 +26,10 @@ export function ThinkingInCodeCourseView({ onBack }: { onBack: () => void }) {
   if (activeLesson) {
     return (
       <div>
-        <div className="sx-course-context-strip">
-          <button
-            type="button"
-            className="sx-btn sx-btn-sm sx-btn-ghost"
-            onClick={() => setActiveSlug(null)}
-          >
-            ← Back to Thinking in Code
+        <div className="sx-course-page" style={{ marginBlock: '16px 0' }}>
+          <button type="button" className="sx-btn-ghost" style={{ alignSelf: 'flex-start' }} onClick={() => setActiveSlug(null)}>
+            ← Thinking in Code
           </button>
-          <span className="sx-pill">Thinking in Code · {activeLesson.title}</span>
         </div>
         <LessonSession
           key={`${activeLesson.slug}:${activeLesson.version}`}
@@ -46,46 +41,28 @@ export function ThinkingInCodeCourseView({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <main className="sx-page">
-      <div className="sx-page-header">
-        <div>
-          <button
-            type="button"
-            className="sx-btn sx-btn-sm sx-btn-ghost"
-            style={{ marginBottom: 10 }}
-            onClick={onBack}
-          >
-            ← Back to Library
-          </button>
-          <h1>Thinking in Code</h1>
-          <p className="sx-page-subtitle">
-            Interactive grid puzzles powered by the <code>grid-coding-engine</code> embedded plugin.
-          </p>
-        </div>
+    <main className="sx-course-page">
+      <button type="button" className="sx-btn-ghost" style={{ alignSelf: 'flex-start' }} onClick={onBack}>
+        ← Back
+      </button>
+      <div className="sx-course-hero">
+        <h1>Thinking in Code</h1>
       </div>
-
-      <div className="sx-grid">
+      <div className="preference-rows">
         {THINKING_LESSONS.map((lesson, idx) => (
-          <article key={lesson.slug} className="sx-card">
-            <div className="sx-pill-row">
-              <span className="sx-pill">Lesson {idx + 1}</span>
-              <span className="sx-pill sx-pill-ext">{lesson.pages.length} pages</span>
+          <div key={lesson.slug} className="preference-row">
+            <div>
+              <strong>
+                {idx + 1}. {lesson.title}
+              </strong>
+              <span className="sx-modal-meta" style={{ marginLeft: 10 }}>
+                {lesson.pages.length} pages
+              </span>
             </div>
-            <h2 className="sx-card-title">{lesson.title}</h2>
-            <p className="sx-card-tagline">
-              Build and run visual command blocks with live step-by-step feedback.
-            </p>
-            <div className="sx-card-footer">
-              <span className="sx-card-author">v{lesson.version}</span>
-              <button
-                type="button"
-                className="sx-btn sx-btn-sm sx-btn-primary"
-                onClick={() => setActiveSlug(lesson.slug)}
-              >
-                Start Lesson
-              </button>
-            </div>
-          </article>
+            <button type="button" className="sx-btn-primary" onClick={() => setActiveSlug(lesson.slug)}>
+              Start
+            </button>
+          </div>
         ))}
       </div>
     </main>
@@ -113,122 +90,98 @@ export function CustomCourseView({ course, theme, onBack }: CustomCourseViewProp
   }, [installed, course.requires])
 
   return (
-    <main className="sx-page">
-      <div className="sx-page-header">
-        <div className="sx-card-top">
-          <PackageIcon svg={course.iconSvg} name={course.name} size="lg" />
-          <div>
-            <button
-              type="button"
-              className="sx-btn sx-btn-sm sx-btn-ghost"
-              style={{ marginBottom: 8 }}
-              onClick={onBack}
-            >
-              ← Back to Library
-            </button>
-            <h1>{course.name}</h1>
-            <p className="sx-page-subtitle">
-              {course.customCourse?.subtitle || course.tagline} · by @{course.author.handle}
-            </p>
-          </div>
+    <main className="sx-course-page">
+      <button type="button" className="sx-btn-ghost" style={{ alignSelf: 'flex-start' }} onClick={onBack}>
+        ← Back
+      </button>
+
+      <div className="sx-course-hero">
+        <PackageIcon svg={course.iconSvg} size={52} />
+        <div>
+          <h1>{course.name}</h1>
+          <span className="sx-modal-meta">@{course.author.handle}</span>
         </div>
       </div>
 
       {requiredSandboxes.map(sandboxPkg => (
-        <div key={sandboxPkg.id} style={{ marginBottom: 24 }}>
-          <div className="sx-section-title" style={{ marginTop: 0 }}>
-            <span>
-              Embedded Plugin: {sandboxPkg.name} ({sandboxPkg.extension})
-            </span>
-          </div>
-          <PluginSandboxFrame
-            pluginId={sandboxPkg.id}
-            title={sandboxPkg.name}
-            html={sandboxPkg.sandboxHtml!}
-            theme={theme}
-          />
-        </div>
+        <PluginSandboxFrame
+          key={sandboxPkg.id}
+          pluginId={sandboxPkg.id}
+          title={sandboxPkg.name}
+          html={sandboxPkg.sandboxHtml!}
+          theme={theme}
+        />
       ))}
 
-      {units.length === 0 ? (
-        <div className="sx-inline-note">
-          This <code>.syntaxcourse</code> package has no playable lessons yet.
-        </div>
-      ) : (
-        units.map((unit, uIdx) => (
-          <section key={`${uIdx}:${unit.title}`} style={{ marginBottom: 28 }}>
-            <div className="sx-section-title">
-              <span>
-                Unit {uIdx + 1}: {unit.title}
-              </span>
-            </div>
-            <div className="sx-grid">
-              {unit.lessons.map(lesson => {
-                const picked = selectedChoice[lesson.id]
-                const isChecked = Boolean(checked[lesson.id])
-                const isRight =
-                  isChecked &&
-                  typeof lesson.answerIndex === 'number' &&
-                  picked === lesson.answerIndex
+      {units.map((unit, uIdx) => (
+        <section key={`${uIdx}:${unit.title}`} className="sx-course-lessons">
+          <h2>{unit.title}</h2>
+          {unit.lessons.map(lesson => {
+            const picked = selectedChoice[lesson.id]
+            const isChecked = Boolean(checked[lesson.id])
+            const isRight =
+              isChecked &&
+              typeof lesson.answerIndex === 'number' &&
+              picked === lesson.answerIndex
 
-                return (
-                  <article key={lesson.id} className="sx-card">
-                    <h2 className="sx-card-title">{lesson.title}</h2>
-                    <p className="sx-card-tagline">{lesson.summary}</p>
-                    {lesson.prompt && (
-                      <div className="sx-inline-note" style={{ color: 'var(--sx-fg)' }}>
-                        <strong>Check:</strong> {lesson.prompt}
-                      </div>
-                    )}
-                    {lesson.choices && lesson.choices.length > 0 && (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        {lesson.choices.map((choice, cIdx) => (
-                          <button
-                            key={`${lesson.id}:${cIdx}`}
-                            type="button"
-                            className={`sx-btn sx-btn-sm${picked === cIdx ? ' sx-btn-primary' : ''}`}
-                            style={{ justifyContent: 'flex-start' }}
-                            onClick={() => {
-                              setSelectedChoice(prev => ({ ...prev, [lesson.id]: cIdx }))
-                              setChecked(prev => ({ ...prev, [lesson.id]: false }))
-                            }}
-                          >
-                            {choice}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    {lesson.choices && typeof picked === 'number' && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            return (
+              <article key={lesson.id} className="sx-course-lesson-card">
+                <strong>{lesson.title}</strong>
+                {lesson.prompt && <p className="sx-modal-copy">{lesson.prompt}</p>}
+                {lesson.choices && lesson.choices.length > 0 && (
+                  <div className="sx-course-choices">
+                    {lesson.choices.map((choice, cIdx) => {
+                      const cls =
+                        isChecked && picked === cIdx
+                          ? isRight
+                            ? ' is-correct'
+                            : ' is-wrong'
+                          : ''
+                      return (
                         <button
+                          key={`${lesson.id}:${cIdx}`}
                           type="button"
-                          className="sx-btn sx-btn-sm sx-btn-primary"
-                          onClick={() => setChecked(prev => ({ ...prev, [lesson.id]: true }))}
+                          className={`sx-course-choice${cls}`}
+                          style={
+                            !isChecked && picked === cIdx
+                              ? { borderColor: '#456dff' }
+                              : undefined
+                          }
+                          onClick={() => {
+                            setSelectedChoice(prev => ({ ...prev, [lesson.id]: cIdx }))
+                            setChecked(prev => ({ ...prev, [lesson.id]: false }))
+                          }}
                         >
-                          Check answer
+                          {choice}
                         </button>
-                        {isChecked && (
-                          <span
-                            className="sx-pill"
-                            style={{
-                              color: isRight ? 'var(--sx-success)' : 'var(--sx-danger)',
-                            }}
-                          >
-                            {isRight ? 'Correct!' : 'Try another choice'}
-                          </span>
-                        )}
-                      </div>
+                      )
+                    })}
+                  </div>
+                )}
+                {lesson.choices && typeof picked === 'number' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <button
+                      type="button"
+                      className="sx-btn-primary"
+                      onClick={() => setChecked(prev => ({ ...prev, [lesson.id]: true }))}
+                    >
+                      Check
+                    </button>
+                    {isChecked && (
+                      <span className={`sx-status-pill${isRight ? ' is-ok' : ''}`}>
+                        {isRight ? 'Correct' : 'Try again'}
+                      </span>
                     )}
-                    {isChecked && lesson.explanation && (
-                      <div className="sx-inline-note">{lesson.explanation}</div>
-                    )}
-                  </article>
-                )
-              })}
-            </div>
-          </section>
-        ))
-      )}
+                  </div>
+                )}
+                {isChecked && lesson.explanation && (
+                  <p className="sx-modal-copy">{lesson.explanation}</p>
+                )}
+              </article>
+            )
+          })}
+        </section>
+      ))}
     </main>
   )
 }

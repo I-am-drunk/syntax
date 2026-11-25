@@ -11,10 +11,24 @@ import { FormulaSheetModal } from './components/FormulaSheetModal'
 import { DivergingLevelPath, type PathLessonStat } from './components/DivergingLevelPath'
 import { OnboardingModal } from './components/OnboardingModal'
 import { SyntaxSettingsPage } from './components/SyntaxSettingsModal'
-import { SyntaxHistoryPage } from './components/SyntaxHistoryModal'
 import { TopBarSema } from './mascot/TopBarSema'
 import { loadPrefs, savePrefs, type SyntaxPrefs } from './storage'
-import { usePluginActive } from '../core/registry'
+import { HomePage } from '../courses/HomePage'
+import { useAccount } from '../core/account'
+import { ClerkHeaderAvatar, useAuthActions } from '../core/clerkAuth'
+import { fetchCommunityCatalog } from '../core/community'
+import type { SyntaxPackageManifest } from '../core/packages'
+import {
+  getCourseDependencyStatus,
+  useInstalledPackages,
+  usePluginActive,
+  useRegistryStore,
+} from '../core/registry'
+import { OFFICIAL_CATALOG } from '../packages/catalog'
+import { PluginsPage } from '../ui/PluginsPage'
+import { InstallModal } from '../ui/InstallModal'
+import { DependencyGate } from '../ui/DependencyGate'
+import { CustomCourseView, ThinkingInCodeCourseView } from '../ui/CustomCourseView'
 import { assetUrl } from './assetUrl'
 import {
   DevMetricsMicroBar,
@@ -84,10 +98,43 @@ function loadSound(): boolean {
 }
 
 function readLessonFromHash(): string | null {
-  const match = location.hash.match(/^#lesson[=/]([a-z0-9-]+)$/i)
+  const match = location.hash.match(/^#\/?lesson[=/]([a-z0-9-]+)$/i)
   if (!match) return null
   const id = match[1]
   return ALL_LESSONS.some(l => l.id === id) ? id : null
+}
+
+function readInstallIdFromUrl(): string | null {
+  try {
+    const q = new URLSearchParams(location.search).get('install')
+    if (q && /^[a-z0-9][a-z0-9-]{1,62}$/i.test(q)) return q.toLowerCase()
+  } catch {
+    // ignore
+  }
+  const m = location.hash.match(/^#\/?install[=/]([a-z0-9-]+)$/i)
+  return m ? m[1].toLowerCase() : null
+}
+
+function clearInstallFromUrl() {
+  try {
+    const url = new URL(location.href)
+    const hadQuery = url.searchParams.has('install')
+    if (hadQuery) url.searchParams.delete('install')
+    const hadHash = /^#\/?install[=/]/i.test(url.hash)
+    if (hadHash) url.hash = ''
+    if (hadQuery || hadHash) {
+      history.replaceState(null, '', url.pathname + url.search + url.hash)
+    }
+  } catch {
+    // ignore
+  }
+}
+
+function readInitialTopTab(): 'home' | 'course' | 'plugins' {
+  const h = location.hash.toLowerCase()
+  if (h.startsWith('#/plugins') || h === '#plugins') return 'plugins'
+  if (h.startsWith('#/course') || h === '#course' || h.startsWith('#lesson')) return 'course'
+  return 'home'
 }
 
 function clearLessonResume(lessonId: string) {
@@ -125,6 +172,14 @@ function FormulasNavIcon() {
     <svg className="nav-svg-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5a1 1 0 0 1 0-5H20" />
       <path d="M9 7h6M9 11h4" />
+    </svg>
+  )
+}
+
+function PluginsNavIcon() {
+  return (
+    <svg className="nav-svg-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M19.439 7.85c-.049.322.059.648.289.878l1.568 1.568c.47.47.706 1.087.706 1.704s-.235 1.233-.706 1.704l-1.611 1.611a.98.98 0 0 1-.837.276c-.47-.07-.802-.48-.968-.925a2.501 2.501 0 1 0-3.214 3.214c.446.166.855.497.925.968a.979.979 0 0 1-.276.837l-1.61 1.61a2.404 2.404 0 0 1-1.705.707 2.402 2.402 0 0 1-1.704-.706l-1.568-1.568a1.026 1.026 0 0 0-.877-.29c-.493.074-.84.504-1.02.968a2.5 2.5 0 1 1-3.237-3.237c.464-.18.894-.527.967-1.02a1.026 1.026 0 0 0-.289-.877l-1.568-1.568A2.402 2.402 0 0 1 1.998 12c0-.617.236-1.234.706-1.704L4.23 8.77c.24-.24.581-.353.917-.303.515.077.877.528 1.073 1.01a2.5 2.5 0 1 0 3.259-3.259c-.482-.196-.933-.558-1.01-1.073-.05-.336.062-.676.303-.917l1.525-1.525A2.402 2.402 0 0 1 12 1.998c.617 0 1.234.236 1.704.706l1.568 1.568c.23.23.556.338.877.29.493-.074.84-.504 1.02-.968a2.5 2.5 0 1 1 3.237 3.237c-.464.18-.894.527-.967 1.02Z" />
     </svg>
   )
 }
@@ -197,43 +252,42 @@ function toPathTier(stat?: { correct: number; total: number }): PathLessonStat['
 }
 
 export type CourseShellProps = {
-  onExitCourse?: () => void
-  onOpenHub?: () => void
-  onOpenPlugins?: () => void
-  onOpenProfile?: () => void
-  externalTheme?: 'light' | 'dark'
-  onExternalThemeChange?: (next: 'light' | 'dark') => void
+  onOpenDevDiagnostics?: () => void
   hideToaster?: boolean
 }
 
 export function CourseShell({
-  onExitCourse,
-  onOpenHub,
-  onOpenPlugins,
-  onOpenProfile,
-  externalTheme,
-  onExternalThemeChange,
+  onOpenDevDiagnostics,
   hideToaster = false,
 }: CourseShellProps = {}) {
+  const account = useAccount()
+  const auth = useAuthActions()
+  const installedRecords = useInstalledPackages()
+  const installPackage = useRegistryStore(s => s.installPackage)
+  const setPackageEnabled = useRegistryStore(s => s.setPackageEnabled)
   const playbookPluginOn = usePluginActive('formula-playbook')
-  const historyPluginOn = usePluginActive('work-history')
   const penPluginOn = usePluginActive('pen-studio')
   const checkmarkPluginOn = usePluginActive('checkmark-gate')
   const floatingWindowsPluginOn = usePluginActive('floating-windows')
+  const [topTab, setTopTab] = useState<'home' | 'course' | 'plugins'>(readInitialTopTab)
+  const [activeCourseId, setActiveCourseId] = useState<string>('mpm2d-analytic-geometry')
+  const [catalogPackages, setCatalogPackages] = useState<SyntaxPackageManifest[]>(OFFICIAL_CATALOG)
+  const [inspectPackage, setInspectPackage] = useState<{
+    manifest: SyntaxPackageManifest
+    source: 'official' | 'community' | 'local-file'
+  } | null>(null)
+  const [pendingInstall, setPendingInstall] = useState<{
+    manifest: SyntaxPackageManifest
+    source: 'official' | 'community' | 'local-file'
+  } | null>(null)
   const [progress, setProgress] = useState<SavedProgress>(loadProgress)
   const [resumeMap, setResumeMap] = useState(loadResumeMap)
-  const [localTheme, setLocalTheme] = useState<'light' | 'dark'>(loadTheme)
-  const theme = externalTheme ?? localTheme
-  const setTheme = (updater: 'light' | 'dark' | ((prev: 'light' | 'dark') => 'light' | 'dark')) => {
-    const next = typeof updater === 'function' ? updater(theme) : updater
-    setLocalTheme(next)
-    onExternalThemeChange?.(next)
-  }
+  const [theme, setTheme] = useState<'light' | 'dark'>(loadTheme)
   const [soundOn, setSoundOn] = useState<boolean>(loadSound)
   const [prefs, setPrefs] = useState<SyntaxPrefs>(loadPrefs)
   const [filterOpen, setFilterOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [historyOpen, setHistoryOpen] = useState(false)
+  const historyOpen = false
   const [activeLessonId, setActiveLessonId] = useState<string | null>(readLessonFromHash)
   const [returnLessonId, setReturnLessonId] = useState<string | null>(null)
   const [virtualReviewLesson, setVirtualReviewLesson] = useState<GeoLesson | null>(null)
@@ -299,6 +353,58 @@ export function CourseShell({
     }
   }, [soundOn])
 
+  // Load live Community Hub catalog in background for ?install= deep links
+  useEffect(() => {
+    const ac = new AbortController()
+    void fetchCommunityCatalog(ac.signal).then(res => {
+      if (!ac.signal.aborted && res && res.items.length > 0) {
+        setCatalogPackages(res.items)
+      }
+    })
+    return () => ac.abort()
+  }, [])
+
+  // Handle "Add to Syntax" deep-links (?install=<id> or #install=<id>)
+  useEffect(() => {
+    const checkInstallLink = () => {
+      const targetId = readInstallIdFromUrl()
+      if (!targetId) return
+      const found =
+        catalogPackages.find(p => p.id === targetId) ??
+        installedRecords.find(r => r.manifest.id === targetId)?.manifest
+      if (found) {
+        setInspectPackage({
+          manifest: found,
+          source: found.builtIn ? 'official' : 'community',
+        })
+      }
+    }
+    checkInstallLink()
+    window.addEventListener('hashchange', checkInstallLink)
+    return () => window.removeEventListener('hashchange', checkInstallLink)
+  }, [catalogPackages, installedRecords])
+
+  // Auto-complete pending package install as soon as Clerk/local sign-in finishes
+  useEffect(() => {
+    if (!account || !pendingInstall) return
+    const { manifest, source } = pendingInstall
+    setPendingInstall(null)
+    const res = installPackage(manifest, {
+      source,
+      catalogPool: catalogPackages,
+    })
+    if (res.ok) {
+      toast.success(`Added ${manifest.name}`)
+      if (manifest.kind === 'course') {
+        setActiveCourseId(manifest.id)
+        setTopTab('course')
+        setSettingsOpen(false)
+      }
+    } else {
+      toast.error(res.error)
+    }
+  }, [account, pendingInstall, installPackage, catalogPackages])
+
   useEffect(() => {
     const onHash = () => {
       const id = readLessonFromHash()
@@ -336,7 +442,7 @@ export function CourseShell({
 
   // Real scroll-spy on .course-outline: smoothly switches Unit 2 <-> Conference on scroll!
   useEffect(() => {
-    if (activeLessonId || virtualReviewLesson || settingsOpen || historyOpen) return
+    if (activeLessonId || virtualReviewLesson || settingsOpen || topTab !== 'course' || activeCourseId !== 'mpm2d-analytic-geometry') return
     const scroller = outlineScrollRef.current
     if (!scroller) return
 
@@ -388,7 +494,7 @@ export function CourseShell({
       scroller.removeEventListener('scroll', onScroll)
       window.removeEventListener('resize', onResize)
     }
-  }, [activeLessonId, virtualReviewLesson, settingsOpen, historyOpen, prefs.showCatchupPaths])
+  }, [activeLessonId, virtualReviewLesson, settingsOpen, topTab, activeCourseId, prefs.showCatchupPaths])
 
   // Passive global stylus detection -> offer Draw Mode automatically (only when stylus plugins are active)
   useEffect(() => {
@@ -522,7 +628,7 @@ export function CourseShell({
 
   // Brilliant scroll-away hide: observe selected node visibility inside .course-outline
   useEffect(() => {
-    if (activeLessonId || virtualReviewLesson || settingsOpen || historyOpen) return
+    if (activeLessonId || virtualReviewLesson || settingsOpen || topTab !== 'course' || activeCourseId !== 'mpm2d-analytic-geometry') return
     const scroller = outlineScrollRef.current
     const nodeEl = nodeRefs.current.get(resolvedSelectedLesson.id)
     if (!scroller || !nodeEl || typeof IntersectionObserver === 'undefined') {
@@ -548,13 +654,14 @@ export function CourseShell({
     activeLessonId,
     virtualReviewLesson,
     settingsOpen,
-    historyOpen,
+    topTab,
+    activeCourseId,
     prefs.showCatchupPaths,
   ])
 
   // Track thick tab card height so the parallel floating row glides cleanly above it
   useEffect(() => {
-    if (activeLessonId || virtualReviewLesson || settingsOpen || historyOpen) return
+    if (activeLessonId || virtualReviewLesson || settingsOpen || topTab !== 'course' || activeCourseId !== 'mpm2d-analytic-geometry') return
     const el = dockCardRef.current
     if (!el) return
     const update = () => {
@@ -571,7 +678,8 @@ export function CourseShell({
     activeLessonId,
     virtualReviewLesson,
     settingsOpen,
-    historyOpen,
+    topTab,
+    activeCourseId,
   ])
 
   // Close Fitness progress drawer on outside click or Escape
@@ -646,11 +754,7 @@ export function CourseShell({
     setVirtualReviewLesson(null)
     setActiveLessonId(null)
     setResumeMap(loadResumeMap())
-    if (onExitCourse) {
-      if (location.hash !== '#/course/mpm2d-analytic-geometry') {
-        history.replaceState(null, '', '#/course/mpm2d-analytic-geometry')
-      }
-    } else if (location.hash) {
+    if (location.hash) {
       history.replaceState(null, '', location.pathname + location.search)
     }
   }
@@ -822,8 +926,41 @@ export function CourseShell({
     )
   }
 
-  const overlayOpen = settingsOpen || historyOpen
-  const currentNavKey = formulasOpen ? 'playbook' : activeNav
+  const installedCourses = useMemo(
+    () => installedRecords.filter(r => r.manifest.kind === 'course' && r.enabled).map(r => r.manifest),
+    [installedRecords],
+  )
+  const activeCourseManifest = useMemo(
+    () =>
+      installedRecords.find(r => r.manifest.id === activeCourseId)?.manifest ??
+      installedRecords.find(r => r.manifest.id === 'mpm2d-analytic-geometry')?.manifest,
+    [installedRecords, activeCourseId],
+  )
+  const activeCourseDepStatus = useMemo(
+    () => (activeCourseManifest ? getCourseDependencyStatus(activeCourseManifest.id) : { ok: true, missing: [], disabled: [] }),
+    [activeCourseManifest, installedRecords],
+  )
+
+  const nextLessonIdx = Math.max(
+    0,
+    UNIT2_LESSONS.findIndex(l => l.id === resolvedSelectedLesson.id),
+  )
+  const followingLesson = UNIT2_LESSONS[nextLessonIdx + 1]
+  const showMpm2dOutline =
+    !settingsOpen &&
+    topTab === 'course' &&
+    activeCourseId === 'mpm2d-analytic-geometry' &&
+    activeCourseDepStatus.ok
+  const courseTabLabel =
+    activeCourseId === 'mpm2d-analytic-geometry'
+      ? 'Unit 2'
+      : activeCourseManifest?.name ?? 'Courses'
+
+  function openCourseById(courseId: string) {
+    setActiveCourseId(courseId)
+    setSettingsOpen(false)
+    setTopTab('course')
+  }
 
   return (
     <>
@@ -834,23 +971,20 @@ export function CourseShell({
             {isDev && <DevMetricsMicroBar compact />}
             <a
               className="wordmark"
-              href="#top"
-              aria-label={overlayOpen ? 'Syntax: Back to Unit 2' : isDev ? 'Syntax Dev Analytic Geometry' : 'Syntax Analytic Geometry'}
+              href="#home"
+              aria-label={isDev ? 'Syntax Dev Home' : 'Syntax Home'}
               onClick={e => {
                 e.preventDefault()
-                if (settingsOpen || historyOpen) {
-                  emitSound('lightweight-choice')
-                  setSettingsOpen(false); setHistoryOpen(false)
-                } else {
-                  jumpToCourse()
-                }
+                emitSound('lightweight-choice')
+                setSettingsOpen(false)
+                setTopTab('home')
               }}
             >
               Syntax{isDev && <span className="dev-rainbow-text"> Dev</span>}
             </a>
           </div>
           <TopBarSema
-            enableRoaming={prefs.onboarded && !formulasOpen && !settingsOpen && !historyOpen}
+            enableRoaming={prefs.onboarded && !formulasOpen && !settingsOpen && showMpm2dOutline}
             dockedIntoLogo={settingsOpen}
             scrollContainerRef={outlineScrollRef}
             shape={prefs.semaShape}
@@ -860,7 +994,8 @@ export function CourseShell({
             onPoke={() => emitSound('lightweight-choice')}
             onLogoClick={() => {
               emitSound('lightweight-choice')
-              setSettingsOpen(false); setHistoryOpen(false)
+              setSettingsOpen(false)
+              setTopTab('home')
             }}
           />
         </div>
@@ -872,21 +1007,45 @@ export function CourseShell({
         >
           <div className="primary-nav-course-items" aria-hidden={settingsOpen || undefined}>
             <a
-              href="#course"
-              aria-label="Unit 2"
+              href="#home"
+              aria-label="Home"
               tabIndex={settingsOpen ? -1 : 0}
-              aria-current={!overlayOpen && currentNavKey === 'course' ? 'page' : undefined}
+              aria-current={!settingsOpen && topTab === 'home' ? 'page' : undefined}
               onClick={e => {
                 e.preventDefault()
-                const wasOverlay = overlayOpen
-                if (settingsOpen) setSettingsOpen(false)
-                if (historyOpen) setHistoryOpen(false)
-                jumpToCourse(wasOverlay)
+                setSettingsOpen(false)
+                setTopTab('home')
+              }}
+            >
+              <span className="icon icon-home" aria-hidden="true" />
+              <span>Home</span>
+              {!settingsOpen && topTab === 'home' && (
+                <motion.span
+                  layoutId="primary-nav-indicator"
+                  className="primary-nav-indicator"
+                  transition={{ type: 'spring', stiffness: 460, damping: 36 }}
+                />
+              )}
+            </a>
+
+            <a
+              href="#course"
+              aria-label={courseTabLabel}
+              tabIndex={settingsOpen ? -1 : 0}
+              aria-current={!settingsOpen && topTab === 'course' ? 'page' : undefined}
+              onClick={e => {
+                e.preventDefault()
+                const wasDifferent = settingsOpen || topTab !== 'course'
+                setSettingsOpen(false)
+                setTopTab('course')
+                if (activeCourseId === 'mpm2d-analytic-geometry') {
+                  jumpToCourse(wasDifferent)
+                }
               }}
             >
               <span className="icon icon-topics" aria-hidden="true" />
-              <span>Unit 2</span>
-              {!overlayOpen && currentNavKey === 'course' && (
+              <span>{courseTabLabel}</span>
+              {!settingsOpen && topTab === 'course' && (
                 <motion.span
                   layoutId="primary-nav-indicator"
                   className="primary-nav-indicator"
@@ -894,45 +1053,21 @@ export function CourseShell({
                 />
               )}
             </a>
-            <a
-              href="#conference"
-              aria-label="Conference"
-              tabIndex={settingsOpen ? -1 : 0}
-              aria-current={!overlayOpen && currentNavKey === 'conference' ? 'page' : undefined}
-              onClick={e => {
-                e.preventDefault()
-                const wasOverlay = overlayOpen
-                if (settingsOpen) setSettingsOpen(false)
-                if (historyOpen) setHistoryOpen(false)
-                jumpToLevel(3, wasOverlay)
-              }}
-            >
-              <span className="icon icon-you" aria-hidden="true" />
-              <span>Conference</span>
-              {!overlayOpen && currentNavKey === 'conference' && (
-                <motion.span
-                  layoutId="primary-nav-indicator"
-                  className="primary-nav-indicator"
-                  transition={{ type: 'spring', stiffness: 460, damping: 36 }}
-                />
-              )}
-            </a>
-            {playbookPluginOn && (
+
             <button
               type="button"
               className="primary-nav-btn"
               tabIndex={settingsOpen ? -1 : 0}
-              aria-label="Playbook & Formulas (F)"
-              aria-current={!overlayOpen && currentNavKey === 'playbook' ? 'page' : undefined}
+              aria-label="Plugins"
+              aria-current={!settingsOpen && topTab === 'plugins' ? 'page' : undefined}
               onClick={() => {
-                if (settingsOpen) setSettingsOpen(false)
-                if (historyOpen) setHistoryOpen(false)
-                setFormulasOpen(true)
+                setSettingsOpen(false)
+                setTopTab('plugins')
               }}
             >
-              <FormulasNavIcon />
-              <span className="primary-nav-label">Playbook</span>
-              {!overlayOpen && currentNavKey === 'playbook' && (
+              <PluginsNavIcon />
+              <span className="primary-nav-label">Plugins</span>
+              {!settingsOpen && topTab === 'plugins' && (
                 <motion.span
                   layoutId="primary-nav-indicator"
                   className="primary-nav-indicator"
@@ -940,10 +1075,9 @@ export function CourseShell({
                 />
               )}
             </button>
-            )}
           </div>
 
-          {/* Pixar wipe-in Settings nav tab (slides right-to-left from Playbook, dims & hides course tabs behind it) */}
+          {/* Pixar wipe-in Settings nav tab */}
           <div
             className="primary-nav-settings-wiper"
             aria-hidden={!settingsOpen || undefined}
@@ -965,6 +1099,17 @@ export function CourseShell({
         </nav>
 
         <div className="header-actions">
+          {playbookPluginOn && (
+            <button
+              type="button"
+              className="header-icon-btn"
+              aria-label="Playbook & Formulas (F)"
+              title="Playbook (F)"
+              onClick={() => setFormulasOpen(v => !v)}
+            >
+              <FormulasNavIcon />
+            </button>
+          )}
 
           <button
             type="button"
@@ -986,6 +1131,30 @@ export function CourseShell({
             {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
           </button>
 
+          {account ? (
+            auth.isClerkActive ? (
+              <ClerkHeaderAvatar />
+            ) : (
+              <button
+                type="button"
+                className="sx-header-avatar-btn"
+                title={`Signed in as @${account.handle}`}
+                aria-label={`Account @${account.handle}`}
+                onClick={() => auth.openAccount()}
+              >
+                {account.displayName.slice(0, 1).toUpperCase()}
+              </button>
+            )
+          ) : (
+            <button
+              type="button"
+              className="sx-header-signin"
+              onClick={() => auth.openSignIn()}
+            >
+              Sign in
+            </button>
+          )}
+
           {/* Original Brilliant animated Hamburger Menu (Base UI Menu.Root) */}
           <Menu.Root>
             <Menu.Trigger aria-label="Menu" className="menu-trigger">
@@ -1002,27 +1171,26 @@ export function CourseShell({
                       />
                     </svg>
                   </Menu.Arrow>
-                  {onExitCourse && (
+                  {installedCourses.length > 0 && (
                     <>
                       <Menu.Group className="menu-group">
-                        <Menu.Item className="menu-item" onClick={onExitCourse}>
-                          ← Syntax Library
-                        </Menu.Item>
-                        {onOpenHub && (
-                          <Menu.Item className="menu-item" onClick={onOpenHub}>
-                            Community Hub
+                        {installedCourses.map(course => (
+                          <Menu.Item
+                            key={course.id}
+                            className="menu-item"
+                            onClick={() => {
+                              emitSound('lightweight-choice')
+                              openCourseById(course.id)
+                            }}
+                          >
+                            <span className="menu-item-row">
+                              <span>{course.name}</span>
+                              {topTab === 'course' && activeCourseId === course.id && (
+                                <span className="menu-item-pill is-on">OPEN</span>
+                              )}
+                            </span>
                           </Menu.Item>
-                        )}
-                        {onOpenPlugins && (
-                          <Menu.Item className="menu-item" onClick={onOpenPlugins}>
-                            Plugins &amp; Libraries
-                          </Menu.Item>
-                        )}
-                        {onOpenProfile && (
-                          <Menu.Item className="menu-item" onClick={onOpenProfile}>
-                            Profile
-                          </Menu.Item>
-                        )}
+                        ))}
                       </Menu.Group>
                       <Menu.Separator className="menu-separator" />
                     </>
@@ -1033,30 +1201,22 @@ export function CourseShell({
                       onClick={() => {
                         emitSound('toggle-on')
                         setFormulasOpen(false)
-                        setHistoryOpen(false)
+                        setSettingsOpen(false)
+                        setTopTab('plugins')
+                      }}
+                    >
+                      Plugins
+                    </Menu.Item>
+                    <Menu.Item
+                      className="menu-item"
+                      onClick={() => {
+                        emitSound('toggle-on')
+                        setFormulasOpen(false)
                         setSettingsOpen(v => !v)
                       }}
                     >
-                      {settingsOpen ? 'Back to Unit 2' : 'Settings'}
+                      {settingsOpen ? 'Close Settings' : 'Settings'}
                     </Menu.Item>
-                    {historyPluginOn && (
-                      <Menu.Item
-                        className="menu-item"
-                        onClick={() => {
-                          emitSound('toggle-on')
-                          setFormulasOpen(false)
-                          setSettingsOpen(false)
-                          setHistoryOpen(v => !v)
-                        }}
-                      >
-                        <span className="menu-item-row">
-                          <span>History</span>
-                          <span className={`menu-item-pill${historyOpen ? ' is-on' : ''}`}>
-                            {historyOpen ? 'OPEN' : 'TIME'}
-                          </span>
-                        </span>
-                      </Menu.Item>
-                    )}
                     {penPluginOn && (
                       <Menu.Item
                         className="menu-item"
@@ -1097,7 +1257,6 @@ export function CourseShell({
                         className="menu-item"
                         onClick={() => {
                           setSettingsOpen(false)
-                          setHistoryOpen(false)
                           setFormulasOpen(true)
                         }}
                       >
@@ -1108,12 +1267,37 @@ export function CourseShell({
                       className="menu-item"
                       onClick={() => {
                         setSettingsOpen(false)
-                        setHistoryOpen(false)
                         setPrefs(p => ({ ...p, onboarded: false }))
                       }}
                     >
                       Welcome tour with Sema
                     </Menu.Item>
+                  </Menu.Group>
+                  <Menu.Separator className="menu-separator" />
+                  <Menu.Group className="menu-group">
+                    {account ? (
+                      <>
+                        <Menu.Item
+                          className="menu-item"
+                          onClick={() => auth.openAccount()}
+                        >
+                          Account (@{account.handle})
+                        </Menu.Item>
+                        <Menu.Item
+                          className="menu-item"
+                          onClick={() => void auth.signOut()}
+                        >
+                          Sign out
+                        </Menu.Item>
+                      </>
+                    ) : (
+                      <Menu.Item
+                        className="menu-item"
+                        onClick={() => auth.openSignIn()}
+                      >
+                        Sign in
+                      </Menu.Item>
+                    )}
                   </Menu.Group>
                 </Menu.Popup>
               </Menu.Positioner>
@@ -1137,36 +1321,86 @@ export function CourseShell({
           onReplayWelcome={() => setPrefs(p => ({ ...p, onboarded: false }))}
         />
       )}
-      {historyOpen && (
-        <SyntaxHistoryPage
-          soundOn={soundOn}
-          onClose={() => {
-            emitSound('lightweight-choice')
-            setHistoryOpen(false)
+
+      {!settingsOpen && topTab === 'home' && (
+        <HomePage
+          completedLessonCount={completedLessonCount}
+          totalLessonsCount={UNIT2_LESSONS.length}
+          nextMpm2dLessonId={resolvedSelectedLesson.id}
+          nextMpm2dLessonTitle={resolvedSelectedLesson.title}
+          followingMpm2dLessonTitle={followingLesson?.title}
+          hasMpm2dResume={Boolean(resumeMap[resolvedSelectedLesson.id])}
+          onOpenMpm2dCourse={() => openCourseById('mpm2d-analytic-geometry')}
+          onOpenMpm2dLesson={id => {
+            setActiveCourseId('mpm2d-analytic-geometry')
+            setTopTab('course')
+            openLesson(id)
           }}
-          onJumpToQuestion={(lessonId, pageIndex, pageId) => {
-            if (pageId) {
-              try {
-                const raw = localStorage.getItem(RESUME_KEY)
-                const map = raw ? JSON.parse(raw) : {}
-                const existing = map[lessonId] ?? { pageIndex: 0, furthest: 0 }
-                map[lessonId] = {
-                  ...existing,
-                  pageIndex,
-                  pageId,
-                  furthest: Math.max(existing.furthest ?? 0, pageIndex),
-                }
-                localStorage.setItem(RESUME_KEY, JSON.stringify(map))
-              } catch {
-                // ignore
-              }
+          onOpenCustomCourse={id => openCourseById(id)}
+          onOpenPlugins={() => setTopTab('plugins')}
+        />
+      )}
+
+      {!settingsOpen && topTab === 'plugins' && (
+        <PluginsPage
+          onBack={() => setTopTab('home')}
+          onSelectPackage={manifest =>
+            setInspectPackage({
+              manifest,
+              source: manifest.builtIn ? 'official' : 'community',
+            })
+          }
+          onOpenCourse={id => openCourseById(id)}
+          onImportPackage={manifest =>
+            setInspectPackage({
+              manifest,
+              source: 'local-file',
+            })
+          }
+        />
+      )}
+
+      {!settingsOpen && topTab === 'course' && activeCourseManifest && !activeCourseDepStatus.ok && (
+        <DependencyGate
+          course={activeCourseManifest}
+          status={activeCourseDepStatus}
+          signedIn={Boolean(account)}
+          onBack={() => setTopTab('home')}
+          onEnableAll={() => {
+            for (const d of activeCourseDepStatus.disabled) {
+              setPackageEnabled(d.id, true)
             }
-            setHistoryOpen(false)
-            openLesson(lessonId)
+          }}
+          onInstallMissing={() => {
+            setInspectPackage({
+              manifest: activeCourseManifest,
+              source: activeCourseManifest.builtIn ? 'official' : 'community',
+            })
           }}
         />
       )}
-      <main ref={outlineScrollRef} className="course-outline" style={settingsOpen || historyOpen ? { display: 'none' } : undefined}>
+
+      {!settingsOpen &&
+        topTab === 'course' &&
+        activeCourseDepStatus.ok &&
+        activeCourseId === 'thinking-in-code' && (
+          <ThinkingInCodeCourseView onBack={() => setTopTab('home')} />
+        )}
+
+      {!settingsOpen &&
+        topTab === 'course' &&
+        activeCourseDepStatus.ok &&
+        activeCourseManifest &&
+        activeCourseId !== 'mpm2d-analytic-geometry' &&
+        activeCourseId !== 'thinking-in-code' && (
+          <CustomCourseView
+            course={activeCourseManifest}
+            theme={theme}
+            onBack={() => setTopTab('home')}
+          />
+        )}
+
+      <main ref={outlineScrollRef} className="course-outline" style={!showMpm2dOutline ? { display: 'none' } : undefined}>
         <aside className="course-summary">
           <img
             src={assetUrl('/assets/courses/Coordinate_Geometry-bgclJY.png')}
@@ -1180,17 +1414,28 @@ export function CourseShell({
                 <span className="dev-sidebar-badge">
                   Syntax <span className="dev-rainbow-text">Dev</span>
                 </span>
-                <button
-                  type="button"
-                  className="dev-reset-btn"
-                  disabled={devResetting}
-                  onClick={() => {
-                    setDevResetting(true)
-                    void resetAllDevStateAndCookies()
-                  }}
-                >
-                  {devResetting ? 'Resetting...' : 'Reset state & cookies'}
-                </button>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {onOpenDevDiagnostics && (
+                    <button
+                      type="button"
+                      className="dev-reset-btn"
+                      onClick={onOpenDevDiagnostics}
+                    >
+                      Diagnostics
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="dev-reset-btn"
+                    disabled={devResetting}
+                    onClick={() => {
+                      setDevResetting(true)
+                      void resetAllDevStateAndCookies()
+                    }}
+                  >
+                    {devResetting ? 'Resetting...' : 'Reset state & cookies'}
+                  </button>
+                </div>
               </div>
               <DevMetricsMicroBar />
             </div>
@@ -1590,6 +1835,33 @@ export function CourseShell({
         onSelectTheme={setTheme}
         onSelectDrawMode={next => setPrefs(p => ({ ...p, drawMode: next }))}
         onFinish={() => setPrefs(p => ({ ...p, onboarded: true }))}
+      />
+
+      <InstallModal
+        manifest={inspectPackage?.manifest ?? null}
+        source={inspectPackage?.source ?? 'community'}
+        allKnownPackages={catalogPackages}
+        theme={theme}
+        onClose={() => {
+          setInspectPackage(null)
+          clearInstallFromUrl()
+        }}
+        onRequireSignIn={pkg => {
+          setPendingInstall({
+            manifest: pkg,
+            source: inspectPackage?.source ?? 'community',
+          })
+          setInspectPackage(null)
+          auth.openSignIn()
+        }}
+        onInstalled={pkg => {
+          toast.success(`Added ${pkg.name}`)
+          clearInstallFromUrl()
+        }}
+        onOpenCourse={id => {
+          clearInstallFromUrl()
+          openCourseById(id)
+        }}
       />
     </>
   )

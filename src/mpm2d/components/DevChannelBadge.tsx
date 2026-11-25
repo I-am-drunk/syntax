@@ -180,7 +180,7 @@ export function DevMetricsMicroBar({ compact = false }: { compact?: boolean }) {
   )
 }
 
-export function DevChannelBadge() {
+export function DevChannelBadge({ onOpenDiagnostics }: { onOpenDiagnostics?: () => void } = {}) {
   const version = (import.meta.env.VITE_RELEASE_TAG as string | undefined) || 'alpha'
   const [side, setSide] = useState<'left' | 'right'>('left')
   const swapCooldownRef = useRef(0)
@@ -217,6 +217,19 @@ export function DevChannelBadge() {
         Syntax <span className="dev-rainbow-text">Dev</span>
       </span>
       <span className="dev-corner-ver">{version}</span>
+      {onOpenDiagnostics && (
+        <button
+          type="button"
+          className="dev-reset-btn"
+          style={{ marginLeft: 4, padding: '2px 8px', fontSize: 11, pointerEvents: 'auto' }}
+          onClick={e => {
+            e.stopPropagation()
+            onOpenDiagnostics()
+          }}
+        >
+          Diagnostics
+        </button>
+      )}
     </div>
   )
 }
