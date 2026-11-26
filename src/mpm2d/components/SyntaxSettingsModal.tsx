@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { ArrowLeft } from 'lucide-react'
 import { Segmented, Toggle } from '../../settings/Controls'
 import { Sema } from '../mascot/Sema'
 import {
@@ -11,20 +12,11 @@ import {
 } from '../mascot/bloub'
 import type { SyntaxPrefs } from '../storage'
 
-type SettingsSectionId = 'appearance' | 'learning' | 'sema' | 'sounds' | 'guide'
 type StudioTab = 'shape' | 'semicolon' | 'expression' | 'motion'
-
-const NAV_SECTIONS: { id: SettingsSectionId; label: string }[] = [
-  { id: 'appearance', label: 'Appearance' },
-  { id: 'learning', label: 'Learning & Pen' },
-  { id: 'sema', label: 'Sema Companion' },
-  { id: 'sounds', label: 'Sounds & Voice' },
-  { id: 'guide', label: 'Getting Started' },
-]
 
 export function SyntaxSettingsPage({
   onClose,
-  backLabel = 'Back',
+  backLabel = 'Back to Library',
   theme,
   onChangeTheme,
   soundOn,
@@ -45,8 +37,6 @@ export function SyntaxSettingsPage({
 }) {
   const [previewAnim, setPreviewAnim] = useState<StateId>('idle')
   const [studioTab, setStudioTab] = useState<StudioTab>('shape')
-  const [activeSection, setActiveSection] = useState<SettingsSectionId>('appearance')
-  const scrollLockUntilRef = useRef<number>(0)
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
 
@@ -62,57 +52,6 @@ export function SyntaxSettingsPage({
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  // Reliable scroll-spy with programmatic scroll lock and bottom-of-page detection
-  useEffect(() => {
-    let raf = 0
-    const computeActive = () => {
-      raf = 0
-      if (Date.now() < scrollLockUntilRef.current) return
-
-      const scrollBottom = window.innerHeight + window.scrollY
-      const docHeight = document.documentElement.scrollHeight
-      if (docHeight - scrollBottom <= 24) {
-        setActiveSection(NAV_SECTIONS[NAV_SECTIONS.length - 1]!.id)
-        return
-      }
-
-      const anchorY = 132
-      let current: SettingsSectionId = NAV_SECTIONS[0]!.id
-      for (const sec of NAV_SECTIONS) {
-        const el = document.getElementById(`pref-${sec.id}`)
-        if (!el) continue
-        const rect = el.getBoundingClientRect()
-        if (rect.top <= anchorY) {
-          current = sec.id
-        }
-      }
-      setActiveSection(current)
-    }
-
-    const onScroll = () => {
-      if (!raf) raf = window.requestAnimationFrame(computeActive)
-    }
-
-    computeActive()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    window.addEventListener('resize', onScroll, { passive: true })
-    return () => {
-      if (raf) window.cancelAnimationFrame(raf)
-      window.removeEventListener('scroll', onScroll)
-      window.removeEventListener('resize', onScroll)
-    }
-  }, [])
-
-  function scrollToSection(id: SettingsSectionId) {
-    setActiveSection(id)
-    scrollLockUntilRef.current = Date.now() + 750
-    const el = document.getElementById(`pref-${id}`)
-    if (el) {
-      const top = Math.max(0, el.getBoundingClientRect().top + window.scrollY - 88)
-      window.scrollTo({ top, behavior: 'smooth' })
-    }
-  }
-
   const activeShapeLabel =
     SEMA_SHAPES.find(s => s.id === prefs.semaShape)?.label ?? prefs.semaShape
   const activeTailLabel =
@@ -123,46 +62,17 @@ export function SyntaxSettingsPage({
     SEMA_ANIMATIONS.find(a => a.id === previewAnim)?.label ?? previewAnim
 
   return (
-    <main className="settings-layout syntax-settings-page" aria-label="Settings">
-      <nav className="settings-nav" aria-label="Settings">
-        <a
-          href="#back"
-          className="settings-nav-back-link"
-          onClick={e => {
-            e.preventDefault()
-            onClose()
-          }}
+    <main className="sx-workspace-page sx-settings-single" aria-label="Settings">
+      <div className="sx-settings-top-row">
+        <button
+          type="button"
+          className="sx-hub-crumb"
+          onClick={onClose}
         >
-          ← {backLabel}
-        </a>
-        {NAV_SECTIONS.map(sec => (
-          <a
-            key={sec.id}
-            href={`#pref-${sec.id}`}
-            aria-current={activeSection === sec.id ? 'location' : undefined}
-            onClick={e => {
-              e.preventDefault()
-              scrollToSection(sec.id)
-            }}
-          >
-            {sec.label}
-          </a>
-        ))}
-      </nav>
-
-      <a
-        className="settings-back"
-        href="#back"
-        aria-label={backLabel}
-        onClick={e => {
-          e.preventDefault()
-          onClose()
-        }}
-      >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="m14.5 3-9 9 9 9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </a>
+          <ArrowLeft size={15} aria-hidden="true" />
+          <span>{backLabel}</span>
+        </button>
+      </div>
 
       <article className="preferences syntax-settings-article" aria-label="Preferences" data-ready="true">
         <section id="pref-appearance" aria-labelledby="pref-appearance-h">
@@ -218,18 +128,6 @@ export function SyntaxSettingsPage({
           <div className="preference-rows">
             <div className="preference-row">
               <div className="syntax-pref-copy">
-                <p>Enable Draw Mode</p>
-                <span>Draw a checkmark anywhere on the page to submit &amp; continue</span>
-              </div>
-              <Toggle
-                label="Enable Draw Mode"
-                checked={prefs.drawMode}
-                onChange={v => onPatchPrefs({ drawMode: v })}
-              />
-            </div>
-
-            <div className="preference-row">
-              <div className="syntax-pref-copy">
                 <p>Show step plan in Pen Studio</p>
                 <span>Off by default so you plan steps yourself; turn on to pre-load guided step boards</span>
               </div>
@@ -255,7 +153,7 @@ export function SyntaxSettingsPage({
             <div className="preference-row">
               <div className="syntax-pref-copy">
                 <p>Show catch-up paths</p>
-                <span>Weave prerequisite stepping-stone chapters into the Level path</span>
+                <span>Weave prerequisite stepping-stone chapters into the course path</span>
               </div>
               <Toggle
                 label="Show catch-up paths"
@@ -448,7 +346,7 @@ export function SyntaxSettingsPage({
             <div className="preference-row">
               <div className="syntax-pref-copy">
                 <p>Enable Sema narration in walkthroughs</p>
-                <span>Spoken guidance synced to Sema’s live animations</span>
+                <span>Spoken guidance synced to Sema&rsquo;s live animations</span>
               </div>
               <Toggle
                 label="Enable Sema narration"
@@ -478,7 +376,7 @@ export function SyntaxSettingsPage({
             <div className="preference-row">
               <div className="syntax-pref-copy">
                 <p>Welcome tour with Sema</p>
-                <span>Re-open theme and Draw Mode setup anytime</span>
+                <span>Re-open theme and welcome setup anytime</span>
               </div>
               <button
                 type="button"

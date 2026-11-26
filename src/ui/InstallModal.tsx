@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import type { SyntaxPackageManifest } from '../core/packages'
+import { X } from 'lucide-react'
+import { compareSemver, type SyntaxPackageManifest } from '../core/packages'
 import { useAccount } from '../core/account'
 import { useInstalledPackages, useRegistryStore } from '../core/registry'
 import { PluginSandboxFrame } from '../core/sandbox'
@@ -58,8 +59,17 @@ export function InstallModal({
   const isInstalled = Boolean(entry)
   const isEnabled = Boolean(entry?.enabled)
   const requires = manifest.requires ?? []
+  const hasMissingOrDisabledDeps = requires.some(dep => {
+    const rec = records.find(r => r.manifest.id === dep.id)
+    return (
+      !rec ||
+      !rec.enabled ||
+      rec.manifest.kind !== dep.kind ||
+      compareSemver(rec.manifest.version, dep.minVersion) < 0
+    )
+  })
 
-  function handleAdd() {
+  function handleAddOrRepair() {
     if (!manifest) return
     setInstallError('')
     if (!account) {
@@ -79,6 +89,9 @@ export function InstallModal({
       return
     }
     onInstalled?.(manifest)
+    if (manifest.kind === 'course' && onOpenCourse) {
+      onOpenCourse(manifest.id)
+    }
     onClose()
   }
 
@@ -104,7 +117,7 @@ export function InstallModal({
             </div>
           </div>
           <button type="button" className="sx-icon-close" onClick={onClose} aria-label="Close">
-            ✕
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
 
@@ -115,8 +128,12 @@ export function InstallModal({
         {manifest.kind === 'embedded-plugin' && (
           <div className="sx-account-status-row">
             <span>Embedded plugin</span>
-            <span className={`sx-status-pill${isInstalled ? ' is-ok' : ''}`}>
-              {isInstalled ? 'Installed on your account' : 'Not installed yet'}
+            <span className={`sx-status-pill${isInstalled && isEnabled ? ' is-ok' : ''}`}>
+              {isInstalled
+                ? isEnabled
+                  ? 'Installed on your account'
+                  : 'Installed (disabled)'
+                : 'Not installed yet'}
             </span>
           </div>
         )}
@@ -125,12 +142,21 @@ export function InstallModal({
           <div className="sx-dep-list">
             <span className="sx-dep-heading">Required embedded plugins</span>
             {requires.map(dep => {
-              const depInstalled = records.some(r => r.manifest.id === dep.id)
+              const depRec = records.find(r => r.manifest.id === dep.id)
+              const depVersionOk =
+                depRec &&
+                depRec.manifest.kind === dep.kind &&
+                compareSemver(depRec.manifest.version, dep.minVersion) >= 0
+              const depReady = Boolean(depVersionOk && depRec.enabled)
               return (
                 <div key={dep.id} className="sx-dep-item">
                   <span>{dep.name}</span>
-                  <span className={`sx-status-pill${depInstalled ? ' is-ok' : ''}`}>
-                    {depInstalled ? 'Installed on your account' : 'Will install automatically'}
+                  <span className={`sx-status-pill${depReady ? ' is-ok' : ''}`}>
+                    {depReady
+                      ? 'Installed on your account'
+                      : depVersionOk
+                        ? 'Disabled (will enable)'
+                        : 'Will install automatically'}
                   </span>
                 </div>
               )
@@ -185,7 +211,7 @@ export function InstallModal({
             </button>
           )}
           <div className="sx-modal-actions-right">
-            {isInstalled ? (
+            {isInstalled && !hasMissingOrDisabledDeps ? (
               manifest.kind === 'course' && onOpenCourse ? (
                 <button
                   type="button"
@@ -210,8 +236,12 @@ export function InstallModal({
                 </button>
               )
             ) : (
-              <button type="button" className="sx-btn-primary" onClick={handleAdd}>
-                {account ? 'Add to Syntax' : 'Sign in to add'}
+              <button type="button" className="sx-btn-primary" onClick={handleAddOrRepair}>
+                {account
+                  ? isInstalled
+                    ? 'Install required plugins & open'
+                    : 'Add to Syntax'
+                  : 'Sign in to add'}
               </button>
             )}
           </div>

@@ -1,11 +1,12 @@
+import { useMemo } from 'react'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { OFFICIAL_BY_ID, OFFICIAL_CATALOG } from '../packages/catalog'
+import { OFFICIAL_BY_ID, OFFICIAL_CATALOG, RETIRED_OFFICIAL_IDS } from '../packages/catalog'
 import { getSyntaxAccount } from './account'
 import { syntaxLog } from './logger'
 import {
   compareSemver,
-  sanitizeUntrustedManifest,
+  normalizeExternalManifest,
   validatePackageManifest,
   type PackageDependency,
   type SyntaxPackageManifest,
@@ -80,9 +81,7 @@ export const useRegistryStore = create<RegistryStoreState>()(
         const isOfficial = OFFICIAL_ID_SET.has(check.manifest.id)
         const manifest = isOfficial
           ? OFFICIAL_BY_ID.get(check.manifest.id)!
-          : sanitizeUntrustedManifest(check.manifest, OFFICIAL_ID_SET, {
-              isLocalFile: options?.source === 'local-file',
-            })
+          : normalizeExternalManifest(check.manifest, OFFICIAL_ID_SET)
 
         const currentRecords = get().records
         const pool = new Map<string, SyntaxPackageManifest>()
@@ -92,35 +91,53 @@ export const useRegistryStore = create<RegistryStoreState>()(
             item.id,
             OFFICIAL_ID_SET.has(item.id)
               ? OFFICIAL_BY_ID.get(item.id)!
-              : sanitizeUntrustedManifest(item, OFFICIAL_ID_SET),
+              : normalizeExternalManifest(item, OFFICIAL_ID_SET),
           )
         }
         pool.set(manifest.id, manifest)
 
-        const toInstall: SyntaxPackageManifest[] = []
+        // Transitive BFS dependency resolution with cycle guard
+        const toInstall = new Map<string, SyntaxPackageManifest>()
         const missingDeps: PackageDependency[] = []
+        const visited = new Set<string>([manifest.id])
+        const queue: PackageDependency[] = [...(manifest.requires ?? [])]
 
-        for (const dep of manifest.requires ?? []) {
+        while (queue.length > 0) {
+          const dep = queue.shift()!
+          if (visited.has(dep.id)) continue
+          visited.add(dep.id)
+
           const existing = currentRecords.find(r => r.manifest.id === dep.id)
-          if (
-            existing &&
-            existing.manifest.kind === dep.kind &&
-            compareSemver(existing.manifest.version, dep.minVersion) >= 0
-          ) {
-            if (!existing.enabled) {
-              toInstall.push(existing.manifest)
-            }
+          const poolCandidate = pool.get(dep.id)
+          const bestAvailable =
+            poolCandidate &&
+            poolCandidate.kind === dep.kind &&
+            compareSemver(poolCandidate.version, dep.minVersion) >= 0
+              ? poolCandidate
+              : existing &&
+                  existing.manifest.kind === dep.kind &&
+                  compareSemver(existing.manifest.version, dep.minVersion) >= 0
+                ? existing.manifest
+                : null
+
+          if (!bestAvailable) {
+            missingDeps.push(dep)
             continue
           }
-          const candidate = pool.get(dep.id)
-          if (
-            candidate &&
-            candidate.kind === dep.kind &&
-            compareSemver(candidate.version, dep.minVersion) >= 0
-          ) {
-            toInstall.push(candidate)
-          } else {
-            missingDeps.push(dep)
+
+          const needsInstallOrEnable =
+            !existing ||
+            !existing.enabled ||
+            compareSemver(bestAvailable.version, existing.manifest.version) > 0
+
+          if (needsInstallOrEnable) {
+            toInstall.set(bestAvailable.id, bestAvailable)
+          }
+
+          for (const nested of bestAvailable.requires ?? []) {
+            if (!visited.has(nested.id)) {
+              queue.push(nested)
+            }
           }
         }
 
@@ -142,11 +159,12 @@ export const useRegistryStore = create<RegistryStoreState>()(
         const upsert = (item: SyntaxPackageManifest, source: InstalledPackageSource) => {
           const idx = next.findIndex(r => r.manifest.id === item.id)
           const itemOfficial = OFFICIAL_ID_SET.has(item.id)
+          const prevSource = idx >= 0 ? next[idx].source : source
           const rec: InstalledPackageRecord = {
             manifest: itemOfficial ? OFFICIAL_BY_ID.get(item.id)! : item,
             enabled: true,
             installedAt: idx >= 0 ? next[idx].installedAt : now,
-            source: itemOfficial ? 'official' : source,
+            source: itemOfficial ? 'official' : prevSource,
           }
           if (idx >= 0) next[idx] = rec
           else next.push(rec)
@@ -154,7 +172,7 @@ export const useRegistryStore = create<RegistryStoreState>()(
           return rec
         }
 
-        for (const depManifest of toInstall) {
+        for (const depManifest of toInstall.values()) {
           upsert(depManifest, OFFICIAL_ID_SET.has(depManifest.id) ? 'official' : 'community')
         }
 
@@ -179,10 +197,11 @@ export const useRegistryStore = create<RegistryStoreState>()(
         const next = [...current]
         next[idx] = { ...current[idx], enabled }
         set({ records: next })
-        syntaxLog.info('registry', `${enabled ? 'Enabled' : 'Disabled'} ${current[idx].manifest.name}`, {
-          id,
-          kind: current[idx].manifest.kind,
-        })
+        syntaxLog.info(
+          'registry',
+          `${enabled ? 'Enabled' : 'Disabled'} ${current[idx].manifest.name}`,
+          { id, kind: current[idx].manifest.kind },
+        )
       },
 
       uninstallPackage: id => {
@@ -198,7 +217,9 @@ export const useRegistryStore = create<RegistryStoreState>()(
       },
 
       resetOfficialDefaults: () => {
-        const custom = get().records.filter(r => !OFFICIAL_BY_ID.has(r.manifest.id))
+        const custom = get().records.filter(
+          r => !OFFICIAL_BY_ID.has(r.manifest.id) && !RETIRED_OFFICIAL_IDS.has(r.manifest.id),
+        )
         set({ records: [...createDefaultRecords(), ...custom] })
         syntaxLog.info('registry', 'Restored all official courses and plugins')
       },
@@ -209,23 +230,24 @@ export const useRegistryStore = create<RegistryStoreState>()(
         const saved = persisted as Partial<RegistryStoreState> | undefined
         if (!saved || !Array.isArray(saved.records)) return current
         const valid: InstalledPackageRecord[] = []
+        const seen = new Set<string>()
         for (const rec of saved.records) {
           const check = validatePackageManifest(rec?.manifest)
-          if (check.ok) {
-            const official = OFFICIAL_BY_ID.get(check.manifest.id)
-            const manifest = official
-              ? official
-              : sanitizeUntrustedManifest(check.manifest, OFFICIAL_ID_SET, {
-                  isLocalFile: rec.source === 'local-file',
-                })
-            valid.push({
-              manifest,
-              enabled: Boolean(rec.enabled),
-              installedAt:
-                typeof rec.installedAt === 'string' ? rec.installedAt : new Date().toISOString(),
-              source: official ? 'official' : (rec.source ?? 'community'),
-            })
-          }
+          if (!check.ok) continue
+          const id = check.manifest.id
+          if (RETIRED_OFFICIAL_IDS.has(id) || seen.has(id)) continue
+          seen.add(id)
+          const official = OFFICIAL_BY_ID.get(id)
+          const manifest = official
+            ? official
+            : normalizeExternalManifest(check.manifest, OFFICIAL_ID_SET)
+          valid.push({
+            manifest,
+            enabled: Boolean(rec.enabled),
+            installedAt:
+              typeof rec.installedAt === 'string' ? rec.installedAt : new Date().toISOString(),
+            source: official ? 'official' : (rec.source ?? 'community'),
+          })
         }
         return {
           ...current,
@@ -251,39 +273,10 @@ export function usePluginActive(id: string): boolean {
   })
 }
 
-export function installPackage(
-  manifest: SyntaxPackageManifest,
-  options?: {
-    source?: InstalledPackageSource
-    catalogPool?: SyntaxPackageManifest[]
-    skipSignInCheck?: boolean
-  },
-): InstallResult {
-  return useRegistryStore.getState().installPackage(manifest, options)
-}
-
-export function setPackageEnabled(id: string, enabled: boolean) {
-  useRegistryStore.getState().setPackageEnabled(id, enabled)
-}
-
-export function uninstallPackage(id: string) {
-  return useRegistryStore.getState().uninstallPackage(id)
-}
-
-export function resetOfficialDefaults() {
-  useRegistryStore.getState().resetOfficialDefaults()
-}
-
-export function getDependentsOf(id: string): InstalledPackageRecord[] {
-  return useRegistryStore
-    .getState()
-    .records.filter(
-      r => r.manifest.id !== id && (r.manifest.requires ?? []).some(dep => dep.id === id),
-    )
-}
-
-export function getCourseDependencyStatus(courseId: string): CourseDependencyStatus {
-  const records = useRegistryStore.getState().records
+export function computeCourseDependencyStatus(
+  records: InstalledPackageRecord[],
+  courseId: string,
+): CourseDependencyStatus {
   const courseRecord = records.find(r => r.manifest.id === courseId)
   const manifest = courseRecord?.manifest ?? OFFICIAL_BY_ID.get(courseId)
   if (!manifest || !manifest.requires || manifest.requires.length === 0) {
@@ -311,4 +304,32 @@ export function getCourseDependencyStatus(courseId: string): CourseDependencySta
     missing,
     disabled,
   }
+}
+
+export function useCourseDependencyStatus(courseId: string): CourseDependencyStatus {
+  const records = useRegistryStore(s => s.records)
+  return useMemo(() => computeCourseDependencyStatus(records, courseId), [records, courseId])
+}
+
+export function getCourseDependencyStatus(courseId: string): CourseDependencyStatus {
+  return computeCourseDependencyStatus(useRegistryStore.getState().records, courseId)
+}
+
+export function useDependentsOf(id: string): InstalledPackageRecord[] {
+  const records = useRegistryStore(s => s.records)
+  return useMemo(
+    () =>
+      records.filter(
+        r => r.manifest.id !== id && (r.manifest.requires ?? []).some(dep => dep.id === id),
+      ),
+    [records, id],
+  )
+}
+
+export function getDependentsOf(id: string): InstalledPackageRecord[] {
+  return useRegistryStore
+    .getState()
+    .records.filter(
+      r => r.manifest.id !== id && (r.manifest.requires ?? []).some(dep => dep.id === id),
+    )
 }

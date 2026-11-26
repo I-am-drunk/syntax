@@ -1,7 +1,11 @@
 import { useMemo, useState } from 'react'
 import { HomeLeagueArt } from './HomeLeagueArt'
 import { assetUrl } from '../mpm2d/assetUrl'
-import { UNIT2_LESSONS } from '../mpm2d/data/unit2Course'
+import {
+  MPM2D_LESSON_INDEX,
+  MPM2D_TOTAL_LESSONS,
+  THINKING_IN_CODE_META,
+} from '../packages/courseMeta'
 import { useAccount } from '../core/account'
 import { useInstalledPackages } from '../core/registry'
 import { PackageIcon } from '../ui/PackageIcon'
@@ -35,10 +39,10 @@ interface HomeCourseEntry {
 
 export function HomePage({
   completedLessonCount = 0,
-  totalLessonsCount = UNIT2_LESSONS.length,
-  nextMpm2dLessonId = UNIT2_LESSONS[0]?.id ?? 'l1-slope',
-  nextMpm2dLessonTitle = UNIT2_LESSONS[0]?.title ?? 'Slope & Rate of Change',
-  followingMpm2dLessonTitle = UNIT2_LESSONS[1]?.title,
+  totalLessonsCount = MPM2D_TOTAL_LESSONS,
+  nextMpm2dLessonId = MPM2D_LESSON_INDEX[0]?.id ?? 'u2-l1-slopes',
+  nextMpm2dLessonTitle = MPM2D_LESSON_INDEX[0]?.title ?? 'Slopes & Lines',
+  followingMpm2dLessonTitle = MPM2D_LESSON_INDEX[1]?.title,
   hasMpm2dResume = false,
   onOpenMpm2dCourse = () => {},
   onOpenMpm2dLesson = () => {},
@@ -57,7 +61,8 @@ export function HomePage({
     const items: HomeCourseEntry[] = []
     for (const pkg of installedCourses) {
       if (pkg.id === 'mpm2d-analytic-geometry') {
-        const nextObj = UNIT2_LESSONS.find(l => l.id === nextMpm2dLessonId) ?? UNIT2_LESSONS[0]
+        const nextObj =
+          MPM2D_LESSON_INDEX.find(l => l.id === nextMpm2dLessonId) ?? MPM2D_LESSON_INDEX[0]
         items.push({
           id: pkg.id,
           title: 'Analytic Geometry',
@@ -76,8 +81,8 @@ export function HomePage({
           levelLabel: 'Level 1',
           image: assetUrl('/assets/courses/thinking-in-code-DolooX.png'),
           iconSvg: pkg.iconSvg,
-          primaryStep: 'Writing Programs',
-          secondaryStep: 'Sequencing Commands',
+          primaryStep: THINKING_IN_CODE_META.firstLessonTitle,
+          secondaryStep: THINKING_IN_CODE_META.secondLessonTitle,
           ctaLabel: 'Start',
           onOpenPrimary: () => onOpenCustomCourse(pkg.id),
           onOpenCourse: () => onOpenCustomCourse(pkg.id),
@@ -131,16 +136,18 @@ export function HomePage({
                   {completedLessonCount > 0 ? 'Keep your momentum' : 'Ready to start?'}
                 </h2>
                 <p>
-                  {completedLessonCount} of {totalLessonsCount} Unit 2 lessons completed
+                  {active?.id === 'mpm2d-analytic-geometry'
+                    ? `${completedLessonCount} of ${totalLessonsCount} lessons completed`
+                    : `${courses.length} installed ${courses.length === 1 ? 'course' : 'courses'} ready in your Library`}
                 </p>
               </div>
             </div>
             <button
               className="home-league-continue"
               type="button"
-              onClick={active ? active.onOpenCourse : onOpenMpm2dCourse}
+              onClick={active ? active.onOpenCourse : onOpenLibrary}
             >
-              View course path
+              {active ? 'Open course' : 'Open Library'}
             </button>
           </div>
         </section>
@@ -201,7 +208,7 @@ export function HomePage({
         )}
 
         <button className="home-tutor" type="button" onClick={onOpenLibrary}>
-          Open your Library to switch courses…
+          Open your Library to switch courses&hellip;
         </button>
       </div>
     </main>

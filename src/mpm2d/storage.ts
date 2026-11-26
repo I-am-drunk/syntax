@@ -99,7 +99,8 @@ export function loadPrefs(): SyntaxPrefs {
       : DEFAULT_PREFS.logoClickTarget
 
   return {
-    drawMode: Boolean(parsed.drawMode ?? DEFAULT_PREFS.drawMode),
+    // Draw Mode is temporarily disabled
+    drawMode: false,
     showCatchupPaths: Boolean(parsed.showCatchupPaths ?? DEFAULT_PREFS.showCatchupPaths),
     onboarded: Boolean(parsed.onboarded ?? DEFAULT_PREFS.onboarded),
     voiceOn: parsed.voiceOn === undefined ? DEFAULT_PREFS.voiceOn : Boolean(parsed.voiceOn),
@@ -125,7 +126,8 @@ export function loadPrefs(): SyntaxPrefs {
 }
 
 export function savePrefs(next: SyntaxPrefs) {
-  const serialized = JSON.stringify(next)
+  const safeNext: SyntaxPrefs = { ...next, drawMode: false }
+  const serialized = JSON.stringify(safeNext)
   try {
     localStorage.setItem(PREFS_KEY, serialized)
   } catch {
@@ -133,12 +135,12 @@ export function savePrefs(next: SyntaxPrefs) {
   }
   writeCookie(COOKIE_NAME, serialized)
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('syntax:prefs-changed', { detail: next }))
+    window.dispatchEvent(new CustomEvent('syntax:prefs-changed', { detail: safeNext }))
   }
 }
 
 export function updatePrefs(patch: Partial<SyntaxPrefs>): SyntaxPrefs {
-  const merged = { ...loadPrefs(), ...patch }
+  const merged = { ...loadPrefs(), ...patch, drawMode: false }
   savePrefs(merged)
   return merged
 }

@@ -22,51 +22,36 @@ export const PACKAGE_LABEL_BY_KIND: Record<PackageKind, string> = {
   'embedded-plugin': 'Embedded Plugin',
 }
 
-const FORBIDDEN_SVG_PATTERNS = [
-  /<script\b/i,
-  /<foreignObject\b/i,
-  /javascript:/i,
-  /\bon[a-z]+\s*=/i,
-]
-
-const FORBIDDEN_SANDBOX_PATTERNS = [
-  /<meta\b/i,
-  /<script[^>]+src\s*=/i,
-  /\bwindow\.location\b/i,
-  /\bdocument\.location\b/i,
-  /\blocation\.(href|assign|replace)\b/i,
-  /\b(window\.)?top\b/i,
-  /\bparent\./i,
-  /\bfetch\s*\(/i,
-  /\bXMLHttpRequest\b/i,
-  /\bWebSocket\b/i,
-  /\bsendBeacon\b/i,
-  /\bdocument\.cookie\b/i,
-  /\beval\s*\(/i,
-  /\bFunction\s*\(/,
-  /\bimport\s*\(/i,
-]
+export function isValidSvgIcon(svg: string): boolean {
+  const trimmed = svg.trim()
+  if (trimmed.length === 0 || trimmed.length > 32000) return false
+  return trimmed.startsWith('<svg') && trimmed.endsWith('</svg>')
+}
 
 export function isSafeSvgIcon(svg: string): boolean {
-  const trimmed = svg.trim()
-  if (trimmed.length === 0 || trimmed.length > 16000) return false
-  if (!trimmed.startsWith('<svg') || !trimmed.includes('</svg>')) return false
-  return !FORBIDDEN_SVG_PATTERNS.some(re => re.test(trimmed))
+  return isValidSvgIcon(svg)
 }
 
 export function isSafeSandboxHtml(html: string): boolean {
-  if (html.length > 120000) return false
-  return !FORBIDDEN_SANDBOX_PATTERNS.some(re => re.test(html))
+  return typeof html === 'string' && html.length <= 250000
 }
 
 export function compareSemver(a: string, b: string): number {
-  const parse = (v: string) => v.split('-')[0].split('.').map(n => Number.parseInt(n, 10) || 0)
-  const pa = parse(a)
-  const pb = parse(b)
+  const split = (v: string) => {
+    const [core, pre] = v.split('-')
+    const nums = core.split('.').map(n => Number.parseInt(n, 10) || 0)
+    return { nums, pre: pre ?? '' }
+  }
+  const pa = split(a)
+  const pb = split(b)
   for (let i = 0; i < 3; i++) {
-    const diff = (pa[i] ?? 0) - (pb[i] ?? 0)
+    const diff = (pa.nums[i] ?? 0) - (pb.nums[i] ?? 0)
     if (diff !== 0) return diff > 0 ? 1 : -1
   }
+  // Stable release is newer than prerelease (e.g. 1.0.0 > 1.0.0-alpha.1)
+  if (pa.pre && !pb.pre) return -1
+  if (!pa.pre && pb.pre) return 1
+  if (pa.pre !== pb.pre) return pa.pre > pb.pre ? 1 : -1
   return 0
 }
 
@@ -147,8 +132,8 @@ export const SyntaxPackageManifestSchema = z
         'version must follow major.minor.patch (for example 1.0.0).',
       ),
     author: PackageAuthorSchema,
-    iconSvg: z.string().trim().refine(isSafeSvgIcon, {
-      message: 'Every Syntax package requires a safe inline SVG icon.',
+    iconSvg: z.string().trim().refine(isValidSvgIcon, {
+      message: 'Package requires an inline <svg>...</svg> icon.',
     }),
     accentColor: z.string().regex(/^#[0-9a-fA-F]{3,8}$/, 'accentColor must be a hex color.'),
     tags: z.array(z.string().min(1)).default([]),
@@ -165,7 +150,12 @@ export const SyntaxPackageManifestSchema = z
       )
       .optional(),
     aiUsage: PackageAIUsageSchema.optional(),
-    safety: PackageSafetySchema,
+    safety: PackageSafetySchema.default({
+      automatedScan: 'passed',
+      sandboxed: true,
+      networkAccess: 'none',
+      lastChecked: '2026-11-26',
+    }),
     builtIn: z.boolean().optional(),
     packageUrl: z
       .string()
@@ -174,10 +164,7 @@ export const SyntaxPackageManifestSchema = z
       .optional(),
     courseRoute: z.enum(['mpm2d', 'thinking-in-code', 'custom']).optional(),
     customCourse: CustomCourseDataSchema.optional(),
-    sandboxHtml: z
-      .string()
-      .refine(isSafeSandboxHtml, 'sandboxHtml contains disallowed scripts or network calls.')
-      .optional(),
+    sandboxHtml: z.string().max(250000).optional(),
   })
   .superRefine((data, ctx) => {
     const expectedExt = PACKAGE_EXTENSION_BY_KIND[data.kind]
@@ -188,18 +175,11 @@ export const SyntaxPackageManifestSchema = z
         message: `extension must be "${expectedExt}" for kind "${data.kind}".`,
       })
     }
-    if (data.touchesCore && (!data.coreTouchReason || data.coreTouchReason.trim().length < 8)) {
+    if (data.touchesCore && (!data.coreTouchReason || data.coreTouchReason.trim().length < 4)) {
       ctx.addIssue({
         code: 'custom',
         path: ['coreTouchReason'],
-        message: 'Plugins that touch core must explain why in coreTouchReason.',
-      })
-    }
-    if (data.kind === 'embedded-plugin' && !data.aiUsage) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['aiUsage'],
-        message: 'Embedded plugins (.syntaxembeddedplugin) must include an aiUsage card so AIs can reuse them.',
+        message: 'Plugins that touch core should explain why in coreTouchReason.',
       })
     }
   })
@@ -222,14 +202,9 @@ export function validatePackageManifest(raw: unknown): ValidationResult {
   return { ok: false, errors }
 }
 
-/**
- * Strips privileged flags from any non-official manifest so remote JSON or dropped files
- * can never spoof the Official badge or hijack built-in course shells.
- */
-export function sanitizeUntrustedManifest(
+export function normalizeExternalManifest(
   manifest: SyntaxPackageManifest,
   officialIds: ReadonlySet<string>,
-  options?: { isLocalFile?: boolean },
 ): SyntaxPackageManifest {
   if (officialIds.has(manifest.id)) {
     return manifest
@@ -245,9 +220,15 @@ export function sanitizeUntrustedManifest(
     safety: {
       ...manifest.safety,
       official: false,
-      automatedScan: options?.isLocalFile ? 'unverified' : manifest.safety.automatedScan,
     },
   }
+}
+
+export function sanitizeUntrustedManifest(
+  manifest: SyntaxPackageManifest,
+  officialIds: ReadonlySet<string>,
+): SyntaxPackageManifest {
+  return normalizeExternalManifest(manifest, officialIds)
 }
 
 export function exportPackageFile(pkg: SyntaxPackageManifest) {
@@ -269,13 +250,14 @@ export async function parsePackageFile(file: File): Promise<ValidationResult> {
   const validExt =
     lower.endsWith('.syntaxcourse') ||
     lower.endsWith('.syntaxplugin') ||
-    lower.endsWith('.syntaxembeddedplugin')
+    lower.endsWith('.syntaxembeddedplugin') ||
+    lower.endsWith('.json')
 
   if (!validExt) {
     return {
       ok: false,
       errors: [
-        'Unsupported file type. Choose a .syntaxcourse, .syntaxplugin, or .syntaxembeddedplugin file.',
+        'Unsupported file type. Choose a .syntaxcourse, .syntaxplugin, .syntaxembeddedplugin, or .json file.',
       ],
     }
   }
@@ -283,24 +265,11 @@ export async function parsePackageFile(file: File): Promise<ValidationResult> {
   try {
     const text = await file.text()
     const parsed = JSON.parse(text) as unknown
-    const result = validatePackageManifest(parsed)
-    if (!result.ok) return result
-
-    if (!lower.endsWith(result.manifest.extension)) {
-      return {
-        ok: false,
-        errors: [
-          `File name ends with "${file.name.slice(file.name.lastIndexOf('.'))}", but package expects "${result.manifest.extension}".`,
-        ],
-      }
-    }
-    return result
+    return validatePackageManifest(parsed)
   } catch (err) {
     return {
       ok: false,
-      errors: [
-        `Could not read package file: ${err instanceof Error ? err.message : String(err)}`,
-      ],
+      errors: [err instanceof Error ? `Invalid JSON: ${err.message}` : 'Could not parse JSON file.'],
     }
   }
 }

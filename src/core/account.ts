@@ -12,7 +12,9 @@ export interface SyntaxAccount {
   createdAt: string
 }
 
-const STORAGE_KEY = 'syntax.account.v2'
+export type SessionStatus = 'hydrating' | 'ready' | 'signed-out'
+
+const STORAGE_KEY = 'syntax.account.v3'
 
 export function isClerkConfigured(): boolean {
   const key = (import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ?? '').trim()
@@ -27,19 +29,37 @@ export function sanitizeHandle(raw: string): string {
 }
 
 interface AccountState {
+  // Persisted display profile so page refreshes show the exact avatar/name on frame 0 with zero flash.
   account: SyntaxAccount | null
+  sessionStatus: SessionStatus
   syncClerkUser: (user: SyntaxAccount | null) => void
+  setSessionStatus: (status: SessionStatus) => void
   signInLocal: (handle: string, displayName: string) => SyntaxAccount
   signOutLocal: () => void
 }
 
 export const useAccountStore = create<AccountState>()(
   persist(
-    set => ({
+    (set, get) => ({
       account: null,
+      sessionStatus: isClerkConfigured() ? 'hydrating' : 'ready',
 
       syncClerkUser(user) {
-        set({ account: user })
+        if (user) {
+          set({ account: user, sessionStatus: 'ready' })
+          return
+        }
+        // Only clear Clerk accounts; never wipe an explicit local account.
+        const current = get().account
+        if (current?.provider === 'local') {
+          set({ sessionStatus: 'ready' })
+          return
+        }
+        set({ account: null, sessionStatus: 'signed-out' })
+      },
+
+      setSessionStatus(status) {
+        set({ sessionStatus: status })
       },
 
       signInLocal(rawHandle, rawDisplayName) {
@@ -55,20 +75,21 @@ export const useAccountStore = create<AccountState>()(
           provider: 'local',
           createdAt: new Date().toISOString(),
         }
-        set({ account: next })
+        set({ account: next, sessionStatus: 'ready' })
         syntaxLog.info('account', `Signed in locally as @${handle}`)
         return next
       },
 
       signOutLocal() {
-        set({ account: null })
+        set({ account: null, sessionStatus: 'signed-out' })
         syntaxLog.info('account', 'Signed out')
       },
     }),
     {
       name: STORAGE_KEY,
+      // Persist both local and cached Clerk display identity to eliminate avatar flash on reload.
       partialize: state => ({
-        account: state.account?.provider === 'local' ? state.account : null,
+        account: state.account,
       }),
     },
   ),
@@ -80,4 +101,8 @@ export function getSyntaxAccount(): SyntaxAccount | null {
 
 export function useAccount(): SyntaxAccount | null {
   return useAccountStore(s => s.account)
+}
+
+export function useSessionStatus(): SessionStatus {
+  return useAccountStore(s => s.sessionStatus)
 }

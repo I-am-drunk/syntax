@@ -1,177 +1,139 @@
 import { useMemo, useRef, useState } from 'react'
+import { Compass, Search, Upload } from 'lucide-react'
+import { toast } from 'sonner'
 import { Toggle } from '../settings/Controls'
-import { COMMUNITY_HUB_WEB_URL } from '../core/community'
 import { OFFICIAL_BY_ID } from '../packages/catalog'
 import {
-  sanitizeUntrustedManifest,
-  validatePackageManifest,
+  normalizeExternalManifest,
+  parsePackageFile,
   type SyntaxPackageManifest,
 } from '../core/packages'
-import { useInstalledPackages, useRegistryStore } from '../core/registry'
+import { getDependentsOf, useInstalledPackages, useRegistryStore } from '../core/registry'
 import { PackageIcon } from './PackageIcon'
 import { CoreTouchIcon } from './CoreTouchWarning'
-
-type PluginSectionId = 'app-plugins' | 'embedded' | 'courses'
 
 const OFFICIAL_ID_SET = new Set(OFFICIAL_BY_ID.keys())
 
 interface PluginsPageProps {
-  onBack: () => void
   onSelectPackage: (pkg: SyntaxPackageManifest) => void
   onOpenCourse: (courseId: string) => void
+  onOpenCommunityHub: () => void
   onImportPackage: (pkg: SyntaxPackageManifest) => void
 }
 
 export function PluginsPage({
-  onBack,
   onSelectPackage,
   onOpenCourse,
+  onOpenCommunityHub,
   onImportPackage,
 }: PluginsPageProps) {
   const entries = useInstalledPackages()
   const setPackageEnabled = useRegistryStore(s => s.setPackageEnabled)
-  const [activeSection, setActiveSection] = useState<PluginSectionId>('app-plugins')
+  const [query, setQuery] = useState('')
   const [importError, setImportError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return entries
+    return entries.filter(
+      e =>
+        e.manifest.name.toLowerCase().includes(q) ||
+        e.manifest.id.toLowerCase().includes(q) ||
+        e.manifest.author.handle.toLowerCase().includes(q),
+    )
+  }, [entries, query])
+
   const appPlugins = useMemo(
-    () => entries.filter(e => e.manifest.kind === 'plugin'),
-    [entries],
+    () => filtered.filter(e => e.manifest.kind === 'plugin'),
+    [filtered],
   )
   const embeddedPlugins = useMemo(
-    () => entries.filter(e => e.manifest.kind === 'embedded-plugin'),
-    [entries],
+    () => filtered.filter(e => e.manifest.kind === 'embedded-plugin'),
+    [filtered],
   )
   const courses = useMemo(
-    () => entries.filter(e => e.manifest.kind === 'course'),
-    [entries],
+    () => filtered.filter(e => e.manifest.kind === 'course'),
+    [filtered],
   )
 
-  function scrollTo(id: PluginSectionId) {
-    setActiveSection(id)
-    const el = document.getElementById(`plugins-${id}`)
-    if (el) {
-      const top = Math.max(0, el.getBoundingClientRect().top + window.scrollY - 88)
-      window.scrollTo({ top, behavior: 'smooth' })
+  function handleToggle(manifest: SyntaxPackageManifest, next: boolean) {
+    if (!next && manifest.kind === 'embedded-plugin') {
+      const dependents = getDependentsOf(manifest.id)
+      if (dependents.length > 0) {
+        toast.message(`Disabled ${manifest.name}`, {
+          description: `Required by ${dependents.map(d => d.manifest.name).join(', ')}.`,
+        })
+      }
     }
+    setPackageEnabled(manifest.id, next)
   }
 
   async function handleImportFile(file: File) {
     setImportError('')
-    try {
-      const text = await file.text()
-      const raw = JSON.parse(text) as unknown
-      const parsed = validatePackageManifest(raw)
-      if (!parsed.ok) {
-        setImportError(parsed.errors[0] || 'Invalid package file.')
-        return
-      }
-      onImportPackage(
-        sanitizeUntrustedManifest(parsed.manifest, OFFICIAL_ID_SET, { isLocalFile: true }),
-      )
-    } catch {
-      setImportError('Could not read package file.')
+    const parsed = await parsePackageFile(file)
+    if (!parsed.ok) {
+      setImportError(parsed.errors[0] || 'Invalid package file.')
+      return
     }
+    onImportPackage(normalizeExternalManifest(parsed.manifest, OFFICIAL_ID_SET))
   }
 
   return (
-    <main className="settings-layout sx-plugins-page" aria-label="Plugins">
-      <nav className="settings-nav" aria-label="Plugins sections">
-        <a
-          href="#back-home"
-          className="settings-nav-back-link"
-          onClick={e => {
-            e.preventDefault()
-            onBack()
-          }}
-        >
-          ← Back
-        </a>
-        <a
-          href="#plugins-app-plugins"
-          aria-current={activeSection === 'app-plugins' ? 'location' : undefined}
-          onClick={e => {
-            e.preventDefault()
-            scrollTo('app-plugins')
-          }}
-        >
-          App Plugins
-        </a>
-        <a
-          href="#plugins-embedded"
-          aria-current={activeSection === 'embedded' ? 'location' : undefined}
-          onClick={e => {
-            e.preventDefault()
-            scrollTo('embedded')
-          }}
-        >
-          Embedded
-        </a>
-        <a
-          href="#plugins-courses"
-          aria-current={activeSection === 'courses' ? 'location' : undefined}
-          onClick={e => {
-            e.preventDefault()
-            scrollTo('courses')
-          }}
-        >
-          Courses
-        </a>
-      </nav>
-
-      <div className="preferences">
-        <header className="sx-plugins-header">
-          <div className="sx-plugins-title-row">
-            <h2>Plugins</h2>
-            <div className="sx-plugins-cta-group">
-              <button
-                type="button"
-                className="sx-btn-ghost"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                Import
-              </button>
-              <a
-                href={COMMUNITY_HUB_WEB_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="sx-browse-hub-btn"
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.1"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="M2 12h20" />
-                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z" />
-                </svg>
-                <span>Browse Community Hub</span>
-                <span className="sx-browse-arrow" aria-hidden="true">↗</span>
-              </a>
-            </div>
+    <main className="sx-workspace-page sx-plugins-page" aria-label="Plugins">
+      <header className="sx-plugins-header">
+        <div className="sx-plugins-title-row">
+          <div>
+            <h1>Plugins</h1>
+            <span className="sx-hub-count">{entries.length} installed on this device</span>
           </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".syntaxcourse,.syntaxplugin,.syntaxembeddedplugin,.json"
-            style={{ display: 'none' }}
-            onChange={e => {
-              const file = e.target.files?.[0]
-              if (file) void handleImportFile(file)
-              e.target.value = ''
-            }}
-          />
-          {importError && <p className="sx-field-error">{importError}</p>}
-        </header>
+          <div className="sx-plugins-cta-group">
+            <button
+              type="button"
+              className="sx-btn-ghost"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload size={14} aria-hidden="true" />
+              <span>Import</span>
+            </button>
+            <button
+              type="button"
+              className="sx-browse-hub-btn"
+              onClick={onOpenCommunityHub}
+            >
+              <Compass size={16} aria-hidden="true" />
+              <span>Browse Community Hub</span>
+            </button>
+          </div>
+        </div>
 
-        <section id="plugins-app-plugins">
+        <div className="sx-hub-search sx-plugins-search">
+          <Search size={16} className="sx-hub-search-icon" aria-hidden="true" />
+          <input
+            type="search"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Filter installed plugins and courses..."
+            aria-label="Filter installed plugins"
+          />
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".syntaxcourse,.syntaxplugin,.syntaxembeddedplugin,.json"
+          style={{ display: 'none' }}
+          onChange={e => {
+            const file = e.target.files?.[0]
+            if (file) void handleImportFile(file)
+            e.target.value = ''
+          }}
+        />
+        {importError && <p className="sx-field-error">{importError}</p>}
+      </header>
+
+      {appPlugins.length > 0 && (
+        <section id="plugins-app-plugins" className="sx-plugins-section">
           <h3>App Plugins</h3>
           <div className="preference-rows">
             {appPlugins.map(({ manifest, enabled }) => (
@@ -189,16 +151,16 @@ export function PluginsPage({
                 <Toggle
                   label={`Enable ${manifest.name}`}
                   checked={enabled}
-                  onChange={next => setPackageEnabled(manifest.id, next)}
+                  onChange={next => handleToggle(manifest, next)}
                 />
               </div>
             ))}
           </div>
         </section>
+      )}
 
-        <hr />
-
-        <section id="plugins-embedded">
+      {embeddedPlugins.length > 0 && (
+        <section id="plugins-embedded" className="sx-plugins-section">
           <h3>Embedded Plugins</h3>
           <div className="preference-rows">
             {embeddedPlugins.map(({ manifest, enabled }) => (
@@ -210,22 +172,24 @@ export function PluginsPage({
                 >
                   <PackageIcon svg={manifest.iconSvg} size={34} />
                   <span className="sx-plugin-name">{manifest.name}</span>
-                  <span className="sx-status-pill is-ok">Installed</span>
+                  <span className={`sx-status-pill${enabled ? ' is-ok' : ''}`}>
+                    {enabled ? 'Installed on your account' : 'Disabled'}
+                  </span>
                 </button>
                 <Toggle
                   label={`Enable ${manifest.name}`}
                   checked={enabled}
-                  onChange={next => setPackageEnabled(manifest.id, next)}
+                  onChange={next => handleToggle(manifest, next)}
                 />
               </div>
             ))}
           </div>
         </section>
+      )}
 
-        <hr />
-
-        <section id="plugins-courses">
-          <h3>Courses</h3>
+      {courses.length > 0 && (
+        <section id="plugins-courses" className="sx-plugins-section">
+          <h3>Installed Courses</h3>
           <div className="preference-rows">
             {courses.map(({ manifest }) => (
               <div key={manifest.id} className="preference-row sx-plugin-row">
@@ -249,7 +213,16 @@ export function PluginsPage({
             ))}
           </div>
         </section>
-      </div>
+      )}
+
+      {filtered.length === 0 && (
+        <div className="sx-hub-empty">
+          <p>No installed packages match "{query}".</p>
+          <button type="button" className="sx-btn-ghost" onClick={() => setQuery('')}>
+            Clear filter
+          </button>
+        </div>
+      )}
     </main>
   )
 }

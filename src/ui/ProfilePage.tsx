@@ -4,7 +4,7 @@ import { useAuthActions } from '../core/clerkAuth'
 import { useInstalledPackages } from '../core/registry'
 import { Sema } from '../mpm2d/mascot/Sema'
 import type { SyntaxPrefs } from '../mpm2d/storage'
-import { UNIT2_LESSONS } from '../mpm2d/data/unit2Course'
+import { MPM2D_TOTAL_LESSONS } from '../packages/courseMeta'
 import { assetUrl } from '../mpm2d/assetUrl'
 import { PackageIcon } from './PackageIcon'
 
@@ -16,6 +16,7 @@ export interface ProfilePageProps {
   onOpenCourse: (courseId: string) => void
   onOpenLibrary: () => void
   onOpenPlugins: () => void
+  onOpenCommunityHub: () => void
   onOpenSettings: () => void
 }
 
@@ -27,6 +28,7 @@ export function ProfilePage({
   onOpenCourse,
   onOpenLibrary,
   onOpenPlugins,
+  onOpenCommunityHub,
   onOpenSettings,
 }: ProfilePageProps) {
   const account = useAccount()
@@ -126,7 +128,7 @@ export function ProfilePage({
       <section className="sx-profile-stats" aria-label="Progress summary">
         <div className="sx-profile-stat">
           <span className="sx-profile-stat-value">
-            {completedLessonCount}/{UNIT2_LESSONS.length}
+            {completedLessonCount}/{MPM2D_TOTAL_LESSONS}
           </span>
           <span className="sx-profile-stat-label">Lessons completed</span>
         </div>
@@ -136,7 +138,7 @@ export function ProfilePage({
         </div>
         <div className="sx-profile-stat">
           <span className="sx-profile-stat-value">{coursePct}%</span>
-          <span className="sx-profile-stat-label">Unit 2 progress</span>
+          <span className="sx-profile-stat-label">Analytic Geometry</span>
         </div>
         <div className="sx-profile-stat">
           <span className="sx-profile-stat-value">{installedCourses.length}</span>
@@ -216,6 +218,15 @@ export function ProfilePage({
             </div>
             <button type="button" className="sx-btn-ghost" onClick={onOpenPlugins}>
               Plugins
+            </button>
+          </div>
+          <div className="preference-row">
+            <div className="syntax-pref-copy">
+              <p>Community Hub</p>
+              <span>Browse courses, app plugins, and embedded tools</span>
+            </div>
+            <button type="button" className="sx-btn-ghost" onClick={onOpenCommunityHub}>
+              Browse
             </button>
           </div>
           <div className="preference-row">

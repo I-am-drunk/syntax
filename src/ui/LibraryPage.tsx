@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Compass } from 'lucide-react'
 import { assetUrl } from '../mpm2d/assetUrl'
-import { UNIT2_LESSONS } from '../mpm2d/data/unit2Course'
-import { COMMUNITY_HUB_WEB_URL } from '../core/community'
+import { MPM2D_TOTAL_LESSONS, THINKING_IN_CODE_META } from '../packages/courseMeta'
 import type { SyntaxPackageManifest } from '../core/packages'
 import { useInstalledPackages } from '../core/registry'
 import { PackageIcon } from './PackageIcon'
@@ -13,6 +13,7 @@ export interface LibraryPageProps {
   mpm2dCompletedCount: number
   onOpenCourse: (courseId: string) => void
   onOpenPlugins: () => void
+  onOpenCommunityHub: () => void
   onInspectCourse: (pkg: SyntaxPackageManifest) => void
 }
 
@@ -131,6 +132,7 @@ export function LibraryPage({
   mpm2dCompletedCount,
   onOpenCourse,
   onOpenPlugins,
+  onOpenCommunityHub,
   onInspectCourse,
 }: LibraryPageProps) {
   const records = useInstalledPackages()
@@ -162,7 +164,7 @@ export function LibraryPage({
                   ? `${mpm2dPercent}%`
                   : 'MPM2D',
             percent: mpm2dPercent,
-            lessonMeta: `${mpm2dCompletedCount}/${UNIT2_LESSONS.length} lessons`,
+            lessonMeta: `${mpm2dCompletedCount}/${MPM2D_TOTAL_LESSONS} lessons`,
           }
         }
         if (manifest.id === 'thinking-in-code') {
@@ -173,7 +175,7 @@ export function LibraryPage({
             image: assetUrl('/assets/courses/thinking-in-code-DolooX.png'),
             badge: 'CS',
             percent: 0,
-            lessonMeta: '5 lessons',
+            lessonMeta: `${THINKING_IN_CODE_META.totalLessons} lessons`,
           }
         }
         const totalLessons =
@@ -267,14 +269,14 @@ export function LibraryPage({
             ))}
           </div>
 
-          <a
-            href={COMMUNITY_HUB_WEB_URL}
-            target="_blank"
-            rel="noreferrer"
+          <button
+            type="button"
             className="sx-btn-ghost"
+            onClick={onOpenCommunityHub}
           >
-            Community Hub ↗
-          </a>
+            <Compass size={14} aria-hidden="true" />
+            <span>Community Hub</span>
+          </button>
         </div>
       </header>
 
@@ -332,15 +334,14 @@ export function LibraryPage({
                 Show all installed
               </button>
             )}
-            <a
-              href={COMMUNITY_HUB_WEB_URL}
-              target="_blank"
-              rel="noreferrer"
+            <button
+              type="button"
               className="sx-browse-hub-btn"
+              onClick={onOpenCommunityHub}
             >
+              <Compass size={16} aria-hidden="true" />
               <span>Browse Community Hub</span>
-              <span className="sx-browse-arrow" aria-hidden="true">↗</span>
-            </a>
+            </button>
           </div>
         </div>
       )}

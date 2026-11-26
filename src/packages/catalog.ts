@@ -11,7 +11,7 @@ const BASE_SAFETY_OFFICIAL = {
   automatedScan: 'passed' as const,
   sandboxed: true,
   networkAccess: 'none' as const,
-  lastChecked: '2026-11-24',
+  lastChecked: '2026-11-26',
   official: true,
 }
 
@@ -47,7 +47,6 @@ export const OFFICIAL_CATALOG: SyntaxPackageManifest[] = [
       { id: 'pen-studio', kind: 'plugin', name: 'Pen Studio' },
       { id: 'walkthrough-player', kind: 'plugin', name: 'Video Walkthroughs' },
       { id: 'formula-playbook', kind: 'plugin', name: 'Formula Playbook' },
-      { id: 'checkmark-gate', kind: 'plugin', name: 'Checkmark Gate' },
     ],
     safety: BASE_SAFETY_OFFICIAL,
     iconSvg:
@@ -77,7 +76,7 @@ export const OFFICIAL_CATALOG: SyntaxPackageManifest[] = [
         name: 'Grid Coding Engine',
       },
     ],
-    optional: [{ id: 'work-history', kind: 'plugin', name: 'Work History' }],
+    optional: [],
     safety: BASE_SAFETY_OFFICIAL,
     iconSvg:
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="16" fill="#6d28d9"/><rect x="14" y="14" width="14" height="14" rx="4" fill="#c4b5fd"/><rect x="36" y="14" width="14" height="14" rx="4" fill="#a78bfa"/><rect x="14" y="36" width="14" height="14" rx="4" fill="#a78bfa"/><rect x="36" y="36" width="14" height="14" rx="4" fill="#34d399"/><path d="M24 21H36M43 28V36" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round"/></svg>',
@@ -102,7 +101,8 @@ export const OFFICIAL_CATALOG: SyntaxPackageManifest[] = [
     touchesCore: false,
     builtIn: true,
     aiUsage: {
-      summary: 'Embed interactive 2D coordinate planes, draggable points, geometric explorations, and math answer grading inside any .syntaxcourse lesson.',
+      summary:
+        'Embed interactive 2D coordinate planes, draggable points, geometric explorations, and math answer grading inside any .syntaxcourse lesson.',
       blocks: ['BrilliantGraph', 'CompactExploration', 'BrilliantMathInput', 'MathText'],
       example:
         '{ "type": "graph", "plugin": "math-graph-engine", "points": [{ "id": "A", "x": -2, "y": 1 }, { "id": "B", "x": 4, "y": 5 }], "segments": [["A", "B"]] }',
@@ -127,7 +127,8 @@ export const OFFICIAL_CATALOG: SyntaxPackageManifest[] = [
     touchesCore: false,
     builtIn: true,
     aiUsage: {
-      summary: 'Embed programmable grid maps with draggable command blocks (forward, turn, repeat, deliver) and automatic path grading.',
+      summary:
+        'Embed programmable grid maps with draggable command blocks (forward, turn, repeat, deliver) and automatic path grading.',
       blocks: ['GridProblem', 'RobotBoard', 'PracticeExplanation'],
       example:
         '{ "type": "grid-puzzle", "plugin": "grid-coding-engine", "commands": ["forward", "left", "right"], "goal": [3, 1] }',
@@ -148,14 +149,14 @@ export const OFFICIAL_CATALOG: SyntaxPackageManifest[] = [
     name: 'Pen Studio',
     tagline: 'Split-screen handwriting canvas with graph, dot, and lined scratch paper.',
     description:
-      'Adds a full TLDraw stylus and mouse scratchpad directly beside any lesson problem, with per-question paper styles, automatic stylus detection, and saved blank scratch pages.',
+      'Adds a full TLDraw stylus and mouse scratchpad directly beside any lesson problem, with per-question paper styles and saved blank scratch pages.',
     version: '1.0.0',
     author: OFFICIAL_AUTHOR,
     accentColor: '#f59e0b',
     tags: ['Handwriting', 'Stylus', 'Scratchpad', 'Tools'],
     touchesCore: true,
     coreTouchReason:
-      'Splits the core Lesson Player layout into a resizable dual-pane workspace and listens for global stylus input.',
+      'Splits the course Lesson Player layout into a resizable dual-pane workspace.',
     builtIn: true,
     safety: BASE_SAFETY_OFFICIAL,
     iconSvg:
@@ -176,32 +177,11 @@ export const OFFICIAL_CATALOG: SyntaxPackageManifest[] = [
     tags: ['Video', 'Manim', 'Hints', 'Walkthroughs'],
     touchesCore: true,
     coreTouchReason:
-      'Injects the Guided Hint (?) and Full Solution video triggers directly into the core Lesson Player header and question cards.',
+      'Injects Guided Hint and Full Solution video triggers into the course Lesson Player.',
     builtIn: true,
     safety: BASE_SAFETY_OFFICIAL,
     iconSvg:
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="16" fill="#be185d"/><circle cx="32" cy="32" r="18" fill="#fbcfe8" fill-opacity="0.2" stroke="#ffffff" stroke-width="3"/><path d="M27 23L42 32L27 41V23Z" fill="#ffffff"/></svg>',
-  },
-  {
-    schemaVersion: 1,
-    id: 'checkmark-gate',
-    kind: 'plugin',
-    extension: '.syntaxplugin',
-    name: 'Checkmark Gate',
-    tagline: 'Draw a quick checkmark anywhere on a lesson to submit your answer.',
-    description:
-      'Adds a smooth single-stroke dotted checkmark gesture recognizer over the lesson pane so stylus and touch users can check answers naturally without hunting for buttons.',
-    version: '1.0.0',
-    author: OFFICIAL_AUTHOR,
-    accentColor: '#22c55e',
-    tags: ['Gestures', 'Stylus', 'Productivity'],
-    touchesCore: true,
-    coreTouchReason:
-      'Attaches a gesture recognition layer directly over the core Lesson Player viewport.',
-    builtIn: true,
-    safety: BASE_SAFETY_OFFICIAL,
-    iconSvg:
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="16" fill="#15803d"/><path d="M18 33L28 43L47 22" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   },
   {
     schemaVersion: 1,
@@ -218,7 +198,7 @@ export const OFFICIAL_CATALOG: SyntaxPackageManifest[] = [
     tags: ['Windows', 'Workspace', 'UI'],
     touchesCore: true,
     coreTouchReason:
-      'Replaces standard core modal dialogs with draggable WinBox floating window frames.',
+      'Replaces standard modal dialogs with draggable WinBox floating window frames.',
     builtIn: true,
     safety: BASE_SAFETY_OFFICIAL,
     iconSvg:
@@ -226,30 +206,11 @@ export const OFFICIAL_CATALOG: SyntaxPackageManifest[] = [
   },
   {
     schemaVersion: 1,
-    id: 'work-history',
-    kind: 'plugin',
-    extension: '.syntaxplugin',
-    name: 'Work History',
-    tagline: 'Browse and jump back to every past answer and scratchpad snapshot.',
-    description:
-      'Saves a clean timeline of your worked answers and scratchpad sketches so you can review mistakes before a test and jump straight back into any question.',
-    version: '1.0.0',
-    author: OFFICIAL_AUTHOR,
-    accentColor: '#14b8a6',
-    tags: ['History', 'Review', 'Notes'],
-    touchesCore: false,
-    builtIn: true,
-    safety: BASE_SAFETY_OFFICIAL,
-    iconSvg:
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="16" fill="#0f766e"/><circle cx="32" cy="32" r="16" stroke="#ffffff" stroke-width="3.2"/><path d="M32 23V33L39 37" stroke="#99f6e4" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  },
-  {
-    schemaVersion: 1,
     id: 'formula-playbook',
     kind: 'plugin',
     extension: '.syntaxplugin',
     name: 'Formula Playbook',
-    tagline: 'Press F anytime for a clean, searchable course formula reference.',
+    tagline: 'Press F anytime inside a math course for a searchable formula reference.',
     description:
       'Provides an instant keyboard-accessible Playbook sheet with slopes, midpoints, distances, circle equations, and proof checklists that never interrupt your lesson state.',
     version: '1.0.0',
@@ -265,3 +226,7 @@ export const OFFICIAL_CATALOG: SyntaxPackageManifest[] = [
 ]
 
 export const OFFICIAL_BY_ID = new Map(OFFICIAL_CATALOG.map(p => [p.id, p]))
+
+// IDs of previously built-in packages that have been retired so localStorage
+// migrations cleanly prune them instead of reclassifying them as community plugins.
+export const RETIRED_OFFICIAL_IDS = new Set(['work-history', 'checkmark-gate'])
