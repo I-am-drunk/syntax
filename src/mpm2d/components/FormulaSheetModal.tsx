@@ -1,7 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
-import { computeLoadOrder } from '../../core/compatibility'
-import { getEffectivePermissions, type PlaybookCardContribution } from '../../core/packages'
-import { useInstalledPackages } from '../../core/registry'
+import { useEffect, useState } from 'react'
 import { MathText, Frac, Sqrt } from './MathText'
 import { WinBoxWindow } from './WinBoxWindow'
 
@@ -262,24 +259,6 @@ export function FormulaSheetContent({
 }) {
   const [tab, setTab] = useState<SheetTab>('formulas')
   const [expandedGuide, setExpandedGuide] = useState<string | null>(null)
-  const records = useInstalledPackages()
-
-  const pluginCards = useMemo(() => {
-    const active = records.filter(r => r.enabled).map(r => r.manifest)
-    const { order } = computeLoadOrder(active)
-    const byId = new Map(active.map(m => [m.id, m]))
-    const list: Array<{ pluginName: string; pluginId: string; card: PlaybookCardContribution }> = []
-
-    for (const id of order) {
-      const m = byId.get(id)
-      if (!m?.contributes?.playbook?.length) continue
-      if (!getEffectivePermissions(m).includes('ui:playbook')) continue
-      for (const card of m.contributes.playbook) {
-        list.push({ pluginName: m.name, pluginId: m.id, card })
-      }
-    }
-    return list
-  }, [records])
 
   return (
     <div className={`fm-content-wrap${compact ? ' is-compact' : ''}${floating ? ' is-floating' : ''}`}>
@@ -379,6 +358,7 @@ export function FormulaSheetContent({
               <div className="fm-math-display">
                 <em>m</em> = <Frac num={<><em>y</em><sub>2</sub> − <em>y</em><sub>1</sub></>} den={<><em>x</em><sub>2</sub> − <em>x</em><sub>1</sub></>} />
               </div>
+            
               <button type="button" className={`fm-explain-toggle${expandedGuide === 'slope' ? ' is-open' : ''}`} aria-expanded={expandedGuide === 'slope'} onClick={() => setExpandedGuide(prev => (prev === 'slope' ? null : 'slope'))}>
                 {expandedGuide === 'slope' ? 'Hide guide' : 'Text guide'}
               </button>
@@ -403,6 +383,7 @@ export function FormulaSheetContent({
                 <Frac num={<><em>y</em><sub>1</sub> + <em>y</em><sub>2</sub></>} den="2" />
                 <span className="m-paren">)</span>
               </div>
+            
               <button type="button" className={`fm-explain-toggle${expandedGuide === 'midpoint' ? ' is-open' : ''}`} aria-expanded={expandedGuide === 'midpoint'} onClick={() => setExpandedGuide(prev => (prev === 'midpoint' ? null : 'midpoint'))}>
                 {expandedGuide === 'midpoint' ? 'Hide guide' : 'Text guide'}
               </button>
@@ -423,6 +404,7 @@ export function FormulaSheetContent({
               <div className="fm-math-display">
                 <em>d</em> = <Sqrt>(<em>x</em><sub>2</sub> − <em>x</em><sub>1</sub>)<sup>2</sup> + (<em>y</em><sub>2</sub> − <em>y</em><sub>1</sub>)<sup>2</sup></Sqrt>
               </div>
+            
               <button type="button" className={`fm-explain-toggle${expandedGuide === 'length' ? ' is-open' : ''}`} aria-expanded={expandedGuide === 'length'} onClick={() => setExpandedGuide(prev => (prev === 'length' ? null : 'length'))}>
                 {expandedGuide === 'length' ? 'Hide guide' : 'Text guide'}
               </button>
@@ -445,6 +427,7 @@ export function FormulaSheetContent({
                 <div><span>⊥</span> <em>m</em><sub>1</sub> · <em>m</em><sub>2</sub> = −1 <small>(flip &amp; negate)</small></div>
                 <div className="fm-math-muted"><em>m</em> = 0 (horiz) ⊥ undefined (vert)</div>
               </div>
+            
               <button type="button" className={`fm-explain-toggle${expandedGuide === 'perp' ? ' is-open' : ''}`} aria-expanded={expandedGuide === 'perp'} onClick={() => setExpandedGuide(prev => (prev === 'perp' ? null : 'perp'))}>
                 {expandedGuide === 'perp' ? 'Hide guide' : 'Text guide'}
               </button>
@@ -466,6 +449,7 @@ export function FormulaSheetContent({
                 <div><em>y</em> = <em>mx</em> + <em>b</em></div>
                 <div className="fm-math-muted"><em>Ax</em> + <em>By</em> + <em>C</em> = 0 · horiz <em>y</em> = <em>k</em> · vert <em>x</em> = <em>k</em></div>
               </div>
+            
               <button type="button" className={`fm-explain-toggle${expandedGuide === 'line' ? ' is-open' : ''}`} aria-expanded={expandedGuide === 'line'} onClick={() => setExpandedGuide(prev => (prev === 'line' ? null : 'line'))}>
                 {expandedGuide === 'line' ? 'Hide guide' : 'Text guide'}
               </button>
@@ -487,6 +471,7 @@ export function FormulaSheetContent({
                 <div><em>x</em><sup>2</sup> + <em>y</em><sup>2</sup> = <em>r</em><sup>2</sup></div>
                 <div className="fm-math-muted">Inside &lt; <em>r</em><sup>2</sup> · On = <em>r</em><sup>2</sup> · Outside &gt; <em>r</em><sup>2</sup></div>
               </div>
+            
               <button type="button" className={`fm-explain-toggle${expandedGuide === 'circle' ? ' is-open' : ''}`} aria-expanded={expandedGuide === 'circle'} onClick={() => setExpandedGuide(prev => (prev === 'circle' ? null : 'circle'))}>
                 {expandedGuide === 'circle' ? 'Hide guide' : 'Text guide'}
               </button>
@@ -498,61 +483,6 @@ export function FormulaSheetContent({
                 </div>
               )}
             </article>
-
-            {pluginCards.map(({ pluginId, pluginName, card }) => {
-              const guideKey = `plugin:${pluginId}:${card.id}`
-              const hasGuide = Boolean((card.steps && card.steps.length > 0) || card.tip)
-              return (
-                <article key={guideKey} className="fm-fcard">
-                  <div className="fm-fcard-top">
-                    <span className="fm-fcard-label">{card.title}</span>
-                    <span className="fm-math-muted">{pluginName}</span>
-                  </div>
-                  <div className="fm-math-stack">
-                    <div>
-                      <MathText text={card.formula} />
-                    </div>
-                    {card.note && (
-                      <div className="fm-math-muted">
-                        <MathText text={card.note} />
-                      </div>
-                    )}
-                  </div>
-                  {hasGuide && (
-                    <>
-                      <button
-                        type="button"
-                        className={`fm-explain-toggle${expandedGuide === guideKey ? ' is-open' : ''}`}
-                        aria-expanded={expandedGuide === guideKey}
-                        onClick={() =>
-                          setExpandedGuide(prev => (prev === guideKey ? null : guideKey))
-                        }
-                      >
-                        {expandedGuide === guideKey ? 'Hide guide' : 'Text guide'}
-                      </button>
-                      {expandedGuide === guideKey && (
-                        <div className="fm-explain-box">
-                          {card.steps && card.steps.length > 0 && (
-                            <ol>
-                              {card.steps.map((st, idx) => (
-                                <li key={idx}>
-                                  <MathText text={st} />
-                                </li>
-                              ))}
-                            </ol>
-                          )}
-                          {card.tip && (
-                            <p className="fm-explain-tip">
-                              <MathText text={card.tip} />
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </article>
-              )
-            })}
           </div>
         )}
 

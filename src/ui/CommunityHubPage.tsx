@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import MiniSearch from 'minisearch'
 import {
-  AlertTriangle,
   ArrowLeft,
   BadgeCheck,
   Check,
@@ -10,29 +9,21 @@ import {
   ExternalLink,
   RefreshCw,
   Search,
-  Shield,
   Sparkles,
   Trash2,
   X,
-  XCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAccount } from '../core/account'
-import { exportSytxArchive } from '../core/archive'
 import { COMMUNITY_HUB_WEB_URL } from '../core/community'
-import { evaluateCompatibility } from '../core/compatibility'
 import { SyntaxErrorBoundary } from '../core/ErrorBoundary'
 import {
   PACKAGE_LABEL_BY_KIND,
-  PERMISSION_LABELS,
-  RESERVED_HOST_IDS,
-  SYNTAX_HOST_VERSION,
-  getCompatibility,
-  getEffectivePermissions,
+  compareSemver,
+  exportPackageFile,
   type PackageKind,
   type SyntaxPackageManifest,
 } from '../core/packages'
-import { getVaultArchive } from '../core/packageVault'
 import { useInstalledPackages, useRegistryStore } from '../core/registry'
 import { PluginSandboxFrame } from '../core/sandbox'
 import { CoreTouchIcon, CoreTouchWarning } from './CoreTouchWarning'
@@ -214,8 +205,7 @@ export function CommunityHubPage({
     return list
   }, [allPackages, query, searchIndex, filter, sort, installedById])
 
-  const showSpotlight =
-    !query.trim() && filter === 'all' && sort === 'featured' && visiblePackages.length >= 4
+  const showSpotlight = !query.trim() && filter === 'all' && sort === 'featured' && visiblePackages.length >= 4
   const spotlightPackages = useMemo(
     () => (showSpotlight ? visiblePackages.slice(0, 2) : []),
     [showSpotlight, visiblePackages],
@@ -245,15 +235,9 @@ export function CommunityHubPage({
     const autoCount = res.installedIds.filter(id => id !== pkg.id).length
     toast.success(
       autoCount > 0
-        ? `Added ${pkg.name} (+${autoCount} required ${autoCount === 1 ? 'engine' : 'engines'})`
+        ? `Added ${pkg.name} (+${autoCount} embedded ${autoCount === 1 ? 'plugin' : 'plugins'})`
         : `Added ${pkg.name} to Syntax`,
     )
-  }
-
-  async function handleDownloadSytx(pkg: SyntaxPackageManifest) {
-    const vaultRec = await getVaultArchive(pkg.id)
-    exportSytxArchive(pkg, vaultRec?.rawBytes)
-    toast.success(`Downloaded ${pkg.id}-${pkg.version}.sytx`)
   }
 
   async function handleCopyInstallLink(pkg: SyntaxPackageManifest) {
@@ -269,7 +253,7 @@ export function CommunityHubPage({
   }
 
   // =========================================================================
-  // DEDICATED PACKAGE DETAIL PAGE
+  // DEDICATED PACKAGE DETAIL PAGE (Raycast Store x Obsidian Detail Layout)
   // =========================================================================
   if (selectedPackageId) {
     if (!selectedPkg) {
@@ -305,16 +289,16 @@ export function CommunityHubPage({
     const installed = installedById.get(selectedPkg.id)
     const isInstalled = Boolean(installed)
     const isEnabled = Boolean(installed?.enabled)
-    const compat = getCompatibility(selectedPkg)
-    const permissions = getEffectivePermissions(selectedPkg)
-    const report = evaluateCompatibility(
-      selectedPkg,
-      records.filter(r => r.manifest.id !== selectedPkg.id),
-      allPackages,
-    )
-    const isIncompatible = report.verdict === 'incompatible'
-    const needsDeps = report.installPlan.length > 0 || report.enablePlan.length > 0
-    const depEntries = Object.entries(compat.depends).filter(([k]) => !RESERVED_HOST_IDS.has(k))
+    const requires = selectedPkg.requires ?? []
+    const hasMissingOrDisabledDeps = requires.some(dep => {
+      const rec = installedById.get(dep.id)
+      return (
+        !rec ||
+        !rec.enabled ||
+        rec.manifest.kind !== dep.kind ||
+        compareSemver(rec.manifest.version, dep.minVersion) < 0
+      )
+    })
 
     return (
       <main className="sx-hub-page sx-hub-detail-page" aria-label={selectedPkg.name}>
@@ -327,9 +311,7 @@ export function CommunityHubPage({
             <ArrowLeft size={15} aria-hidden="true" />
             <span>Community Hub</span>
           </button>
-          <span className="sx-hub-crumb-sep" aria-hidden="true">
-            /
-          </span>
+          <span className="sx-hub-crumb-sep" aria-hidden="true">/</span>
           <span className="sx-hub-crumb-current">{selectedPkg.name}</span>
         </nav>
 
@@ -357,26 +339,18 @@ export function CommunityHubPage({
                     <button
                       type="button"
                       className="sx-btn-primary"
-                      disabled={isIncompatible}
                       onClick={() => handleInstall(selectedPkg)}
                     >
-                      {isIncompatible
-                        ? 'Incompatible'
-                        : account
-                          ? needsDeps
-                            ? 'Add with dependencies'
-                            : 'Add to Syntax'
-                          : 'Sign in to add'}
+                      {account ? 'Add to Syntax' : 'Sign in to add'}
                     </button>
                   ) : selectedPkg.kind === 'course' ? (
-                    needsDeps ? (
+                    hasMissingOrDisabledDeps ? (
                       <button
                         type="button"
                         className="sx-btn-primary"
-                        disabled={isIncompatible}
                         onClick={() => handleInstall(selectedPkg)}
                       >
-                        Install required engines &amp; open
+                        Install required plugins &amp; open
                       </button>
                     ) : (
                       <button
@@ -384,11 +358,7 @@ export function CommunityHubPage({
                         className="sx-btn-primary"
                         onClick={() => {
                           if (!isEnabled) {
-                            const res = setPackageEnabled(selectedPkg.id, true)
-                            if (!res.ok) {
-                              toast.error(res.error)
-                              return
-                            }
+                            setPackageEnabled(selectedPkg.id, true)
                           }
                           onOpenCourse(selectedPkg.id)
                         }}
@@ -400,13 +370,8 @@ export function CommunityHubPage({
                     <button
                       type="button"
                       className={isEnabled ? 'sx-btn-secondary' : 'sx-btn-primary'}
-                      disabled={!isEnabled && isIncompatible}
                       onClick={() => {
-                        const res = setPackageEnabled(selectedPkg.id, !isEnabled)
-                        if (!res.ok) {
-                          toast.error(res.error)
-                          return
-                        }
+                        setPackageEnabled(selectedPkg.id, !isEnabled)
                         toast.success(`${isEnabled ? 'Disabled' : 'Enabled'} ${selectedPkg.name}`)
                       }}
                     >
@@ -431,24 +396,6 @@ export function CommunityHubPage({
               </div>
             </header>
 
-            {report.issues.length > 0 && (
-              <div className="sx-compat-card">
-                {report.issues.map((issue, idx) => (
-                  <div
-                    key={`${issue.code}:${issue.targetId}:${idx}`}
-                    className={`sx-compat-issue is-${issue.severity}`}
-                  >
-                    {issue.severity === 'error' ? (
-                      <XCircle size={15} aria-hidden="true" />
-                    ) : (
-                      <AlertTriangle size={15} aria-hidden="true" />
-                    )}
-                    <span>{issue.message}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
             {selectedPkg.touchesCore && (
               <CoreTouchWarning reason={selectedPkg.coreTouchReason} />
             )}
@@ -458,64 +405,66 @@ export function CommunityHubPage({
               <p className="sx-hub-detail-desc">{selectedPkg.description}</p>
             </section>
 
-            {permissions.length > 0 && (
+            {selectedPkg.kind === 'embedded-plugin' && (
               <section className="sx-hub-detail-section">
-                <h2>Permissions</h2>
-                <div className="sx-perm-card">
-                  <div className="sx-perm-head">
-                    <Shield size={14} aria-hidden="true" />
-                    <span>Declared capabilities</span>
-                  </div>
-                  <ul className="sx-perm-list">
-                    {permissions.map(perm => {
-                      const info = PERMISSION_LABELS[perm]
-                      return (
-                        <li key={perm} className={info.sensitive ? 'is-sensitive' : undefined}>
-                          <strong>{info.title}</strong>
-                          <span>{info.detail}</span>
-                        </li>
-                      )
-                    })}
-                  </ul>
+                <div className="sx-account-status-row">
+                  <span>Account status</span>
+                  <span className={`sx-hub-inline-state${isInstalled && isEnabled ? ' is-ok' : ''}`}>
+                    {isInstalled && isEnabled && <Check size={14} strokeWidth={2.4} aria-hidden="true" />}
+                    <span>
+                      {isInstalled
+                        ? isEnabled
+                          ? 'Installed on your account'
+                          : 'Installed (disabled)'
+                        : 'Not installed yet'}
+                    </span>
+                  </span>
                 </div>
               </section>
             )}
 
-            {depEntries.length > 0 && (
+            {requires.length > 0 && (
               <section className="sx-hub-detail-section">
-                <h2>Dependencies</h2>
+                <h2>Required embedded plugins</h2>
                 <div className="sx-dep-list">
-                  {depEntries.map(([depId, range]) => {
-                    const depPkg = allById.get(depId)
-                    const depRec = installedById.get(depId)
-                    const isReady = Boolean(depRec?.enabled)
-                    const statusLabel = isReady
-                      ? 'Active'
-                      : depRec
-                        ? 'Disabled (will enable)'
-                        : depPkg
-                          ? 'Auto-installs'
-                          : 'Missing from catalog'
+                  {requires.map(dep => {
+                    const depPkg = allById.get(dep.id)
+                    const depRec = installedById.get(dep.id)
+                    const depOk =
+                      depRec &&
+                      depRec.manifest.kind === dep.kind &&
+                      compareSemver(depRec.manifest.version, dep.minVersion) >= 0
+                    const depAvailable =
+                      depPkg &&
+                      depPkg.kind === dep.kind &&
+                      compareSemver(depPkg.version, dep.minVersion) >= 0
+                    const statusLabel = depOk
+                      ? depRec.enabled
+                        ? 'Installed on your account'
+                        : 'Disabled'
+                      : depAvailable
+                        ? 'Auto-installs'
+                        : 'Missing from catalog'
                     return (
-                      <div key={depId} className="sx-dep-item">
+                      <div key={dep.id} className="sx-dep-item">
                         <button
                           type="button"
                           className="sx-dep-link-rich"
-                          onClick={() => depPkg && onSelectPackage(depPkg.id)}
+                          onClick={() => onSelectPackage(dep.id)}
                         >
                           <PackageIcon
-                            id={depId}
-                            kind={depPkg?.kind ?? 'embedded-plugin'}
+                            id={dep.id}
+                            kind={dep.kind}
                             svg={depPkg?.iconSvg}
                             size={30}
                           />
                           <span className="sx-dep-link-copy">
-                            <strong>{depPkg?.name ?? depId}</strong>
-                            <small>{range}</small>
+                            <strong>{dep.name}</strong>
+                            <small>v{dep.minVersion}+</small>
                           </span>
                         </button>
-                        <span className={`sx-hub-inline-state${isReady ? ' is-ok' : ''}`}>
-                          {isReady && <Check size={13} strokeWidth={2.4} aria-hidden="true" />}
+                        <span className={`sx-hub-inline-state${depOk && depRec.enabled ? ' is-ok' : ''}`}>
+                          {depOk && depRec.enabled && <Check size={13} strokeWidth={2.4} aria-hidden="true" />}
                           <span>{statusLabel}</span>
                         </span>
                       </div>
@@ -538,8 +487,6 @@ export function CommunityHubPage({
                     title={selectedPkg.name}
                     html={selectedPkg.sandboxHtml}
                     theme={theme}
-                    permissions={permissions}
-                    networkAccess={selectedPkg.safety.networkAccess}
                     onDisablePlugin={
                       isInstalled ? () => setPackageEnabled(selectedPkg.id, false) : undefined
                     }
@@ -578,19 +525,13 @@ export function CommunityHubPage({
                 <strong>v{selectedPkg.version}</strong>
               </div>
               <div className="sx-hub-meta-row">
-                <span>Format</span>
-                <code>.sytx</code>
-              </div>
-              <div className="sx-hub-meta-row">
-                <span>Compatibility</span>
-                <strong className={isIncompatible ? 'is-err' : 'is-ok'}>
-                  Syntax {compat.depends.syntax ?? `^${SYNTAX_HOST_VERSION}`}
-                </strong>
+                <span>Package</span>
+                <code>{selectedPkg.extension}</code>
               </div>
               <div className="sx-hub-meta-row">
                 <span>Status</span>
                 <strong className={isInstalled && isEnabled ? 'is-ok' : undefined}>
-                  {isInstalled ? (isEnabled ? 'Active' : 'Disabled') : 'Available'}
+                  {isInstalled ? (isEnabled ? 'Installed' : 'Disabled') : 'Available'}
                 </strong>
               </div>
 
@@ -629,10 +570,10 @@ export function CommunityHubPage({
                 <button
                   type="button"
                   className="sx-btn-secondary sx-btn-full"
-                  onClick={() => void handleDownloadSytx(selectedPkg)}
+                  onClick={() => exportPackageFile(selectedPkg)}
                 >
                   <Download size={14} aria-hidden="true" />
-                  <span>Download .sytx</span>
+                  <span>Download {selectedPkg.extension}</span>
                 </button>
               </div>
             </div>
@@ -646,12 +587,6 @@ export function CommunityHubPage({
     const installed = installedById.get(pkg.id)
     const isInstalled = Boolean(installed)
     const isEnabled = Boolean(installed?.enabled)
-    const report = evaluateCompatibility(
-      pkg,
-      records.filter(r => r.manifest.id !== pkg.id),
-      allPackages,
-    )
-    const isIncompatible = report.verdict === 'incompatible'
 
     return (
       <article key={pkg.id} className={`sx-hub-card${featured ? ' is-featured' : ''}`}>
@@ -705,11 +640,6 @@ export function CommunityHubPage({
                 <span>{isEnabled ? 'Installed' : 'Disabled'}</span>
               </span>
             )
-          ) : isIncompatible ? (
-            <span className="sx-health-flag is-error">
-              <XCircle size={12} aria-hidden="true" />
-              <span>Incompatible</span>
-            </span>
           ) : (
             <button
               type="button"
@@ -727,6 +657,9 @@ export function CommunityHubPage({
     )
   }
 
+  // =========================================================================
+  // BROWSE VIEW (Obsidian Community x Raycast Store in Brilliant Craft)
+  // =========================================================================
   return (
     <main className="sx-hub-page" aria-label="Community Hub">
       <header className="sx-hub-head">

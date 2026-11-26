@@ -1,8 +1,4 @@
-import {
-  SYNTAX_API_VERSION,
-  SYNTAX_HOST_VERSION,
-  type SyntaxPackageManifest,
-} from '../core/packages'
+import type { SyntaxPackageManifest } from '../core/packages'
 
 const OFFICIAL_AUTHOR = {
   handle: 'syntax',
@@ -19,20 +15,15 @@ const BASE_SAFETY_OFFICIAL = {
   official: true,
 }
 
-const HOST_DEPS = {
-  syntax: `^${SYNTAX_HOST_VERSION}`,
-  'syntax-api': `^${SYNTAX_API_VERSION}`,
-} as const
-
 export const OFFICIAL_CATALOG: SyntaxPackageManifest[] = [
   // =========================================================================
-  // COURSES (.sytx)
+  // COURSES (.syntaxcourse)
   // =========================================================================
   {
-    schemaVersion: 2,
+    schemaVersion: 1,
     id: 'mpm2d-analytic-geometry',
     kind: 'course',
-    extension: '.sytx',
+    extension: '.syntaxcourse',
     name: 'Analytic Geometry (MPM2D)',
     tagline: 'Slopes, midpoints, distances, triangle lines, and geometric proofs.',
     description:
@@ -41,16 +32,6 @@ export const OFFICIAL_CATALOG: SyntaxPackageManifest[] = [
     author: OFFICIAL_AUTHOR,
     accentColor: '#3b82f6',
     tags: ['Math', 'Grade 10', 'MPM2D', 'Geometry'],
-    environment: 'course',
-    depends: {
-      ...HOST_DEPS,
-      'math-graph-engine': '^1.0.0',
-    },
-    recommends: {
-      'pen-studio': '^1.0.0',
-      'walkthrough-player': '^1.0.0',
-      'formula-playbook': '*',
-    },
     touchesCore: false,
     builtIn: true,
     courseRoute: 'mpm2d',
@@ -72,10 +53,10 @@ export const OFFICIAL_CATALOG: SyntaxPackageManifest[] = [
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="16" fill="#1d4ed8"/><path d="M12 46L52 18" stroke="#93c5fd" stroke-width="3.5" stroke-linecap="round"/><path d="M16 14V50H52" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/><circle cx="24" cy="37.6" r="5" fill="#facc15" stroke="#1e3a8a" stroke-width="2.5"/><circle cx="42" cy="25" r="5" fill="#34d399" stroke="#1e3a8a" stroke-width="2.5"/></svg>',
   },
   {
-    schemaVersion: 2,
+    schemaVersion: 1,
     id: 'thinking-in-code',
     kind: 'course',
-    extension: '.sytx',
+    extension: '.syntaxcourse',
     name: 'Thinking in Code',
     tagline: 'Build real programming intuition with interactive grid puzzles and loops.',
     description:
@@ -84,11 +65,6 @@ export const OFFICIAL_CATALOG: SyntaxPackageManifest[] = [
     author: OFFICIAL_AUTHOR,
     accentColor: '#8b5cf6',
     tags: ['Computer Science', 'Logic', 'Beginner'],
-    environment: 'course',
-    depends: {
-      ...HOST_DEPS,
-      'grid-coding-engine': '^1.0.0',
-    },
     touchesCore: false,
     builtIn: true,
     courseRoute: 'thinking-in-code',
@@ -107,13 +83,13 @@ export const OFFICIAL_CATALOG: SyntaxPackageManifest[] = [
   },
 
   // =========================================================================
-  // EMBEDDED COURSE ENGINES (.sytx)
+  // EMBEDDED COURSE PLUGINS (.syntaxembeddedplugin)
   // =========================================================================
   {
-    schemaVersion: 2,
+    schemaVersion: 1,
     id: 'math-graph-engine',
     kind: 'embedded-plugin',
-    extension: '.sytx',
+    extension: '.syntaxembeddedplugin',
     name: 'Math Graph Engine',
     tagline: 'Interactive coordinate planes, draggable geometry handles, and math grading.',
     description:
@@ -122,15 +98,11 @@ export const OFFICIAL_CATALOG: SyntaxPackageManifest[] = [
     author: OFFICIAL_AUTHOR,
     accentColor: '#10b981',
     tags: ['Math', 'Graphs', 'Library', 'Interactive'],
-    environment: 'lesson',
-    depends: { ...HOST_DEPS },
-    provides: ['engine:cartesian-graph'],
-    permissions: ['ui:lesson-block'],
     touchesCore: false,
     builtIn: true,
     aiUsage: {
       summary:
-        'Embed interactive 2D coordinate planes, draggable points, geometric explorations, and math answer grading inside any .sytx course lesson.',
+        'Embed interactive 2D coordinate planes, draggable points, geometric explorations, and math answer grading inside any .syntaxcourse lesson.',
       blocks: ['BrilliantGraph', 'CompactExploration', 'BrilliantMathInput', 'MathText'],
       example:
         '{ "type": "graph", "plugin": "math-graph-engine", "points": [{ "id": "A", "x": -2, "y": 1 }, { "id": "B", "x": 4, "y": 5 }], "segments": [["A", "B"]] }',
@@ -140,10 +112,10 @@ export const OFFICIAL_CATALOG: SyntaxPackageManifest[] = [
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="16" fill="#047857"/><path d="M12 32H52M32 12V52" stroke="#a7f3d0" stroke-width="2.5" stroke-linecap="round"/><path d="M16 44C24 44 26 20 32 20C38 20 40 44 48 22" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round"/><circle cx="32" cy="20" r="4.5" fill="#fbbf24"/></svg>',
   },
   {
-    schemaVersion: 2,
+    schemaVersion: 1,
     id: 'grid-coding-engine',
     kind: 'embedded-plugin',
-    extension: '.sytx',
+    extension: '.syntaxembeddedplugin',
     name: 'Grid Coding Engine',
     tagline: 'Visual truck & robot grid puzzles, command blocks, and animated replays.',
     description:
@@ -152,10 +124,6 @@ export const OFFICIAL_CATALOG: SyntaxPackageManifest[] = [
     author: OFFICIAL_AUTHOR,
     accentColor: '#06b6d4',
     tags: ['Computer Science', 'Puzzles', 'Library'],
-    environment: 'lesson',
-    depends: { ...HOST_DEPS },
-    provides: ['engine:grid-coding'],
-    permissions: ['ui:lesson-block'],
     touchesCore: false,
     builtIn: true,
     aiUsage: {
@@ -171,13 +139,13 @@ export const OFFICIAL_CATALOG: SyntaxPackageManifest[] = [
   },
 
   // =========================================================================
-  // GLOBAL APP PLUGINS (.sytx)
+  // GLOBAL APP PLUGINS (.syntaxplugin)
   // =========================================================================
   {
-    schemaVersion: 2,
+    schemaVersion: 1,
     id: 'pen-studio',
     kind: 'plugin',
-    extension: '.sytx',
+    extension: '.syntaxplugin',
     name: 'Pen Studio',
     tagline: 'Split-screen handwriting canvas with graph, dot, and lined scratch paper.',
     description:
@@ -186,10 +154,6 @@ export const OFFICIAL_CATALOG: SyntaxPackageManifest[] = [
     author: OFFICIAL_AUTHOR,
     accentColor: '#f59e0b',
     tags: ['Handwriting', 'Stylus', 'Scratchpad', 'Tools'],
-    environment: 'lesson',
-    depends: { ...HOST_DEPS },
-    provides: ['slot:lesson-split-pane'],
-    permissions: ['storage', 'core:layout'],
     touchesCore: true,
     coreTouchReason:
       'Splits the course Lesson Player layout into a resizable dual-pane workspace.',
@@ -199,10 +163,10 @@ export const OFFICIAL_CATALOG: SyntaxPackageManifest[] = [
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="16" fill="#b45309"/><path d="M18 46L23 32L41 14L50 23L32 41L18 46Z" fill="#fde68a" stroke="#ffffff" stroke-width="2.5" stroke-linejoin="round"/><path d="M36 19L45 28" stroke="#b45309" stroke-width="2.5"/></svg>',
   },
   {
-    schemaVersion: 2,
+    schemaVersion: 1,
     id: 'walkthrough-player',
     kind: 'plugin',
-    extension: '.sytx',
+    extension: '.syntaxplugin',
     name: 'Video Walkthroughs',
     tagline: 'Manim Guided Hints and Full Solution videos with narrated algebra.',
     description:
@@ -211,10 +175,6 @@ export const OFFICIAL_CATALOG: SyntaxPackageManifest[] = [
     author: OFFICIAL_AUTHOR,
     accentColor: '#ec4899',
     tags: ['Video', 'Manim', 'Hints', 'Walkthroughs'],
-    environment: 'lesson',
-    depends: { ...HOST_DEPS },
-    provides: ['slot:lesson-walkthrough'],
-    permissions: ['core:layout'],
     touchesCore: true,
     coreTouchReason:
       'Injects Guided Hint and Full Solution video triggers into the course Lesson Player.',
@@ -224,10 +184,10 @@ export const OFFICIAL_CATALOG: SyntaxPackageManifest[] = [
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="16" fill="#be185d"/><circle cx="32" cy="32" r="18" fill="#fbcfe8" fill-opacity="0.2" stroke="#ffffff" stroke-width="3"/><path d="M27 23L42 32L27 41V23Z" fill="#ffffff"/></svg>',
   },
   {
-    schemaVersion: 2,
+    schemaVersion: 1,
     id: 'floating-windows',
     kind: 'plugin',
-    extension: '.sytx',
+    extension: '.syntaxplugin',
     name: 'Floating Windows',
     tagline: 'Draggable 144Hz momentum study windows for Playbook and Hints.',
     description:
@@ -236,10 +196,6 @@ export const OFFICIAL_CATALOG: SyntaxPackageManifest[] = [
     author: OFFICIAL_AUTHOR,
     accentColor: '#6366f1',
     tags: ['Windows', 'Workspace', 'UI'],
-    environment: 'all',
-    depends: { ...HOST_DEPS },
-    provides: ['slot:modal-frame'],
-    permissions: ['core:layout'],
     touchesCore: true,
     coreTouchReason:
       'Replaces standard modal dialogs with draggable WinBox floating window frames.',
@@ -249,10 +205,10 @@ export const OFFICIAL_CATALOG: SyntaxPackageManifest[] = [
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none"><rect width="64" height="64" rx="16" fill="#4338ca"/><rect x="13" y="16" width="28" height="22" rx="4" stroke="#c7d2fe" stroke-width="2.5"/><rect x="23" y="26" width="28" height="22" rx="4" fill="#4338ca" stroke="#ffffff" stroke-width="3"/><path d="M23 33H51" stroke="#ffffff" stroke-width="2.5"/></svg>',
   },
   {
-    schemaVersion: 2,
+    schemaVersion: 1,
     id: 'formula-playbook',
     kind: 'plugin',
-    extension: '.sytx',
+    extension: '.syntaxplugin',
     name: 'Formula Playbook',
     tagline: 'Press F anytime inside a math course for a searchable formula reference.',
     description:
@@ -261,9 +217,6 @@ export const OFFICIAL_CATALOG: SyntaxPackageManifest[] = [
     author: OFFICIAL_AUTHOR,
     accentColor: '#f97316',
     tags: ['Reference', 'Math', 'Shortcuts'],
-    environment: 'course',
-    depends: { ...HOST_DEPS },
-    permissions: ['ui:playbook'],
     touchesCore: false,
     builtIn: true,
     safety: BASE_SAFETY_OFFICIAL,

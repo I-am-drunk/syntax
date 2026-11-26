@@ -1,18 +1,6 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, RotateCcw } from 'lucide-react'
-import { toast } from 'sonner'
-import type { PluginPermission } from './packages'
-import {
-  buildSandboxSrcDoc,
-  getHostThemeTokens,
-  type PluginBlockResult,
-} from './pluginBridge'
-import {
-  pluginStorageGet,
-  pluginStorageRemove,
-  pluginStorageSet,
-  usePluginRuntimeStore,
-} from './pluginRuntime'
+import { syntaxLog } from './logger'
 
 type PluginSandboxFrameProps = {
   pluginId: string
@@ -20,19 +8,19 @@ type PluginSandboxFrameProps = {
   html: string
   theme: 'light' | 'dark'
   minHeight?: number
-  permissions?: readonly PluginPermission[]
-  networkAccess?: 'none' | 'allowlisted'
-  blockProps?: Record<string, unknown>
-  onResult?: (result: PluginBlockResult) => void
   onDisablePlugin?: () => void
 }
 
+function getThemeTokens(theme: 'light' | 'dark') {
+  return theme === 'dark'
+    ? { bg: '#1c1c1c', fg: '#f3f3f3', muted: '#a1a1a1', border: '#2e2e2e' }
+    : { bg: '#ffffff', fg: '#141414', muted: '#5c5c5c', border: '#e5e5e5' }
+}
+
 /**
- * Hardened crash & CSS isolation host for custom plugin HTML/JS widgets.
- * - Strict sandbox ("allow-scripts allow-forms", no allow-same-origin, no allow-modals)
- * - Per-instance ID isolation so multiple blocks on one lesson never collide
- * - Synchronous window.Syntax SDK over postMessage RPC (storage, toast, reportResult, resize, theme)
- * - Automatic crash-loop quarantine (>= 3 errors in 10s auto-disables the plugin cleanly)
+ * Lightweight crash & CSS isolation host for custom plugin HTML/JS widgets.
+ * Syncs Light/Dark theme live over postMessage (zero iframe reload on theme switch)
+ * and surfaces runtime errors clearly in-place without ever crashing Syntax core.
  */
 export function PluginSandboxFrame({
   pluginId,
@@ -40,33 +28,14 @@ export function PluginSandboxFrame({
   html,
   theme,
   minHeight = 220,
-  permissions = [],
-  networkAccess = 'none',
-  blockProps,
-  onResult,
   onDisablePlugin,
 }: PluginSandboxFrameProps) {
-  const reactId = useId()
-  const instanceId = `${pluginId}:${reactId}`
   const iframeRef = useRef<HTMLIFrameElement>(null)
   const latestThemeRef = useRef(theme)
   latestThemeRef.current = theme
-  const onResultRef = useRef(onResult)
-  onResultRef.current = onResult
-  const onDisableRef = useRef(onDisablePlugin)
-  onDisableRef.current = onDisablePlugin
-  const lastToastAtRef = useRef(0)
-
-  const recordPluginError = usePluginRuntimeStore(s => s.recordPluginError)
-  const clearPluginHealth = usePluginRuntimeStore(s => s.clearPluginHealth)
-
   const [height, setHeight] = useState(minHeight)
   const [reloadNonce, setReloadNonce] = useState(0)
   const [runtimeError, setRuntimeError] = useState<string | null>(null)
-
-  const permissionsKey = permissions.join(',')
-  const propsJson = useMemo(() => JSON.stringify(blockProps ?? {}), [blockProps])
-  const hasStoragePerm = permissions.includes('storage')
 
   useEffect(() => {
     setHeight(minHeight)
@@ -78,49 +47,27 @@ export function PluginSandboxFrame({
     const win = iframeRef.current?.contentWindow
     if (!win) return
     win.postMessage(
-      {
-        type: 'syntax:theme',
-        pluginId,
-        instanceId,
-        theme,
-        tokens: getHostThemeTokens(theme),
-      },
+      { type: 'syntax:theme', pluginId, theme, tokens: getThemeTokens(theme) },
       '*',
     )
-  }, [pluginId, instanceId, theme])
+  }, [pluginId, theme])
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
       if (event.source !== iframeRef.current?.contentWindow) return
       const data = event.data as
-        | {
-            type?: string
-            pluginId?: string
-            instanceId?: string
-            height?: number
-            message?: string
-            reqId?: string
-            method?: string
-            args?: Record<string, unknown>
-            correct?: boolean
-            score?: number
-            summary?: string
-          }
+        | { type?: string; pluginId?: string; height?: number; message?: string }
         | undefined
       if (!data || data.pluginId !== pluginId) return
-      if (data.instanceId && data.instanceId !== instanceId) return
-
-      const replyWindow = iframeRef.current?.contentWindow
 
       if (data.type === 'syntax:sandbox-ready') {
         const currentTheme = latestThemeRef.current
-        replyWindow?.postMessage(
+        iframeRef.current?.contentWindow?.postMessage(
           {
             type: 'syntax:theme',
             pluginId,
-            instanceId,
             theme: currentTheme,
-            tokens: getHostThemeTokens(currentTheme),
+            tokens: getThemeTokens(currentTheme),
           },
           '*',
         )
@@ -134,79 +81,106 @@ export function PluginSandboxFrame({
       } else if (data.type === 'syntax:sandbox-error' && typeof data.message === 'string') {
         const msg = data.message.slice(0, 500)
         setRuntimeError(msg)
-        recordPluginError(pluginId, msg, () => {
-          toast.error(`${title} crashed repeatedly and was disabled to keep Syntax safe.`)
-          onDisableRef.current?.()
-        })
-      } else if (data.type === 'syntax:toast' && typeof data.message === 'string') {
-        const now = Date.now()
-        if (now - lastToastAtRef.current >= 1500) {
-          lastToastAtRef.current = now
-          toast.message(data.message.slice(0, 180))
-        }
-      } else if (data.type === 'syntax:report-result') {
-        onResultRef.current?.({
-          correct: typeof data.correct === 'boolean' ? data.correct : undefined,
-          score: typeof data.score === 'number' ? data.score : undefined,
-          summary: typeof data.summary === 'string' ? data.summary : undefined,
-        })
-      } else if (data.type === 'syntax:rpc' && data.reqId && data.method && replyWindow) {
-        const sendReply = (ok: boolean, payload: { result?: unknown; error?: string }) => {
-          replyWindow.postMessage(
-            {
-              type: 'syntax:rpc-reply',
-              pluginId,
-              instanceId,
-              reqId: data.reqId,
-              ok,
-              ...payload,
-            },
-            '*',
-          )
-        }
-
-        if (data.method.startsWith('storage.')) {
-          if (!hasStoragePerm) {
-            sendReply(false, { error: 'Plugin does not declare "storage" permission.' })
-            return
-          }
-          const key = typeof data.args?.key === 'string' ? data.args.key : ''
-          if (data.method === 'storage.get') {
-            sendReply(true, { result: pluginStorageGet(pluginId, key) })
-          } else if (data.method === 'storage.set') {
-            const res = pluginStorageSet(pluginId, key, data.args?.value)
-            if (res.ok) sendReply(true, { result: true })
-            else sendReply(false, { error: res.error })
-          } else if (data.method === 'storage.remove') {
-            pluginStorageRemove(pluginId, key)
-            sendReply(true, { result: true })
-          } else {
-            sendReply(false, { error: `Unknown storage method: ${data.method}` })
-          }
-        } else {
-          sendReply(false, { error: `Unknown RPC method: ${data.method}` })
-        }
+        syntaxLog.error(`plugin:${pluginId}`, msg)
       }
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [pluginId, instanceId, title, minHeight, hasStoragePerm, recordPluginError])
+  }, [pluginId, minHeight])
 
   const srcDoc = useMemo(() => {
     const initialTheme = latestThemeRef.current
-    const parsedProps = JSON.parse(propsJson) as Record<string, unknown>
-    return buildSandboxSrcDoc({
-      pluginId,
-      instanceId,
-      html,
-      theme: initialTheme,
-      tokens: getHostThemeTokens(initialTheme),
-      permissions,
-      networkAccess,
-      props: parsedProps,
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [html, pluginId, instanceId, reloadNonce, permissionsKey, networkAccess, propsJson])
+    const t = getThemeTokens(initialTheme)
+    const safeId = JSON.stringify(pluginId).replace(/<\/script/gi, '<\\/script')
+
+    return `<!doctype html>
+<html lang="en" data-theme="${initialTheme}">
+<head>
+<meta charset="utf-8" />
+<style>
+  :root {
+    --sx-bg: ${t.bg};
+    --sx-fg: ${t.fg};
+    --sx-muted: ${t.muted};
+    --sx-border: ${t.border};
+    --sx-accent: #456dff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 16px;
+    background: var(--sx-bg);
+    color: var(--sx-fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.5;
+  }
+</style>
+<script>
+  (function () {
+    var pid = ${safeId};
+    var lastHeight = 0;
+
+    function reportError(msg) {
+      parent.postMessage({
+        type: 'syntax:sandbox-error',
+        pluginId: pid,
+        message: String(msg || 'Plugin runtime error').slice(0, 500)
+      }, '*');
+    }
+
+    window.addEventListener('error', function (e) {
+      var loc = e.lineno ? ' (line ' + e.lineno + ')' : '';
+      reportError((e.message || 'Runtime error') + loc);
+    });
+
+    window.addEventListener('unhandledrejection', function (e) {
+      var reason = e.reason && e.reason.message ? e.reason.message : String(e.reason || 'Unhandled promise rejection');
+      reportError(reason);
+    });
+
+    window.addEventListener('message', function (e) {
+      var d = e.data;
+      if (!d || d.pluginId !== pid || d.type !== 'syntax:theme' || !d.tokens) return;
+      document.documentElement.dataset.theme = d.theme || 'light';
+      var r = document.documentElement.style;
+      r.setProperty('--sx-bg', d.tokens.bg);
+      r.setProperty('--sx-fg', d.tokens.fg);
+      r.setProperty('--sx-muted', d.tokens.muted);
+      r.setProperty('--sx-border', d.tokens.border);
+    });
+
+    function reportHeight() {
+      var rootEl = document.getElementById('sx-sandbox-root');
+      if (!rootEl) return;
+      var rectH = Math.ceil(rootEl.getBoundingClientRect().height);
+      var scrollH = Math.ceil(rootEl.scrollHeight);
+      var h = Math.max(rectH, scrollH) + 36;
+      if (h !== lastHeight) {
+        lastHeight = h;
+        parent.postMessage({ type: 'syntax:sandbox-resize', pluginId: pid, height: h }, '*');
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', function () {
+      var rootEl = document.getElementById('sx-sandbox-root');
+      if (typeof ResizeObserver !== 'undefined' && rootEl) {
+        new ResizeObserver(reportHeight).observe(rootEl);
+      }
+      reportHeight();
+    });
+
+    window.addEventListener('load', function () {
+      parent.postMessage({ type: 'syntax:sandbox-ready', pluginId: pid }, '*');
+      reportHeight();
+    });
+  })();
+</script>
+</head>
+<body>
+<div id="sx-sandbox-root">${html}</div>
+</body>
+</html>`
+  }, [html, pluginId, reloadNonce])
 
   return (
     <div className="sx-plugin-frame-wrap">
@@ -219,10 +193,7 @@ export function PluginSandboxFrame({
               <button
                 type="button"
                 className="sx-btn-ghost sx-btn-xs"
-                onClick={() => {
-                  clearPluginHealth(pluginId)
-                  setReloadNonce(n => n + 1)
-                }}
+                onClick={() => setReloadNonce(n => n + 1)}
               >
                 <RotateCcw size={13} aria-hidden="true" />
                 Reload
@@ -243,10 +214,10 @@ export function PluginSandboxFrame({
       )}
 
       <iframe
-        key={`${instanceId}:${reloadNonce}`}
+        key={`${pluginId}:${reloadNonce}`}
         ref={iframeRef}
         title={`${title} (Isolated plugin)`}
-        sandbox="allow-scripts allow-forms"
+        sandbox="allow-scripts allow-forms allow-modals"
         srcDoc={srcDoc}
         style={{
           width: '100%',

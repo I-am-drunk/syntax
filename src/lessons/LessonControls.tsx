@@ -1,5 +1,4 @@
 import { assetUrl } from '../mpm2d/assetUrl';
-import { PluginToolbarButtons } from '../ui/PluginToolbarHost';
 import { LessonXp } from './LessonXp';
 import { MobileCheckReport } from './LessonReport';
 
@@ -46,10 +45,7 @@ export function LessonNavigation({ page, total, furthest, xp, closeHref, onClose
       <button className="lesson-page-arrow" type="button" aria-label="Next page" disabled={page >= furthest}
         onClick={() => onNavigate(1)}><Arrow right /></button>}
     </nav>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-      <PluginToolbarButtons compact />
-      <LessonXp value={xp} />
-    </div>
+    <LessonXp value={xp} />
   </header>;
 }
 

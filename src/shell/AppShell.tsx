@@ -3,7 +3,6 @@ import { Route, Router, Switch, useLocation } from 'wouter'
 import { useHashLocation } from 'wouter/use-hash-location'
 import { Toaster, toast } from 'sonner'
 import { useAccount } from '../core/account'
-import type { UnpackedSytx } from '../core/archive'
 import { useAuthActions } from '../core/clerkAuth'
 import {
   clearInstallDeepLink,
@@ -15,7 +14,6 @@ import {
 import { SyntaxErrorBoundary } from '../core/ErrorBoundary'
 import { HostSlotsProvider, useHostSlots } from '../core/hostSlots'
 import type { SyntaxPackageManifest } from '../core/packages'
-import { PluginThemeHost } from '../core/PluginThemeHost'
 import { useRegistryStore } from '../core/registry'
 import { HomePage } from '../courses/HomePage'
 import { isDevEnvironment } from '../core/devEnv'
@@ -33,7 +31,6 @@ import { CommunityHubPage } from '../ui/CommunityHubPage'
 import { InstallModal } from '../ui/InstallModal'
 import { LibraryPage } from '../ui/LibraryPage'
 import { PluginsPage } from '../ui/PluginsPage'
-import { PluginToolDrawer } from '../ui/PluginToolbarHost'
 import { ProfilePage } from '../ui/ProfilePage'
 import { AppHeader, type ShellMode, type WorkspaceTab } from './AppHeader'
 
@@ -162,6 +159,7 @@ function parseRouteInfo(location: string): {
       communityId: null,
     }
   }
+  // /library and any unknown fallback route render LibraryPage
   return {
     clean,
     mode: 'main',
@@ -190,7 +188,7 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
   )
   const [catalog, setCatalog] = useState<CommunityCatalogState>(getInitialCommunityCatalog)
   const [catalogRefreshing, setCatalogRefreshing] = useState(false)
-  const [localImportArchive, setLocalImportArchive] = useState<UnpackedSytx | null>(null)
+  const [localImportPkg, setLocalImportPkg] = useState<SyntaxPackageManifest | null>(null)
   const [pendingInstall, setPendingInstall] = useState<{
     manifest: SyntaxPackageManifest
     source: 'official' | 'community' | 'local-file'
@@ -216,6 +214,7 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
     setCsSummary(readThinkingInCodeProgressSummary())
   }, [])
 
+  // Refresh progress summaries when leaving a course or when CS progress changes
   useEffect(() => {
     if (prevModeRef.current === 'course' && routeInfo.mode !== 'course') {
       refreshProgressSummaries()
@@ -234,6 +233,7 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
     }
   }, [])
 
+  // Persist prefs, theme, sound
   useEffect(() => {
     savePrefs(prefs)
   }, [prefs])
@@ -258,6 +258,7 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
     }
   }, [soundOn])
 
+  // Fetch Community Hub catalog on startup (with AbortController race guard)
   const refreshCatalog = useCallback(() => {
     catalogAbortRef.current?.abort()
     const ac = new AbortController()
@@ -281,6 +282,7 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
     return refreshCatalog()
   }, [refreshCatalog])
 
+  // Translate legacy #lesson=<id> hashes cleanly to /course/mpm2d-analytic-geometry/lesson/<id>
   useEffect(() => {
     const checkLegacyHash = () => {
       const m = window.location.hash.match(/^#\/?lesson[=/]([a-z0-9-]+)$/i)
@@ -295,6 +297,7 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
     return () => window.removeEventListener('hashchange', checkLegacyHash)
   }, [setLocation])
 
+  // Handle ?install=<id> deep links by navigating directly to the full in-app Community Hub detail page
   useEffect(() => {
     const handleInstallLink = () => {
       const targetId = readInstallDeepLink()
@@ -307,6 +310,7 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
     return () => window.removeEventListener('hashchange', handleInstallLink)
   }, [setLocation])
 
+  // Auto-complete a pending install once sign-in finishes
   useEffect(() => {
     if (!account || !pendingInstall) return
     const { manifest, source } = pendingInstall
@@ -325,14 +329,15 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
     }
   }, [account, pendingInstall, installPackage, catalog.items, setLocation])
 
+  // Document title sync
   useEffect(() => {
     const baseTitle =
       routeInfo.workspaceActiveTab === 'settings'
-        ? 'Settings \u00b7 Syntax'
+        ? 'Settings · Syntax'
         : routeInfo.workspaceActiveTab === 'plugins'
-          ? 'Plugins \u00b7 Syntax'
+          ? 'Plugins · Syntax'
           : routeInfo.workspaceActiveTab === 'community'
-            ? 'Community Hub \u00b7 Syntax'
+            ? 'Community Hub · Syntax'
             : routeInfo.mode === 'course'
               ? `${
                   routeInfo.courseId === 'mpm2d-analytic-geometry'
@@ -340,14 +345,14 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
                     : routeInfo.courseId === 'thinking-in-code'
                       ? 'Thinking in Code'
                       : (catalog.items.find(p => p.id === routeInfo.courseId)?.name ?? 'Course')
-                } \u00b7 Syntax`
+                } · Syntax`
               : routeInfo.clean === '/library'
-                ? 'Library \u00b7 Syntax'
+                ? 'Library · Syntax'
                 : routeInfo.clean === '/profile'
-                  ? 'Profile \u00b7 Syntax'
+                  ? 'Profile · Syntax'
                   : routeInfo.clean === '/'
                     ? 'Syntax'
-                    : 'Library \u00b7 Syntax'
+                    : 'Library · Syntax'
     document.title = isDev ? `${baseTitle} (Dev)` : baseTitle
   }, [routeInfo, catalog.items, isDev])
 
@@ -377,7 +382,6 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
 
   return (
     <>
-      <PluginThemeHost />
       {!hideToaster && <Toaster position="bottom-center" theme={theme} />}
 
       {!isFullscreenLesson && (
@@ -481,7 +485,7 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
               onSelectPackage={pkg => navigate(`/community/${encodeURIComponent(pkg.id)}`)}
               onOpenCourse={id => navigate(`/course/${encodeURIComponent(id)}`)}
               onOpenCommunityHub={() => navigate('/community')}
-              onImportArchive={archive => setLocalImportArchive(archive)}
+              onImportPackage={pkg => setLocalImportPkg(pkg)}
             />
           </SyntaxErrorBoundary>
         </Route>
@@ -533,6 +537,7 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
           )}
         </Route>
 
+        {/* Single consolidated course route so CourseStageHost stays mounted across lesson open/close */}
         <Route path="/course/:courseId/*?">
           {() => {
             const cid = routeInfo.courseId
@@ -578,6 +583,7 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
           }}
         </Route>
 
+        {/* Fallback route */}
         <Route>
           <SyntaxErrorBoundary scope="page:library-fallback" onExitScope={() => navigate('/')}>
             <LibraryPage
@@ -594,8 +600,6 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
         </Route>
       </Switch>
 
-      <PluginToolDrawer theme={theme} />
-
       {!prefs.onboarded && (
         <Suspense fallback={null}>
           <OnboardingModal
@@ -610,18 +614,17 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
       )}
 
       <InstallModal
-        manifest={localImportArchive?.manifest ?? null}
-        archive={localImportArchive}
+        manifest={localImportPkg}
         source="local-file"
         allKnownPackages={catalog.items}
         theme={theme}
-        onClose={() => setLocalImportArchive(null)}
+        onClose={() => setLocalImportPkg(null)}
         onRequireSignIn={pkg => {
-          setLocalImportArchive(null)
+          setLocalImportPkg(null)
           handleRequireSignIn(pkg, 'local-file')
         }}
         onInstalled={pkg => {
-          toast.success(`Installed ${pkg.name} (v${pkg.version})`)
+          toast.success(`Imported ${pkg.name}`)
         }}
         onOpenCourse={id => navigate(`/course/${encodeURIComponent(id)}`)}
       />
