@@ -31,13 +31,17 @@ export function PluginSandboxFrame({
   onDisablePlugin,
 }: PluginSandboxFrameProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
+  const loadCountRef = useRef(0)
   const latestThemeRef = useRef(theme)
   latestThemeRef.current = theme
   const [height, setHeight] = useState(minHeight)
   const [reloadNonce, setReloadNonce] = useState(0)
   const [runtimeError, setRuntimeError] = useState<string | null>(null)
+  const [terminated, setTerminated] = useState(false)
 
   useEffect(() => {
+    loadCountRef.current = 0
+    setTerminated(false)
     setHeight(minHeight)
     setRuntimeError(null)
   }, [pluginId, html, minHeight, reloadNonce])
@@ -54,7 +58,7 @@ export function PluginSandboxFrame({
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
-      if (event.source !== iframeRef.current?.contentWindow) return
+      if (event.origin !== 'null' || event.source !== iframeRef.current?.contentWindow) return
       const data = event.data as
         | { type?: string; pluginId?: string; height?: number; message?: string }
         | undefined
@@ -97,6 +101,7 @@ export function PluginSandboxFrame({
 <html lang="en" data-theme="${initialTheme}">
 <head>
 <meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; font-src data:; form-action 'none'; base-uri 'none';" />
 <style>
   :root {
     --sx-bg: ${t.bg};
@@ -213,21 +218,31 @@ export function PluginSandboxFrame({
         </div>
       )}
 
-      <iframe
-        key={`${pluginId}:${reloadNonce}`}
-        ref={iframeRef}
-        title={`${title} (Isolated plugin)`}
-        sandbox="allow-scripts allow-forms allow-modals"
-        srcDoc={srcDoc}
-        style={{
-          width: '100%',
-          height: `${height}px`,
-          border: '1px solid var(--border)',
-          borderRadius: '14px',
-          background: 'var(--surface)',
-          display: 'block',
-        }}
-      />
+      {!terminated && (
+        <iframe
+          key={`${pluginId}:${reloadNonce}`}
+          ref={iframeRef}
+          title={`${title} (Isolated plugin)`}
+          sandbox="allow-scripts"
+          srcDoc={srcDoc}
+          onLoad={() => {
+            loadCountRef.current += 1
+            if (loadCountRef.current > 1) {
+              setTerminated(true)
+              setRuntimeError('Plugin attempted unexpected navigation and was terminated.')
+              syntaxLog.error(`plugin:${pluginId}`, 'Terminated after unexpected iframe navigation')
+            }
+          }}
+          style={{
+            width: '100%',
+            height: `${height}px`,
+            border: '1px solid var(--border)',
+            borderRadius: '14px',
+            background: 'var(--surface)',
+            display: 'block',
+          }}
+        />
+      )}
     </div>
   )
 }

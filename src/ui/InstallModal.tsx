@@ -117,7 +117,7 @@ export function InstallModal({
               {manifest.description}
             </Dialog.Description>
 
-            {manifest.touchesCore && <CoreTouchWarning reason={manifest.coreTouchReason} />}
+            {manifest.touchesCore && <CoreTouchWarning />}
 
             {manifest.kind === 'embedded-plugin' && (
               <div className="sx-account-status-row">
@@ -183,7 +183,7 @@ export function InstallModal({
               </details>
             )}
 
-            {isInstalled && isEnabled && manifest.sandboxHtml && (
+            {isInstalled && isEnabled && entry?.manifest.sandboxHtml && (
               <div className="sx-sandbox-section">
                 <button
                   type="button"
@@ -194,10 +194,10 @@ export function InstallModal({
                 </button>
                 {showSandbox && (
                   <PluginSandboxFrame
-                    key={manifest.id}
-                    pluginId={manifest.id}
-                    title={manifest.name}
-                    html={manifest.sandboxHtml}
+                    key={entry.manifest.id}
+                    pluginId={entry.manifest.id}
+                    title={entry.manifest.name}
+                    html={entry.manifest.sandboxHtml}
                     theme={theme}
                   />
                 )}

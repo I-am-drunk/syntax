@@ -16,7 +16,6 @@ import {
 import { toast } from 'sonner'
 import { useAccount } from '../core/account'
 import { COMMUNITY_HUB_WEB_URL } from '../core/community'
-import { SyntaxErrorBoundary } from '../core/ErrorBoundary'
 import {
   PACKAGE_LABEL_BY_KIND,
   compareSemver,
@@ -25,7 +24,6 @@ import {
   type SyntaxPackageManifest,
 } from '../core/packages'
 import { useInstalledPackages, useRegistryStore } from '../core/registry'
-import { PluginSandboxFrame } from '../core/sandbox'
 import { CoreTouchIcon, CoreTouchWarning } from './CoreTouchWarning'
 import { PackageIcon } from './PackageIcon'
 
@@ -57,7 +55,6 @@ export function CommunityHubPage({
   warning,
   isRefreshing,
   selectedPackageId,
-  theme,
   onRefresh,
   onSelectPackage,
   onOpenCourse,
@@ -194,9 +191,9 @@ export function CommunityHubPage({
         })
       } else {
         list = [...list].sort((a, b) => {
-          const aComm = a.builtIn ? 1 : 0
-          const bComm = b.builtIn ? 1 : 0
-          if (aComm !== bComm) return aComm - bComm
+          const aOfficial = a.builtIn ? 0 : 1
+          const bOfficial = b.builtIn ? 0 : 1
+          if (aOfficial !== bOfficial) return aOfficial - bOfficial
           return a.name.localeCompare(b.name)
         })
       }
@@ -396,9 +393,7 @@ export function CommunityHubPage({
               </div>
             </header>
 
-            {selectedPkg.touchesCore && (
-              <CoreTouchWarning reason={selectedPkg.coreTouchReason} />
-            )}
+            {selectedPkg.touchesCore && <CoreTouchWarning />}
 
             <section className="sx-hub-detail-section">
               <h2>Overview</h2>
@@ -477,21 +472,9 @@ export function CommunityHubPage({
             {selectedPkg.sandboxHtml && (
               <section className="sx-hub-detail-section">
                 <h2>Interactive preview</h2>
-                <SyntaxErrorBoundary
-                  scope={`plugin-preview:${selectedPkg.id}`}
-                  pluginName={selectedPkg.name}
-                  resetKeys={[selectedPkg.id]}
-                >
-                  <PluginSandboxFrame
-                    pluginId={selectedPkg.id}
-                    title={selectedPkg.name}
-                    html={selectedPkg.sandboxHtml}
-                    theme={theme}
-                    onDisablePlugin={
-                      isInstalled ? () => setPackageEnabled(selectedPkg.id, false) : undefined
-                    }
-                  />
-                </SyntaxErrorBoundary>
+                <p className="sx-hub-detail-desc">
+                  Untrusted widget previews are disabled before installation. Install this package to inspect it inside an isolated sandbox.
+                </p>
               </section>
             )}
 

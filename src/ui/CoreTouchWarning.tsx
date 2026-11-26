@@ -25,13 +25,13 @@ export function CoreTouchIcon({ className }: { className?: string }) {
   )
 }
 
-export function CoreTouchWarning({ reason }: { reason?: string }) {
+export function CoreTouchWarning() {
   return (
     <div className="sx-core-notice" role="note">
       <CoreTouchIcon className="is-notice" />
       <div className="sx-core-notice-body">
-        <strong>This plugin touches core.</strong>
-        {reason ? <span>{reason}</span> : null}
+        <strong>Integrates with core Syntax workspace layout.</strong>
+        <span>Host-verified disclosure for built-in workspace integrations.</span>
       </div>
     </div>
   )

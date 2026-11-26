@@ -71,72 +71,51 @@ function fmtFeedbackNum(n: number): string {
 }
 
 /**
- * Converts "^" to "**" while wrapping unary minus before an exponentiation base
- * so expressions like "-3^2", "-(3)^2", "-3^(2)", "-x^2" become valid JS
- * ("-(3**2)", "-((3)**2)", "-(3**(2))", "-(x**2)").
+ * Zero-eval recursive-descent evaluator supporting +, -, *, /, unary +/-,
+ * right-associative ^ (lower precedence for unary minus: -3^2 === -9),
+ * parentheses, sqrt(...), and optional x/y variables.
  */
-function wrapUnaryNegPowers(expr: string): string {
-  const findMatchingClose = (str: string, openIdx: number): number => {
-    let depth = 0
-    for (let i = openIdx; i < str.length; i++) {
-      if (str[i] === '(') depth++
-      else if (str[i] === ')') {
-        depth--
-        if (depth === 0) return i
-      }
-    }
-    return -1
-  }
-
-  let out = expr
+function evalSafeMathExpr(expr: string, vars?: { x: number; y: number }): number | null {
   let i = 0
-  while (i < out.length) {
-    if (out[i] === '-' && (i === 0 || '+(*/,-^'.includes(out[i - 1]!))) {
-      // Parse the base immediately following the unary minus
-      let baseEnd = i + 1
-      if (out.startsWith('sqrt(', baseEnd)) {
-        const close = findMatchingClose(out, baseEnd + 4)
-        if (close !== -1) baseEnd = close + 1
-      } else if (out[baseEnd] === '(') {
-        const close = findMatchingClose(out, baseEnd)
-        if (close !== -1) baseEnd = close + 1
-      } else {
-        while (baseEnd < out.length && /[0-9.xy]/.test(out[baseEnd]!)) baseEnd++
-      }
-
-      if (baseEnd > i + 1 && out[baseEnd] === '^') {
-        // Parse the exponent chain (right-associative, may start with unary +/- and use parens or sqrt)
-        let expEnd = baseEnd + 1
-        while (expEnd < out.length) {
-          if (out[expEnd] === '+' || out[expEnd] === '-') expEnd++
-          if (out.startsWith('sqrt(', expEnd)) {
-            const close = findMatchingClose(out, expEnd + 4)
-            if (close === -1) break
-            expEnd = close + 1
-          } else if (out[expEnd] === '(') {
-            const close = findMatchingClose(out, expEnd)
-            if (close === -1) break
-            expEnd = close + 1
-          } else {
-            const startDigits = expEnd
-            while (expEnd < out.length && /[0-9.xy]/.test(out[expEnd]!)) expEnd++
-            if (expEnd === startDigits) break
-          }
-          if (out[expEnd] === '^') {
-            expEnd++
-            continue
-          }
-          break
-        }
-        const inner = out.slice(i + 1, expEnd)
-        out = out.slice(0, i) + '-(' + inner + ')' + out.slice(expEnd)
-        i += 2
-        continue
-      }
+  const n = expr.length
+  const parsePrimary = (): number => {
+    if (expr.startsWith('sqrt(', i)) {
+      i += 5
+      const v = parseAddSub()
+      if (expr[i] !== ')') return NaN
+      i += 1
+      return v < 0 ? NaN : Math.sqrt(v)
     }
-    i++
+    if (expr[i] === '(') {
+      i += 1
+      const v = parseAddSub()
+      if (expr[i] !== ')') return NaN
+      i += 1
+      return v
+    }
+    if (vars && (expr[i] === 'x' || expr[i] === 'y')) return vars[expr[i++] as 'x' | 'y']
+    const start = i
+    while (i < n && ((expr[i]! >= '0' && expr[i]! <= '9') || expr[i] === '.')) i++
+    return i > start ? Number(expr.slice(start, i)) : NaN
   }
-  return out.replace(/\^/g, '**')
+  const parsePower = (): number => {
+    const base = parsePrimary()
+    return expr[i] === '^' ? (i += 1, Math.pow(base, parseUnary())) : base
+  }
+  const parseUnary = (): number =>
+    expr[i] === '+' ? (i += 1, parseUnary()) : expr[i] === '-' ? (i += 1, -parseUnary()) : parsePower()
+  const parseMulDiv = (): number => {
+    let v = parseUnary()
+    while (expr[i] === '*' || expr[i] === '/') v = expr[i++] === '*' ? v * parseUnary() : v / parseUnary()
+    return v
+  }
+  const parseAddSub = (): number => {
+    let v = parseMulDiv()
+    while (expr[i] === '+' || expr[i] === '-') v = expr[i++] === '+' ? v + parseMulDiv() : v - parseMulDiv()
+    return v
+  }
+  const out = parseAddSub()
+  return i === n && Number.isFinite(out) ? out : null
 }
 
 function normalizeSymbols(s: string): string {
@@ -209,17 +188,9 @@ export function parseNumberExpr(input: string): ParsedNumber | null {
   const stripped = expr.replace(/sqrt/g, '')
   if (!/^[0-9.+\-*/()^]+$/.test(stripped)) return null
 
-  // Rewrite unary minus before exponent (e.g. -3^2 -> -(3**2), -(2+1)^2 -> -((2+1)**2), -3^(2) -> -(3**(2))) for valid JS
-  const jsExpr = wrapUnaryNegPowers(expr).replace(/sqrt\(/g, 'Math.sqrt(')
-
-  try {
-    // eslint-disable-next-line no-new-func
-    const val = Function(`"use strict"; return (${jsExpr});`)()
-    if (typeof val !== 'number' || !Number.isFinite(val)) return null
-    return { kind: 'value', value: val, hasRadical, raw: s }
-  } catch {
-    return null
-  }
+  const val = evalSafeMathExpr(expr)
+  if (val === null) return null
+  return { kind: 'value', value: val, hasRadical, raw: s }
 }
 
 export function parsePointExpr(input: string): ParsedPoint | null {
@@ -280,15 +251,7 @@ function parseLinearSide(side: string): { a: number; b: number; c: number } | nu
     expr = expr.replace(/--/g, '+').replace(/\+\+/g, '+').replace(/\+-|-\+/g, '-')
   }
 
-  const evalAt = (x: number, y: number): number | null => {
-    try {
-      // eslint-disable-next-line no-new-func
-      const val = Function('x', 'y', `"use strict"; return (${expr});`)(x, y)
-      return typeof val === 'number' && Number.isFinite(val) ? val : null
-    } catch {
-      return null
-    }
-  }
+  const evalAt = (x: number, y: number): number | null => evalSafeMathExpr(expr, { x, y })
 
   const f00 = evalAt(0, 0)
   const f10 = evalAt(1, 0)
@@ -354,19 +317,17 @@ export function parseCircleExpr(input: string): ParsedCircle | null {
     while (/[+-]{2}/.test(e)) {
       e = e.replace(/--/g, '+').replace(/\+\+/g, '+').replace(/\+-|-\+/g, '-')
     }
-    return wrapUnaryNegPowers(e).replace(/sqrt\(/g, 'Math.sqrt(')
+    return e
   }
   const eL = prep(lhs)
   const eR = prep(rhs)
   if (!eL || !eR) return null
   const evalDiff = (x: number, y: number): number | null => {
-    try {
-      // eslint-disable-next-line no-new-func
-      const v = Function('x', 'y', `"use strict"; return ((${eL}) - (${eR}));`)(x, y)
-      return typeof v === 'number' && Number.isFinite(v) ? v : null
-    } catch {
-      return null
-    }
+    const l = evalSafeMathExpr(eL, { x, y })
+    const r = evalSafeMathExpr(eR, { x, y })
+    if (l === null || r === null) return null
+    const v = l - r
+    return Number.isFinite(v) ? v : null
   }
   const f00 = evalDiff(0, 0)
   const f10 = evalDiff(1, 0)
