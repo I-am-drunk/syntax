@@ -181,7 +181,7 @@ export function ProfilePage({
                       className="sx-profile-course-art"
                     />
                   ) : (
-                    <PackageIcon svg={course.iconSvg} size={40} />
+                    <PackageIcon id={course.id} kind="course" svg={course.iconSvg} size={40} />
                   )}
                   <div className="sx-profile-course-info">
                     <strong>{isMpm2d ? 'Analytic Geometry' : course.name}</strong>

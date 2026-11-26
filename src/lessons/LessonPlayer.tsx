@@ -27,11 +27,12 @@ function Paragraph({ text }: { text: string }) {
     ? <strong key={index}>{part.slice(2, -2)}</strong> : part)}</p>;
 }
 
-export function LessonPlayer({ lesson, onSound, onReport, onProblemResult, onContentComplete, beforeExit }: {
+export function LessonPlayer({ lesson, onSound, onReport, onProblemResult, onContentComplete, beforeExit, onClose }: {
   lesson: Lesson; onSound?(cue: LessonSound): void; onReport?(context: ReportContext): void;
   onProblemResult?(asset: string, outcome: ProblemOutcome): void;
   onContentComplete?(kind: ProgressKind): void;
   beforeExit?(): Promise<void>;
+  onClose?(): void;
 }) {
   const [pageIndex, setPageIndex] = useState(0);
   const [furthest, setFurthest] = useState(0);
@@ -131,7 +132,7 @@ export function LessonPlayer({ lesson, onSound, onReport, onProblemResult, onCon
       if (!mounted.current || exited.current || completionRef.current !== snapshot) return;
       exited.current = true;
       if (withSound) onSound?.('continue');
-      location.assign(lesson.courseRoute);
+      if (onClose) onClose(); else location.assign(lesson.courseRoute);
     };
     if (!beforeExit) { leave(); return; }
     exitPending.current = true;
@@ -162,7 +163,7 @@ export function LessonPlayer({ lesson, onSound, onReport, onProblemResult, onCon
   };
   const previousPage = useRef(pageIndex);
   useLayoutEffect(() => {
-    history.replaceState(history.state, '', `${location.pathname}${location.search}#page-${pageIndex + 1}`);
+    if (!onClose) history.replaceState(history.state, '', `${location.pathname}${location.search}#page-${pageIndex + 1}`);
     if (previousPage.current !== pageIndex) pages.current.get(activeKey)?.focus({ preventScroll: true });
     previousPage.current = pageIndex;
   }, [pageIndex, activeKey]);
@@ -186,7 +187,7 @@ export function LessonPlayer({ lesson, onSound, onReport, onProblemResult, onCon
     <LessonNavigation page={pageIndex} total={lesson.pages.length} furthest={furthest}
       checkIndex={isCheck ? standalonePractice ? pageIndex : pageIndex - lesson.pages.length : undefined}
       checkEvaluations={checkPages.length ? checkPages.map(item => problems[keyFor(item.asset)]?.evaluation ?? 'unsubmitted') : undefined}
-      xp={xp} closeHref={lesson.courseRoute} onNavigate={navigate} />
+      xp={xp} closeHref={lesson.courseRoute} onClose={onClose ? () => exitCompletion(null) : undefined} onNavigate={navigate} />
     <div className="lesson-surface" ref={surface} data-evaluation={current.evaluation}>
       <div className="lesson-surface-inner">
       {isCheck && onReport && current.evaluation !== 'unsubmitted' && <LessonReport onReport={report} />}

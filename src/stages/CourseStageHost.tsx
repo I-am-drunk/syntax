@@ -28,7 +28,6 @@ interface CourseStageHostProps {
   onLessonRouteChange: (lessonId: string | null) => void
   onProgressChanged: () => void
   onRequireSignIn: (manifest: SyntaxPackageManifest) => void
-  onOpenDevDiagnostics?: () => void
 }
 
 export function CourseStageHost({
@@ -43,7 +42,6 @@ export function CourseStageHost({
   onLessonRouteChange,
   onProgressChanged,
   onRequireSignIn,
-  onOpenDevDiagnostics,
 }: CourseStageHostProps) {
   const account = useAccount()
   const records = useInstalledPackages()
@@ -140,10 +138,14 @@ export function CourseStageHost({
             onPatchPrefs={onPatchPrefs}
             onLessonRouteChange={onLessonRouteChange}
             onProgressChanged={onProgressChanged}
-            onOpenDevDiagnostics={onOpenDevDiagnostics}
           />
         ) : courseManifest.id === 'thinking-in-code' ? (
-          <ThinkingInCodeCourseStage soundOn={soundOn} />
+          <ThinkingInCodeCourseStage
+            initialLessonId={lessonId}
+            soundOn={soundOn}
+            onBackToLibrary={onBackToLibrary}
+            onLessonRouteChange={onLessonRouteChange}
+          />
         ) : (
           <CustomCourseStage course={courseManifest} theme={theme} />
         )}

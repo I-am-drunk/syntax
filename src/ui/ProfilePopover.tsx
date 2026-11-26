@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { Popover } from '@base-ui/react/popover'
 import {
+  Blocks,
   BookOpen,
   Compass,
   LogOut,
-  Puzzle,
   Settings,
   User,
   UserCog,
@@ -23,8 +23,6 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
   const [open, setOpen] = useState(false)
   const [imgFailed, setImgFailed] = useState(false)
 
-  // If Clerk is still hydrating and we have no cached user yet, hold a calm
-  // pill-sized placeholder rather than flashing Sign In -> Avatar.
   if (!account && auth.isClerkActive && sessionStatus === 'hydrating' && !auth.isLoaded) {
     return <span className="sx-header-avatar-skeleton" aria-hidden="true" />
   }
@@ -51,7 +49,6 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
 
   function handleManageAccount() {
     setOpen(false)
-    // Delay slightly so Base UI Popover closes cleanly before Clerk mounts its modal focus trap
     window.setTimeout(() => {
       auth.openAccount()
     }, 40)
@@ -114,23 +111,23 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
 
             <div className="sx-profile-pop-group">
               <button type="button" className="sx-profile-pop-item" onClick={() => go('/profile')}>
-                <User size={16} aria-hidden="true" />
+                <User size={16} strokeWidth={1.9} aria-hidden="true" />
                 <span>Profile</span>
               </button>
               <button type="button" className="sx-profile-pop-item" onClick={() => go('/library')}>
-                <BookOpen size={16} aria-hidden="true" />
+                <BookOpen size={16} strokeWidth={1.9} aria-hidden="true" />
                 <span>Library</span>
               </button>
               <button type="button" className="sx-profile-pop-item" onClick={() => go('/plugins')}>
-                <Puzzle size={16} aria-hidden="true" />
+                <Blocks size={16} strokeWidth={1.9} aria-hidden="true" />
                 <span>Plugins</span>
               </button>
               <button type="button" className="sx-profile-pop-item" onClick={() => go('/community')}>
-                <Compass size={16} aria-hidden="true" />
+                <Compass size={16} strokeWidth={1.9} aria-hidden="true" />
                 <span>Community Hub</span>
               </button>
               <button type="button" className="sx-profile-pop-item" onClick={() => go('/settings')}>
-                <Settings size={16} aria-hidden="true" />
+                <Settings size={16} strokeWidth={1.9} aria-hidden="true" />
                 <span>Settings</span>
               </button>
             </div>
@@ -143,7 +140,7 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
                 className="sx-profile-pop-item"
                 onClick={handleManageAccount}
               >
-                <UserCog size={16} aria-hidden="true" />
+                <UserCog size={16} strokeWidth={1.9} aria-hidden="true" />
                 <span>Manage account</span>
               </button>
               <button
@@ -151,7 +148,7 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
                 className="sx-profile-pop-item is-danger"
                 onClick={handleSignOut}
               >
-                <LogOut size={16} aria-hidden="true" />
+                <LogOut size={16} strokeWidth={1.9} aria-hidden="true" />
                 <span>Sign out</span>
               </button>
             </div>

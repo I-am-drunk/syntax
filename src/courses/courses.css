@@ -231,3 +231,5 @@
   .home-course-steps { justify-content: flex-start; }
   .home-course .course-button { margin-top: 16px; }
 }
+.course-path > .outline-action { position: sticky; bottom: 20px; z-index: 3; box-shadow: 0 8px 28px rgb(0 0 0 / .08); }
+:root[data-theme='dark'] .course-path > .outline-action { box-shadow: 0 12px 32px rgb(0 0 0 / .45); }

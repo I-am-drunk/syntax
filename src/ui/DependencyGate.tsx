@@ -24,7 +24,7 @@ export function DependencyGate({
   return (
     <main className="sx-dep-gate">
       <div className="sx-modal-identity">
-        <PackageIcon svg={course.iconSvg} size={46} />
+        <PackageIcon id={course.id} kind={course.kind} svg={course.iconSvg} size={46} />
         <div className="sx-modal-titles">
           <h2>Embedded plugin required</h2>
           <span className="sx-modal-meta">{course.name}</span>

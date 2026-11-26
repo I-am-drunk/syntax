@@ -28,7 +28,7 @@ export default function CustomCourseStage({ course, theme }: CustomCourseStagePr
   return (
     <main className="sx-course-page">
       <div className="sx-course-hero">
-        <PackageIcon svg={course.iconSvg} size={52} />
+        <PackageIcon id={course.id} kind={course.kind} svg={course.iconSvg} size={52} />
         <div>
           <h1>{course.name}</h1>
           <span className="sx-modal-meta">@{course.author.handle}</span>

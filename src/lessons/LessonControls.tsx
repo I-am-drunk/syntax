@@ -16,13 +16,14 @@ export function Arrow({ right = false }: { right?: boolean }) {
   </svg>;
 }
 
-export function LessonNavigation({ page, total, furthest, xp, closeHref, onNavigate, checkIndex, checkEvaluations }: {
+export function LessonNavigation({ page, total, furthest, xp, closeHref, onClose, onNavigate, checkIndex, checkEvaluations }: {
   page: number; total: number; furthest: number; xp: number; closeHref: string;
+  onClose?(): void;
   onNavigate(offset: number): void;
   checkIndex?: number; checkEvaluations?: readonly ('unsubmitted' | 'incorrect-retry' | 'incorrect' | 'correct')[];
 }) {
   return <header className="lesson-navigation">
-    <a className="lesson-close" href={closeHref} aria-label="Close">
+    <a className="lesson-close" href={closeHref} aria-label="Close" onClick={onClose ? (e => { e.preventDefault(); onClose(); }) : undefined}>
       <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor"
         d="M8.00006 6.58577L3.05027 1.63599L1.63606 3.0502L6.58585 7.99999L1.63605 12.9498L3.05026 14.364L8.00006 9.4142L12.9498 14.3639L14.364 12.9497L9.41427 7.99999L14.364 3.05029L12.9498 1.63608L8.00006 6.58577Z" />
       </svg>

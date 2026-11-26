@@ -71,7 +71,7 @@ function LibraryCourseTile({
           {item.image ? (
             <img src={item.image} alt="" width={84} height={84} />
           ) : (
-            <PackageIcon svg={item.manifest.iconSvg} size={76} />
+            <PackageIcon id={item.manifest.id} kind={item.manifest.kind} svg={item.manifest.iconSvg} size={76} />
           )}
         </button>
 

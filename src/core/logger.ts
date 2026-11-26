@@ -146,6 +146,10 @@ export function initGlobalErrorCapture() {
   syntaxLog.info('core', 'Syntax runtime initialized')
 }
 
+export function getLogs(): LogEntry[] {
+  return entries
+}
+
 export function clearLogs() {
   entries = []
   try {

@@ -1,5 +1,13 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
 
+export interface CourseNavTab {
+  id: string
+  label: string
+  icon?: ReactNode
+  active?: boolean
+  onClick: () => void
+}
+
 export interface CourseMenuAction {
   id: string
   label: string
@@ -7,6 +15,7 @@ export interface CourseMenuAction {
 }
 
 export interface CourseSlotContribution {
+  courseNavTabs?: CourseNavTab[]
   headerAction?: ReactNode
   menuActions?: CourseMenuAction[]
 }

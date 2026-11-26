@@ -16,7 +16,7 @@ import { HostSlotsProvider } from '../core/hostSlots'
 import type { SyntaxPackageManifest } from '../core/packages'
 import { useRegistryStore } from '../core/registry'
 import { HomePage } from '../courses/HomePage'
-import { isDevEnvironment } from '../mpm2d/components/DevChannelBadge'
+import { isDevEnvironment } from '../core/devEnv'
 import { loadPrefs, savePrefs, type SyntaxPrefs } from '../mpm2d/storage'
 import { readMpm2dProgressSummary, type Mpm2dProgressSummary } from '../packages/courseMeta'
 import { playLessonSound, type LessonSound } from '../services/lessonSounds'
@@ -59,7 +59,6 @@ function loadSound(): boolean {
 }
 
 export interface AppShellProps {
-  onOpenDevDiagnostics?: () => void
   hideToaster?: boolean
 }
 
@@ -119,7 +118,7 @@ function parseRouteInfo(location: string): {
       courseId,
       lessonId,
       communityId: null,
-      isLessonFullscreen: Boolean(lessonId && courseId === 'mpm2d-analytic-geometry'),
+      isLessonFullscreen: Boolean(lessonId && (courseId === 'mpm2d-analytic-geometry' || courseId === 'thinking-in-code')),
     }
   }
   if (clean === '/library') {
@@ -155,7 +154,7 @@ function parseRouteInfo(location: string): {
   }
 }
 
-function AppShellInner({ onOpenDevDiagnostics, hideToaster = false }: AppShellProps) {
+function AppShellInner({ hideToaster = false }: AppShellProps) {
   const isDev = isDevEnvironment()
   const [location, setLocation] = useLocation()
   const account = useAccount()
@@ -404,7 +403,6 @@ function AppShellInner({ onOpenDevDiagnostics, hideToaster = false }: AppShellPr
             >
               <SyntaxSettingsPage
                 onClose={() => navigate('/library')}
-                backLabel="Back to Library"
                 theme={theme}
                 onChangeTheme={setTheme}
                 soundOn={soundOn}
@@ -493,7 +491,6 @@ function AppShellInner({ onOpenDevDiagnostics, hideToaster = false }: AppShellPr
                 onRequireSignIn={pkg =>
                   handleRequireSignIn(pkg, pkg.builtIn ? 'official' : 'community')
                 }
-                onOpenDevDiagnostics={onOpenDevDiagnostics}
               />
             )
           }}
@@ -523,7 +520,6 @@ function AppShellInner({ onOpenDevDiagnostics, hideToaster = false }: AppShellPr
                 onRequireSignIn={pkg =>
                   handleRequireSignIn(pkg, pkg.builtIn ? 'official' : 'community')
                 }
-                onOpenDevDiagnostics={onOpenDevDiagnostics}
               />
             )
           }}

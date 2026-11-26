@@ -21,7 +21,6 @@ const CATCH_BUBBLE_HALF = CATCH_BUBBLE_SIZE / 2
 const IDLE_TRIGGER_MS = 45_000
 const SLEEPY_AFTER_MS = 25_000
 const HOVER_DELAY_MS = 280
-const BOUNCE_CLICK_THRESHOLD = 10
 const BOUNCE_COOLDOWN_MS = 10_000
 
 type BounceReaction = { state: SemaState; expression: SemaExpressionName }
@@ -40,6 +39,7 @@ const BOUNCE_REACTIONS: BounceReaction[] = [
 export function TopBarSema({
   enableRoaming = true,
   dockedIntoLogo = false,
+  isDev = false,
   scrollContainerRef,
   shape = 'jenson',
   tail = 'jenson',
@@ -50,6 +50,7 @@ export function TopBarSema({
 }: {
   enableRoaming?: boolean
   dockedIntoLogo?: boolean
+  isDev?: boolean
   scrollContainerRef?: RefObject<HTMLElement | null>
   shape?: SemaShapeName
   tail?: SemaTailName
@@ -88,7 +89,6 @@ export function TopBarSema({
   const pokeCountRef = useRef<number>(0)
   const cooldownUntilRef = useRef<number>(0)
 
-  // Center coordinates (cx, cy) and velocity of Sema in viewport space
   const posRef = useRef({ x: 140, y: 32, vx: 132, vy: 94 })
 
   const clearHover = () => {
@@ -135,17 +135,14 @@ export function TopBarSema({
     if (phaseRef.current !== 'roaming') return
     clearHover()
     window.clearTimeout(moodTimerRef.current)
-    // Keep full body visible and smiling during the return glide so there is no dissolve/pop-in
     setRoamState('idle')
     setRoamExpr('happy')
     setRoamLook(null)
-    // Damp existing roam velocity for a graceful boomerang arc home
     posRef.current.vx *= 0.25
     posRef.current.vy *= 0.25
     setPhase('returning')
   }
 
-  // Idle timer for sleepy -> auto-roaming; ANY click, scroll, wheel, touch, or keypress immediately recalls Sema home!
   useEffect(() => {
     if (!enableRoaming) {
       if (phaseRef.current === 'roaming') recallToDock()
@@ -222,7 +219,6 @@ export function TopBarSema({
     }
   }, [enableRoaming, scrollContainerRef])
 
-  // Wall-bouncing + smooth critically-damped return flight physics loop (never freeze 'returning' on scroll!)
   useEffect(() => {
     if (phase === 'docked' || (scrolling && phase === 'roaming')) return
     let raf = 0
@@ -230,7 +226,9 @@ export function TopBarSema({
     let lookUpdateAcc = 0
     let bounceIdx = 0
     let cachedTarget: { x: number; y: number } | null = null
-    const onResizeTarget = () => { cachedTarget = null }
+    const onResizeTarget = () => {
+      cachedTarget = null
+    }
     window.addEventListener('resize', onResizeTarget, { passive: true })
 
     const applyHostTransform = (cx: number, cy: number, scale = 1) => {
@@ -323,7 +321,6 @@ export function TopBarSema({
         const tx = cachedTarget.x
         const ty = cachedTarget.y
 
-        // Critically-damped spring toward the exact docked slot center
         const omega = 13.5
         const dx = p.x - tx
         const dy = p.y - ty
@@ -338,13 +335,11 @@ export function TopBarSema({
         const dist = Math.hypot(tx - p.x, ty - p.y)
         const speed = Math.hypot(p.vx, p.vy)
 
-        // Smoothly fade the dashed dock ghost out as Sema glides in
         if (ghostRef.current) {
           const ghostAlpha = Math.max(0, Math.min(0.42, (dist - 12) / 72))
           ghostRef.current.style.opacity = ghostAlpha.toFixed(3)
         }
 
-        // Look gently toward the dock during arrival
         lookUpdateAcc += dt
         if (lookUpdateAcc > 0.08 && dist > 6) {
           lookUpdateAcc = 0
@@ -354,7 +349,6 @@ export function TopBarSema({
           })
         }
 
-        // Subtle mid-flight lift scale that settles back to exact 1.0 before handoff
         const flightScale = 1 + Math.min(0.06, dist / 2600)
         applyHostTransform(p.x, p.y, flightScale)
 
@@ -400,7 +394,7 @@ export function TopBarSema({
     }
     if (prev && !dockedIntoLogo) {
       setLogoPhase('unmerging')
-      const t = window.setTimeout(() => setLogoPhase('normal'), 560)
+      const t = window.setTimeout(() => setLogoPhase('normal'), 540)
       return () => window.clearTimeout(t)
     }
     setLogoPhase('normal')
@@ -431,18 +425,20 @@ export function TopBarSema({
           : expression
 
   const isAway = phase !== 'docked'
+  const frozenFill = isDev ? 'url(#sema-dev-rainbow-grad)' : 'currentColor'
 
   return (
     <>
       <div
         ref={dockRef}
-        className="sema-topbar-dock"
+        className={`sema-topbar-dock${isDev ? ' is-dev-dock' : ''}`}
         data-logo-phase={logoPhase}
         onPointerEnter={phase === 'docked' && !dockedIntoLogo ? handlePointerEnter : undefined}
         onPointerLeave={phase === 'docked' && !dockedIntoLogo ? clearHover : undefined}
       >
-        {/* Keep docked Sema mounted and warmed during 'returning' for a 0-ms zero-flash handoff */}
-        <div className={`sema-bubble-anchor sema-docked-wrap${isAway ? ' is-away' : ''}${justLanded ? ' is-landing' : ''}`}>
+        <div
+          className={`sema-bubble-anchor sema-docked-wrap${isAway ? ' is-away' : ''}${justLanded ? ' is-landing' : ''}`}
+        >
           <div className="sema-pixar-body">
             <Sema
               state={dockedState}
@@ -462,36 +458,56 @@ export function TopBarSema({
             />
           </div>
 
-          {/* Frozen semicolon glyph Sema transforms into at the end of "Syntax;" (matches traced Sema PNG) */}
+          {/* Frozen semicolon glyph Sema transforms into cleanly after "Syntax" or "Syntax Dev" */}
           <button
             type="button"
-            className="sema-frozen-semicolon"
+            className={`sema-frozen-semicolon${isDev ? ' is-dev-rainbow' : ''}`}
             tabIndex={dockedIntoLogo ? 0 : -1}
-            aria-label="Exit Settings and wake Sema"
-            title="Back to Unit 2"
+            aria-label="Exit workspace and wake Sema"
+            title="Back to Library"
             onClick={() => onLogoClick?.()}
           >
             <svg
               className="sema-frozen-semicolon-svg"
-              width="15"
-              height="27"
+              width="14"
+              height="26"
               viewBox="-122 -122 244 426"
               fill="none"
               aria-hidden="true"
               shapeRendering="geometricPrecision"
             >
-              {shape === 'jenson' ? (
-                <path d={SEMA_JENSON_HEAD_PATH} fill="currentColor" />
-              ) : (
-                <circle cx="0" cy="0" r="98" fill="currentColor" />
+              {isDev && (
+                <defs>
+                  <linearGradient
+                    id="sema-dev-rainbow-grad"
+                    x1="0%"
+                    y1="0%"
+                    x2="0%"
+                    y2="100%"
+                  >
+                    <stop offset="0%" stopColor="#ff3b5c" />
+                    <stop offset="25%" stopColor="#f59e0b" />
+                    <stop offset="50%" stopColor="#22c55e" />
+                    <stop offset="75%" stopColor="#3b82f6" />
+                    <stop offset="100%" stopColor="#a855f7" />
+                  </linearGradient>
+                </defs>
               )}
-              <path d={SEMA_REST_COMMA_PATHS[tail] ?? SEMA_REST_COMMA_PATHS.jenson} fill="currentColor" />
+              {shape === 'jenson' ? (
+                <path d={SEMA_JENSON_HEAD_PATH} fill={frozenFill} />
+              ) : (
+                <circle cx="0" cy="0" r="98" fill={frozenFill} />
+              )}
+              <path
+                d={SEMA_REST_COMMA_PATHS[tail] ?? SEMA_REST_COMMA_PATHS.jenson}
+                fill={frozenFill}
+              />
             </svg>
           </button>
 
           {hoverBubble && !dockedIntoLogo && !isAway && (
             <div className="sema-speech-bubble" data-placement="bottom" role="tooltip">
-              Hi, I’m Sema
+              Hi, I&rsquo;m Sema
             </div>
           )}
         </div>
@@ -507,7 +523,6 @@ export function TopBarSema({
             className={`sema-roam-layer${phase === 'returning' ? ' is-returning' : ''}`}
             style={{ width: CATCH_BUBBLE_SIZE, height: CATCH_BUBBLE_SIZE }}
           >
-            {/* Generous invisible circular catch bubble so clicking a moving Sema is effortless */}
             <button
               type="button"
               className="sema-roam-catch-bubble"
@@ -534,7 +549,11 @@ export function TopBarSema({
                   ariaLabel="Roaming Sema"
                 />
                 {hoverBubble && phase === 'roaming' && (
-                  <span className="sema-speech-bubble" data-placement={roamBubblePlacement} aria-hidden="true">
+                  <span
+                    className="sema-speech-bubble"
+                    data-placement={roamBubblePlacement}
+                    aria-hidden="true"
+                  >
                     Catch me!
                   </span>
                 )}

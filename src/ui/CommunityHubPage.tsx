@@ -10,6 +10,7 @@ import {
   Search,
   Sparkles,
   Trash2,
+  X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAccount } from '../core/account'
@@ -72,7 +73,6 @@ export function CommunityHubPage({
     [records],
   )
 
-  // Merge remote catalog with any locally-imported packages so every installed package has a detail page
   const allPackages = useMemo(() => {
     const map = new Map<string, SyntaxPackageManifest>()
     for (const pkg of packages) map.set(pkg.id, pkg)
@@ -81,6 +81,16 @@ export function CommunityHubPage({
     }
     return Array.from(map.values())
   }, [packages, records])
+
+  const counts = useMemo(() => {
+    const out = { all: allPackages.length, course: 0, plugin: 0, 'embedded-plugin': 0 }
+    for (const p of allPackages) {
+      if (p.kind === 'course') out.course += 1
+      else if (p.kind === 'plugin') out.plugin += 1
+      else if (p.kind === 'embedded-plugin') out['embedded-plugin'] += 1
+    }
+    return out
+  }, [allPackages])
 
   const searchIndex = useMemo(() => {
     const ms = new MiniSearch<SyntaxPackageManifest & { tagsText: string; authorText: string }>({
@@ -102,7 +112,6 @@ export function CommunityHubPage({
     return ms
   }, [allPackages])
 
-  // Press '/' to focus search while browsing
   useEffect(() => {
     if (selectedPackageId) return
     const onKey = (e: KeyboardEvent) => {
@@ -125,11 +134,36 @@ export function CommunityHubPage({
     let list = allPackages
     const trimmed = query.trim()
     if (trimmed) {
-      const hits = searchIndex.search(trimmed)
-      const hitOrder = new Map(hits.map((h, i) => [String(h.id), i]))
-      list = list
-        .filter(p => hitOrder.has(p.id))
-        .sort((a, b) => (hitOrder.get(a.id) ?? 999) - (hitOrder.get(b.id) ?? 999))
+      const qLower = trimmed.toLowerCase().replace(/^@/, '')
+      let hitOrder: Map<string, number> | null = null
+      try {
+        const hits = searchIndex.search(trimmed)
+        if (hits.length > 0) {
+          hitOrder = new Map(hits.map((h, i) => [String(h.id), i]))
+        }
+      } catch {
+        hitOrder = null
+      }
+      if (hitOrder) {
+        list = list
+          .filter(
+            p =>
+              hitOrder!.has(p.id) ||
+              p.name.toLowerCase().includes(qLower) ||
+              p.id.toLowerCase().includes(qLower) ||
+              p.author.handle.toLowerCase().includes(qLower),
+          )
+          .sort((a, b) => (hitOrder!.get(a.id) ?? 999) - (hitOrder!.get(b.id) ?? 999))
+      } else {
+        list = list.filter(
+          p =>
+            p.name.toLowerCase().includes(qLower) ||
+            p.tagline.toLowerCase().includes(qLower) ||
+            p.id.toLowerCase().includes(qLower) ||
+            p.author.handle.toLowerCase().includes(qLower) ||
+            p.tags.some(t => t.toLowerCase().includes(qLower)),
+        )
+      }
     }
 
     if (filter !== 'all') {
@@ -147,7 +181,6 @@ export function CommunityHubPage({
           return a.name.localeCompare(b.name)
         })
       } else {
-        // Featured: community packages first so discovery shines, then official
         list = [...list].sort((a, b) => {
           const aOff = a.builtIn ? 1 : 0
           const bOff = b.builtIn ? 1 : 0
@@ -198,28 +231,34 @@ export function CommunityHubPage({
   }
 
   // =========================================================================
-  // FULL DEDICATED DETAIL PAGE (Raycast Store x Obsidian Detail Layout)
+  // FULL DEDICATED DETAIL PAGE
   // =========================================================================
   if (selectedPackageId) {
     if (!selectedPkg) {
       return (
-        <main className="sx-hub-page" aria-label="Package not found">
+        <main className="sx-hub-page" aria-label="Package detail">
           <button
             type="button"
             className="sx-hub-crumb"
             onClick={() => onSelectPackage(null)}
           >
             <ArrowLeft size={15} aria-hidden="true" />
-            <span>Back to Community Hub</span>
+            <span>Community Hub</span>
           </button>
           <div className="sx-hub-empty">
-            <h2>Package not found</h2>
-            <p>
-              Could not find <code>{selectedPackageId}</code> in the current catalog.
-            </p>
-            <button type="button" className="sx-btn-ghost" onClick={onRefresh}>
-              Refresh catalog
-            </button>
+            {isRefreshing ? (
+              <p>Loading package details&hellip;</p>
+            ) : (
+              <>
+                <h2>Package not found</h2>
+                <p>
+                  Could not find <code>{selectedPackageId}</code> in the current catalog.
+                </p>
+                <button type="button" className="sx-btn-ghost" onClick={onRefresh}>
+                  Refresh catalog
+                </button>
+              </>
+            )}
           </div>
         </main>
       )
@@ -255,7 +294,12 @@ export function CommunityHubPage({
         <div className="sx-hub-detail-grid">
           <div className="sx-hub-detail-main">
             <header className="sx-hub-detail-hero">
-              <PackageIcon svg={selectedPkg.iconSvg} size={64} />
+              <PackageIcon
+                id={selectedPkg.id}
+                kind={selectedPkg.kind}
+                svg={selectedPkg.iconSvg}
+                size={60}
+              />
               <div className="sx-hub-detail-titles">
                 <div className="sx-hub-detail-title-row">
                   <h1>{selectedPkg.name}</h1>
@@ -332,11 +376,11 @@ export function CommunityHubPage({
               <section className="sx-hub-detail-section">
                 <div className="sx-account-status-row">
                   <span>Account status</span>
-                  <span className={`sx-status-pill${isInstalled ? ' is-ok' : ''}`}>
+                  <span className={`sx-hub-inline-state${isInstalled && isEnabled ? ' is-ok' : ''}`}>
                     {isInstalled
                       ? isEnabled
                         ? 'Installed on your account'
-                        : 'Installed on your account (disabled)'
+                        : 'Installed (disabled)'
                       : 'Not installed yet'}
                   </span>
                 </div>
@@ -355,9 +399,9 @@ export function CommunityHubPage({
                       compareSemver(depRec.manifest.version, dep.minVersion) >= 0
                     const statusLabel = depOk
                       ? depRec.enabled
-                        ? 'Installed on your account'
-                        : 'Installed (disabled)'
-                      : 'Will install automatically'
+                        ? 'Installed'
+                        : 'Disabled'
+                      : 'Auto-installs'
                     return (
                       <div key={dep.id} className="sx-dep-item">
                         <button
@@ -367,7 +411,7 @@ export function CommunityHubPage({
                         >
                           {dep.name} <small>v{dep.minVersion}+</small>
                         </button>
-                        <span className={`sx-status-pill${depOk && depRec.enabled ? ' is-ok' : ''}`}>
+                        <span className={`sx-hub-inline-state${depOk && depRec.enabled ? ' is-ok' : ''}`}>
                           {statusLabel}
                         </span>
                       </div>
@@ -402,7 +446,7 @@ export function CommunityHubPage({
               <section className="sx-hub-detail-section">
                 <details className="sx-disclosure">
                   <summary>
-                    <Sparkles size={14} aria-hidden="true" /> AI &amp; course authoring usage
+                    <Sparkles size={14} aria-hidden="true" /> Authoring schema
                   </summary>
                   <div className="sx-disclosure-body">
                     <p>{selectedPkg.aiUsage.summary}</p>
@@ -446,6 +490,7 @@ export function CommunityHubPage({
                       type="button"
                       className="sx-hub-tag"
                       onClick={() => {
+                        setFilter('all')
                         setQuery(tag)
                         onSelectPackage(null)
                       }}
@@ -486,12 +531,12 @@ export function CommunityHubPage({
   }
 
   // =========================================================================
-  // BROWSE VIEW (Raycast Store Clarity x Obsidian Community Utility)
+  // BROWSE VIEW (Calm Obsidian x Raycast Directory)
   // =========================================================================
   return (
     <main className="sx-hub-page" aria-label="Community Hub">
       <header className="sx-hub-head">
-        <div className="sx-hub-head-copy">
+        <div className="sx-workspace-head">
           <h1>Community Hub</h1>
           <span className="sx-hub-count">
             {allPackages.length} packages
@@ -527,28 +572,39 @@ export function CommunityHubPage({
         </div>
       )}
 
-      <div className="sx-hub-toolbar">
-        <div className="sx-hub-search">
-          <Search size={16} className="sx-hub-search-icon" aria-hidden="true" />
+      <div className="sx-hub-controls">
+        <div className="sx-search-field sx-hub-search-bar">
+          <Search size={15} className="sx-search-icon" aria-hidden="true" />
           <input
             ref={searchInputRef}
-            type="search"
+            type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search courses, plugins, authors, tags..."
+            placeholder="Search courses, plugins, authors..."
             aria-label="Search Community Hub"
           />
-          {!query && <kbd className="sx-hub-kbd">/</kbd>}
+          {query ? (
+            <button
+              type="button"
+              className="sx-search-clear"
+              aria-label="Clear search"
+              onClick={() => setQuery('')}
+            >
+              <X size={14} aria-hidden="true" />
+            </button>
+          ) : (
+            <kbd className="sx-hub-kbd">/</kbd>
+          )}
         </div>
 
-        <div className="sx-hub-toolbar-right">
-          <div className="sx-library-filters" role="tablist" aria-label="Filter packages">
+        <div className="sx-hub-tabs-row">
+          <div className="sx-hub-underline-tabs" role="tablist" aria-label="Filter packages">
             {(
               [
-                { id: 'all', label: 'All' },
-                { id: 'course', label: 'Courses' },
-                { id: 'plugin', label: 'Plugins' },
-                { id: 'embedded-plugin', label: 'Embedded' },
+                { id: 'all', label: 'All', count: counts.all },
+                { id: 'course', label: 'Courses', count: counts.course },
+                { id: 'plugin', label: 'Plugins', count: counts.plugin },
+                { id: 'embedded-plugin', label: 'Embedded', count: counts['embedded-plugin'] },
               ] as const
             ).map(tab => (
               <button
@@ -556,24 +612,34 @@ export function CommunityHubPage({
                 type="button"
                 role="tab"
                 aria-selected={filter === tab.id}
-                className={`sx-lib-filter-pill${filter === tab.id ? ' is-active' : ''}`}
+                className={`sx-hub-tab${filter === tab.id ? ' is-active' : ''}`}
                 onClick={() => setFilter(tab.id)}
               >
-                {tab.label}
+                <span>{tab.label}</span>
+                <span className="sx-hub-tab-count">{tab.count}</span>
               </button>
             ))}
           </div>
 
-          <select
-            aria-label="Sort packages"
-            className="sx-hub-sort"
-            value={sort}
-            onChange={e => setSort(e.target.value as HubSort)}
-          >
-            <option value="featured">Featured</option>
-            <option value="name">Name (A-Z)</option>
-            <option value="installed">Installed first</option>
-          </select>
+          <div className="sx-hub-sort-group" role="group" aria-label="Sort packages">
+            {(
+              [
+                { id: 'featured', label: 'Featured' },
+                { id: 'name', label: 'A-Z' },
+                { id: 'installed', label: 'Installed' },
+              ] as const
+            ).map(opt => (
+              <button
+                key={opt.id}
+                type="button"
+                className={`sx-hub-sort-btn${sort === opt.id ? ' is-active' : ''}`}
+                aria-pressed={sort === opt.id}
+                onClick={() => setSort(opt.id)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -592,14 +658,14 @@ export function CommunityHubPage({
                   onClick={() => onSelectPackage(pkg.id)}
                 >
                   <div className="sx-hub-card-top">
-                    <PackageIcon svg={pkg.iconSvg} size={42} />
+                    <PackageIcon id={pkg.id} kind={pkg.kind} svg={pkg.iconSvg} size={40} />
                     <div className="sx-hub-card-id">
                       <div className="sx-hub-card-name-row">
                         <h3>{pkg.name}</h3>
                         {pkg.touchesCore && <CoreTouchIcon />}
                       </div>
                       <span className="sx-hub-card-author">
-                        @{pkg.author.handle} · v{pkg.version}
+                        @{pkg.author.handle} &middot; v{pkg.version}
                       </span>
                     </div>
                   </div>
@@ -609,28 +675,31 @@ export function CommunityHubPage({
                 <div className="sx-hub-card-foot">
                   <span className="sx-hub-kind-label">{PACKAGE_LABEL_BY_KIND[pkg.kind]}</span>
                   {isInstalled ? (
-                    pkg.kind === 'embedded-plugin' ? (
-                      <span className={`sx-status-pill${isEnabled ? ' is-ok' : ''}`}>
-                        {isEnabled ? 'Installed on account' : 'Disabled'}
-                      </span>
-                    ) : pkg.kind === 'course' ? (
+                    pkg.kind === 'course' ? (
                       <button
                         type="button"
                         className="sx-btn-ghost sx-btn-xs"
-                        onClick={() => onOpenCourse(pkg.id)}
+                        onClick={e => {
+                          e.stopPropagation()
+                          onOpenCourse(pkg.id)
+                        }}
                       >
                         Open
                       </button>
                     ) : (
-                      <span className={`sx-status-pill${isEnabled ? ' is-ok' : ''}`}>
-                        {isEnabled ? 'Installed' : 'Disabled'}
+                      <span className={`sx-hub-inline-state${isEnabled ? ' is-ok' : ''}`}>
+                        {isEnabled && <Check size={13} strokeWidth={2.4} aria-hidden="true" />}
+                        <span>{isEnabled ? 'Installed' : 'Disabled'}</span>
                       </span>
                     )
                   ) : (
                     <button
                       type="button"
-                      className="sx-btn-primary sx-btn-xs"
-                      onClick={() => handleInstall(pkg)}
+                      className="sx-btn-ghost sx-btn-xs sx-btn-add"
+                      onClick={e => {
+                        e.stopPropagation()
+                        handleInstall(pkg)
+                      }}
                     >
                       Add
                     </button>
@@ -642,7 +711,7 @@ export function CommunityHubPage({
         </div>
       ) : (
         <div className="sx-hub-empty">
-          <p>No packages match "{query}".</p>
+          <p>No packages match &ldquo;{query}&rdquo;.</p>
           <button
             type="button"
             className="sx-btn-ghost"

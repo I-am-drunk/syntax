@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { Compass, Search, Upload } from 'lucide-react'
+import { Compass, Search, Upload, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Toggle } from '../settings/Controls'
 import { OFFICIAL_BY_ID } from '../packages/catalog'
@@ -39,6 +39,7 @@ export function PluginsPage({
     return entries.filter(
       e =>
         e.manifest.name.toLowerCase().includes(q) ||
+        e.manifest.tagline.toLowerCase().includes(q) ||
         e.manifest.id.toLowerCase().includes(q) ||
         e.manifest.author.handle.toLowerCase().includes(q),
     )
@@ -83,9 +84,11 @@ export function PluginsPage({
     <main className="sx-workspace-page sx-plugins-page" aria-label="Plugins">
       <header className="sx-plugins-header">
         <div className="sx-plugins-title-row">
-          <div>
+          <div className="sx-workspace-head">
             <h1>Plugins</h1>
-            <span className="sx-hub-count">{entries.length} installed on this device</span>
+            <span className="sx-hub-count">
+              {entries.length} installed {entries.length === 1 ? 'package' : 'packages'}
+            </span>
           </div>
           <div className="sx-plugins-cta-group">
             <button
@@ -93,29 +96,39 @@ export function PluginsPage({
               className="sx-btn-ghost"
               onClick={() => fileInputRef.current?.click()}
             >
-              <Upload size={14} aria-hidden="true" />
-              <span>Import</span>
+              <Upload size={14} strokeWidth={2} aria-hidden="true" />
+              <span>Import file</span>
             </button>
             <button
               type="button"
               className="sx-browse-hub-btn"
               onClick={onOpenCommunityHub}
             >
-              <Compass size={16} aria-hidden="true" />
-              <span>Browse Community Hub</span>
+              <Compass size={15} strokeWidth={2} aria-hidden="true" />
+              <span>Community Hub</span>
             </button>
           </div>
         </div>
 
-        <div className="sx-hub-search sx-plugins-search">
-          <Search size={16} className="sx-hub-search-icon" aria-hidden="true" />
+        <div className="sx-search-field sx-plugins-search">
+          <Search size={15} className="sx-search-icon" aria-hidden="true" />
           <input
-            type="search"
+            type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Filter installed plugins and courses..."
             aria-label="Filter installed plugins"
           />
+          {query && (
+            <button
+              type="button"
+              className="sx-search-clear"
+              aria-label="Clear filter"
+              onClick={() => setQuery('')}
+            >
+              <X size={14} aria-hidden="true" />
+            </button>
+          )}
         </div>
 
         <input
@@ -134,19 +147,32 @@ export function PluginsPage({
 
       {appPlugins.length > 0 && (
         <section id="plugins-app-plugins" className="sx-plugins-section">
-          <h3>App Plugins</h3>
-          <div className="preference-rows">
+          <div className="sx-plugins-section-head">
+            <h2>App Plugins</h2>
+            <span>{appPlugins.length}</span>
+          </div>
+          <div className="sx-plugin-list">
             {appPlugins.map(({ manifest, enabled }) => (
-              <div key={manifest.id} className="preference-row sx-plugin-row">
+              <div key={manifest.id} className="sx-plugin-item">
                 <button
                   type="button"
                   className="sx-plugin-row-main"
                   onClick={() => onSelectPackage(manifest)}
                 >
-                  <PackageIcon svg={manifest.iconSvg} size={34} />
-                  <span className="sx-plugin-name">{manifest.name}</span>
-                  {manifest.touchesCore && <CoreTouchIcon />}
-                  <span className="sx-plugin-ver">v{manifest.version}</span>
+                  <PackageIcon
+                    id={manifest.id}
+                    kind={manifest.kind}
+                    svg={manifest.iconSvg}
+                    size={36}
+                  />
+                  <div className="sx-plugin-copy">
+                    <div className="sx-plugin-name-line">
+                      <span className="sx-plugin-name">{manifest.name}</span>
+                      {manifest.touchesCore && <CoreTouchIcon />}
+                      <span className="sx-plugin-ver">v{manifest.version}</span>
+                    </div>
+                    <span className="sx-plugin-sub">{manifest.tagline}</span>
+                  </div>
                 </button>
                 <Toggle
                   label={`Enable ${manifest.name}`}
@@ -161,20 +187,31 @@ export function PluginsPage({
 
       {embeddedPlugins.length > 0 && (
         <section id="plugins-embedded" className="sx-plugins-section">
-          <h3>Embedded Plugins</h3>
-          <div className="preference-rows">
+          <div className="sx-plugins-section-head">
+            <h2>Embedded Engines</h2>
+            <span>{embeddedPlugins.length}</span>
+          </div>
+          <div className="sx-plugin-list">
             {embeddedPlugins.map(({ manifest, enabled }) => (
-              <div key={manifest.id} className="preference-row sx-plugin-row">
+              <div key={manifest.id} className="sx-plugin-item">
                 <button
                   type="button"
                   className="sx-plugin-row-main"
                   onClick={() => onSelectPackage(manifest)}
                 >
-                  <PackageIcon svg={manifest.iconSvg} size={34} />
-                  <span className="sx-plugin-name">{manifest.name}</span>
-                  <span className={`sx-status-pill${enabled ? ' is-ok' : ''}`}>
-                    {enabled ? 'Installed on your account' : 'Disabled'}
-                  </span>
+                  <PackageIcon
+                    id={manifest.id}
+                    kind={manifest.kind}
+                    svg={manifest.iconSvg}
+                    size={36}
+                  />
+                  <div className="sx-plugin-copy">
+                    <div className="sx-plugin-name-line">
+                      <span className="sx-plugin-name">{manifest.name}</span>
+                      <span className="sx-plugin-ver">v{manifest.version}</span>
+                    </div>
+                    <span className="sx-plugin-sub">{manifest.tagline}</span>
+                  </div>
                 </button>
                 <Toggle
                   label={`Enable ${manifest.name}`}
@@ -189,22 +226,35 @@ export function PluginsPage({
 
       {courses.length > 0 && (
         <section id="plugins-courses" className="sx-plugins-section">
-          <h3>Installed Courses</h3>
-          <div className="preference-rows">
+          <div className="sx-plugins-section-head">
+            <h2>Installed Courses</h2>
+            <span>{courses.length}</span>
+          </div>
+          <div className="sx-plugin-list">
             {courses.map(({ manifest }) => (
-              <div key={manifest.id} className="preference-row sx-plugin-row">
+              <div key={manifest.id} className="sx-plugin-item">
                 <button
                   type="button"
                   className="sx-plugin-row-main"
                   onClick={() => onSelectPackage(manifest)}
                 >
-                  <PackageIcon svg={manifest.iconSvg} size={34} />
-                  <span className="sx-plugin-name">{manifest.name}</span>
-                  <span className="sx-plugin-ver">@{manifest.author.handle}</span>
+                  <PackageIcon
+                    id={manifest.id}
+                    kind={manifest.kind}
+                    svg={manifest.iconSvg}
+                    size={36}
+                  />
+                  <div className="sx-plugin-copy">
+                    <div className="sx-plugin-name-line">
+                      <span className="sx-plugin-name">{manifest.name}</span>
+                      <span className="sx-plugin-ver">@{manifest.author.handle}</span>
+                    </div>
+                    <span className="sx-plugin-sub">{manifest.tagline}</span>
+                  </div>
                 </button>
                 <button
                   type="button"
-                  className="sx-btn-ghost"
+                  className="sx-btn-ghost sx-btn-xs"
                   onClick={() => onOpenCourse(manifest.id)}
                 >
                   Open
@@ -217,7 +267,7 @@ export function PluginsPage({
 
       {filtered.length === 0 && (
         <div className="sx-hub-empty">
-          <p>No installed packages match "{query}".</p>
+          <p>No installed packages match &ldquo;{query}&rdquo;.</p>
           <button type="button" className="sx-btn-ghost" onClick={() => setQuery('')}>
             Clear filter
           </button>

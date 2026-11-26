@@ -21,14 +21,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
+  width: 38px;
   height: 44px;
   flex-shrink: 0;
   transition: width 320ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .sema-topbar-dock[data-logo-phase="merging"] {
-  width: 14px;
+  width: 15px;
 }
 
 .sema-topbar-dock-ghost {
@@ -70,8 +70,6 @@
 .sema-roam-layer.is-returning .sema-roam-catch-bubble {
   pointer-events: none;
 }
-
-
 
 /* Crisp Brilliant-style Speech Bubble ("Hi, I'm Sema") */
 .sema-bubble-anchor {
@@ -161,20 +159,18 @@
   gap: 16px;
   padding: 20px;
   border-radius: 16px;
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   background: var(--surface);
-  box-shadow: 0 2px 0 var(--border);
 }
 
 :root[data-theme='dark'] .sema-studio-card {
-  background: #1c1c1c;
+  background: #1a1a1a;
   border-color: #2f2f2f;
-  box-shadow: 0 2px 0 #0f0f0f;
 }
 
 .sema-studio-hero {
   display: grid;
-  grid-template-columns: 156px minmax(0, 1fr);
+  grid-template-columns: 152px minmax(0, 1fr);
   gap: 18px;
   align-items: center;
 }
@@ -191,10 +187,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 156px;
-  height: 156px;
+  width: 152px;
+  height: 152px;
   border-radius: 16px;
-  border: 1.5px solid var(--border);
+  border: 1px solid var(--border);
   background:
     radial-gradient(circle, rgba(0, 0, 0, 0.12) 1px, transparent 1px) 0 0 / 16px 16px,
     var(--secondary, #f8f8f8);
@@ -438,7 +434,6 @@
   position: fixed;
   top: 0;
   left: 0;
-  /* Stay above the sticky header for the entire catch-and-return flight. */
   z-index: 420;
   pointer-events: none;
   will-change: transform;
@@ -462,7 +457,8 @@
 }
 
 /* ==========================================================================
-   Pixar Luxo-style Settings Push -> Squash -> Freeze into "Syntax;"
+   Pixar Luxo-style Workspace Push -> Squash -> Freeze into "Syntax;" / "Syntax Dev;"
+   Zero negative offset so the semicolon sits cleanly right after the final glyph!
    ========================================================================== */
 .sema-pixar-body {
   display: inline-flex;
@@ -474,10 +470,10 @@
 
 .sema-frozen-semicolon {
   position: absolute;
-  left: -9px;
+  left: 0;
   top: 50%;
   transform: translateY(-50%) scale(0.5);
-  width: 18px;
+  width: 15px;
   height: 36px;
   padding: 0;
   border: none;
@@ -495,45 +491,51 @@
 
 .sema-frozen-semicolon-svg {
   display: block;
-  transform: translateY(1px);
+  transform: translateY(2px);
 }
 
-/* When Settings slides in from the right and bumps Sema into "Syntax" */
+.sema-frozen-semicolon.is-dev-rainbow .sema-frozen-semicolon-svg {
+  animation: sema-dev-hue 6s linear infinite;
+}
+
+@keyframes sema-dev-hue {
+  0% { filter: hue-rotate(0deg); }
+  100% { filter: hue-rotate(360deg); }
+}
+
 .sema-topbar-dock[data-logo-phase='merging'] .sema-pixar-body {
   pointer-events: none;
-  animation: sema-pixar-push-in 460ms ease-in-out forwards;
+  animation: sema-pixar-push-in 420ms ease-in-out forwards;
 }
 
 .sema-topbar-dock[data-logo-phase='merging'] .sema-frozen-semicolon {
   pointer-events: auto;
-  animation: sema-semicolon-freeze-in 200ms ease-out 325ms forwards;
+  animation: sema-semicolon-freeze-in 190ms ease-out 295ms forwards;
 }
 
-/* When exiting Settings, Sema springs joyfully back out of the semicolon! */
 .sema-topbar-dock[data-logo-phase='unmerging'] .sema-pixar-body {
-  animation: sema-pixar-pop-out 540ms cubic-bezier(0.22, 1.28, 0.36, 1) forwards;
+  animation: sema-pixar-pop-out 500ms cubic-bezier(0.22, 1.28, 0.36, 1) forwards;
 }
 
 .sema-topbar-dock[data-logo-phase='unmerging'] .sema-frozen-semicolon {
-  animation: sema-semicolon-unfreeze 180ms ease-out forwards;
+  animation: sema-semicolon-unfreeze 170ms ease-out forwards;
 }
 
 @keyframes sema-pixar-push-in {
   0% {
-    transform: translate3d(0, 0, 0) scaleX(1) scaleY(1) rotate(0deg);
+    transform: translate3d(0, 0, 0) scaleX(1) scaleY(1);
     opacity: 1;
   }
-  55% {
-    transform: translate3d(-8px, -4px, 0) scaleX(0.94) scaleY(1.07);
+  52% {
+    transform: translate3d(-4px, -4px, 0) scaleX(0.94) scaleY(1.07);
     opacity: 1;
   }
-  76% {
-    transform: translate3d(-15px, 1px, 0) scaleX(0.83) scaleY(0.85);
-    opacity: 0.82;
+  78% {
+    transform: translate3d(-9px, 1px, 0) scaleX(0.8) scaleY(0.86);
+    opacity: 0.78;
   }
   100% {
-    /* Frozen seamlessly behind the semicolon glyph */
-    transform: translate3d(-17px, 0, 0) scaleX(0.46) scaleY(0.92) rotate(0deg);
+    transform: translate3d(-11px, 0, 0) scaleX(0.45) scaleY(0.92);
     opacity: 0;
   }
 }
@@ -541,11 +543,11 @@
 @keyframes sema-semicolon-freeze-in {
   0% {
     opacity: 0;
-    transform: translateY(-50%) scaleX(1.32) scaleY(0.66);
+    transform: translateY(-50%) scaleX(1.28) scaleY(0.68);
   }
   58% {
     opacity: 1;
-    transform: translateY(-50%) scaleX(0.9) scaleY(1.12);
+    transform: translateY(-50%) scaleX(0.92) scaleY(1.1);
   }
   100% {
     opacity: 1;
@@ -556,15 +558,15 @@
 @keyframes sema-pixar-pop-out {
   0% {
     opacity: 0;
-    transform: translate3d(-16px, 2px, 0) scaleX(0.62) scaleY(1.22) rotate(-8deg);
+    transform: translate3d(-10px, 2px, 0) scaleX(0.62) scaleY(1.2) rotate(-6deg);
   }
-  36% {
+  38% {
     opacity: 1;
-    transform: translate3d(-5px, -7px, 0) scaleX(1.14) scaleY(0.86) rotate(7deg);
+    transform: translate3d(-2px, -6px, 0) scaleX(1.12) scaleY(0.88) rotate(5deg);
   }
-  68% {
+  70% {
     opacity: 1;
-    transform: translate3d(2px, 2px, 0) scaleX(1.12) scaleY(0.88) rotate(-2deg);
+    transform: translate3d(2px, 2px, 0) scaleX(1.08) scaleY(0.92) rotate(-2deg);
   }
   100% {
     opacity: 1;
@@ -583,8 +585,6 @@
   }
 }
 
-
-/* Crisp soft ground shadow on Sema SVG (light & dark balanced, zero muddy halo) */
 .sema-roam-layer .sema-svg {
   filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.16));
 }

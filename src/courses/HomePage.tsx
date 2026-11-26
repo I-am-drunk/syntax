@@ -169,7 +169,7 @@ export function HomePage({
                     {course.image ? (
                       <img src={course.image} alt="" />
                     ) : course.iconSvg ? (
-                      <PackageIcon svg={course.iconSvg} size={isCurrent ? 88 : 44} />
+                      <PackageIcon id={course.id} kind="course" svg={course.iconSvg} size={isCurrent ? 88 : 44} />
                     ) : null}
                   </button>
                 )

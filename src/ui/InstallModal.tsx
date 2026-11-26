@@ -108,7 +108,7 @@ export function InstallModal({
       <div className="sx-modal">
         <div className="sx-modal-head">
           <div className="sx-modal-identity">
-            <PackageIcon svg={manifest.iconSvg} size={46} />
+            <PackageIcon id={manifest.id} kind={manifest.kind} svg={manifest.iconSvg} size={46} />
             <div className="sx-modal-titles">
               <h2>{manifest.name}</h2>
               <span className="sx-modal-meta">

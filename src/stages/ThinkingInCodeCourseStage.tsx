@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
-import { ArrowLeft } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Layers } from 'lucide-react'
 import '../lessons/lesson.css'
 import '../lessons/practiceExplanation.css'
 import '../lessons/completion.css'
 import '../interactives/gridView.css'
+import { useHostSlots } from '../core/hostSlots'
+import { CourseOutline } from '../courses/CourseOutline'
 import { LessonSession } from '../lessons/LessonSession'
 import { writingPrograms } from '../lessons/writingPrograms'
 import { writingPractice } from '../lessons/writingPractice'
@@ -11,7 +13,6 @@ import { sequencingCommands } from '../lessons/sequencingCommands'
 import { repeatingPatterns } from '../lessons/repeatingPatterns'
 import { debuggingPrograms } from '../lessons/debuggingPrograms'
 import { playLessonSound, preloadLessonSounds } from '../services/lessonSounds'
-import { assetUrl } from '../mpm2d/assetUrl'
 
 const THINKING_LESSONS = [
   writingPrograms,
@@ -21,31 +22,80 @@ const THINKING_LESSONS = [
   debuggingPrograms,
 ]
 
-export default function ThinkingInCodeCourseStage({ soundOn }: { soundOn: boolean }) {
-  const [activeSlug, setActiveSlug] = useState<string | null>(null)
-  const activeLesson = THINKING_LESSONS.find(l => l.slug === activeSlug)
+export interface ThinkingInCodeCourseStageProps {
+  initialLessonId?: string | null
+  soundOn: boolean
+  onBackToLibrary: () => void
+  onLessonRouteChange: (lessonId: string | null) => void
+}
+
+export default function ThinkingInCodeCourseStage({
+  initialLessonId = null,
+  soundOn,
+  onBackToLibrary,
+  onLessonRouteChange,
+}: ThinkingInCodeCourseStageProps) {
+  const { setContribution, clearContribution } = useHostSlots()
+  const [activeSlug, setActiveSlug] = useState<string | null>(() =>
+    initialLessonId && THINKING_LESSONS.some(l => l.slug === initialLessonId)
+      ? initialLessonId
+      : null,
+  )
+  const [reloadNonce, setReloadNonce] = useState(0)
 
   useEffect(() => {
     preloadLessonSounds()
   }, [])
 
+  useEffect(() => {
+    if (initialLessonId && THINKING_LESSONS.some(l => l.slug === initialLessonId)) {
+      setActiveSlug(initialLessonId)
+    } else if (!initialLessonId) {
+      setActiveSlug(null)
+    }
+  }, [initialLessonId])
+
+  useEffect(() => {
+    setContribution({
+      courseNavTabs: [
+        {
+          id: 'cs-outline',
+          label: 'Thinking in Code',
+          icon: <Layers size={15} strokeWidth={1.9} className="nav-svg-icon" aria-hidden="true" />,
+          active: true,
+          onClick: () => {
+            const scroller = document.querySelector<HTMLElement>('.course-outline')
+            scroller?.scrollTo({ top: 0, behavior: 'smooth' })
+          },
+        },
+      ],
+    })
+    return () => clearContribution()
+  }, [setContribution, clearContribution])
+
+  const activeLesson = useMemo(
+    () => THINKING_LESSONS.find(l => l.slug === activeSlug) ?? null,
+    [activeSlug],
+  )
+
+  function launchLesson(slug: string) {
+    setActiveSlug(slug)
+    onLessonRouteChange(slug)
+  }
+
+  function closeLesson() {
+    setActiveSlug(null)
+    setReloadNonce(n => n + 1)
+    onLessonRouteChange(null)
+  }
+
   if (activeLesson) {
     return (
-      <div>
-        <div className="sx-course-page" style={{ marginBlock: '16px 0' }}>
-          <button
-            type="button"
-            className="sx-btn-ghost"
-            style={{ alignSelf: 'flex-start' }}
-            onClick={() => setActiveSlug(null)}
-          >
-            <ArrowLeft size={14} aria-hidden="true" />
-            <span>Thinking in Code</span>
-          </button>
-        </div>
+      <div className="sx-fullscreen-lesson-layer">
         <LessonSession
           key={`${activeLesson.slug}:${activeLesson.version}`}
           lesson={activeLesson}
+          onClose={closeLesson}
           onSound={cue => {
             if (soundOn) playLessonSound(cue)
           }}
@@ -55,40 +105,10 @@ export default function ThinkingInCodeCourseStage({ soundOn }: { soundOn: boolea
   }
 
   return (
-    <main className="sx-course-page">
-      <div className="sx-course-hero">
-        <img
-          src={assetUrl('/assets/courses/thinking-in-code-DolooX.png')}
-          alt=""
-          width={64}
-          height={64}
-        />
-        <div>
-          <h1>Thinking in Code</h1>
-          <span className="sx-modal-meta">5 interactive lessons</span>
-        </div>
-      </div>
-      <div className="preference-rows">
-        {THINKING_LESSONS.map((lesson, idx) => (
-          <div key={lesson.slug} className="preference-row">
-            <div>
-              <strong>
-                {idx + 1}. {lesson.title}
-              </strong>
-              <span className="sx-modal-meta" style={{ marginLeft: 10 }}>
-                {lesson.pages.length} pages
-              </span>
-            </div>
-            <button
-              type="button"
-              className="sx-btn-primary"
-              onClick={() => setActiveSlug(lesson.slug)}
-            >
-              Start
-            </button>
-          </div>
-        ))}
-      </div>
-    </main>
+    <CourseOutline
+      reloadNonce={reloadNonce}
+      onLaunchLesson={launchLesson}
+      onBackToLibrary={onBackToLibrary}
+    />
   )
 }

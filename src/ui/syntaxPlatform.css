@@ -39,12 +39,7 @@
   border-color: var(--muted);
 }
 
-/* Plugins Page (Built on Brilliant .settings-layout) */
-.sx-plugins-header {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
+/* Plugins Header Layout Helpers */
 
 .sx-plugins-title-row {
   display: flex;
@@ -132,16 +127,26 @@
   flex-shrink: 0;
 }
 
-/* Package Icon */
+/* Package Icon (Calm Monochrome Brilliant/Raycast Tile) */
 .sx-pkg-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 10px;
+  border-radius: 11px;
   overflow: hidden;
   flex-shrink: 0;
   border: 1px solid var(--border);
   background: var(--secondary);
+  color: var(--text);
+}
+
+:root[data-theme='dark'] .sx-pkg-icon {
+  background: #222222;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.sx-pkg-icon.is-glyph svg {
+  opacity: 0.88;
 }
 
 /* Subtle Warning Triangle Icon (no loud box on list rows) */
@@ -1154,10 +1159,10 @@
 }
 
 /* ==========================================================================
-   Core Shell Header, Workspace Nav, Back-to-Library Front Pill & Dev Bar
+   Core Shell Header, Mode-Switched Nav, Back-to-Library Pill & Dev Wordmark
    ========================================================================== */
 .sx-app-header {
-  gap: 28px;
+  gap: 24px;
   overflow-x: clip;
 }
 
@@ -1171,28 +1176,16 @@
 }
 
 .sx-app-header .brand-lockup[data-workspace] {
-  gap: 2px;
+  gap: 1px;
 }
 
 .sx-app-header .brand-lockup .wordmark {
   width: auto;
   min-width: 0;
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   line-height: 1;
-}
-
-.brand-wordmark-stack {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 1px;
-  line-height: 1;
-}
-
-.brand-lockup.is-dev-brand .wordmark {
-  line-height: 1.05;
+  letter-spacing: -0.045em;
 }
 
 @keyframes dev-rainbow-shift {
@@ -1202,6 +1195,8 @@
 }
 
 .dev-rainbow-text {
+  margin-left: 7px;
+  letter-spacing: -0.025em;
   background: linear-gradient(
     90deg,
     #ff3b5c 0%,
@@ -1221,48 +1216,29 @@
   animation: dev-rainbow-shift 5.5s linear infinite;
 }
 
-.dev-metrics-micro {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 10.5px;
-  font-weight: 600;
-  line-height: 1;
-  color: var(--muted, #666666);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+.sx-nav-stage {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+  min-width: 0;
 }
-
-.dev-metrics-micro.is-compact {
-  font-size: 9.5px;
-  letter-spacing: -0.01em;
-}
-
-.dev-metrics-sep { opacity: 0.45; }
-.dev-fps-dot { width: 6px; height: 6px; border-radius: 999px; background: #22c55e; flex: 0 0 6px; }
-.dev-fps-dot.is-warn { background: #f59e0b; }
-.dev-fps-dot.is-low { background: #ef4444; }
 
 .sx-app-header .primary-nav {
   display: flex;
   align-items: center;
   height: 100%;
-  gap: 0;
+  gap: 16px;
   min-width: 0;
   overflow: visible;
 }
 
 .sx-main-nav-tabs,
-.sx-workspace-tabs {
+.sx-workspace-tabs,
+.sx-course-tabs {
   display: flex;
   align-items: stretch;
   height: 100%;
-  gap: 26px;
-}
-
-.sx-workspace-nav {
-  gap: 16px;
+  gap: 24px;
 }
 
 .sx-nav-back-pill {
@@ -1278,7 +1254,6 @@
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
-  overflow: hidden;
   flex-shrink: 0;
   transition: background-color 120ms ease, border-color 120ms ease;
 }
@@ -1359,6 +1334,55 @@
   background: var(--hover);
 }
 
+/* Global Pancake Dropdown Menu (works identically on Library, Home, Courses, Settings) */
+.sx-menu-popup {
+  width: 232px;
+  margin-right: 0;
+  padding: 6px;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.14);
+}
+
+:root[data-theme='dark'] .sx-menu-popup {
+  background: #1b1b1b;
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 20px 52px rgba(0, 0, 0, 0.65);
+}
+
+.sx-menu-popup .menu-group {
+  padding-block: 2px;
+  gap: 2px;
+}
+
+.sx-menu-popup .menu-separator {
+  height: 1px;
+  background: var(--border);
+  margin: 5px 4px;
+}
+
+.sx-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.sx-menu-item svg {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.sx-menu-item[data-highlighted] {
+  background: var(--hover);
+}
+
 @media (max-width: 768px) {
   .sx-app-header {
     padding-inline: 16px;
@@ -1373,7 +1397,8 @@
     justify-content: center;
   }
   .sx-main-nav-tabs,
-  .sx-workspace-tabs {
+  .sx-workspace-tabs,
+  .sx-course-tabs {
     gap: 6px;
   }
   .primary-nav-btn {
@@ -1561,30 +1586,73 @@
    Clean Single-Column Workspace Layout (Settings & Plugins)
    ========================================================================== */
 .sx-workspace-page {
-  max-width: 780px;
-  margin: 36px auto 88px;
+  max-width: 720px;
+  margin: 36px auto 96px;
   padding: 0 24px;
   display: flex;
   flex-direction: column;
   gap: 28px;
 }
 
-.sx-settings-top-row {
+.sx-workspace-head {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sx-workspace-head h1 {
+  font-size: 28px;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.sx-hub-count {
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+/* Settings Rhythm & Spacing Fixes */
+.syntax-settings-article {
+  gap: 28px;
+}
+
+.syntax-settings-article h2 {
+  font-size: 17px;
+  line-height: 24px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  letter-spacing: -0.01em;
+}
+
+.syntax-settings-article .preference-rows {
+  gap: 10px;
+}
+
+.syntax-settings-article .preference-row {
+  padding: 14px 16px;
+  border-radius: 14px;
+  gap: 18px;
+}
+
+.syntax-settings-article .preference-choices {
+  padding-block: 14px;
 }
 
 .syntax-pref-copy {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
 }
 
 .syntax-pref-copy p {
+  flex: 0 0 auto;
   margin: 0;
-  font-size: 15px;
+  font-size: 14.5px;
   font-weight: 600;
+  line-height: 1.35;
   color: var(--text);
 }
 
@@ -1603,41 +1671,173 @@
   font-weight: 600;
 }
 
-.sx-plugins-page h1 {
-  font-size: 28px;
-  line-height: 1.2;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+/* Unified Crisp Search Field (Zero column-flex height bug!) */
+.sx-search-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 40px;
+  flex: 0 0 auto;
+}
+
+.sx-search-icon {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--tertiary);
+  pointer-events: none;
+}
+
+.sx-search-field input {
+  width: 100%;
+  height: 40px;
+  padding: 0 36px 0 38px;
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  background: var(--secondary);
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.sx-search-field input:focus {
+  border-color: var(--muted);
+  background: var(--surface);
+}
+
+.sx-search-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sx-search-clear:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.sx-hub-kbd {
+  position: absolute;
+  right: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 1px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--tertiary);
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  pointer-events: none;
+}
+
+/* Plugins Page (Obsidian-grade Installed List) */
+.sx-plugins-header {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .sx-plugins-section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
-.sx-plugins-section h3 {
-  font-size: 13px;
+.sx-plugins-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px;
+}
+
+.sx-plugins-section-head h2 {
+  font-size: 12.5px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--muted);
 }
 
-.sx-plugins-search {
-  max-width: 100%;
+.sx-plugins-section-head span {
+  font-size: 12px;
+  color: var(--tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.sx-plugin-list {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+:root[data-theme='dark'] .sx-plugin-list {
+  background: #191919;
+}
+
+.sx-plugin-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 16px;
+  transition: background-color 110ms ease;
+}
+
+.sx-plugin-item + .sx-plugin-item {
+  border-top: 1px solid var(--border);
+}
+
+.sx-plugin-item:hover {
+  background: var(--hover);
+}
+
+.sx-plugin-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.sx-plugin-name-line {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.sx-plugin-sub {
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ==========================================================================
-   In-App Community Hub (Obsidian Utility x Raycast Store in Brilliant Calm)
+   In-App Community Hub (Calm Obsidian x Raycast Directory)
    ========================================================================== */
 .sx-hub-page {
-  max-width: 1060px;
-  margin: 36px auto 88px;
+  max-width: 1040px;
+  margin: 36px auto 96px;
   padding: 0 24px;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 20px;
 }
 
 .sx-hub-head {
@@ -1648,18 +1848,6 @@
   flex-wrap: wrap;
 }
 
-.sx-hub-head-copy h1 {
-  font-size: 30px;
-  line-height: 1.2;
-  font-weight: 700;
-  letter-spacing: -0.025em;
-}
-
-.sx-hub-count {
-  font-size: 13.5px;
-  color: var(--muted);
-}
-
 .sx-hub-head-actions {
   display: flex;
   align-items: center;
@@ -1668,117 +1856,131 @@
 
 .sx-hub-notice {
   padding: 10px 14px;
-  border-radius: 12px;
+  border-radius: 11px;
   border: 1px solid var(--border);
   background: var(--secondary);
   color: var(--muted);
   font-size: 13px;
 }
 
-.sx-hub-toolbar {
+.sx-hub-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sx-hub-tabs-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
 }
 
-.sx-hub-search {
-  position: relative;
-  flex: 1 1 280px;
-  min-width: 220px;
-}
-
-.sx-hub-search-icon {
-  position: absolute;
-  left: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--tertiary);
-  pointer-events: none;
-}
-
-.sx-hub-search input {
-  width: 100%;
-  height: 40px;
-  padding: 0 38px 0 40px;
-  border-radius: 999px;
-  border: 1.5px solid var(--border);
-  background: var(--secondary);
-  color: var(--text);
-  font-size: 14px;
-  outline: none;
-  transition: border-color 120ms ease, background-color 120ms ease;
-}
-
-.sx-hub-search input:focus {
-  border-color: var(--muted);
-  background: var(--surface);
-}
-
-.sx-hub-kbd {
-  position: absolute;
-  right: 13px;
-  top: 50%;
-  transform: translateY(-50%);
-  padding: 1px 6px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--tertiary);
-  font-size: 11px;
-  font-family: ui-monospace, SFMono-Regular, monospace;
-  pointer-events: none;
-}
-
-.sx-hub-toolbar-right {
+.sx-hub-underline-tabs {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 22px;
 }
 
-.sx-hub-sort {
-  height: 38px;
-  padding: 0 12px;
-  border-radius: 999px;
-  border: 1.5px solid var(--border);
-  background: var(--surface);
+.sx-hub-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 0 11px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 120ms ease;
+}
+
+.sx-hub-tab:hover,
+.sx-hub-tab.is-active {
   color: var(--text);
-  font-size: 13px;
+}
+
+.sx-hub-tab.is-active {
+  font-weight: 600;
+}
+
+.sx-hub-tab.is-active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--text);
+  border-radius: 2px 2px 0 0;
+}
+
+.sx-hub-tab-count {
+  font-size: 12px;
+  color: var(--tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.sx-hub-sort-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding-bottom: 8px;
+}
+
+.sx-hub-sort-btn {
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 500;
+  transition: background-color 110ms ease, color 110ms ease;
+}
+
+.sx-hub-sort-btn:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.sx-hub-sort-btn.is-active {
+  background: var(--secondary);
+  color: var(--text);
   font-weight: 600;
 }
 
 .sx-hub-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(292px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(296px, 1fr));
+  gap: 12px;
 }
 
 .sx-hub-card {
-  border: 1.5px solid var(--border);
-  border-radius: 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
   background: var(--surface);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  transition: border-color 130ms ease, transform 130ms ease;
+  transition: border-color 120ms ease, background-color 120ms ease;
 }
 
 :root[data-theme='dark'] .sx-hub-card {
-  background: #1a1a1a;
+  background: #191919;
 }
 
 .sx-hub-card:hover {
   border-color: var(--muted);
-  transform: translateY(-1px);
 }
 
 .sx-hub-card-hit {
-  padding: 16px 16px 12px;
+  padding: 15px 16px 10px;
   display: flex;
   flex-direction: column;
-  gap: 11px;
+  gap: 10px;
   text-align: left;
   background: transparent;
   width: 100%;
@@ -1806,8 +2008,8 @@
 }
 
 .sx-hub-card-name-row h3 {
-  font-size: 15.5px;
-  font-weight: 700;
+  font-size: 15px;
+  font-weight: 600;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
@@ -1815,8 +2017,8 @@
 }
 
 .sx-hub-card-author {
-  font-size: 12.5px;
-  color: var(--muted);
+  font-size: 12px;
+  color: var(--tertiary);
 }
 
 .sx-hub-card-tagline {
@@ -1835,20 +2037,46 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 10px 16px 14px;
-  border-top: 1px solid var(--border);
+  padding: 8px 16px 13px;
 }
 
 .sx-hub-kind-label {
   font-size: 12px;
-  font-weight: 600;
   color: var(--tertiary);
 }
 
+.sx-hub-inline-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.sx-hub-inline-state.is-ok {
+  color: #15803d;
+}
+
+:root[data-theme='dark'] .sx-hub-inline-state.is-ok {
+  color: #4ade80;
+}
+
 .sx-btn-xs {
-  min-height: 30px;
+  min-height: 29px;
   padding: 0 12px;
   font-size: 12.5px;
+}
+
+.sx-btn-add {
+  border-color: var(--border);
+  background: var(--secondary);
+}
+
+.sx-btn-add:hover {
+  border-color: var(--text);
+  background: var(--text);
+  color: var(--surface);
 }
 
 .sx-btn-full {
@@ -1857,7 +2085,7 @@
 
 .sx-hub-empty {
   border: 1px solid var(--border);
-  border-radius: 18px;
+  border-radius: 14px;
   padding: 40px 24px;
   text-align: center;
   display: flex;

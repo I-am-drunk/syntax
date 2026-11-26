@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft } from 'lucide-react'
 import { Segmented, Toggle } from '../../settings/Controls'
 import { Sema } from '../mascot/Sema'
 import {
@@ -16,7 +15,6 @@ type StudioTab = 'shape' | 'semicolon' | 'expression' | 'motion'
 
 export function SyntaxSettingsPage({
   onClose,
-  backLabel = 'Back to Library',
   theme,
   onChangeTheme,
   soundOn,
@@ -26,7 +24,6 @@ export function SyntaxSettingsPage({
   onReplayWelcome,
 }: {
   onClose: () => void
-  backLabel?: string
   theme: 'light' | 'dark'
   onChangeTheme: (t: 'light' | 'dark') => void
   soundOn: boolean
@@ -63,16 +60,10 @@ export function SyntaxSettingsPage({
 
   return (
     <main className="sx-workspace-page sx-settings-single" aria-label="Settings">
-      <div className="sx-settings-top-row">
-        <button
-          type="button"
-          className="sx-hub-crumb"
-          onClick={onClose}
-        >
-          <ArrowLeft size={15} aria-hidden="true" />
-          <span>{backLabel}</span>
-        </button>
-      </div>
+      <header className="sx-workspace-head">
+        <h1>Settings</h1>
+        <span className="sx-hub-count">Appearance, study workspace, and companion preferences</span>
+      </header>
 
       <article className="preferences syntax-settings-article" aria-label="Preferences" data-ready="true">
         <section id="pref-appearance" aria-labelledby="pref-appearance-h">

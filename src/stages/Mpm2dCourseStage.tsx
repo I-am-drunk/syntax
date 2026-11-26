@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowDown, BookOpenText, RotateCcw, SlidersHorizontal } from 'lucide-react'
+import { ArrowDown, BookOpenText, ClipboardCheck, Layers, RotateCcw, SlidersHorizontal } from 'lucide-react'
 import '../lessons/completion.css'
 import '../mpm2d/mpm2dBrilliant.css'
 import { playLessonSound, preloadLessonSounds, type LessonSound } from '../services/lessonSounds'
@@ -14,11 +14,6 @@ import type { SyntaxPrefs } from '../mpm2d/storage'
 import { usePluginActive } from '../core/registry'
 import { useHostSlots } from '../core/hostSlots'
 import { assetUrl } from '../mpm2d/assetUrl'
-import {
-  DevMetricsMicroBar,
-  isDevEnvironment,
-  resetAllDevStateAndCookies,
-} from '../mpm2d/components/DevChannelBadge'
 
 type SavedProgress = {
   completed: Record<string, { correct: number; total: number }>
@@ -92,7 +87,6 @@ export interface Mpm2dCourseStageProps {
   onPatchPrefs: (patch: Partial<SyntaxPrefs>) => void
   onLessonRouteChange: (lessonId: string | null) => void
   onProgressChanged: () => void
-  onOpenDevDiagnostics?: () => void
 }
 
 export default function Mpm2dCourseStage({
@@ -103,9 +97,7 @@ export default function Mpm2dCourseStage({
   onPatchPrefs,
   onLessonRouteChange,
   onProgressChanged,
-  onOpenDevDiagnostics,
 }: Mpm2dCourseStageProps) {
-  const isDev = isDevEnvironment()
   const { setContribution, clearContribution } = useHostSlots()
   const playbookPluginOn = usePluginActive('formula-playbook')
   const floatingWindowsPluginOn = usePluginActive('floating-windows')
@@ -127,7 +119,7 @@ export default function Mpm2dCourseStage({
   const [penModeActive, setPenModeActive] = useState(false)
   const [popoverOpenId, setPopoverOpenId] = useState<string | null>(null)
   const [filterOpen, setFilterOpen] = useState(false)
-  const [devResetting, setDevResetting] = useState(false)
+  const [activeCourseSection, setActiveCourseSection] = useState<'unit2' | 'conference'>('unit2')
   const [dockVisible, setDockVisible] = useState(true)
   const [dockBounceNonce, setDockBounceNonce] = useState(0)
   const [dockCardHeight, setDockCardHeight] = useState(140)
@@ -160,34 +152,66 @@ export default function Mpm2dCourseStage({
     }
   }, [initialLessonId])
 
-  // Contribute MPM2D Playbook button to the Core App Shell header ONLY while this course is mounted!
+  // Contribute MPM2D course tabs (Unit 2 | Conference | Playbook) to Core App Shell header
   useEffect(() => {
-    if (!playbookPluginOn) {
-      clearContribution()
-      return
+    const scrollToTop = () => {
+      setFormulasOpen(false)
+      setActiveCourseSection('unit2')
+      outlineScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
     }
+    const scrollToConference = () => {
+      setFormulasOpen(false)
+      setActiveCourseSection('conference')
+      const lvl4 = levelSectionRefs.current.get(4)
+      const scroller = outlineScrollRef.current
+      if (lvl4 && scroller) {
+        const scrollerRect = scroller.getBoundingClientRect()
+        const targetTop = lvl4.getBoundingClientRect().top - scrollerRect.top + scroller.scrollTop - 24
+        scroller.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' })
+      }
+    }
+
+    const tabs = [
+      {
+        id: 'mpm2d-unit2',
+        label: 'Unit 2',
+        icon: <Layers size={15} strokeWidth={1.9} className="nav-svg-icon" aria-hidden="true" />,
+        active: !formulasOpen && activeCourseSection === 'unit2',
+        onClick: scrollToTop,
+      },
+      {
+        id: 'mpm2d-conference',
+        label: 'Conference',
+        icon: <ClipboardCheck size={15} strokeWidth={1.9} className="nav-svg-icon" aria-hidden="true" />,
+        active: !formulasOpen && activeCourseSection === 'conference',
+        onClick: scrollToConference,
+      },
+    ]
+
+    if (playbookPluginOn) {
+      tabs.push({
+        id: 'mpm2d-playbook',
+        label: 'Playbook',
+        icon: <BookOpenText size={15} strokeWidth={1.9} className="nav-svg-icon" aria-hidden="true" />,
+        active: formulasOpen,
+        onClick: () => setFormulasOpen(v => !v),
+      })
+    }
+
     setContribution({
-      headerAction: (
-        <button
-          type="button"
-          className="header-icon-btn"
-          aria-label="Playbook & Formulas (F)"
-          title="Playbook (F)"
-          onClick={() => setFormulasOpen(v => !v)}
-        >
-          <BookOpenText size={18} aria-hidden="true" />
-        </button>
-      ),
-      menuActions: [
-        {
-          id: 'mpm2d-playbook',
-          label: 'Playbook & Formulas',
-          onSelect: () => setFormulasOpen(true),
-        },
-      ],
+      courseNavTabs: tabs,
+      menuActions: playbookPluginOn
+        ? [
+            {
+              id: 'mpm2d-playbook',
+              label: 'Playbook & Formulas',
+              onSelect: () => setFormulasOpen(true),
+            },
+          ]
+        : [],
     })
     return () => clearContribution()
-  }, [playbookPluginOn, setContribution, clearContribution])
+  }, [playbookPluginOn, formulasOpen, activeCourseSection, setContribution, clearContribution])
 
   // Course-scoped 'F' hotkey for Playbook
   useEffect(() => {
@@ -348,6 +372,13 @@ export default function Mpm2dCourseStage({
       raf = 0
       const atBot = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 140
       setOutlineAtBottom(prev => (prev === atBot ? prev : atBot))
+      const lvl4 = levelSectionRefs.current.get(4)
+      if (lvl4) {
+        const scrollerTop = scroller.getBoundingClientRect().top
+        const inConf = lvl4.getBoundingClientRect().top - scrollerTop <= 180
+        const nextSection: 'unit2' | 'conference' = inConf ? 'conference' : 'unit2'
+        setActiveCourseSection(prev => (prev === nextSection ? prev : nextSection))
+      }
     }
     const onScroll = () => {
       if (!raf) raf = requestAnimationFrame(sync)
@@ -645,38 +676,6 @@ export default function Mpm2dCourseStage({
             height="100"
             alt=""
           />
-          {isDev && (
-            <div className="dev-sidebar-strip" aria-label="Developer tools and live metrics">
-              <div className="dev-sidebar-top">
-                <span className="dev-sidebar-badge">
-                  Syntax <span className="dev-rainbow-text">Dev</span>
-                </span>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {onOpenDevDiagnostics && (
-                    <button
-                      type="button"
-                      className="dev-reset-btn"
-                      onClick={onOpenDevDiagnostics}
-                    >
-                      Diagnostics
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className="dev-reset-btn"
-                    disabled={devResetting}
-                    onClick={() => {
-                      setDevResetting(true)
-                      void resetAllDevStateAndCookies()
-                    }}
-                  >
-                    {devResetting ? 'Resetting...' : 'Reset state & cookies'}
-                  </button>
-                </div>
-              </div>
-              <DevMetricsMicroBar />
-            </div>
-          )}
           <h1>Analytic Geometry</h1>
           <p>MPM2D Unit 2: slopes, midpoints, distances, triangle lines, and geometric proofs.</p>
           <div className="course-counts">
