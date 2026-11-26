@@ -146,7 +146,8 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--focus-ring); ou
 .toast.error { border: 1px solid #c43939; }
 .unavailable-page { max-width: 656px; margin: 80px auto; padding: 32px; }
 .unavailable-page p { margin-block: 16px; }
-.plain-button { display: inline-flex; border: 2px solid var(--border); border-radius: 54px; padding: 12px 22px; font-weight: 500; }
+.plain-button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 2px solid var(--border); border-radius: 54px; padding: 12px 22px; background: var(--surface); color: var(--text); font-weight: 600; transition: background-color 120ms ease, border-color 120ms ease; }
+.plain-button:hover { background: var(--hover); border-color: var(--muted); }
 @media (max-width: 768px) {
   .app-header { padding-inline: 12px; gap: 8px; }
   .wordmark, .primary-nav a > .primary-nav-label { display: none; }

@@ -1475,8 +1475,8 @@
 
 :root[data-theme='dark'] .syntax-version-pill {
   background: #222222;
-  border-color: #31384a;
-  color: #f2f3f7;
+  border-color: #343434;
+  color: #f2f2f2;
 }
 
 .syntax-version-pill.is-active {
@@ -1573,29 +1573,63 @@
   color: var(--muted, #666d7e);
 }
 
+.syntax-inspector-empty {
+  min-height: 260px;
+  padding: 36px 28px;
+  border-radius: 22px;
+  border: 2px dashed var(--border, #e2e5ed);
+  background: var(--surface, #ffffff);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
+}
+
+:root[data-theme='dark'] .syntax-inspector-empty {
+  background: #1a1a1a;
+  border-color: #303030;
+}
+
+.syntax-inspector-empty h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.syntax-inspector-empty p {
+  margin: 0;
+  max-width: 340px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
 .syntax-inspector-jump-btn {
   appearance: none;
   border: none;
-  background: #29cc57;
+  background: #179f40;
   color: #ffffff;
   font: inherit;
   font-size: 14px;
   font-weight: 800;
   padding: 11px 20px;
   border-radius: 999px;
-  box-shadow: 0 4px 0 #15b441;
+  box-shadow: 0 4px 0 #10772f;
   cursor: pointer;
   white-space: nowrap;
-  transition: transform 90ms ease, box-shadow 90ms ease;
+  transition: transform 90ms ease, box-shadow 90ms ease, background-color 120ms ease;
 }
 
 .syntax-inspector-jump-btn:hover {
-  background: #24b84e;
+  background: #148f39;
 }
 
 .syntax-inspector-jump-btn:active {
   transform: translateY(3px);
-  box-shadow: 0 1px 0 #15b441;
+  box-shadow: 0 1px 0 #10772f;
 }
 
 /* High-contrast catch-up labels (no pill tag clutter) */
@@ -1624,10 +1658,10 @@
 
 .outline-action-clip {
   position: absolute;
-  left: -24px;
-  right: -24px;
+  left: -16px;
+  right: -16px;
   bottom: 0;
-  padding: 14px 24px 20px;
+  padding: 14px 16px 20px;
   overflow: hidden;
   pointer-events: none;
 }

@@ -359,7 +359,7 @@ export function FormulaSheetContent({
                 <em>m</em> = <Frac num={<><em>y</em><sub>2</sub> − <em>y</em><sub>1</sub></>} den={<><em>x</em><sub>2</sub> − <em>x</em><sub>1</sub></>} />
               </div>
             
-              <button type="button" className="fm-explain-toggle" aria-expanded={expandedGuide === 'slope'} onClick={() => setExpandedGuide(prev => (prev === 'slope' ? null : 'slope'))}>
+              <button type="button" className={`fm-explain-toggle${expandedGuide === 'slope' ? ' is-open' : ''}`} aria-expanded={expandedGuide === 'slope'} onClick={() => setExpandedGuide(prev => (prev === 'slope' ? null : 'slope'))}>
                 {expandedGuide === 'slope' ? 'Hide guide' : 'Text guide'}
               </button>
               {expandedGuide === 'slope' && (
@@ -384,7 +384,7 @@ export function FormulaSheetContent({
                 <span className="m-paren">)</span>
               </div>
             
-              <button type="button" className="fm-explain-toggle" aria-expanded={expandedGuide === 'midpoint'} onClick={() => setExpandedGuide(prev => (prev === 'midpoint' ? null : 'midpoint'))}>
+              <button type="button" className={`fm-explain-toggle${expandedGuide === 'midpoint' ? ' is-open' : ''}`} aria-expanded={expandedGuide === 'midpoint'} onClick={() => setExpandedGuide(prev => (prev === 'midpoint' ? null : 'midpoint'))}>
                 {expandedGuide === 'midpoint' ? 'Hide guide' : 'Text guide'}
               </button>
               {expandedGuide === 'midpoint' && (
@@ -405,7 +405,7 @@ export function FormulaSheetContent({
                 <em>d</em> = <Sqrt>(<em>x</em><sub>2</sub> − <em>x</em><sub>1</sub>)<sup>2</sup> + (<em>y</em><sub>2</sub> − <em>y</em><sub>1</sub>)<sup>2</sup></Sqrt>
               </div>
             
-              <button type="button" className="fm-explain-toggle" aria-expanded={expandedGuide === 'length'} onClick={() => setExpandedGuide(prev => (prev === 'length' ? null : 'length'))}>
+              <button type="button" className={`fm-explain-toggle${expandedGuide === 'length' ? ' is-open' : ''}`} aria-expanded={expandedGuide === 'length'} onClick={() => setExpandedGuide(prev => (prev === 'length' ? null : 'length'))}>
                 {expandedGuide === 'length' ? 'Hide guide' : 'Text guide'}
               </button>
               {expandedGuide === 'length' && (
@@ -428,7 +428,7 @@ export function FormulaSheetContent({
                 <div className="fm-math-muted"><em>m</em> = 0 (horiz) ⊥ undefined (vert)</div>
               </div>
             
-              <button type="button" className="fm-explain-toggle" aria-expanded={expandedGuide === 'perp'} onClick={() => setExpandedGuide(prev => (prev === 'perp' ? null : 'perp'))}>
+              <button type="button" className={`fm-explain-toggle${expandedGuide === 'perp' ? ' is-open' : ''}`} aria-expanded={expandedGuide === 'perp'} onClick={() => setExpandedGuide(prev => (prev === 'perp' ? null : 'perp'))}>
                 {expandedGuide === 'perp' ? 'Hide guide' : 'Text guide'}
               </button>
               {expandedGuide === 'perp' && (
@@ -450,7 +450,7 @@ export function FormulaSheetContent({
                 <div className="fm-math-muted"><em>Ax</em> + <em>By</em> + <em>C</em> = 0 · horiz <em>y</em> = <em>k</em> · vert <em>x</em> = <em>k</em></div>
               </div>
             
-              <button type="button" className="fm-explain-toggle" aria-expanded={expandedGuide === 'line'} onClick={() => setExpandedGuide(prev => (prev === 'line' ? null : 'line'))}>
+              <button type="button" className={`fm-explain-toggle${expandedGuide === 'line' ? ' is-open' : ''}`} aria-expanded={expandedGuide === 'line'} onClick={() => setExpandedGuide(prev => (prev === 'line' ? null : 'line'))}>
                 {expandedGuide === 'line' ? 'Hide guide' : 'Text guide'}
               </button>
               {expandedGuide === 'line' && (
@@ -472,7 +472,7 @@ export function FormulaSheetContent({
                 <div className="fm-math-muted">Inside &lt; <em>r</em><sup>2</sup> · On = <em>r</em><sup>2</sup> · Outside &gt; <em>r</em><sup>2</sup></div>
               </div>
             
-              <button type="button" className="fm-explain-toggle" aria-expanded={expandedGuide === 'circle'} onClick={() => setExpandedGuide(prev => (prev === 'circle' ? null : 'circle'))}>
+              <button type="button" className={`fm-explain-toggle${expandedGuide === 'circle' ? ' is-open' : ''}`} aria-expanded={expandedGuide === 'circle'} onClick={() => setExpandedGuide(prev => (prev === 'circle' ? null : 'circle'))}>
                 {expandedGuide === 'circle' ? 'Hide guide' : 'Text guide'}
               </button>
               {expandedGuide === 'circle' && (

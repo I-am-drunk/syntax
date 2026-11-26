@@ -700,14 +700,40 @@ export default function Mpm2dCourseStage({
           </div>
 
           <div className="course-schedule">
-            <div className="course-schedule-row">
+            <button
+              type="button"
+              className="course-schedule-row is-clickable"
+              onClick={() => {
+                setActiveCourseSection('conference')
+                const lvl4 = levelSectionRefs.current.get(4)
+                const scroller = outlineScrollRef.current
+                if (lvl4 && scroller) {
+                  const scrollerRect = scroller.getBoundingClientRect()
+                  const targetTop = lvl4.getBoundingClientRect().top - scrollerRect.top + scroller.scrollTop - 24
+                  scroller.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' })
+                }
+              }}
+            >
               <span className="course-schedule-date">Tue Nov 24</span>
               <span>U2 Conference · Plans only</span>
-            </div>
-            <div className="course-schedule-row">
+            </button>
+            <button
+              type="button"
+              className="course-schedule-row is-clickable"
+              onClick={() => {
+                setActiveCourseSection('conference')
+                const lvl5 = levelSectionRefs.current.get(5) ?? levelSectionRefs.current.get(4)
+                const scroller = outlineScrollRef.current
+                if (lvl5 && scroller) {
+                  const scrollerRect = scroller.getBoundingClientRect()
+                  const targetTop = lvl5.getBoundingClientRect().top - scrollerRect.top + scroller.scrollTop - 24
+                  scroller.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' })
+                }
+              }}
+            >
               <span className="course-schedule-date">Thu Nov 26</span>
               <span>Unit Assignment · Open notes</span>
-            </div>
+            </button>
           </div>
 
           {validMissedIds.length > 0 && (

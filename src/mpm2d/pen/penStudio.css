@@ -1167,8 +1167,8 @@
 }
 
 .pen-br-footer[data-theme='dark'] .pen-br-step-add {
-  border-color: #444752;
-  color: #8c8f9b;
+  border-color: #3a3a3a;
+  color: #9a9a9a;
 }
 
 .pen-br-step-add:hover {
@@ -1180,7 +1180,7 @@
 .pen-br-footer[data-theme='dark'] .pen-br-step-add:hover {
   border-color: #5c7eff;
   color: #9bb1ff;
-  background: #152459;
+  background: rgba(92, 126, 255, 0.16);
 }
 
 /* Brilliant 3D-Pressable Done / Check Button (exact .lesson-action feel) */

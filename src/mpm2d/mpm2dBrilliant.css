@@ -95,7 +95,7 @@
   --choice-shadow: #2c2c2c;
   --choice-hover: rgb(255 255 255 / 0.055);
   --choice-sel-border: #5c7eff;
-  --choice-sel-bg: #152459;
+  --choice-sel-bg: rgba(92, 126, 255, 0.16);
   --choice-sel-shadow: #3b5be0;
   --choice-ok-border: #29cc57;
   --choice-ok-bg: #0f2e1a;
@@ -197,10 +197,28 @@
 }
 
 @media (max-width: 768px) {
-  .lesson-close,
+  .mpm2d-lesson-shell .lesson-close,
   .lesson-nav-icon-btn {
-    width: 36px;
-    height: 36px;
+    width: 34px;
+    height: 34px;
+  }
+  .lesson-nav-actions {
+    gap: 4px;
+  }
+  .mpm2d-lesson-shell .lesson-progress-track {
+    min-width: 48px;
+  }
+}
+
+@media (max-width: 560px) {
+  .lesson-sema-buddy {
+    display: none;
+  }
+  .mpm2d-lesson-shell .lesson-check-progress {
+    gap: 5px;
+  }
+  .mpm2d-lesson-shell .lesson-check-progress i {
+    width: 10px;
   }
 }
 
@@ -609,9 +627,10 @@
 
 .geo-slope-readout {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: center;
-  gap: 30px;
+  gap: 10px 26px;
   min-height: 28px;
   font-variant-numeric: tabular-nums;
 }
@@ -716,23 +735,20 @@
 }
 
 .geo-chip-bar {
-  gap: 20px;
+  gap: 10px;
 }
 
-.geo-stat-chip,
-.geo-stat-chip.is-blue,
-.geo-stat-chip.is-green,
-.geo-stat-chip.is-amber,
-.geo-stat-chip.is-teal,
 .geo-stat-chip.is-violet {
-  padding: 2px 4px;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
+  border-color: rgb(135 77 229 / 0.38);
+  background: rgb(135 77 229 / 0.1);
+}
+
+.geo-stat-chip.is-violet > strong {
+  color: var(--geo-violet);
 }
 
 .geo-stat-chip > strong {
-  font-size: 15px;
+  font-size: 14.5px;
 }
 
 /* ==========================================================================
@@ -805,7 +821,7 @@
   justify-content: center;
   text-align: center;
   min-height: 64px;
-  padding: 14px 20px;
+  padding: 14px 40px;
   font-size: 18px;
   font-weight: 600;
   position: relative;
@@ -1193,7 +1209,7 @@
 :root[data-theme='dark'] .br-plan-empty[data-selected='true'],
 :root[data-theme='dark'] .br-plan-backdrop[data-selected='true'] {
   outline-color: #5c7eff !important;
-  background: #142563 !important;
+  background: rgba(92, 126, 255, 0.16) !important;
 }
 
 .br-plan-backdrop {
@@ -1317,7 +1333,7 @@
 
 :root[data-theme='dark'] .br-plan-bank-slot[data-selected='true'] .br-plan-bank-ghost {
   border-color: #5c7eff;
-  background: #142563;
+  background: rgba(92, 126, 255, 0.16);
 }
 
 .br-plan-bank-tile {
@@ -1471,14 +1487,16 @@
   gap: 6px;
 }
 
-.br-math-lines code {
+.br-math-lines code,
+.br-math-lines > div {
   display: block;
-  padding: 6px 10px;
-  border-radius: 8px;
+  padding: 7px 11px;
+  border-radius: 9px;
   background: var(--geo-surface-subtle);
+  border: 1px solid var(--geo-border);
   font-family: var(--br-font-mono);
-  font-size: 14px;
-  line-height: 1.45;
+  font-size: 14.5px;
+  line-height: 1.5;
   color: var(--text);
   overflow-x: auto;
 }
@@ -1610,6 +1628,22 @@
   justify-content: space-between;
   gap: 16px;
   padding: 20px 24px 12px;
+  flex: none;
+}
+
+.fm-header-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.wt-drag-grip {
+  color: var(--muted);
+  font-size: 14px;
+  letter-spacing: -2px;
+  cursor: grab;
+  user-select: none;
   flex: none;
 }
 
@@ -2729,8 +2763,21 @@
 }
 
 .course-schedule-row.is-clickable:hover {
-  background: rgba(36, 107, 253, 0.06);
-  border-color: rgba(36, 107, 253, 0.22);
+  background: rgba(69, 109, 255, 0.07);
+  border-color: rgba(69, 109, 255, 0.24);
+}
+
+:root[data-theme='dark'] .course-schedule-row.is-clickable:hover {
+  background: rgba(116, 145, 255, 0.12);
+  border-color: rgba(116, 145, 255, 0.3);
+}
+
+@media (max-width: 991px) {
+  .course-schedule-row {
+    justify-content: center;
+    text-align: center;
+    margin: 0;
+  }
 }
 
 .course-missed-btn {
@@ -3095,16 +3142,50 @@
 
 .fm-explain-box {
   margin-top: 8px;
-  padding: 10px 12px;
+  padding: 12px 14px;
   border-radius: 12px;
-  border: 1px solid var(--border, #e5e7eb);
-  background: var(--geo-surface-subtle, #f7f7f7);
+  border: 1px solid var(--geo-border, #e5e7eb);
+  background: var(--surface, #ffffff);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   font-size: 13px;
-  line-height: 1.45;
+  line-height: 1.48;
   color: var(--text, #141414);
+}
+
+.fm-explain-box > strong {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.fm-explain-box ol {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: var(--text);
+}
+
+.fm-explain-box li {
+  padding-left: 2px;
+}
+
+.fm-explain-tip {
+  margin: 2px 0 0;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border-left: 3px solid var(--geo-amber);
+  background: rgba(215, 166, 19, 0.09);
+  color: var(--text);
+  font-size: 12.5px;
+  line-height: 1.42;
+}
+
+:root[data-theme='dark'] .fm-explain-tip {
+  background: rgba(249, 210, 92, 0.1);
 }
 
 .fm-explain-why,
@@ -3126,6 +3207,15 @@
   gap: 10px;
   margin-bottom: 10px;
   flex-wrap: wrap;
+}
+
+.br-worked-graph-hint {
+  flex: 1 1 200px;
+  min-width: 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  font-weight: 500;
+  color: var(--muted);
 }
 
 .br-worked-graph-pill {
@@ -3285,16 +3375,18 @@
   gap: 10px;
 }
 
-.lesson-guided-hints-head strong {
-  font-size: 13px;
+.lesson-guided-hints-head strong,
+.lesson-guided-hints-head span {
+  font-size: 12px;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   color: #2f54eb;
 }
 
-:root[data-theme='dark'] .lesson-guided-hints-head strong {
-  color: #a5b8ff;
+:root[data-theme='dark'] .lesson-guided-hints-head strong,
+:root[data-theme='dark'] .lesson-guided-hints-head span {
+  color: #9cb4ff;
 }
 
 .lesson-guided-hints-close {
@@ -3332,22 +3424,66 @@
   flex-wrap: wrap;
 }
 
-.lesson-guided-hints-btn {
+.lesson-guided-hints-tip {
+  margin: 2px 0 0;
+  padding: 8px 11px;
+  border-radius: 10px;
+  border-left: 3px solid var(--geo-blue);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+:root[data-theme='dark'] .lesson-guided-hints-tip {
+  background: #1b1b1b;
+  color: #cccccc;
+}
+
+.lesson-guided-hints-btn,
+.lesson-guided-hints-more {
   appearance: none;
-  border: 1.5px solid var(--border, #d8dce6);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1.5px solid var(--choice-border, #d8dce6);
   background: var(--surface, #ffffff);
   color: var(--text, #141414);
   font: inherit;
   font-size: 12.5px;
   font-weight: 700;
-  padding: 6px 12px;
+  padding: 7px 13px;
   border-radius: 10px;
+  box-shadow: 0 2px 0 var(--choice-shadow, #d7dae2);
   cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease, background-color 120ms ease, transform 80ms ease, box-shadow 80ms ease;
 }
 
-.lesson-guided-hints-btn:hover {
-  border-color: #456dff;
-  color: #456dff;
+.lesson-guided-hints-btn:hover,
+.lesson-guided-hints-more:hover {
+  border-color: var(--geo-blue);
+  color: var(--geo-blue);
+}
+
+.lesson-guided-hints-btn:active,
+.lesson-guided-hints-more:active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+:root[data-theme='dark'] .lesson-guided-hints-btn,
+:root[data-theme='dark'] .lesson-guided-hints-more {
+  background: #202020;
+  border-color: #363636;
+  color: #f2f2f2;
+  box-shadow: 0 2px 0 #0c0c0c;
+}
+
+:root[data-theme='dark'] .lesson-guided-hints-btn:hover,
+:root[data-theme='dark'] .lesson-guided-hints-more:hover {
+  border-color: #7491ff;
+  color: #9cb4ff;
+  background: rgba(116, 145, 255, 0.12);
 }
 
 /* ==========================================================================
