@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: "en-US"
+early_access: false
+
+reviews:
+  profile: "assertive"
+  request_changes_workflow: true
+  high_level_summary: true
+  review_status: true
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - "main"
+      - "cleanup/.*"
+      - "security/.*"
+      - "feat/.*"
+  path_filters:
+    - "src/**"
+    - "shared/**"
+    - "tools/**"
+    - "scripts/**"
+    - ".github/**"
+    - "!dist/**"
+    - "!public/assets/**"
+  path_instructions:
+    - path: "src/core/**"
+      instructions: |
+        Enforce zero-trust boundaries: never trust manifest JSON for safety, verification, official status, networkAccess, or core-touch text. Flag any Function()/eval, unsafe-inline without isolation, wildcard postMessage without origin/source checks, or hand-rolled crypto/ZIP/SemVer code where audited libraries belong.
+    - path: "src/ui/**"
+      instructions: |
+        Never execute untrusted plugin HTML/JS prior to installation. Ensure all permission/capability disclosures are host-derived immutable text, and verified official packages always rank ahead of unverified community items.
+    - path: "src/mpm2d/**"
+      instructions: |
+        Verify math parser safety (zero eval/Function), geometric accuracy, and compatibility with npm run verify:graphs.
+    - path: "tools/syntax-mcp/**"
+      instructions: |
+        Ensure MCP tools share schemas directly with src/ (single source of truth), return structured outputs, and gate packaging behind real validation and conformance checks.
