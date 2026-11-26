@@ -3,14 +3,23 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { OFFICIAL_BY_ID, OFFICIAL_CATALOG, RETIRED_OFFICIAL_IDS } from '../packages/catalog'
 import { getSyntaxAccount } from './account'
+import { type UnpackedSytx } from './archive'
+import {
+  computeLoadOrder,
+  evaluateCompatibility,
+  evaluateRemovalImpact,
+  type CompatibilityReport,
+  type RemovalImpact,
+} from './compatibility'
 import { syntaxLog } from './logger'
 import {
-  compareSemver,
   normalizeExternalManifest,
+  stripManifestForStorage,
   validatePackageManifest,
-  type PackageDependency,
   type SyntaxPackageManifest,
 } from './packages'
+import { deleteVaultArchive, putVaultArchive } from './packageVault'
+import { clearPluginStorage, usePluginRuntimeStore } from './pluginRuntime'
 
 export type InstalledPackageSource = 'official' | 'community' | 'local-file'
 
@@ -22,17 +31,23 @@ export type InstalledPackageRecord = {
 }
 
 export type InstallResult =
-  | { ok: true; installedIds: string[]; record: InstalledPackageRecord }
+  | {
+      ok: true
+      installedIds: string[]
+      enabledIds: string[]
+      record: InstalledPackageRecord
+      report: CompatibilityReport
+    }
   | { ok: false; needsSignIn: true; error: string }
-  | { ok: false; needsSignIn?: false; error: string; missingDependencies?: PackageDependency[] }
+  | { ok: false; needsSignIn?: false; error: string; report?: CompatibilityReport }
 
-export type CourseDependencyStatus = {
-  ok: boolean
-  missing: PackageDependency[]
-  disabled: SyntaxPackageManifest[]
-}
+export type EnableResult =
+  | { ok: true; impact?: RemovalImpact }
+  | { ok: false; error: string; report?: CompatibilityReport }
 
 const OFFICIAL_ID_SET = new Set(OFFICIAL_BY_ID.keys())
+const STORAGE_KEY_V3 = 'syntax-registry-v3'
+const LEGACY_STORAGE_KEY_V2 = 'syntax-registry-v2'
 
 function createDefaultRecords(): InstalledPackageRecord[] {
   const now = new Date().toISOString()
@@ -44,6 +59,23 @@ function createDefaultRecords(): InstalledPackageRecord[] {
   }))
 }
 
+/**
+ * One-time read from legacy `syntax-registry-v2` so upgrading users never lose
+ * previously installed community packages or toggle states.
+ */
+function readLegacyV2State(): Partial<RegistryStoreState> | null {
+  try {
+    if (typeof localStorage === 'undefined') return null
+    if (localStorage.getItem(STORAGE_KEY_V3)) return null
+    const raw = localStorage.getItem(LEGACY_STORAGE_KEY_V2)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { state?: Partial<RegistryStoreState> }
+    return parsed?.state ?? null
+  } catch {
+    return null
+  }
+}
+
 type RegistryStoreState = {
   records: InstalledPackageRecord[]
   dismissedOfficialIds: string[]
@@ -53,10 +85,18 @@ type RegistryStoreState = {
       source?: InstalledPackageSource
       catalogPool?: SyntaxPackageManifest[]
       skipSignInCheck?: boolean
+      archive?: UnpackedSytx
     },
   ) => InstallResult
-  setPackageEnabled: (id: string, enabled: boolean) => void
-  uninstallPackage: (id: string) => { ok: true } | { ok: false; error: string }
+  setPackageEnabled: (
+    id: string,
+    enabled: boolean,
+    options?: { cascade?: boolean; catalogPool?: SyntaxPackageManifest[] },
+  ) => EnableResult
+  uninstallPackage: (
+    id: string,
+    options?: { cascadeDisable?: boolean },
+  ) => { ok: true } | { ok: false; error: string }
   resetOfficialDefaults: () => void
 }
 
@@ -67,11 +107,14 @@ export const useRegistryStore = create<RegistryStoreState>()(
       dismissedOfficialIds: [],
 
       installPackage: (rawManifest, options) => {
-        if (!options?.skipSignInCheck && !getSyntaxAccount()) {
+        const source = options?.source ?? 'community'
+        // Local .sytx files can always be sideloaded/tested without Clerk login friction
+        const requiresSignIn = source !== 'local-file' && !options?.skipSignInCheck
+        if (requiresSignIn && !getSyntaxAccount()) {
           return {
             ok: false,
             needsSignIn: true,
-            error: 'Sign in to your Syntax account to install courses and plugins.',
+            error: 'Sign in to your Syntax account to install courses and plugins from the Hub.',
           }
         }
 
@@ -81,121 +124,56 @@ export const useRegistryStore = create<RegistryStoreState>()(
         }
 
         const isOfficial = OFFICIAL_ID_SET.has(check.manifest.id)
+        if (source === 'local-file' && isOfficial) {
+          return {
+            ok: false,
+            error: `Cannot sideload "${check.manifest.id}" because that ID is reserved for an official Syntax package.`,
+          }
+        }
+
         const manifest = isOfficial
           ? OFFICIAL_BY_ID.get(check.manifest.id)!
           : normalizeExternalManifest(check.manifest, OFFICIAL_ID_SET)
 
         const currentRecords = get().records
-        const pool = new Map<string, SyntaxPackageManifest>()
-        for (const item of OFFICIAL_CATALOG) pool.set(item.id, item)
+        const pool: SyntaxPackageManifest[] = [...OFFICIAL_CATALOG]
         for (const item of options?.catalogPool ?? []) {
-          pool.set(
-            item.id,
+          pool.push(
             OFFICIAL_ID_SET.has(item.id)
               ? OFFICIAL_BY_ID.get(item.id)!
               : normalizeExternalManifest(item, OFFICIAL_ID_SET),
           )
         }
-        pool.set(manifest.id, manifest)
 
-        // Transitive BFS dependency resolution with strict minVersion tracking & cycle guard
-        const toInstall = new Map<string, SyntaxPackageManifest>()
-        const missingById = new Map<string, PackageDependency>()
-        const requiredMinVersionById = new Map<string, string>()
-        const expandedIds = new Set<string>([manifest.id])
-        const queue: PackageDependency[] = [...(manifest.requires ?? [])]
-
-        while (queue.length > 0) {
-          const dep = queue.shift()!
-          if (dep.id === manifest.id) continue
-
-          const prevMin = requiredMinVersionById.get(dep.id)
-          if (prevMin && compareSemver(dep.minVersion, prevMin) <= 0) {
-            continue
-          }
-          requiredMinVersionById.set(dep.id, dep.minVersion)
-
-          const existing = currentRecords.find(r => r.manifest.id === dep.id)
-          const poolCandidate = pool.get(dep.id)
-
-          const validPool =
-            poolCandidate &&
-            poolCandidate.kind === dep.kind &&
-            compareSemver(poolCandidate.version, dep.minVersion) >= 0
-              ? poolCandidate
-              : null
-          const validExisting =
-            existing &&
-            existing.manifest.kind === dep.kind &&
-            compareSemver(existing.manifest.version, dep.minVersion) >= 0
-              ? existing.manifest
-              : null
-
-          // Never downgrade a newer already-installed version
-          let bestAvailable: SyntaxPackageManifest | null = null
-          if (validPool && validExisting) {
-            bestAvailable =
-              compareSemver(validPool.version, validExisting.version) > 0
-                ? validPool
-                : validExisting
-          } else {
-            bestAvailable = validPool ?? validExisting
-          }
-
-          if (!bestAvailable) {
-            missingById.set(dep.id, dep)
-            toInstall.delete(dep.id)
-            continue
-          }
-
-          missingById.delete(dep.id)
-
-          const needsInstallOrEnable =
-            !existing ||
-            !existing.enabled ||
-            compareSemver(bestAvailable.version, existing.manifest.version) > 0
-
-          if (needsInstallOrEnable) {
-            toInstall.set(bestAvailable.id, bestAvailable)
-          }
-
-          if (!expandedIds.has(bestAvailable.id)) {
-            expandedIds.add(bestAvailable.id)
-            for (const nested of bestAvailable.requires ?? []) {
-              queue.push(nested)
-            }
-          }
-        }
-
-        const missingDeps = [...missingById.values()]
-        if (missingDeps.length > 0) {
-          syntaxLog.warn('registry', `Missing required dependencies for ${manifest.id}`, {
-            missing: missingDeps.map(d => `${d.id}@>=${d.minVersion}`),
+        const report = evaluateCompatibility(manifest, currentRecords, pool)
+        if (report.verdict === 'incompatible') {
+          const firstErr =
+            report.issues.find(i => i.severity === 'error')?.message ??
+            'This package is incompatible with your current Syntax setup.'
+          syntaxLog.warn('registry', `Blocked incompatible install for ${manifest.id}`, {
+            issues: report.issues.map(i => `${i.code}:${i.targetId}`),
           })
-          return {
-            ok: false,
-            error: `Missing required embedded plugin: ${missingDeps.map(d => `${d.name} (v${d.minVersion}+)`).join(', ')}.`,
-            missingDependencies: missingDeps,
-          }
+          return { ok: false, error: firstErr, report }
         }
 
         const now = new Date().toISOString()
         const next = [...currentRecords]
         const installedIds: string[] = []
+        const enabledIds: string[] = []
 
         const upsert = (
           item: SyntaxPackageManifest,
-          source: InstalledPackageSource,
+          itemSource: InstalledPackageSource,
           overrideSource = false,
         ) => {
           const idx = next.findIndex(r => r.manifest.id === item.id)
           const itemOfficial = OFFICIAL_ID_SET.has(item.id)
-          const prevSource = idx >= 0 ? next[idx].source : source
+          const prevSource = idx >= 0 ? next[idx]!.source : itemSource
           const rec: InstalledPackageRecord = {
             manifest: itemOfficial ? OFFICIAL_BY_ID.get(item.id)! : item,
             enabled: true,
-            installedAt: idx >= 0 ? next[idx].installedAt : now,
-            source: itemOfficial ? 'official' : overrideSource ? source : prevSource,
+            installedAt: idx >= 0 ? next[idx]!.installedAt : now,
+            source: itemOfficial ? 'official' : overrideSource ? itemSource : prevSource,
           }
           if (idx >= 0) next[idx] = rec
           else next.push(rec)
@@ -203,54 +181,132 @@ export const useRegistryStore = create<RegistryStoreState>()(
           return rec
         }
 
-        for (const depManifest of toInstall.values()) {
+        // 1. Install/upgrade required dependencies in topological order
+        for (const depManifest of report.installPlan) {
           upsert(depManifest, OFFICIAL_ID_SET.has(depManifest.id) ? 'official' : 'community')
         }
 
-        const mainSource = isOfficial ? 'official' : (options?.source ?? 'community')
+        // 2. Re-enable disabled dependencies
+        for (const depManifest of report.enablePlan) {
+          const idx = next.findIndex(r => r.manifest.id === depManifest.id)
+          if (idx >= 0 && !next[idx]!.enabled) {
+            next[idx] = { ...next[idx]!, enabled: true }
+            enabledIds.push(depManifest.id)
+          }
+        }
+
+        // 3. Upsert target package
+        const mainSource = isOfficial ? 'official' : source
         const mainRecord = upsert(manifest, mainSource, Boolean(options?.source))
-        const installedSet = new Set(installedIds)
+        const touchedSet = new Set([...installedIds, ...enabledIds])
 
         set({
           records: next,
-          dismissedOfficialIds: get().dismissedOfficialIds.filter(id => !installedSet.has(id)),
-        })
-        syntaxLog.info('registry', `Installed ${manifest.name} (${manifest.extension})`, {
-          id: manifest.id,
-          version: manifest.version,
-          touchesCore: manifest.touchesCore,
-          autoInstalledDeps: installedIds.filter(id => id !== manifest.id),
+          dismissedOfficialIds: get().dismissedOfficialIds.filter(id => !touchedSet.has(id)),
         })
 
-        return { ok: true, installedIds, record: mainRecord }
+        // Store raw .sytx archive bytes in IndexedDB vault (non-blocking)
+        if (options?.archive) {
+          void putVaultArchive(options.archive)
+        }
+        usePluginRuntimeStore.getState().clearPluginHealth(manifest.id)
+
+        syntaxLog.info('registry', `Installed ${manifest.name} (v${manifest.version})`, {
+          id: manifest.id,
+          source: mainSource,
+          autoInstalledDeps: installedIds.filter(id => id !== manifest.id),
+          autoEnabledDeps: enabledIds,
+          warnings: report.issues.filter(i => i.severity === 'warning').length,
+        })
+
+        return { ok: true, installedIds, enabledIds, record: mainRecord, report }
       },
 
-      setPackageEnabled: (id, enabled) => {
+      setPackageEnabled: (id, enabled, options) => {
         const current = get().records
         const idx = current.findIndex(r => r.manifest.id === id)
-        if (idx < 0 || current[idx].enabled === enabled) return
-        const next = [...current]
-        next[idx] = { ...current[idx], enabled }
+        if (idx < 0) return { ok: false, error: 'Package is not installed.' }
+        const target = current[idx]!
+        if (target.enabled === enabled) return { ok: true }
+
+        if (enabled) {
+          // Verify enabling won't violate breaks or host/dep constraints
+          const others = current.filter(r => r.manifest.id !== id)
+          const report = evaluateCompatibility(
+            target.manifest,
+            others,
+            options?.catalogPool ?? OFFICIAL_CATALOG,
+          )
+          const hardBlocker = report.issues.find(
+            i =>
+              i.severity === 'error' &&
+              (i.code === 'host-incompatible' ||
+                i.code === 'breaks-installed' ||
+                i.code === 'broken-by-installed' ||
+                i.code === 'cycle'),
+          )
+          if (hardBlocker) {
+            return { ok: false, error: hardBlocker.message, report }
+          }
+
+          const next = [...current]
+          next[idx] = { ...target, enabled: true }
+          set({ records: next })
+          usePluginRuntimeStore.getState().clearPluginHealth(id)
+          syntaxLog.info('registry', `Enabled ${target.manifest.name}`, {
+            id,
+            kind: target.manifest.kind,
+          })
+          return { ok: true }
+        }
+
+        // Disabling: compute transitive impact and close active tool drawer if open
+        const impact = evaluateRemovalImpact(id, current, 'disable')
+        const toDisable = new Set<string>([id])
+        if (options?.cascade) {
+          for (const depId of impact.cascadeDisableIds) toDisable.add(depId)
+        }
+
+        const next = current.map(r => (toDisable.has(r.manifest.id) ? { ...r, enabled: false } : r))
         set({ records: next })
-        syntaxLog.info(
-          'registry',
-          `${enabled ? 'Enabled' : 'Disabled'} ${current[idx].manifest.name}`,
-          { id, kind: current[idx].manifest.kind },
-        )
+        for (const offId of toDisable) {
+          usePluginRuntimeStore.getState().closeTool(offId)
+        }
+
+        syntaxLog.info('registry', `Disabled ${target.manifest.name}`, {
+          id,
+          kind: target.manifest.kind,
+          cascaded: options?.cascade ? impact.cascadeDisableIds : [],
+        })
+        return { ok: true, impact }
       },
 
-      uninstallPackage: id => {
+      uninstallPackage: (id, options) => {
         const current = get().records
         const target = current.find(r => r.manifest.id === id)
         if (!target) return { ok: false, error: 'Package is not installed.' }
+
+        const impact = evaluateRemovalImpact(id, current, 'uninstall')
+        const cascadeSet = new Set<string>(options?.cascadeDisable ? impact.cascadeDisableIds : [])
+
         const dismissed = new Set(get().dismissedOfficialIds)
         if (OFFICIAL_ID_SET.has(id)) {
           dismissed.add(id)
         }
+
         set({
-          records: current.filter(r => r.manifest.id !== id),
+          records: current
+            .filter(r => r.manifest.id !== id)
+            .map(r => (cascadeSet.has(r.manifest.id) ? { ...r, enabled: false } : r)),
           dismissedOfficialIds: [...dismissed],
         })
+
+        // Full cleanup: close tool drawer, clear runtime health, wipe scoped storage & IDB archive
+        usePluginRuntimeStore.getState().closeTool(id)
+        usePluginRuntimeStore.getState().clearPluginHealth(id)
+        clearPluginStorage(id)
+        void deleteVaultArchive(id)
+
         syntaxLog.info('registry', `Uninstalled ${target.manifest.name}`, {
           id,
           kind: target.manifest.kind,
@@ -267,9 +323,16 @@ export const useRegistryStore = create<RegistryStoreState>()(
       },
     }),
     {
-      name: 'syntax-registry-v2',
+      name: STORAGE_KEY_V3,
+      partialize: state => ({
+        records: state.records.map(r => ({
+          ...r,
+          manifest: stripManifestForStorage(r.manifest),
+        })),
+        dismissedOfficialIds: state.dismissedOfficialIds,
+      }),
       merge: (persisted, current) => {
-        const saved = persisted as Partial<RegistryStoreState> | undefined
+        const saved = (persisted as Partial<RegistryStoreState> | undefined) ?? readLegacyV2State()
         if (!saved || !Array.isArray(saved.records)) return current
         const dismissed = new Set<string>(
           Array.isArray(saved.dismissedOfficialIds)
@@ -334,89 +397,35 @@ export function usePluginActive(id: string): boolean {
   })
 }
 
-export function computeCourseDependencyStatus(
-  records: InstalledPackageRecord[],
+export function useLoadOrder(): string[] {
+  const records = useRegistryStore(s => s.records)
+  return useMemo(() => {
+    const active = records.filter(r => r.enabled).map(r => r.manifest)
+    return computeLoadOrder(active).order
+  }, [records])
+}
+
+export function useCourseCompatibility(
   courseId: string,
-): CourseDependencyStatus {
-  const courseRecord = records.find(r => r.manifest.id === courseId)
-  const manifest = courseRecord?.manifest ?? OFFICIAL_BY_ID.get(courseId)
-  if (!manifest || !manifest.requires || manifest.requires.length === 0) {
-    return { ok: true, missing: [], disabled: [] }
-  }
-
-  const missingById = new Map<string, PackageDependency>()
-  const disabledById = new Map<string, SyntaxPackageManifest>()
-  const requiredMinVersionById = new Map<string, string>()
-  const expandedIds = new Set<string>([manifest.id])
-  const queue: PackageDependency[] = [...manifest.requires]
-
-  while (queue.length > 0) {
-    const dep = queue.shift()!
-    if (dep.id === manifest.id) continue
-    const prevMin = requiredMinVersionById.get(dep.id)
-    if (prevMin && compareSemver(dep.minVersion, prevMin) <= 0) {
-      continue
-    }
-    requiredMinVersionById.set(dep.id, dep.minVersion)
-
-    const installed = records.find(r => r.manifest.id === dep.id)
-    if (
-      !installed ||
-      installed.manifest.kind !== dep.kind ||
-      compareSemver(installed.manifest.version, dep.minVersion) < 0
-    ) {
-      missingById.set(dep.id, dep)
-      disabledById.delete(dep.id)
-      continue
-    }
-
-    missingById.delete(dep.id)
-    if (!installed.enabled) {
-      disabledById.set(dep.id, installed.manifest)
-    }
-
-    if (!expandedIds.has(installed.manifest.id)) {
-      expandedIds.add(installed.manifest.id)
-      for (const nested of installed.manifest.requires ?? []) {
-        queue.push(nested)
-      }
-    }
-  }
-
-  const missing = [...missingById.values()]
-  const disabled = [...disabledById.values()]
-
-  return {
-    ok: missing.length === 0 && disabled.length === 0,
-    missing,
-    disabled,
-  }
-}
-
-export function useCourseDependencyStatus(courseId: string): CourseDependencyStatus {
+  catalogPool: readonly SyntaxPackageManifest[] = [],
+): CompatibilityReport | null {
   const records = useRegistryStore(s => s.records)
-  return useMemo(() => computeCourseDependencyStatus(records, courseId), [records, courseId])
+  return useMemo(() => {
+    const courseRecord = records.find(r => r.manifest.id === courseId)
+    const manifest = courseRecord?.manifest ?? OFFICIAL_BY_ID.get(courseId)
+    if (!manifest) return null
+    return evaluateCompatibility(manifest, records, [...OFFICIAL_CATALOG, ...catalogPool])
+  }, [records, courseId, catalogPool])
 }
 
-export function getCourseDependencyStatus(courseId: string): CourseDependencyStatus {
-  return computeCourseDependencyStatus(useRegistryStore.getState().records, courseId)
-}
-
-export function useDependentsOf(id: string): InstalledPackageRecord[] {
+export function useRemovalImpact(id: string, action: 'disable' | 'uninstall'): RemovalImpact {
   const records = useRegistryStore(s => s.records)
-  return useMemo(
-    () =>
-      records.filter(
-        r => r.manifest.id !== id && (r.manifest.requires ?? []).some(dep => dep.id === id),
-      ),
-    [records, id],
-  )
+  return useMemo(() => evaluateRemovalImpact(id, records, action), [id, records, action])
 }
 
 export function getDependentsOf(id: string): InstalledPackageRecord[] {
-  return useRegistryStore
-    .getState()
-    .records.filter(
-      r => r.manifest.id !== id && (r.manifest.requires ?? []).some(dep => dep.id === id),
-    )
+  const records = useRegistryStore.getState().records
+  const impact = evaluateRemovalImpact(id, records, 'disable')
+  const affectedSet = new Set(impact.affected.map(a => a.id))
+  return records.filter(r => affectedSet.has(r.manifest.id))
 }

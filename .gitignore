@@ -1,11 +1,13 @@
 node_modules/
 dist/
+dist-plugins/
 .vite/
 .research/
 .references/
 classroom-materials/
 CODDY/
-docs/
+docs/*
+!docs/PLUGINS.md
 test-results/
 playwright-report/
 *.local

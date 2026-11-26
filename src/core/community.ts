@@ -2,6 +2,7 @@ import { OFFICIAL_BY_ID, OFFICIAL_CATALOG, RETIRED_OFFICIAL_IDS } from '../packa
 import { syntaxLog } from './logger'
 import {
   normalizeExternalManifest,
+  stripManifestForStorage,
   validatePackageManifest,
   type SyntaxPackageManifest,
 } from './packages'
@@ -10,7 +11,7 @@ export const COMMUNITY_HUB_WEB_URL = 'https://i-am-drunk.github.io/syntax-commun
 export const COMMUNITY_CATALOG_URL =
   'https://i-am-drunk.github.io/syntax-community/catalog/catalog.json'
 
-const CACHE_KEY = 'syntax-community-catalog-cache-v2'
+const CACHE_KEY = 'syntax-community-catalog-cache-v3'
 const OFFICIAL_ID_SET = new Set(OFFICIAL_BY_ID.keys())
 
 export type CommunityCatalogState = {
@@ -67,7 +68,10 @@ function readCachedCatalog(): StoredCatalogCache | null {
 
 function writeCachedCatalog(communityOnly: SyntaxPackageManifest[], updatedAt: string) {
   try {
-    const payload: StoredCatalogCache = { updatedAt, items: communityOnly }
+    const payload: StoredCatalogCache = {
+      updatedAt,
+      items: communityOnly.map(stripManifestForStorage),
+    }
     localStorage.setItem(CACHE_KEY, JSON.stringify(payload))
   } catch {
     // ignore quota errors
@@ -167,7 +171,7 @@ export function readInstallDeepLink(): string | null {
     }
     const hash = window.location.hash
     const hashMatch = hash.match(/^#\/?(?:install[=/]|\?install=)([a-z0-9-]+)$/i)
-    if (hashMatch) return hashMatch[1].toLowerCase()
+    if (hashMatch) return hashMatch[1]!.toLowerCase()
   } catch {
     // ignore
   }

@@ -21,6 +21,7 @@ import { WalkthroughContent, WalkthroughModal } from './walkthrough/WalkthroughP
 import { Sema, type SemaExpressionName, type SemaShapeName, type SemaState, type SemaTailName } from './mascot/Sema'
 import { recordWorkHistoryVersion } from './historyStore'
 import { usePluginActive } from '../core/registry'
+import { PluginToolbarButtons } from '../ui/PluginToolbarHost'
 
 const PenCanvasWorkspace = lazy(() => import('./pen/PenCanvasWorkspace'))
 
@@ -349,8 +350,8 @@ export function GeoLessonPlayer({
   const state = states[page.id] ?? emptyState
   const penPluginOn = usePluginActive('pen-studio')
   const walkthroughPluginOn = usePluginActive('walkthrough-player')
-  const checkmarkPluginOn = usePluginActive('checkmark-gate')
-  const historyPluginOn = usePluginActive('work-history')
+  const checkmarkPluginOn = false
+  const historyPluginOn = false
   const playbookPluginOn = usePluginActive('formula-playbook')
   const floatingWindowsPluginOn = usePluginActive('floating-windows')
   const penAllowed = penPluginOn && isPenEnabledForPage(page, isCheck)
@@ -1040,6 +1041,7 @@ export function GeoLessonPlayer({
         </nav>
 
         <div className="lesson-nav-actions">
+          <PluginToolbarButtons compact />
           <div className="lesson-sema-buddy">
             <Sema
               size={26}

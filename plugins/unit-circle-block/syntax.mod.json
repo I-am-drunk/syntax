@@ -1,0 +1,41 @@
+{
+  "$schema": "../../src/sdk/syntax.mod.schema.json",
+  "schemaVersion": 2,
+  "id": "unit-circle-block",
+  "kind": "embedded-plugin",
+  "name": "Unit Circle Block",
+  "tagline": "Interactive SVG unit-circle explorer block for custom trigonometry lessons.",
+  "description": "Demonstrates a gradable embedded lesson block using window.Syntax.props, live SVG coordinates, and window.Syntax.reportResult.",
+  "version": "1.0.0",
+  "author": {
+    "handle": "syntax",
+    "displayName": "Syntax Starters"
+  },
+  "icon": "icon.svg",
+  "accentColor": "#10b981",
+  "tags": ["Math", "Trigonometry", "Block", "Starter"],
+  "environment": "lesson",
+  "depends": {
+    "syntax": "^1.0.0",
+    "syntax-api": "^1.0.0"
+  },
+  "provides": ["engine:unit-circle"],
+  "permissions": ["ui:lesson-block"],
+  "contributes": {
+    "blocks": [
+      {
+        "type": "unit-circle",
+        "title": "Unit Circle Explorer",
+        "entry": "widget.html",
+        "minHeight": 290,
+        "gradable": true
+      }
+    ]
+  },
+  "aiUsage": {
+    "summary": "Embed an interactive unit circle where learners rotate an angle to hit a target degree value.",
+    "blocks": ["unit-circle"],
+    "example": "{ \"plugin\": \"unit-circle-block\", \"type\": \"unit-circle\", \"props\": { \"targetDeg\": 60 } }"
+  },
+  "touchesCore": false
+}

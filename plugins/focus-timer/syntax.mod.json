@@ -1,0 +1,36 @@
+{
+  "$schema": "../../src/sdk/syntax.mod.schema.json",
+  "schemaVersion": 2,
+  "id": "focus-timer",
+  "kind": "plugin",
+  "name": "Focus Timer",
+  "tagline": "Pomodoro study sprint timer docked in your Syntax toolbar.",
+  "description": "Adds a calm 25/5 focus sprint timer accessible from the header and inside fullscreen lessons, with local sprint count persistence via window.Syntax.storage.",
+  "version": "1.0.0",
+  "author": {
+    "handle": "syntax",
+    "displayName": "Syntax Starters"
+  },
+  "icon": "icon.svg",
+  "accentColor": "#f59e0b",
+  "tags": ["Focus", "Timer", "Toolbar", "Starter"],
+  "environment": "all",
+  "depends": {
+    "syntax": "^1.0.0",
+    "syntax-api": "^1.0.0"
+  },
+  "permissions": ["storage", "ui:toolbar"],
+  "contributes": {
+    "toolbar": [
+      {
+        "id": "focus-sprint",
+        "label": "Focus",
+        "tooltip": "Open Focus Timer",
+        "entry": "widget.html",
+        "defaultWidth": 340,
+        "defaultHeight": 230
+      }
+    ]
+  },
+  "touchesCore": false
+}

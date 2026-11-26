@@ -1,10 +1,10 @@
-import { Suspense, lazy } from 'react'
+import { Suspense, lazy, useState } from 'react'
 import { toast } from 'sonner'
 import { useAccount } from '../core/account'
 import { SyntaxErrorBoundary } from '../core/ErrorBoundary'
 import type { SyntaxPackageManifest } from '../core/packages'
 import {
-  useCourseDependencyStatus,
+  useCourseCompatibility,
   useInstalledPackages,
   useRegistryStore,
 } from '../core/registry'
@@ -47,7 +47,8 @@ export function CourseStageHost({
   const records = useInstalledPackages()
   const installPackage = useRegistryStore(s => s.installPackage)
   const setPackageEnabled = useRegistryStore(s => s.setPackageEnabled)
-  const depStatus = useCourseDependencyStatus(courseId)
+  const compatReport = useCourseCompatibility(courseId, catalogPackages)
+  const [ignoredWarningFor, setIgnoredWarningFor] = useState<string | null>(null)
 
   const courseRecord = records.find(r => r.manifest.id === courseId)
   const catalogCandidate = catalogPackages.find(p => p.id === courseId && p.kind === 'course') ?? null
@@ -57,13 +58,13 @@ export function CourseStageHost({
       <main className="sx-dep-gate">
         <h2>{catalogCandidate ? `${catalogCandidate.name} is not installed` : 'Course not installed'}</h2>
         <p className="sx-modal-copy">
-          {catalogCandidate
-            ? catalogCandidate.tagline
-            : (
-              <>
-                Could not find <code>{courseId}</code> in your Library.
-              </>
-            )}
+          {catalogCandidate ? (
+            catalogCandidate.tagline
+          ) : (
+            <>
+              Could not find <code>{courseId}</code> in your Library.
+            </>
+          )}
         </p>
         <div className="sx-modal-actions">
           <button type="button" className="sx-btn-secondary" onClick={onBackToLibrary}>
@@ -118,7 +119,11 @@ export function CourseStageHost({
             type="button"
             className="sx-btn-primary"
             onClick={() => {
-              setPackageEnabled(courseManifest.id, true)
+              const res = setPackageEnabled(courseManifest.id, true)
+              if (!res.ok) {
+                toast.error(res.error)
+                return
+              }
               toast.success(`Enabled ${courseManifest.name}`)
             }}
           >
@@ -129,18 +134,29 @@ export function CourseStageHost({
     )
   }
 
-  if (!depStatus.ok) {
+  const shouldGate =
+    compatReport &&
+    (compatReport.verdict === 'incompatible' ||
+      compatReport.verdict === 'needs-deps' ||
+      (compatReport.verdict === 'warning' && ignoredWarningFor !== courseManifest.id))
+
+  if (shouldGate && compatReport) {
     return (
       <DependencyGate
         course={courseManifest}
-        status={depStatus}
+        report={compatReport}
         signedIn={Boolean(account)}
         onBack={onBackToLibrary}
+        onOpenAnyway={
+          compatReport.verdict === 'warning'
+            ? () => setIgnoredWarningFor(courseManifest.id)
+            : undefined
+        }
         onEnableAll={() => {
-          for (const d of depStatus.disabled) {
+          for (const d of compatReport.enablePlan) {
             setPackageEnabled(d.id, true)
           }
-          toast.success(`Enabled required plugins for ${courseManifest.name}`)
+          toast.success(`Enabled required engines for ${courseManifest.name}`)
         }}
         onInstallMissing={() => {
           if (!account) {
@@ -159,7 +175,7 @@ export function CourseStageHost({
             toast.error(res.error)
             return
           }
-          toast.success(`Installed required embedded plugins for ${courseManifest.name}`)
+          toast.success(`Installed required engines for ${courseManifest.name}`)
         }}
       />
     )

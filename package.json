@@ -11,7 +11,12 @@
     "package:walkthroughs": "python manim-pipeline/package.py",
     "verify:walkthroughs": "python3 manim-pipeline/render.py --verify-only",
     "render:walkthroughs": "python3 manim-pipeline/render.py",
-    "verify:graphs": "node scripts/verify-graphs.mjs"
+    "verify:graphs": "node scripts/verify-graphs.mjs",
+    "plugin:new": "node scripts/syntax-plugin.mjs new",
+    "plugin:check": "node scripts/syntax-plugin.mjs check",
+    "plugin:pack": "node scripts/syntax-plugin.mjs pack",
+    "plugin:inspect": "node scripts/syntax-plugin.mjs inspect",
+    "plugins:verify": "node scripts/syntax-plugin.mjs verify-all"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",
@@ -24,6 +29,7 @@
     "eruda-monitor": "^1.1.2",
     "eruda-touches": "^2.1.0",
     "fabric": "6.6.1",
+    "fflate": "^0.8.3",
     "framer-motion": "12.43.0",
     "howler": "2.2.4",
     "html2canvas": "1.4.1",
@@ -41,9 +47,9 @@
     "zustand": "^5.1.0"
   },
   "devDependencies": {
-    "@types/howler": "2.2.12",
-    "@types/react": "18.3.24",
-    "@types/react-dom": "18.3.7",
+    "@types/howler": "^2.2.12",
+    "@types/react": "^18.3.24",
+    "@types/react-dom": "^18.3.7",
     "@types/winbox": "^0.2.6",
     "@vitejs/plugin-react": "5.0.3",
     "typescript": "5.9.2",
