@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import { MotionConfig } from 'framer-motion'
 import './styles.css'
 import './courses/courses.css'
 import './ui/syntaxPlatform.css'
@@ -14,13 +15,20 @@ initGlobalErrorCapture()
 function SyntaxRoot() {
   const [localAuthOpen, setLocalAuthOpen] = useState(false)
 
+  function handleCloseLocalAuth() {
+    setLocalAuthOpen(false)
+    window.dispatchEvent(new CustomEvent('syntax:auth-modal-closed'))
+  }
+
   return (
-    <SyntaxErrorBoundary scope="app">
-      <SyntaxAuthProvider onOpenLocalSignIn={() => setLocalAuthOpen(true)}>
-        <AppShell />
-        <AccountModal open={localAuthOpen} onClose={() => setLocalAuthOpen(false)} />
-      </SyntaxAuthProvider>
-    </SyntaxErrorBoundary>
+    <MotionConfig reducedMotion="user">
+      <SyntaxErrorBoundary scope="app">
+        <SyntaxAuthProvider onOpenLocalSignIn={() => setLocalAuthOpen(true)}>
+          <AppShell />
+          <AccountModal open={localAuthOpen} onClose={handleCloseLocalAuth} />
+        </SyntaxAuthProvider>
+      </SyntaxErrorBoundary>
+    </MotionConfig>
   )
 }
 

@@ -59,9 +59,12 @@
   .lesson-check-progress { gap: 8px; }
   .lesson-check-progress i { width: 12px; }
   .lesson-surface { margin: 0 12px 12px; border-radius: 16px; }
-  .lesson-page { padding: 20px 30px 100px; }
+  .lesson-page { padding: 16px 18px 116px; }
   .lesson-footer-buttons { max-width: none; }
-  .lesson-footer[data-feedback] { animation: lesson-feedback-mobile 300ms cubic-bezier(0,0,.58,1) both; }
+  .lesson-footer[data-feedback] { bottom: 0; padding: 14px 16px calc(16px + env(safe-area-inset-bottom, 0px)); background: #fff; border-top: 1px solid rgba(0,0,0,.08); animation: lesson-feedback-mobile 300ms cubic-bezier(0,0,.58,1) both; }
+  .lesson-footer[data-feedback][data-evaluation="correct"] { background: #ebfaef; border-top-color: #b7ecc6; }
+  .lesson-footer[data-feedback][data-evaluation="incorrect"] { background: #f2f2f2; border-top-color: #dedede; }
+  .lesson-footer[data-feedback][data-evaluation="incorrect-retry"] { background: #fff8dc; border-top-color: #f4df8d; }
   @keyframes lesson-feedback-mobile { from { transform: translateY(100%); } to { transform: translateY(0); } }
 }
 .lesson-check-progress i[data-current='true'] { background: #ccc; outline: 2px solid #f2f2f2; outline-offset: 3px; }
@@ -98,9 +101,10 @@
 @media (max-width: 768px) { .lesson-surface-inner { display: contents; } }
 @media (max-width: 768px) {
   :root[data-theme='dark'] .lesson-surface { border-color: transparent; }
-  :root[data-theme='dark'] .lesson-footer[data-feedback][data-evaluation='correct'] { background: #00370f; }
-  :root[data-theme='dark'] .lesson-footer[data-feedback][data-evaluation='incorrect'] { background: #383838; }
-  :root[data-theme='dark'] .lesson-footer[data-feedback][data-evaluation='incorrect-retry'] { background: #403000; }
+  :root[data-theme='dark'] .lesson-footer[data-feedback] { background: #1c1c1c; border-top-color: rgba(255,255,255,.12); }
+  :root[data-theme='dark'] .lesson-footer[data-feedback][data-evaluation='correct'] { background: #00370f; border-top-color: #0b5d22; }
+  :root[data-theme='dark'] .lesson-footer[data-feedback][data-evaluation='incorrect'] { background: #262626; border-top-color: #3a3a3a; }
+  :root[data-theme='dark'] .lesson-footer[data-feedback][data-evaluation='incorrect-retry'] { background: #3b2d00; border-top-color: #5c4600; }
 }
 @media (min-width: 769px) {
   .lesson-surface { overflow: visible; border-color: rgba(0,0,0,.1); transition: border-color 300ms ease; }

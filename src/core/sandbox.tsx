@@ -31,7 +31,8 @@ export function PluginSandboxFrame({
   onDisablePlugin,
 }: PluginSandboxFrameProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null)
-  const initialThemeRef = useRef(theme)
+  const latestThemeRef = useRef(theme)
+  latestThemeRef.current = theme
   const [height, setHeight] = useState(minHeight)
   const [reloadNonce, setReloadNonce] = useState(0)
   const [runtimeError, setRuntimeError] = useState<string | null>(null)
@@ -60,8 +61,14 @@ export function PluginSandboxFrame({
       if (!data || data.pluginId !== pluginId) return
 
       if (data.type === 'syntax:sandbox-ready') {
+        const currentTheme = latestThemeRef.current
         iframeRef.current?.contentWindow?.postMessage(
-          { type: 'syntax:theme', pluginId, theme, tokens: getThemeTokens(theme) },
+          {
+            type: 'syntax:theme',
+            pluginId,
+            theme: currentTheme,
+            tokens: getThemeTokens(currentTheme),
+          },
           '*',
         )
       } else if (
@@ -79,14 +86,15 @@ export function PluginSandboxFrame({
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
-  }, [pluginId, minHeight, theme])
+  }, [pluginId, minHeight])
 
   const srcDoc = useMemo(() => {
-    const t = getThemeTokens(initialThemeRef.current)
-    const safeId = JSON.stringify(pluginId)
+    const initialTheme = latestThemeRef.current
+    const t = getThemeTokens(initialTheme)
+    const safeId = JSON.stringify(pluginId).replace(/<\/script/gi, '<\\/script')
 
     return `<!doctype html>
-<html lang="en" data-theme="${initialThemeRef.current}">
+<html lang="en" data-theme="${initialTheme}">
 <head>
 <meta charset="utf-8" />
 <style>
@@ -107,25 +115,10 @@ export function PluginSandboxFrame({
     line-height: 1.5;
   }
 </style>
-</head>
-<body>
-<div id="sx-sandbox-root">${html}</div>
 <script>
   (function () {
     var pid = ${safeId};
-    var rootEl = document.getElementById('sx-sandbox-root');
     var lastHeight = 0;
-
-    function reportHeight() {
-      if (!rootEl) return;
-      var rectH = Math.ceil(rootEl.getBoundingClientRect().height);
-      var scrollH = Math.ceil(rootEl.scrollHeight);
-      var h = Math.max(rectH, scrollH) + 36;
-      if (h !== lastHeight) {
-        lastHeight = h;
-        parent.postMessage({ type: 'syntax:sandbox-resize', pluginId: pid, height: h }, '*');
-      }
-    }
 
     function reportError(msg) {
       parent.postMessage({
@@ -156,16 +149,35 @@ export function PluginSandboxFrame({
       r.setProperty('--sx-border', d.tokens.border);
     });
 
-    if (typeof ResizeObserver !== 'undefined' && rootEl) {
-      new ResizeObserver(reportHeight).observe(rootEl);
+    function reportHeight() {
+      var rootEl = document.getElementById('sx-sandbox-root');
+      if (!rootEl) return;
+      var rectH = Math.ceil(rootEl.getBoundingClientRect().height);
+      var scrollH = Math.ceil(rootEl.scrollHeight);
+      var h = Math.max(rectH, scrollH) + 36;
+      if (h !== lastHeight) {
+        lastHeight = h;
+        parent.postMessage({ type: 'syntax:sandbox-resize', pluginId: pid, height: h }, '*');
+      }
     }
+
+    window.addEventListener('DOMContentLoaded', function () {
+      var rootEl = document.getElementById('sx-sandbox-root');
+      if (typeof ResizeObserver !== 'undefined' && rootEl) {
+        new ResizeObserver(reportHeight).observe(rootEl);
+      }
+      reportHeight();
+    });
+
     window.addEventListener('load', function () {
       parent.postMessage({ type: 'syntax:sandbox-ready', pluginId: pid }, '*');
       reportHeight();
     });
-    setTimeout(reportHeight, 60);
   })();
 </script>
+</head>
+<body>
+<div id="sx-sandbox-root">${html}</div>
 </body>
 </html>`
   }, [html, pluginId, reloadNonce])

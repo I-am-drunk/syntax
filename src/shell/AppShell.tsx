@@ -1,5 +1,5 @@
-import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
-import { Route, Switch, useLocation } from 'wouter'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
+import { Route, Router, Switch, useLocation } from 'wouter'
 import { useHashLocation } from 'wouter/use-hash-location'
 import { Toaster, toast } from 'sonner'
 import { useAccount } from '../core/account'
@@ -12,14 +12,20 @@ import {
   type CommunityCatalogState,
 } from '../core/community'
 import { SyntaxErrorBoundary } from '../core/ErrorBoundary'
-import { HostSlotsProvider } from '../core/hostSlots'
+import { HostSlotsProvider, useHostSlots } from '../core/hostSlots'
 import type { SyntaxPackageManifest } from '../core/packages'
 import { useRegistryStore } from '../core/registry'
 import { HomePage } from '../courses/HomePage'
 import { isDevEnvironment } from '../core/devEnv'
 import { loadPrefs, savePrefs, type SyntaxPrefs } from '../mpm2d/storage'
-import { readMpm2dProgressSummary, type Mpm2dProgressSummary } from '../packages/courseMeta'
+import {
+  readMpm2dProgressSummary,
+  readThinkingInCodeProgressSummary,
+  type Mpm2dProgressSummary,
+  type ThinkingInCodeProgressSummary,
+} from '../packages/courseMeta'
 import { playLessonSound, type LessonSound } from '../services/lessonSounds'
+import { CS_PROGRESS_EVENT } from '../services/progress'
 import { CourseStageHost } from '../stages/CourseStageHost'
 import { CommunityHubPage } from '../ui/CommunityHubPage'
 import { InstallModal } from '../ui/InstallModal'
@@ -37,6 +43,14 @@ const OnboardingModal = lazy(() =>
 
 const THEME_KEY = 'mpm2d-brilliant-theme-v1'
 const SOUND_KEY = 'mpm2d-brilliant-sound-v1'
+
+function safeDecode(segment: string): string {
+  try {
+    return decodeURIComponent(segment)
+  } catch {
+    return segment
+  }
+}
 
 function loadTheme(): 'light' | 'dark' {
   try {
@@ -63,94 +77,97 @@ export interface AppShellProps {
 }
 
 function parseRouteInfo(location: string): {
+  clean: string
   mode: ShellMode
   mainActiveTab: 'home' | 'library' | null
   workspaceActiveTab: WorkspaceTab | null
   courseId: string | null
   lessonId: string | null
   communityId: string | null
-  isLessonFullscreen: boolean
 } {
   const clean = location.split('?')[0] || '/'
   if (clean === '/settings') {
     return {
+      clean,
       mode: 'workspace',
       mainActiveTab: null,
       workspaceActiveTab: 'settings',
       courseId: null,
       lessonId: null,
       communityId: null,
-      isLessonFullscreen: false,
     }
   }
   if (clean === '/plugins') {
     return {
+      clean,
       mode: 'workspace',
       mainActiveTab: null,
       workspaceActiveTab: 'plugins',
       courseId: null,
       lessonId: null,
       communityId: null,
-      isLessonFullscreen: false,
     }
   }
   if (clean === '/community' || clean.startsWith('/community/')) {
-    const sub = clean.startsWith('/community/') ? decodeURIComponent(clean.slice('/community/'.length)) : null
+    const sub = clean.startsWith('/community/')
+      ? safeDecode(clean.slice('/community/'.length))
+      : null
     return {
+      clean,
       mode: 'workspace',
       mainActiveTab: null,
       workspaceActiveTab: 'community',
       courseId: null,
       lessonId: null,
       communityId: sub || null,
-      isLessonFullscreen: false,
     }
   }
   if (clean.startsWith('/course/')) {
     const rest = clean.slice('/course/'.length)
     const parts = rest.split('/').filter(Boolean)
-    const courseId = parts[0] ? decodeURIComponent(parts[0]) : null
-    const lessonId = parts[1] === 'lesson' && parts[2] ? decodeURIComponent(parts[2]) : null
+    const courseId = parts[0] ? safeDecode(parts[0]) : null
+    const lessonId = parts[1] === 'lesson' && parts[2] ? safeDecode(parts[2]) : null
     return {
+      clean,
       mode: 'course',
       mainActiveTab: 'library',
       workspaceActiveTab: null,
       courseId,
       lessonId,
       communityId: null,
-      isLessonFullscreen: Boolean(lessonId && (courseId === 'mpm2d-analytic-geometry' || courseId === 'thinking-in-code')),
     }
   }
-  if (clean === '/library') {
+  if (clean === '/' || clean === '') {
     return {
+      clean: '/',
       mode: 'main',
-      mainActiveTab: 'library',
+      mainActiveTab: 'home',
       workspaceActiveTab: null,
       courseId: null,
       lessonId: null,
       communityId: null,
-      isLessonFullscreen: false,
     }
   }
   if (clean === '/profile') {
     return {
+      clean,
       mode: 'main',
       mainActiveTab: null,
       workspaceActiveTab: null,
       courseId: null,
       lessonId: null,
       communityId: null,
-      isLessonFullscreen: false,
     }
   }
+  // /library and any unknown fallback route render LibraryPage
   return {
+    clean,
     mode: 'main',
-    mainActiveTab: 'home',
+    mainActiveTab: 'library',
     workspaceActiveTab: null,
     courseId: null,
     lessonId: null,
     communityId: null,
-    isLessonFullscreen: false,
   }
 }
 
@@ -159,12 +176,16 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
   const [location, setLocation] = useLocation()
   const account = useAccount()
   const auth = useAuthActions()
+  const { isFullscreenLesson } = useHostSlots()
   const installPackage = useRegistryStore(s => s.installPackage)
 
   const [theme, setTheme] = useState<'light' | 'dark'>(loadTheme)
   const [soundOn, setSoundOn] = useState<boolean>(loadSound)
   const [prefs, setPrefs] = useState<SyntaxPrefs>(loadPrefs)
   const [mpm2dSummary, setMpm2dSummary] = useState<Mpm2dProgressSummary>(readMpm2dProgressSummary)
+  const [csSummary, setCsSummary] = useState<ThinkingInCodeProgressSummary>(
+    readThinkingInCodeProgressSummary,
+  )
   const [catalog, setCatalog] = useState<CommunityCatalogState>(getInitialCommunityCatalog)
   const [catalogRefreshing, setCatalogRefreshing] = useState(false)
   const [localImportPkg, setLocalImportPkg] = useState<SyntaxPackageManifest | null>(null)
@@ -173,6 +194,8 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
     source: 'official' | 'community' | 'local-file'
   } | null>(null)
 
+  const catalogAbortRef = useRef<AbortController | null>(null)
+  const prevModeRef = useRef<ShellMode>('main')
   const routeInfo = parseRouteInfo(location)
 
   const emitSound = useCallback(
@@ -186,8 +209,28 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
     setPrefs(prev => ({ ...prev, ...patch, drawMode: false }))
   }, [])
 
-  const refreshMpm2dSummary = useCallback(() => {
+  const refreshProgressSummaries = useCallback(() => {
     setMpm2dSummary(readMpm2dProgressSummary())
+    setCsSummary(readThinkingInCodeProgressSummary())
+  }, [])
+
+  // Refresh progress summaries when leaving a course or when CS progress changes
+  useEffect(() => {
+    if (prevModeRef.current === 'course' && routeInfo.mode !== 'course') {
+      refreshProgressSummaries()
+    }
+    prevModeRef.current = routeInfo.mode
+  }, [routeInfo.mode, refreshProgressSummaries])
+
+  useEffect(() => {
+    const onCsProgress = () => setCsSummary(readThinkingInCodeProgressSummary())
+    const onAuthClosed = () => setPendingInstall(null)
+    window.addEventListener(CS_PROGRESS_EVENT, onCsProgress)
+    window.addEventListener('syntax:auth-modal-closed', onAuthClosed)
+    return () => {
+      window.removeEventListener(CS_PROGRESS_EVENT, onCsProgress)
+      window.removeEventListener('syntax:auth-modal-closed', onAuthClosed)
+    }
   }, [])
 
   // Persist prefs, theme, sound
@@ -215,17 +258,24 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
     }
   }, [soundOn])
 
-  // Fetch Community Hub catalog on startup (with AbortController cleanup)
+  // Fetch Community Hub catalog on startup (with AbortController race guard)
   const refreshCatalog = useCallback(() => {
+    catalogAbortRef.current?.abort()
     const ac = new AbortController()
+    catalogAbortRef.current = ac
     setCatalogRefreshing(true)
     void fetchCommunityCatalog(ac.signal).then(res => {
-      if (!ac.signal.aborted) {
+      if (!ac.signal.aborted && catalogAbortRef.current === ac) {
         if (res) setCatalog(res)
         setCatalogRefreshing(false)
       }
     })
-    return () => ac.abort()
+    return () => {
+      ac.abort()
+      if (catalogAbortRef.current === ac) {
+        catalogAbortRef.current = null
+      }
+    }
   }, [])
 
   useEffect(() => {
@@ -296,35 +346,45 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
                       ? 'Thinking in Code'
                       : (catalog.items.find(p => p.id === routeInfo.courseId)?.name ?? 'Course')
                 } · Syntax`
-              : location === '/library'
+              : routeInfo.clean === '/library'
                 ? 'Library · Syntax'
-                : location === '/profile'
+                : routeInfo.clean === '/profile'
                   ? 'Profile · Syntax'
-                  : 'Syntax'
+                  : routeInfo.clean === '/'
+                    ? 'Syntax'
+                    : 'Library · Syntax'
     document.title = isDev ? `${baseTitle} (Dev)` : baseTitle
-  }, [routeInfo, location, catalog.items, isDev])
+  }, [routeInfo, catalog.items, isDev])
 
   const navigate = useCallback(
     (path: string) => {
-      setLocation(path)
+      setPendingInstall(null)
+      if (path !== location) {
+        setLocation(path)
+      }
       window.scrollTo({ top: 0 })
     },
-    [setLocation],
+    [location, setLocation],
   )
 
   const handleRequireSignIn = useCallback(
-    (manifest: SyntaxPackageManifest, source: 'official' | 'community' | 'local-file' = 'community') => {
+    (
+      manifest: SyntaxPackageManifest,
+      source: 'official' | 'community' | 'local-file' = 'community',
+    ) => {
       setPendingInstall({ manifest, source })
       auth.openSignIn()
     },
     [auth],
   )
 
+  const totalCompletedLessons = mpm2dSummary.completedCount + csSummary.completedCount
+
   return (
     <>
       {!hideToaster && <Toaster position="bottom-center" theme={theme} />}
 
-      {!routeInfo.isLessonFullscreen && (
+      {!isFullscreenLesson && (
         <AppHeader
           mode={routeInfo.mode}
           mainActiveTab={routeInfo.mainActiveTab}
@@ -332,7 +392,9 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
           theme={theme}
           soundOn={soundOn}
           prefs={prefs}
-          hasMissedNotification={mpm2dSummary.missedCheckCount > 0}
+          hasMissedNotification={
+            routeInfo.courseId === 'mpm2d-analytic-geometry' && mpm2dSummary.missedCheckCount > 0
+          }
           onNavigate={navigate}
           onToggleTheme={() => setTheme(t => (t === 'dark' ? 'light' : 'dark'))}
           onToggleSound={() => setSoundOn(v => !v)}
@@ -345,15 +407,16 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
         <Route path="/">
           <SyntaxErrorBoundary scope="page:home" onExitScope={() => navigate('/library')}>
             <HomePage
-              completedLessonCount={mpm2dSummary.completedCount}
-              totalLessonsCount={mpm2dSummary.totalLessons}
-              nextMpm2dLessonId={mpm2dSummary.nextLessonId}
-              nextMpm2dLessonTitle={mpm2dSummary.nextLessonTitle}
-              followingMpm2dLessonTitle={mpm2dSummary.followingLessonTitle}
-              hasMpm2dResume={mpm2dSummary.hasResume}
+              mpm2dSummary={mpm2dSummary}
+              csSummary={csSummary}
+              totalCompletedLessons={totalCompletedLessons}
               onOpenMpm2dCourse={() => navigate('/course/mpm2d-analytic-geometry')}
               onOpenMpm2dLesson={lessonId =>
                 navigate(`/course/mpm2d-analytic-geometry/lesson/${encodeURIComponent(lessonId)}`)
+              }
+              onOpenCsCourse={() => navigate('/course/thinking-in-code')}
+              onOpenCsLesson={lessonId =>
+                navigate(`/course/thinking-in-code/lesson/${encodeURIComponent(lessonId)}`)
               }
               onOpenCustomCourse={id => navigate(`/course/${encodeURIComponent(id)}`)}
               onOpenLibrary={() => navigate('/library')}
@@ -366,6 +429,8 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
             <LibraryPage
               mpm2dPercent={mpm2dSummary.percent}
               mpm2dCompletedCount={mpm2dSummary.completedCount}
+              csPercent={csSummary.percent}
+              csCompletedCount={csSummary.completedCount}
               onOpenCourse={id => navigate(`/course/${encodeURIComponent(id)}`)}
               onOpenPlugins={() => navigate('/plugins')}
               onOpenCommunityHub={() => navigate('/community')}
@@ -378,9 +443,8 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
           <SyntaxErrorBoundary scope="page:profile" onExitScope={() => navigate('/library')}>
             <ProfilePage
               prefs={prefs}
-              completedLessonCount={mpm2dSummary.completedCount}
-              masteredCount={mpm2dSummary.masteredCount}
-              coursePct={mpm2dSummary.percent}
+              mpm2dSummary={mpm2dSummary}
+              csSummary={csSummary}
               onOpenCourse={id => navigate(`/course/${encodeURIComponent(id)}`)}
               onOpenLibrary={() => navigate('/library')}
               onOpenPlugins={() => navigate('/plugins')}
@@ -440,40 +504,63 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
                 navigate(id ? `/community/${encodeURIComponent(id)}` : '/community')
               }
               onOpenCourse={id => navigate(`/course/${encodeURIComponent(id)}`)}
-              onRequireSignIn={pkg => handleRequireSignIn(pkg, pkg.builtIn ? 'official' : 'community')}
+              onRequireSignIn={pkg =>
+                handleRequireSignIn(pkg, pkg.builtIn ? 'official' : 'community')
+              }
             />
           </SyntaxErrorBoundary>
         </Route>
 
         <Route path="/community/:id">
           {params => (
-            <SyntaxErrorBoundary scope="workspace:community-detail" onExitScope={() => navigate('/community')}>
+            <SyntaxErrorBoundary
+              scope="workspace:community-detail"
+              onExitScope={() => navigate('/community')}
+            >
               <CommunityHubPage
                 packages={catalog.items}
                 source={catalog.source}
                 warning={catalog.warning}
                 isRefreshing={catalogRefreshing}
-                selectedPackageId={decodeURIComponent(params.id)}
+                selectedPackageId={safeDecode(params.id)}
                 theme={theme}
                 onRefresh={refreshCatalog}
                 onSelectPackage={id =>
                   navigate(id ? `/community/${encodeURIComponent(id)}` : '/community')
                 }
                 onOpenCourse={id => navigate(`/course/${encodeURIComponent(id)}`)}
-                onRequireSignIn={pkg => handleRequireSignIn(pkg, pkg.builtIn ? 'official' : 'community')}
+                onRequireSignIn={pkg =>
+                  handleRequireSignIn(pkg, pkg.builtIn ? 'official' : 'community')
+                }
               />
             </SyntaxErrorBoundary>
           )}
         </Route>
 
-        <Route path="/course/:courseId/lesson/:lessonId">
-          {params => {
-            const cid = decodeURIComponent(params.courseId)
-            const lid = decodeURIComponent(params.lessonId)
+        {/* Single consolidated course route so CourseStageHost stays mounted across lesson open/close */}
+        <Route path="/course/:courseId/*?">
+          {() => {
+            const cid = routeInfo.courseId
+            if (!cid) {
+              return (
+                <SyntaxErrorBoundary scope="page:library" onExitScope={() => navigate('/')}>
+                  <LibraryPage
+                    mpm2dPercent={mpm2dSummary.percent}
+                    mpm2dCompletedCount={mpm2dSummary.completedCount}
+                    csPercent={csSummary.percent}
+                    csCompletedCount={csSummary.completedCount}
+                    onOpenCourse={id => navigate(`/course/${encodeURIComponent(id)}`)}
+                    onOpenPlugins={() => navigate('/plugins')}
+                    onOpenCommunityHub={() => navigate('/community')}
+                    onInspectCourse={pkg => navigate(`/community/${encodeURIComponent(pkg.id)}`)}
+                  />
+                </SyntaxErrorBoundary>
+              )
+            }
             return (
               <CourseStageHost
                 courseId={cid}
-                lessonId={lid}
+                lessonId={routeInfo.lessonId}
                 catalogPackages={catalog.items}
                 theme={theme}
                 soundOn={soundOn}
@@ -487,36 +574,7 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
                       : `/course/${encodeURIComponent(cid)}`,
                   )
                 }
-                onProgressChanged={refreshMpm2dSummary}
-                onRequireSignIn={pkg =>
-                  handleRequireSignIn(pkg, pkg.builtIn ? 'official' : 'community')
-                }
-              />
-            )
-          }}
-        </Route>
-
-        <Route path="/course/:courseId">
-          {params => {
-            const cid = decodeURIComponent(params.courseId)
-            return (
-              <CourseStageHost
-                courseId={cid}
-                lessonId={null}
-                catalogPackages={catalog.items}
-                theme={theme}
-                soundOn={soundOn}
-                prefs={prefs}
-                onPatchPrefs={patchPrefs}
-                onBackToLibrary={() => navigate('/library')}
-                onLessonRouteChange={nextLesson =>
-                  navigate(
-                    nextLesson
-                      ? `/course/${encodeURIComponent(cid)}/lesson/${encodeURIComponent(nextLesson)}`
-                      : `/course/${encodeURIComponent(cid)}`,
-                  )
-                }
-                onProgressChanged={refreshMpm2dSummary}
+                onProgressChanged={refreshProgressSummaries}
                 onRequireSignIn={pkg =>
                   handleRequireSignIn(pkg, pkg.builtIn ? 'official' : 'community')
                 }
@@ -527,14 +585,18 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
 
         {/* Fallback route */}
         <Route>
-          <LibraryPage
-            mpm2dPercent={mpm2dSummary.percent}
-            mpm2dCompletedCount={mpm2dSummary.completedCount}
-            onOpenCourse={id => navigate(`/course/${encodeURIComponent(id)}`)}
-            onOpenPlugins={() => navigate('/plugins')}
-            onOpenCommunityHub={() => navigate('/community')}
-            onInspectCourse={pkg => navigate(`/community/${encodeURIComponent(pkg.id)}`)}
-          />
+          <SyntaxErrorBoundary scope="page:library-fallback" onExitScope={() => navigate('/')}>
+            <LibraryPage
+              mpm2dPercent={mpm2dSummary.percent}
+              mpm2dCompletedCount={mpm2dSummary.completedCount}
+              csPercent={csSummary.percent}
+              csCompletedCount={csSummary.completedCount}
+              onOpenCourse={id => navigate(`/course/${encodeURIComponent(id)}`)}
+              onOpenPlugins={() => navigate('/plugins')}
+              onOpenCommunityHub={() => navigate('/community')}
+              onInspectCourse={pkg => navigate(`/community/${encodeURIComponent(pkg.id)}`)}
+            />
+          </SyntaxErrorBoundary>
         </Route>
       </Switch>
 
@@ -569,8 +631,6 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
     </>
   )
 }
-
-import { Router } from 'wouter'
 
 export function AppShell(props: AppShellProps) {
   return (

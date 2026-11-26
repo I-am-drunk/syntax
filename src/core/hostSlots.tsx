@@ -22,18 +22,23 @@ export interface CourseSlotContribution {
 
 interface HostSlotsContextValue {
   contribution: CourseSlotContribution
+  isFullscreenLesson: boolean
   setContribution: (next: CourseSlotContribution) => void
   clearContribution: () => void
+  setFullscreenLesson: (active: boolean) => void
 }
 
 const HostSlotsContext = createContext<HostSlotsContextValue>({
   contribution: {},
+  isFullscreenLesson: false,
   setContribution: () => {},
   clearContribution: () => {},
+  setFullscreenLesson: () => {},
 })
 
 export function HostSlotsProvider({ children }: { children: ReactNode }) {
   const [contribution, setContributionState] = useState<CourseSlotContribution>({})
+  const [isFullscreenLesson, setFullscreenLessonState] = useState(false)
 
   const setContribution = useCallback((next: CourseSlotContribution) => {
     setContributionState(next)
@@ -43,9 +48,19 @@ export function HostSlotsProvider({ children }: { children: ReactNode }) {
     setContributionState({})
   }, [])
 
+  const setFullscreenLesson = useCallback((active: boolean) => {
+    setFullscreenLessonState(prev => (prev === active ? prev : active))
+  }, [])
+
   const value = useMemo(
-    () => ({ contribution, setContribution, clearContribution }),
-    [contribution, setContribution, clearContribution],
+    () => ({
+      contribution,
+      isFullscreenLesson,
+      setContribution,
+      clearContribution,
+      setFullscreenLesson,
+    }),
+    [contribution, isFullscreenLesson, setContribution, clearContribution, setFullscreenLesson],
   )
 
   return <HostSlotsContext.Provider value={value}>{children}</HostSlotsContext.Provider>

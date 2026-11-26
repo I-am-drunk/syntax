@@ -356,9 +356,14 @@ export function CommunityHubPage({
                       <button
                         type="button"
                         className="sx-btn-primary"
-                        onClick={() => onOpenCourse(selectedPkg.id)}
+                        onClick={() => {
+                          if (!isEnabled) {
+                            setPackageEnabled(selectedPkg.id, true)
+                          }
+                          onOpenCourse(selectedPkg.id)
+                        }}
                       >
-                        Open course
+                        {isEnabled ? 'Open course' : 'Enable & open'}
                       </button>
                     )
                   ) : (
@@ -429,11 +434,17 @@ export function CommunityHubPage({
                       depRec &&
                       depRec.manifest.kind === dep.kind &&
                       compareSemver(depRec.manifest.version, dep.minVersion) >= 0
+                    const depAvailable =
+                      depPkg &&
+                      depPkg.kind === dep.kind &&
+                      compareSemver(depPkg.version, dep.minVersion) >= 0
                     const statusLabel = depOk
                       ? depRec.enabled
                         ? 'Installed on your account'
                         : 'Disabled'
-                      : 'Auto-installs'
+                      : depAvailable
+                        ? 'Auto-installs'
+                        : 'Missing from catalog'
                     return (
                       <div key={dep.id} className="sx-dep-item">
                         <button
@@ -621,7 +632,7 @@ export function CommunityHubPage({
                   onOpenCourse(pkg.id)
                 }}
               >
-                Open
+                {isEnabled ? 'Open' : 'Enable'}
               </button>
             ) : (
               <span className={`sx-hub-inline-state${isEnabled ? ' is-ok' : ''}`}>

@@ -323,7 +323,7 @@
 :root[data-theme='dark'] .br-medallion.is-ready {
   --med-face: #242424;
   --med-base: #121212;
-  --med-rim: #393f52;
+  --med-rim: #383838;
   --med-glyph: #b689ff;
   --med-sheen: rgba(255, 255, 255, 0.14);
 }
@@ -357,7 +357,7 @@
   --med-face: #1f1f1f;
   --med-base: #0d0d0d;
   --med-rim: #2f2f2f;
-  --med-glyph: #686e82;
+  --med-glyph: #787878;
   --med-sheen: rgba(255, 255, 255, 0.08);
 }
 
@@ -857,7 +857,7 @@
   min-height: calc(100vh - 64px);
   min-height: calc(100dvh - 64px);
   padding: 24px 20px 64px;
-  background: var(--bg, #f7f8fa);
+  background: var(--surface, #ffffff);
   color: var(--text, #141414);
 }
 
@@ -975,7 +975,7 @@
 
 :root[data-theme='dark'] .syntax-history-filter-arrow {
   background: #222222;
-  border-color: #32394a;
+  border-color: #323232;
   color: #f2f3f7;
 }
 
@@ -1877,7 +1877,7 @@
   max-width: calc(100vw - 40px);
   pointer-events: none;
   opacity: 0;
-  transform: translateX(18px) translateY(6px);
+  transform: translateY(8px) scale(0.97);
   transition:
     opacity 200ms cubic-bezier(0.22, 1, 0.36, 1),
     transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
@@ -1886,7 +1886,7 @@
 .outline-fitness-dock.is-open .outline-fitness-drawer {
   pointer-events: auto;
   opacity: 1;
-  transform: translateX(0) translateY(0);
+  transform: translateY(0) scale(1);
 }
 
 .outline-fitness-drawer-inner {
@@ -1952,7 +1952,11 @@
 .outline-fitness-row:focus-visible {
   opacity: 1;
   background: rgba(0, 0, 0, 0.045);
-  outline: none;
+}
+
+.outline-fitness-row:focus-visible {
+  outline: 2px solid var(--focus-ring, #4965ff);
+  outline-offset: -2px;
 }
 
 :root[data-theme='dark'] .outline-fitness-row.is-active,
@@ -2235,7 +2239,9 @@
     bottom: 0;
   }
   .outline-action-clip {
-    padding-bottom: 16px;
+    left: -10px;
+    right: -10px;
+    padding: 14px 10px 16px;
   }
   .outline-redo-pill span {
     display: none;

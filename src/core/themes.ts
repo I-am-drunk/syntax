@@ -40,7 +40,8 @@ const ALLOWED_TOKENS = new Set<SyntaxThemeToken>([
   '--geo-green',
 ])
 
-const SAFE_COLOR_RE = /^(#[0-9a-fA-F]{3,8}|rgba?\([^;{}<>]+\)|hsla?\([^;{}<>]+\))$/
+const SAFE_COLOR_RE =
+  /^(#[0-9a-fA-F]{3,8}|rgba?\([0-9.,%\s/]+\)|hsla?\([0-9.,%\s/a-zA-Z]+\))$/
 
 export function applySyntaxTheme(theme: SyntaxThemeManifest | null): void {
   if (typeof document === 'undefined') return
@@ -54,7 +55,11 @@ export function applySyntaxTheme(theme: SyntaxThemeManifest | null): void {
   }
   root.dataset.syntaxTheme = theme.id
   for (const [token, value] of Object.entries(theme.tokens)) {
-    if (ALLOWED_TOKENS.has(token as SyntaxThemeToken) && typeof value === 'string' && SAFE_COLOR_RE.test(value.trim())) {
+    if (
+      ALLOWED_TOKENS.has(token as SyntaxThemeToken) &&
+      typeof value === 'string' &&
+      SAFE_COLOR_RE.test(value.trim())
+    ) {
       root.style.setProperty(token, value.trim())
     }
   }

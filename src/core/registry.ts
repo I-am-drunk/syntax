@@ -46,6 +46,7 @@ function createDefaultRecords(): InstalledPackageRecord[] {
 
 type RegistryStoreState = {
   records: InstalledPackageRecord[]
+  dismissedOfficialIds: string[]
   installPackage: (
     manifest: SyntaxPackageManifest,
     options?: {
@@ -63,6 +64,7 @@ export const useRegistryStore = create<RegistryStoreState>()(
   persist(
     (set, get) => ({
       records: createDefaultRecords(),
+      dismissedOfficialIds: [],
 
       installPackage: (rawManifest, options) => {
         if (!options?.skipSignInCheck && !getSyntaxAccount()) {
@@ -96,34 +98,57 @@ export const useRegistryStore = create<RegistryStoreState>()(
         }
         pool.set(manifest.id, manifest)
 
-        // Transitive BFS dependency resolution with cycle guard
+        // Transitive BFS dependency resolution with strict minVersion tracking & cycle guard
         const toInstall = new Map<string, SyntaxPackageManifest>()
-        const missingDeps: PackageDependency[] = []
-        const visited = new Set<string>([manifest.id])
+        const missingById = new Map<string, PackageDependency>()
+        const requiredMinVersionById = new Map<string, string>()
+        const expandedIds = new Set<string>([manifest.id])
         const queue: PackageDependency[] = [...(manifest.requires ?? [])]
 
         while (queue.length > 0) {
           const dep = queue.shift()!
-          if (visited.has(dep.id)) continue
-          visited.add(dep.id)
+          if (dep.id === manifest.id) continue
+
+          const prevMin = requiredMinVersionById.get(dep.id)
+          if (prevMin && compareSemver(dep.minVersion, prevMin) <= 0) {
+            continue
+          }
+          requiredMinVersionById.set(dep.id, dep.minVersion)
 
           const existing = currentRecords.find(r => r.manifest.id === dep.id)
           const poolCandidate = pool.get(dep.id)
-          const bestAvailable =
+
+          const validPool =
             poolCandidate &&
             poolCandidate.kind === dep.kind &&
             compareSemver(poolCandidate.version, dep.minVersion) >= 0
               ? poolCandidate
-              : existing &&
-                  existing.manifest.kind === dep.kind &&
-                  compareSemver(existing.manifest.version, dep.minVersion) >= 0
-                ? existing.manifest
-                : null
+              : null
+          const validExisting =
+            existing &&
+            existing.manifest.kind === dep.kind &&
+            compareSemver(existing.manifest.version, dep.minVersion) >= 0
+              ? existing.manifest
+              : null
+
+          // Never downgrade a newer already-installed version
+          let bestAvailable: SyntaxPackageManifest | null = null
+          if (validPool && validExisting) {
+            bestAvailable =
+              compareSemver(validPool.version, validExisting.version) > 0
+                ? validPool
+                : validExisting
+          } else {
+            bestAvailable = validPool ?? validExisting
+          }
 
           if (!bestAvailable) {
-            missingDeps.push(dep)
+            missingById.set(dep.id, dep)
+            toInstall.delete(dep.id)
             continue
           }
+
+          missingById.delete(dep.id)
 
           const needsInstallOrEnable =
             !existing ||
@@ -134,13 +159,15 @@ export const useRegistryStore = create<RegistryStoreState>()(
             toInstall.set(bestAvailable.id, bestAvailable)
           }
 
-          for (const nested of bestAvailable.requires ?? []) {
-            if (!visited.has(nested.id)) {
+          if (!expandedIds.has(bestAvailable.id)) {
+            expandedIds.add(bestAvailable.id)
+            for (const nested of bestAvailable.requires ?? []) {
               queue.push(nested)
             }
           }
         }
 
+        const missingDeps = [...missingById.values()]
         if (missingDeps.length > 0) {
           syntaxLog.warn('registry', `Missing required dependencies for ${manifest.id}`, {
             missing: missingDeps.map(d => `${d.id}@>=${d.minVersion}`),
@@ -156,7 +183,11 @@ export const useRegistryStore = create<RegistryStoreState>()(
         const next = [...currentRecords]
         const installedIds: string[] = []
 
-        const upsert = (item: SyntaxPackageManifest, source: InstalledPackageSource) => {
+        const upsert = (
+          item: SyntaxPackageManifest,
+          source: InstalledPackageSource,
+          overrideSource = false,
+        ) => {
           const idx = next.findIndex(r => r.manifest.id === item.id)
           const itemOfficial = OFFICIAL_ID_SET.has(item.id)
           const prevSource = idx >= 0 ? next[idx].source : source
@@ -164,7 +195,7 @@ export const useRegistryStore = create<RegistryStoreState>()(
             manifest: itemOfficial ? OFFICIAL_BY_ID.get(item.id)! : item,
             enabled: true,
             installedAt: idx >= 0 ? next[idx].installedAt : now,
-            source: itemOfficial ? 'official' : prevSource,
+            source: itemOfficial ? 'official' : overrideSource ? source : prevSource,
           }
           if (idx >= 0) next[idx] = rec
           else next.push(rec)
@@ -177,9 +208,13 @@ export const useRegistryStore = create<RegistryStoreState>()(
         }
 
         const mainSource = isOfficial ? 'official' : (options?.source ?? 'community')
-        const mainRecord = upsert(manifest, mainSource)
+        const mainRecord = upsert(manifest, mainSource, Boolean(options?.source))
+        const installedSet = new Set(installedIds)
 
-        set({ records: next })
+        set({
+          records: next,
+          dismissedOfficialIds: get().dismissedOfficialIds.filter(id => !installedSet.has(id)),
+        })
         syntaxLog.info('registry', `Installed ${manifest.name} (${manifest.extension})`, {
           id: manifest.id,
           version: manifest.version,
@@ -208,7 +243,14 @@ export const useRegistryStore = create<RegistryStoreState>()(
         const current = get().records
         const target = current.find(r => r.manifest.id === id)
         if (!target) return { ok: false, error: 'Package is not installed.' }
-        set({ records: current.filter(r => r.manifest.id !== id) })
+        const dismissed = new Set(get().dismissedOfficialIds)
+        if (OFFICIAL_ID_SET.has(id)) {
+          dismissed.add(id)
+        }
+        set({
+          records: current.filter(r => r.manifest.id !== id),
+          dismissedOfficialIds: [...dismissed],
+        })
         syntaxLog.info('registry', `Uninstalled ${target.manifest.name}`, {
           id,
           kind: target.manifest.kind,
@@ -220,7 +262,7 @@ export const useRegistryStore = create<RegistryStoreState>()(
         const custom = get().records.filter(
           r => !OFFICIAL_BY_ID.has(r.manifest.id) && !RETIRED_OFFICIAL_IDS.has(r.manifest.id),
         )
-        set({ records: [...createDefaultRecords(), ...custom] })
+        set({ records: [...createDefaultRecords(), ...custom], dismissedOfficialIds: [] })
         syntaxLog.info('registry', 'Restored all official courses and plugins')
       },
     }),
@@ -229,6 +271,11 @@ export const useRegistryStore = create<RegistryStoreState>()(
       merge: (persisted, current) => {
         const saved = persisted as Partial<RegistryStoreState> | undefined
         if (!saved || !Array.isArray(saved.records)) return current
+        const dismissed = new Set<string>(
+          Array.isArray(saved.dismissedOfficialIds)
+            ? saved.dismissedOfficialIds.filter((id): id is string => typeof id === 'string')
+            : [],
+        )
         const valid: InstalledPackageRecord[] = []
         const seen = new Set<string>()
         for (const rec of saved.records) {
@@ -249,9 +296,23 @@ export const useRegistryStore = create<RegistryStoreState>()(
             source: official ? 'official' : (rec.source ?? 'community'),
           })
         }
+        // Automatically merge newly shipped official packages unless explicitly uninstalled
+        const now = new Date().toISOString()
+        for (const official of OFFICIAL_CATALOG) {
+          if (!seen.has(official.id) && !dismissed.has(official.id)) {
+            valid.push({
+              manifest: official,
+              enabled: true,
+              installedAt: now,
+              source: 'official',
+            })
+            seen.add(official.id)
+          }
+        }
         return {
           ...current,
           records: valid.length > 0 ? valid : createDefaultRecords(),
+          dismissedOfficialIds: [...dismissed],
         }
       },
     },
@@ -283,21 +344,47 @@ export function computeCourseDependencyStatus(
     return { ok: true, missing: [], disabled: [] }
   }
 
-  const missing: PackageDependency[] = []
-  const disabled: SyntaxPackageManifest[] = []
+  const missingById = new Map<string, PackageDependency>()
+  const disabledById = new Map<string, SyntaxPackageManifest>()
+  const requiredMinVersionById = new Map<string, string>()
+  const expandedIds = new Set<string>([manifest.id])
+  const queue: PackageDependency[] = [...manifest.requires]
 
-  for (const dep of manifest.requires) {
+  while (queue.length > 0) {
+    const dep = queue.shift()!
+    if (dep.id === manifest.id) continue
+    const prevMin = requiredMinVersionById.get(dep.id)
+    if (prevMin && compareSemver(dep.minVersion, prevMin) <= 0) {
+      continue
+    }
+    requiredMinVersionById.set(dep.id, dep.minVersion)
+
     const installed = records.find(r => r.manifest.id === dep.id)
     if (
       !installed ||
       installed.manifest.kind !== dep.kind ||
       compareSemver(installed.manifest.version, dep.minVersion) < 0
     ) {
-      missing.push(dep)
-    } else if (!installed.enabled) {
-      disabled.push(installed.manifest)
+      missingById.set(dep.id, dep)
+      disabledById.delete(dep.id)
+      continue
+    }
+
+    missingById.delete(dep.id)
+    if (!installed.enabled) {
+      disabledById.set(dep.id, installed.manifest)
+    }
+
+    if (!expandedIds.has(installed.manifest.id)) {
+      expandedIds.add(installed.manifest.id)
+      for (const nested of installed.manifest.requires ?? []) {
+        queue.push(nested)
+      }
     }
   }
+
+  const missing = [...missingById.values()]
+  const disabled = [...disabledById.values()]
 
   return {
     ok: missing.length === 0 && disabled.length === 0,

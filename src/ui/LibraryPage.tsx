@@ -11,6 +11,8 @@ const PINNED_KEY = 'syntax.library.pinned.v1'
 export interface LibraryPageProps {
   mpm2dPercent: number
   mpm2dCompletedCount: number
+  csPercent?: number
+  csCompletedCount?: number
   onOpenCourse: (courseId: string) => void
   onOpenPlugins: () => void
   onOpenCommunityHub: () => void
@@ -54,24 +56,27 @@ function LibraryCourseTile({
   const [pressed, setPressed] = useState(false)
 
   return (
-    <div
-      className={`sx-lib-tile${pressed ? ' is-pressed' : ''}`}
-      onPointerDown={() => setPressed(true)}
-      onPointerUp={() => setPressed(false)}
-      onPointerCancel={() => setPressed(false)}
-      onPointerLeave={() => setPressed(false)}
-    >
+    <div className={`sx-lib-tile${pressed ? ' is-pressed' : ''}`}>
       <div className="sx-lib-art-box">
         <button
           type="button"
           className="sx-lib-art-hit"
           aria-label={`Open ${item.title}`}
+          onPointerDown={() => setPressed(true)}
+          onPointerUp={() => setPressed(false)}
+          onPointerCancel={() => setPressed(false)}
+          onPointerLeave={() => setPressed(false)}
           onClick={onOpen}
         >
           {item.image ? (
             <img src={item.image} alt="" width={84} height={84} />
           ) : (
-            <PackageIcon id={item.manifest.id} kind={item.manifest.kind} svg={item.manifest.iconSvg} size={76} />
+            <PackageIcon
+              id={item.manifest.id}
+              kind={item.manifest.kind}
+              svg={item.manifest.iconSvg}
+              size={76}
+            />
           )}
         </button>
 
@@ -107,7 +112,15 @@ function LibraryCourseTile({
       </div>
 
       <div className="sx-lib-card-meta">
-        <button type="button" className="sx-lib-card-title" onClick={onOpen}>
+        <button
+          type="button"
+          className="sx-lib-card-title"
+          onPointerDown={() => setPressed(true)}
+          onPointerUp={() => setPressed(false)}
+          onPointerCancel={() => setPressed(false)}
+          onPointerLeave={() => setPressed(false)}
+          onClick={onOpen}
+        >
           {item.title}
         </button>
         <div className="sx-lib-card-sub">
@@ -130,6 +143,8 @@ function LibraryCourseTile({
 export function LibraryPage({
   mpm2dPercent,
   mpm2dCompletedCount,
+  csPercent = 0,
+  csCompletedCount = 0,
   onOpenCourse,
   onOpenPlugins,
   onOpenCommunityHub,
@@ -173,9 +188,10 @@ export function LibraryPage({
             title: 'Thinking in Code',
             category: 'Computer Science' as const,
             image: assetUrl('/assets/courses/thinking-in-code-DolooX.png'),
-            badge: 'CS',
-            percent: 0,
-            lessonMeta: `${THINKING_IN_CODE_META.totalLessons} lessons`,
+            badge:
+              csPercent >= 100 ? 'COMPLETE' : csPercent > 0 ? `${csPercent}%` : 'CS',
+            percent: csPercent,
+            lessonMeta: `${csCompletedCount}/${THINKING_IN_CODE_META.totalLessons} lessons`,
           }
         }
         const totalLessons =
@@ -192,7 +208,7 @@ export function LibraryPage({
               : `@${manifest.author.handle}`,
         }
       })
-  }, [records, mpm2dPercent, mpm2dCompletedCount])
+  }, [records, mpm2dPercent, mpm2dCompletedCount, csPercent, csCompletedCount])
 
   const filtered = useMemo(() => {
     if (filter === 'official') return courses.filter(c => c.manifest.builtIn)

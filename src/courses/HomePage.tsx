@@ -3,8 +3,11 @@ import { HomeLeagueArt } from './HomeLeagueArt'
 import { assetUrl } from '../mpm2d/assetUrl'
 import {
   MPM2D_LESSON_INDEX,
-  MPM2D_TOTAL_LESSONS,
-  THINKING_IN_CODE_META,
+  THINKING_IN_CODE_LESSONS,
+  readMpm2dProgressSummary,
+  readThinkingInCodeProgressSummary,
+  type Mpm2dProgressSummary,
+  type ThinkingInCodeProgressSummary,
 } from '../packages/courseMeta'
 import { useAccount } from '../core/account'
 import { useInstalledPackages } from '../core/registry'
@@ -12,14 +15,13 @@ import { PackageIcon } from '../ui/PackageIcon'
 import './courses.css'
 
 export interface HomePageProps {
-  completedLessonCount?: number
-  totalLessonsCount?: number
-  nextMpm2dLessonId?: string
-  nextMpm2dLessonTitle?: string
-  followingMpm2dLessonTitle?: string
-  hasMpm2dResume?: boolean
+  mpm2dSummary?: Mpm2dProgressSummary
+  csSummary?: ThinkingInCodeProgressSummary
+  totalCompletedLessons?: number
   onOpenMpm2dCourse?: () => void
   onOpenMpm2dLesson?: (lessonId: string) => void
+  onOpenCsCourse?: () => void
+  onOpenCsLesson?: (lessonId: string) => void
   onOpenCustomCourse?: (courseId: string) => void
   onOpenLibrary?: () => void
 }
@@ -33,25 +35,30 @@ interface HomeCourseEntry {
   primaryStep: string
   secondaryStep?: string
   ctaLabel: string
+  completedCount: number
+  totalLessons: number
   onOpenPrimary: () => void
   onOpenCourse: () => void
 }
 
 export function HomePage({
-  completedLessonCount = 0,
-  totalLessonsCount = MPM2D_TOTAL_LESSONS,
-  nextMpm2dLessonId = MPM2D_LESSON_INDEX[0]?.id ?? 'u2-l1-slopes',
-  nextMpm2dLessonTitle = MPM2D_LESSON_INDEX[0]?.title ?? 'Slopes & Lines',
-  followingMpm2dLessonTitle = MPM2D_LESSON_INDEX[1]?.title,
-  hasMpm2dResume = false,
+  mpm2dSummary,
+  csSummary,
+  totalCompletedLessons,
   onOpenMpm2dCourse = () => {},
   onOpenMpm2dLesson = () => {},
+  onOpenCsCourse = () => {},
+  onOpenCsLesson = () => {},
   onOpenCustomCourse = () => {},
   onOpenLibrary = () => {},
 }: HomePageProps = {}) {
   const account = useAccount()
   const records = useInstalledPackages()
   const [selectedCourseId, setSelectedCourseId] = useState<string>('mpm2d-analytic-geometry')
+
+  const mpm2d = useMemo(() => mpm2dSummary ?? readMpm2dProgressSummary(), [mpm2dSummary])
+  const cs = useMemo(() => csSummary ?? readThinkingInCodeProgressSummary(), [csSummary])
+  const combinedCompleted = totalCompletedLessons ?? mpm2d.completedCount + cs.completedCount
 
   const courses = useMemo<HomeCourseEntry[]>(() => {
     const installedCourses = records
@@ -62,34 +69,51 @@ export function HomePage({
     for (const pkg of installedCourses) {
       if (pkg.id === 'mpm2d-analytic-geometry') {
         const nextObj =
-          MPM2D_LESSON_INDEX.find(l => l.id === nextMpm2dLessonId) ?? MPM2D_LESSON_INDEX[0]
+          MPM2D_LESSON_INDEX.find(l => l.id === mpm2d.nextLessonId) ?? MPM2D_LESSON_INDEX[0]
         items.push({
           id: pkg.id,
           title: 'Analytic Geometry',
           levelLabel: nextObj ? `Level ${nextObj.level}` : 'Unit 2',
           image: assetUrl('/assets/courses/Coordinate_Geometry-bgclJY.png'),
-          primaryStep: nextMpm2dLessonTitle,
-          secondaryStep: followingMpm2dLessonTitle,
-          ctaLabel: hasMpm2dResume || completedLessonCount > 0 ? 'Continue' : 'Start',
-          onOpenPrimary: () => onOpenMpm2dLesson(nextMpm2dLessonId),
+          primaryStep: mpm2d.nextLessonTitle,
+          secondaryStep: mpm2d.followingLessonTitle,
+          ctaLabel:
+            mpm2d.completedCount >= mpm2d.totalLessons
+              ? 'Review'
+              : mpm2d.hasResume || mpm2d.completedCount > 0
+                ? 'Continue'
+                : 'Start',
+          completedCount: mpm2d.completedCount,
+          totalLessons: mpm2d.totalLessons,
+          onOpenPrimary: () => onOpenMpm2dLesson(mpm2d.nextLessonId),
           onOpenCourse: onOpenMpm2dCourse,
         })
       } else if (pkg.id === 'thinking-in-code') {
+        const nextCsId = cs.nextLessonId || THINKING_IN_CODE_LESSONS[0]!.id
         items.push({
           id: pkg.id,
           title: 'Thinking in Code',
           levelLabel: 'Level 1',
           image: assetUrl('/assets/courses/thinking-in-code-DolooX.png'),
           iconSvg: pkg.iconSvg,
-          primaryStep: THINKING_IN_CODE_META.firstLessonTitle,
-          secondaryStep: THINKING_IN_CODE_META.secondLessonTitle,
-          ctaLabel: 'Start',
-          onOpenPrimary: () => onOpenCustomCourse(pkg.id),
-          onOpenCourse: () => onOpenCustomCourse(pkg.id),
+          primaryStep: cs.nextLessonTitle,
+          secondaryStep: cs.followingLessonTitle,
+          ctaLabel:
+            cs.completedCount >= cs.totalLessons
+              ? 'Review'
+              : cs.completedCount > 0
+                ? 'Continue'
+                : 'Start',
+          completedCount: cs.completedCount,
+          totalLessons: cs.totalLessons,
+          onOpenPrimary: () => onOpenCsLesson(nextCsId),
+          onOpenCourse: onOpenCsCourse,
         })
       } else {
         const firstLesson = pkg.customCourse?.units[0]?.lessons[0]?.title ?? 'Lesson 1'
         const secondLesson = pkg.customCourse?.units[0]?.lessons[1]?.title
+        const total =
+          pkg.customCourse?.units.reduce((acc, u) => acc + u.lessons.length, 0) ?? 0
         items.push({
           id: pkg.id,
           title: pkg.name,
@@ -98,6 +122,8 @@ export function HomePage({
           primaryStep: firstLesson,
           secondaryStep: secondLesson,
           ctaLabel: 'Start',
+          completedCount: 0,
+          totalLessons: total,
           onOpenPrimary: () => onOpenCustomCourse(pkg.id),
           onOpenCourse: () => onOpenCustomCourse(pkg.id),
         })
@@ -106,13 +132,12 @@ export function HomePage({
     return items
   }, [
     records,
-    nextMpm2dLessonId,
-    nextMpm2dLessonTitle,
-    followingMpm2dLessonTitle,
-    hasMpm2dResume,
-    completedLessonCount,
+    mpm2d,
+    cs,
     onOpenMpm2dLesson,
     onOpenMpm2dCourse,
+    onOpenCsLesson,
+    onOpenCsCourse,
     onOpenCustomCourse,
   ])
 
@@ -126,18 +151,16 @@ export function HomePage({
           <h1>{greetingName ? `Welcome, ${greetingName}!` : 'Welcome!'}</h1>
           <div className="home-activity">
             <div className="home-streak-count">
-              {completedLessonCount}
+              {combinedCompleted}
               <span className="icon icon-lightning" aria-hidden="true" />
             </div>
             <div className="home-league-copy">
               <HomeLeagueArt />
               <div className="home-league-text">
-                <h2>
-                  {completedLessonCount > 0 ? 'Keep your momentum' : 'Ready to start?'}
-                </h2>
+                <h2>{combinedCompleted > 0 ? 'Keep your momentum' : 'Ready to start?'}</h2>
                 <p>
-                  {active?.id === 'mpm2d-analytic-geometry'
-                    ? `${completedLessonCount} of ${totalLessonsCount} lessons completed`
+                  {active && active.totalLessons > 0
+                    ? `${active.completedCount} of ${active.totalLessons} lessons completed`
                     : `${courses.length} installed ${courses.length === 1 ? 'course' : 'courses'} ready in your Library`}
                 </p>
               </div>
@@ -169,7 +192,12 @@ export function HomePage({
                     {course.image ? (
                       <img src={course.image} alt="" />
                     ) : course.iconSvg ? (
-                      <PackageIcon id={course.id} kind="course" svg={course.iconSvg} size={isCurrent ? 88 : 44} />
+                      <PackageIcon
+                        id={course.id}
+                        kind="course"
+                        svg={course.iconSvg}
+                        size={isCurrent ? 88 : 44}
+                      />
                     ) : null}
                   </button>
                 )

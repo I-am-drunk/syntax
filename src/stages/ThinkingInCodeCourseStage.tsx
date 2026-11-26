@@ -13,6 +13,7 @@ import { sequencingCommands } from '../lessons/sequencingCommands'
 import { repeatingPatterns } from '../lessons/repeatingPatterns'
 import { debuggingPrograms } from '../lessons/debuggingPrograms'
 import { playLessonSound, preloadLessonSounds } from '../services/lessonSounds'
+import { CS_PROGRESS_EVENT } from '../services/progress'
 
 const THINKING_LESSONS = [
   writingPrograms,
@@ -27,6 +28,7 @@ export interface ThinkingInCodeCourseStageProps {
   soundOn: boolean
   onBackToLibrary: () => void
   onLessonRouteChange: (lessonId: string | null) => void
+  onProgressChanged?: () => void
 }
 
 export default function ThinkingInCodeCourseStage({
@@ -34,8 +36,9 @@ export default function ThinkingInCodeCourseStage({
   soundOn,
   onBackToLibrary,
   onLessonRouteChange,
+  onProgressChanged,
 }: ThinkingInCodeCourseStageProps) {
-  const { setContribution, clearContribution } = useHostSlots()
+  const { setContribution, clearContribution, setFullscreenLesson } = useHostSlots()
   const [activeSlug, setActiveSlug] = useState<string | null>(() =>
     initialLessonId && THINKING_LESSONS.some(l => l.slug === initialLessonId)
       ? initialLessonId
@@ -50,10 +53,18 @@ export default function ThinkingInCodeCourseStage({
   useEffect(() => {
     if (initialLessonId && THINKING_LESSONS.some(l => l.slug === initialLessonId)) {
       setActiveSlug(initialLessonId)
-    } else if (!initialLessonId) {
+    } else {
       setActiveSlug(null)
     }
   }, [initialLessonId])
+
+  useEffect(() => {
+    const onSaved = () => {
+      onProgressChanged?.()
+    }
+    window.addEventListener(CS_PROGRESS_EVENT, onSaved)
+    return () => window.removeEventListener(CS_PROGRESS_EVENT, onSaved)
+  }, [onProgressChanged])
 
   useEffect(() => {
     setContribution({
@@ -78,6 +89,11 @@ export default function ThinkingInCodeCourseStage({
     [activeSlug],
   )
 
+  useEffect(() => {
+    setFullscreenLesson(Boolean(activeLesson))
+    return () => setFullscreenLesson(false)
+  }, [activeLesson, setFullscreenLesson])
+
   function launchLesson(slug: string) {
     setActiveSlug(slug)
     onLessonRouteChange(slug)
@@ -87,6 +103,7 @@ export default function ThinkingInCodeCourseStage({
     setActiveSlug(null)
     setReloadNonce(n => n + 1)
     onLessonRouteChange(null)
+    onProgressChanged?.()
   }
 
   if (activeLesson) {

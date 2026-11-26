@@ -3,12 +3,12 @@
   --completion-border: rgba(0,0,0,.1); --completion-elevated: #fff;
   --completion-shadow: #0003;
   display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
-  min-height: 100dvh; min-width: 100dvw; color: var(--completion-text);
+  min-height: 100dvh; width: 100%; color: var(--completion-text);
   background: var(--completion-bg);
 }
 .completion-layout {
   display: flex; flex-direction: column; justify-content: space-between;
-  height: 100dvh; width: 100dvw; min-height: fit-content;
+  height: 100dvh; width: 100%; min-height: fit-content;
   padding-top: env(safe-area-inset-top, 0px); text-wrap: pretty;
 }
 .completion-content { padding-inline: env(safe-area-inset-left, 0px) env(safe-area-inset-right, 0px); }

@@ -235,7 +235,7 @@ export function PluginsPage({
             <span>{courses.length}</span>
           </div>
           <div className="sx-plugin-list">
-            {courses.map(({ manifest }) => (
+            {courses.map(({ manifest, enabled }) => (
               <div key={manifest.id} className="sx-plugin-item">
                 <button
                   type="button"
@@ -252,6 +252,11 @@ export function PluginsPage({
                     <div className="sx-plugin-name-line">
                       <span className="sx-plugin-name">{manifest.name}</span>
                       <span className="sx-plugin-ver">@{manifest.author.handle}</span>
+                      {!enabled && (
+                        <span className="sx-hub-inline-state sx-embedded-flag">
+                          <span>Disabled</span>
+                        </span>
+                      )}
                     </div>
                     <span className="sx-plugin-sub">{manifest.tagline}</span>
                   </div>
@@ -261,7 +266,7 @@ export function PluginsPage({
                   className="sx-btn-secondary sx-btn-sm"
                   onClick={() => onOpenCourse(manifest.id)}
                 >
-                  Open
+                  {enabled ? 'Open' : 'Enable'}
                 </button>
               </div>
             ))}

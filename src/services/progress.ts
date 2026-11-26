@@ -6,15 +6,17 @@ import {
   parseProgressReceipt,
 } from '../../shared/progress.js'
 import type { CourseProgress, ProgressSnapshot, ProgressReceipt } from '../../shared/progress.js'
+import { isBackendApiEnabled, isJsonResponse, markBackendApiUnavailable } from './apiMode'
 export type { ProblemOutcome, ProgressKind, ProgressSnapshot } from '../../shared/progress.js'
 
 export const progressError = 'Your progress could not be saved. Retry before leaving.'
 
-const LOCAL_CS_PROGRESS_KEY = 'syntax.cs.progress.v1'
+export const LOCAL_CS_PROGRESS_KEY = 'syntax.cs.progress.v1'
+export const CS_PROGRESS_EVENT = 'syntax:cs-progress-changed'
 
 type LocalProgressStore = Record<string, ProgressSnapshot>
 
-function readLocalStore(): LocalProgressStore {
+export function readLocalProgressStore(): LocalProgressStore {
   try {
     const raw = localStorage.getItem(LOCAL_CS_PROGRESS_KEY)
     if (!raw) return {}
@@ -23,7 +25,7 @@ function readLocalStore(): LocalProgressStore {
       return parsed as LocalProgressStore
     }
   } catch {
-    // ignore
+    // ignore corrupted storage
   }
   return {}
 }
@@ -31,13 +33,16 @@ function readLocalStore(): LocalProgressStore {
 function writeLocalStore(store: LocalProgressStore) {
   try {
     localStorage.setItem(LOCAL_CS_PROGRESS_KEY, JSON.stringify(store))
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(CS_PROGRESS_EVENT))
+    }
   } catch {
-    // ignore
+    // ignore quota errors
   }
 }
 
 function saveLocalProgress(progress: ProgressSnapshot): ProgressReceipt {
-  const store = readLocalStore()
+  const store = readLocalProgressStore()
   store[progress.id] = progress
   writeLocalStore(store)
   return {
@@ -47,8 +52,8 @@ function saveLocalProgress(progress: ProgressSnapshot): ProgressReceipt {
   }
 }
 
-function readLocalCourseProgress(courseSlug: string): CourseProgress {
-  const store = readLocalStore()
+export function readLocalCourseProgress(courseSlug: string): CourseProgress {
+  const store = readLocalProgressStore()
   const completedLessons: { slug: string; version: string }[] = []
   const seen = new Set<string>()
   for (const snap of Object.values(store)) {
@@ -69,13 +74,16 @@ function readLocalCourseProgress(courseSlug: string): CourseProgress {
 }
 
 async function receipt(response: Response): Promise<ProgressReceipt> {
-  if (response.status !== 200) throw new Error(progressError)
+  if (response.status !== 200 || !isJsonResponse(response)) {
+    throw new Error(progressError)
+  }
   return parseProgressReceipt(await response.json())
 }
 
 export async function saveProgress(value: ProgressSnapshot): Promise<ProgressReceipt> {
   const progress = parseProgress(value)
   const localReceipt = saveLocalProgress(progress)
+  if (!isBackendApiEnabled()) return localReceipt
   try {
     const response = await fetch('/api/progress', {
       method: 'PUT',
@@ -83,11 +91,13 @@ export async function saveProgress(value: ProgressSnapshot): Promise<ProgressRec
       body: JSON.stringify(progress),
       keepalive: true,
     })
-    if (response.ok) {
+    if (response.ok && isJsonResponse(response)) {
       const result = await receipt(response)
       if (JSON.stringify(result.progress) === JSON.stringify(progress)) {
         return result
       }
+    } else if (response.status === 404 || !isJsonResponse(response)) {
+      markBackendApiUnavailable()
     }
   } catch {
     // Static build / offline: localStorage fallback already persisted cleanly
@@ -97,16 +107,22 @@ export async function saveProgress(value: ProgressSnapshot): Promise<ProgressRec
 
 export async function readProgress(id: string): Promise<ProgressReceipt> {
   const parsedId = parseProgressId(id)
-  try {
-    const response = await fetch('/api/progress?id=' + parsedId, { cache: 'no-store' })
-    if (response.ok) {
-      const result = await receipt(response)
-      if (result.progress.id === id) return result
+  if (isBackendApiEnabled()) {
+    try {
+      const response = await fetch('/api/progress?id=' + encodeURIComponent(parsedId), {
+        cache: 'no-store',
+      })
+      if (response.ok && isJsonResponse(response)) {
+        const result = await receipt(response)
+        if (result.progress.id === id) return result
+      } else if (response.status === 404 || !isJsonResponse(response)) {
+        markBackendApiUnavailable()
+      }
+    } catch {
+      // fallback to local
     }
-  } catch {
-    // fallback to local
   }
-  const store = readLocalStore()
+  const store = readLocalProgressStore()
   const local = store[parsedId]
   if (local) {
     return { accepted: true, progress: local, savedAt: new Date().toISOString() }
@@ -119,20 +135,30 @@ export async function readCourseProgress(
   signal?: AbortSignal,
 ): Promise<CourseProgress> {
   const courseSlug = parseCourseSlug(course)
-  try {
-    const response = await fetch('/api/progress?course=' + courseSlug, {
-      cache: 'no-store',
-      signal,
-    })
-    if (response.ok) {
-      const ct = response.headers.get('content-type') || ''
-      if (ct.includes('application/json')) {
+  if (signal?.aborted) {
+    throw new DOMException('Aborted', 'AbortError')
+  }
+  if (isBackendApiEnabled()) {
+    try {
+      const response = await fetch('/api/progress?course=' + encodeURIComponent(courseSlug), {
+        cache: 'no-store',
+        signal,
+      })
+      if (response.ok && isJsonResponse(response)) {
         const result = parseCourseProgress(await response.json())
         if (result.courseSlug === courseSlug) return result
+      } else if (response.status === 404 || !isJsonResponse(response)) {
+        markBackendApiUnavailable()
       }
+    } catch (err) {
+      if (signal?.aborted || (err instanceof DOMException && err.name === 'AbortError')) {
+        throw err
+      }
+      // Static build / offline: use clean localStorage progress
     }
-  } catch {
-    // Static build / offline: use clean localStorage progress
+  }
+  if (signal?.aborted) {
+    throw new DOMException('Aborted', 'AbortError')
   }
   return readLocalCourseProgress(courseSlug)
 }

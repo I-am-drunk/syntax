@@ -22,13 +22,23 @@ const AuthActionsContext = createContext<AuthActions>({
   signOut: async () => {},
 })
 
-const ALLOWED_REDIRECT_ORIGINS = [
+const BASE_ALLOWED_REDIRECT_ORIGINS = [
   'https://i-am-drunk.github.io',
   'http://localhost:5189',
   'http://127.0.0.1:5189',
+  'http://localhost:5179',
+  'http://127.0.0.1:5179',
   'http://localhost:5173',
   'http://127.0.0.1:5173',
 ]
+
+function resolveAllowedRedirectOrigins(): string[] {
+  const origins = new Set(BASE_ALLOWED_REDIRECT_ORIGINS)
+  if (typeof window !== 'undefined' && window.location.origin && window.location.origin !== 'null') {
+    origins.add(window.location.origin)
+  }
+  return [...origins]
+}
 
 export function useAuthActions(): AuthActions {
   return useContext(AuthActionsContext)
@@ -115,7 +125,7 @@ function ClerkAccountBridge({ children }: { children: ReactNode }) {
     if (cachedAccount?.provider === 'clerk') {
       const waitMs = hasPendingClerkHandshake() ? 1800 : 500
       signOutTimerRef.current = window.setTimeout(() => {
-        if (!clerk.user && !clerk.session) {
+        if (!clerk.user) {
           syntaxLog.info('account', 'Clerk session confirmed signed out')
           syncClerkUser(null)
         }
@@ -133,6 +143,7 @@ function ClerkAccountBridge({ children }: { children: ReactNode }) {
       isLoaded,
       isSignedIn: Boolean(isSignedIn || user),
       openSignIn: () => {
+        if (!clerk.loaded) return
         const redirectUrl = resolveBaseRedirectUrl()
         clerk.openSignIn({
           fallbackRedirectUrl: redirectUrl,
@@ -140,6 +151,7 @@ function ClerkAccountBridge({ children }: { children: ReactNode }) {
         })
       },
       openAccount: () => {
+        if (!clerk.loaded) return
         if (user || clerk.user) {
           clerk.openUserProfile()
         } else {
@@ -155,7 +167,9 @@ function ClerkAccountBridge({ children }: { children: ReactNode }) {
         window.clearTimeout(signOutTimerRef.current)
         syncClerkUser(null)
         try {
-          await clerk.signOut({ redirectUrl: resolveBaseRedirectUrl() })
+          if (clerk.loaded) {
+            await clerk.signOut({ redirectUrl: resolveBaseRedirectUrl() })
+          }
         } catch (err) {
           syntaxLog.warn('account', 'Clerk signOut completed with warning', {
             error: err instanceof Error ? err.message : String(err),
@@ -182,6 +196,7 @@ export function SyntaxAuthProvider({
   const signOutLocal = useAccountStore(s => s.signOutLocal)
   const localAccount = useAccountStore(s => s.account)
   const redirectUrl = useMemo(() => resolveBaseRedirectUrl(), [])
+  const allowedRedirectOrigins = useMemo(() => resolveAllowedRedirectOrigins(), [])
 
   const localActions = useMemo<AuthActions>(
     () => ({
@@ -252,7 +267,7 @@ export function SyntaxAuthProvider({
       signInFallbackRedirectUrl={redirectUrl}
       signUpFallbackRedirectUrl={redirectUrl}
       afterSignOutUrl={redirectUrl}
-      allowedRedirectOrigins={ALLOWED_REDIRECT_ORIGINS}
+      allowedRedirectOrigins={allowedRedirectOrigins}
       appearance={clerkAppearance}
     >
       <ClerkAccountBridge>{children}</ClerkAccountBridge>

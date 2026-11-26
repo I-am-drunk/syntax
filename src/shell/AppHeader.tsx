@@ -4,6 +4,8 @@ import {
   ArrowLeft,
   BookOpen,
   Compass,
+  Home,
+  Library,
   Menu as MenuIcon,
   Moon,
   Puzzle,
@@ -232,8 +234,8 @@ export function AppHeader({
                     onNavigate('/')
                   }}
                 >
-                  <span className="icon icon-home" aria-hidden="true" />
-                  <span>Home</span>
+                  <Home size={16} strokeWidth={1.9} className="nav-svg-icon" aria-hidden="true" />
+                  <span className="primary-nav-label">Home</span>
                   {mainActiveTab === 'home' && (
                     <motion.span
                       layoutId="primary-nav-indicator"
@@ -252,8 +254,8 @@ export function AppHeader({
                     onNavigate('/library')
                   }}
                 >
-                  <span className="icon icon-topics" aria-hidden="true" />
-                  <span>Library</span>
+                  <Library size={16} strokeWidth={1.9} className="nav-svg-icon" aria-hidden="true" />
+                  <span className="primary-nav-label">Library</span>
                   {mainActiveTab === 'library' && (
                     <motion.span
                       layoutId="primary-nav-indicator"

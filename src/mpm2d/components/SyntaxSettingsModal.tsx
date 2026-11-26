@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Segmented, Toggle } from '../../settings/Controls'
 import { Sema } from '../mascot/Sema'
 import {
@@ -34,19 +34,8 @@ export function SyntaxSettingsPage({
 }) {
   const [previewAnim, setPreviewAnim] = useState<StateId>('idle')
   const [studioTab, setStudioTab] = useState<StudioTab>('shape')
-  const onCloseRef = useRef(onClose)
-  onCloseRef.current = onClose
-
   useEffect(() => {
     window.scrollTo({ top: 0 })
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape' || e.defaultPrevented) return
-      if (document.querySelector('[role="dialog"], [role="menu"]')) return
-      e.preventDefault()
-      onCloseRef.current()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
   }, [])
 
   const activeShapeLabel =

@@ -91,6 +91,21 @@ export const useAccountStore = create<AccountState>()(
       partialize: state => ({
         account: state.account,
       }),
+      merge: (persisted, current) => {
+        const saved = persisted as Partial<AccountState> | undefined
+        const savedAccount = saved?.account ?? null
+        if (!isClerkConfigured() && savedAccount?.provider === 'clerk') {
+          return {
+            ...current,
+            account: null,
+            sessionStatus: 'signed-out',
+          }
+        }
+        return {
+          ...current,
+          account: savedAccount,
+        }
+      },
     },
   ),
 )

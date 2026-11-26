@@ -278,8 +278,23 @@
 
 @media (max-width: 768px) {
   .sx-app-header {
-    padding-inline: 16px;
-    gap: 10px;
+    padding-inline: 12px;
+    gap: 6px;
+  }
+  .sx-app-header .brand-lockup .wordmark {
+    display: none;
+  }
+  .sx-nav-stage {
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .sx-nav-stage::-webkit-scrollbar {
+    display: none;
+  }
+  .sx-app-header .primary-nav {
+    gap: 4px;
   }
   .sx-nav-back-label,
   .sx-nav-divider {
@@ -293,13 +308,35 @@
   .sx-main-nav-tabs,
   .sx-workspace-tabs,
   .sx-course-tabs {
-    gap: 6px;
+    gap: 4px;
   }
-  .primary-nav-btn {
-    width: 44px;
+  .primary-nav-btn,
+  .sx-main-nav-tabs a {
+    width: 38px;
     justify-content: center;
   }
-  .primary-nav-btn .primary-nav-label {
+  .primary-nav-btn .primary-nav-label,
+  .sx-main-nav-tabs a .primary-nav-label {
+    display: none;
+  }
+  .sx-app-header .header-actions {
+    gap: 2px;
+  }
+  .sx-app-header .header-icon-btn,
+  .sx-app-header .menu-trigger {
+    width: 34px;
+    height: 34px;
+  }
+  .sx-header-signin {
+    height: 32px;
+    padding: 0 10px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 520px) {
+  .sx-app-header .header-icon-btn[aria-label*="sound"] {
     display: none;
   }
 }
@@ -345,7 +382,7 @@
 }
 
 .sx-popover-positioner {
-  z-index: 320;
+  z-index: var(--z-popover, 1050);
 }
 
 .sx-profile-popover {
@@ -554,7 +591,7 @@
 
 .sx-btn-sm,
 .sx-btn-xs {
-  min-height: 31px;
+  min-height: 34px;
   padding: 0 12px;
   border-radius: 9px;
   font-size: 13px;
@@ -983,10 +1020,10 @@
 
 .sx-lib-star {
   position: absolute;
-  top: 6px;
-  right: 6px;
-  width: 30px;
-  height: 30px;
+  top: 4px;
+  right: 4px;
+  width: 34px;
+  height: 34px;
   border-radius: 8px;
   background: transparent;
   display: inline-flex;
@@ -1107,7 +1144,7 @@
    Clean Single-Column Workspace Layout (Settings & Plugins)
    ========================================================================== */
 .sx-workspace-page {
-  max-width: 740px;
+  max-width: 760px;
   margin: 36px auto 96px;
   padding: 0 24px;
   display: flex;
@@ -1278,7 +1315,7 @@
   background: var(--surface);
   color: var(--tertiary);
   font-size: 11px;
-  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
   pointer-events: none;
 }
 
@@ -1948,7 +1985,7 @@
    ========================================================================== */
 .sx-profile-page {
   max-width: 760px;
-  margin: 40px auto 88px;
+  margin: 36px auto 88px;
   padding: 0 24px;
   display: flex;
   flex-direction: column;
@@ -2092,6 +2129,16 @@
   font-weight: 700;
 }
 
+.sx-profile-page .preference-row {
+  border-width: 1.5px;
+  border-radius: 14px;
+}
+
+:root[data-theme='dark'] .sx-profile-page .preference-row {
+  background: #181818;
+  border-color: #2c2c2c;
+}
+
 .sx-profile-course-row {
   padding: 14px 16px;
 }
@@ -2186,6 +2233,31 @@
   gap: 16px;
 }
 
+.sx-dialog-popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 2210;
+  width: calc(100% - 32px);
+  transform: translate(-50%, -50%) scale(1);
+  outline: none;
+  opacity: 1;
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+
+.sx-dialog-popup[data-starting-style],
+.sx-dialog-popup[data-ending-style] {
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.96);
+}
+
+.sx-dialog-title {
+  margin: 0;
+  font-size: 19px;
+  line-height: 1.25;
+  font-weight: 700;
+}
+
 :root[data-theme='dark'] .sx-modal {
   background: #181818;
   border-color: #2f2f2f;
@@ -2238,8 +2310,8 @@
 }
 
 .sx-icon-close {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 8px;
   background: transparent;
   color: var(--muted);

@@ -81,10 +81,11 @@ export default function CustomCourseStage({ course, theme }: CustomCourseStagePr
                         <button
                           key={`${lesson.id}:${cIdx}`}
                           type="button"
+                          aria-pressed={picked === cIdx}
                           className={`sx-course-choice${cls}`}
                           style={
                             !isChecked && picked === cIdx
-                              ? { borderColor: '#456dff' }
+                              ? { borderColor: 'var(--accent-blue, #456dff)' }
                               : undefined
                           }
                           onClick={() => {

@@ -1,18 +1,20 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAccount } from '../core/account'
 import { useAuthActions } from '../core/clerkAuth'
 import { useInstalledPackages } from '../core/registry'
 import { Sema } from '../mpm2d/mascot/Sema'
 import type { SyntaxPrefs } from '../mpm2d/storage'
-import { MPM2D_TOTAL_LESSONS } from '../packages/courseMeta'
+import type {
+  Mpm2dProgressSummary,
+  ThinkingInCodeProgressSummary,
+} from '../packages/courseMeta'
 import { assetUrl } from '../mpm2d/assetUrl'
 import { PackageIcon } from './PackageIcon'
 
 export interface ProfilePageProps {
   prefs: SyntaxPrefs
-  completedLessonCount: number
-  masteredCount: number
-  coursePct: number
+  mpm2dSummary: Mpm2dProgressSummary
+  csSummary: ThinkingInCodeProgressSummary
   onOpenCourse: (courseId: string) => void
   onOpenLibrary: () => void
   onOpenPlugins: () => void
@@ -22,9 +24,8 @@ export interface ProfilePageProps {
 
 export function ProfilePage({
   prefs,
-  completedLessonCount,
-  masteredCount,
-  coursePct,
+  mpm2dSummary,
+  csSummary,
   onOpenCourse,
   onOpenLibrary,
   onOpenPlugins,
@@ -34,6 +35,11 @@ export function ProfilePage({
   const account = useAccount()
   const auth = useAuthActions()
   const records = useInstalledPackages()
+  const [avatarFailed, setAvatarFailed] = useState(false)
+
+  useEffect(() => {
+    setAvatarFailed(false)
+  }, [account?.avatarUrl])
 
   const installedCourses = useMemo(
     () => records.filter(r => r.manifest.kind === 'course' && r.enabled).map(r => r.manifest),
@@ -48,18 +54,23 @@ export function ProfilePage({
     ? account.displayName.trim().slice(0, 1).toUpperCase() || 'S'
     : 'G'
 
+  const totalCompleted = mpm2dSummary.completedCount + csSummary.completedCount
+  const totalLessons = mpm2dSummary.totalLessons + csSummary.totalLessons
+  const overallPct = totalLessons > 0 ? Math.round((totalCompleted / totalLessons) * 100) : 0
+
   return (
     <main className="sx-profile-page" aria-label="Profile">
       <section className="sx-profile-hero">
         <div className="sx-profile-identity">
           <div className="sx-profile-avatar-wrap">
-            {account?.avatarUrl ? (
+            {account?.avatarUrl && !avatarFailed ? (
               <img
                 src={account.avatarUrl}
                 alt={account.displayName}
                 className="sx-profile-avatar-img"
                 width={72}
                 height={72}
+                onError={() => setAvatarFailed(true)}
               />
             ) : (
               <div className="sx-profile-avatar-fallback" aria-hidden="true">
@@ -82,7 +93,9 @@ export function ProfilePage({
           <div className="sx-profile-titles">
             <h1>{account ? account.displayName : 'Guest learner'}</h1>
             <p className="sx-profile-handle">
-              {account ? `@${account.handle}` : 'Sign in to sync your account and install community packages'}
+              {account
+                ? `@${account.handle}`
+                : 'Sign in to sync your account and install community packages'}
               {account?.email ? ` · ${account.email}` : ''}
             </p>
           </div>
@@ -121,17 +134,17 @@ export function ProfilePage({
       <section className="sx-profile-stats" aria-label="Progress summary">
         <div className="sx-profile-stat">
           <span className="sx-profile-stat-value">
-            {completedLessonCount}/{MPM2D_TOTAL_LESSONS}
+            {totalCompleted}/{totalLessons}
           </span>
           <span className="sx-profile-stat-label">Lessons completed</span>
         </div>
         <div className="sx-profile-stat">
-          <span className="sx-profile-stat-value">{masteredCount}</span>
+          <span className="sx-profile-stat-value">{mpm2dSummary.masteredCount}</span>
           <span className="sx-profile-stat-label">Lessons mastered</span>
         </div>
         <div className="sx-profile-stat">
-          <span className="sx-profile-stat-value">{coursePct}%</span>
-          <span className="sx-profile-stat-label">Analytic Geometry</span>
+          <span className="sx-profile-stat-value">{overallPct}%</span>
+          <span className="sx-profile-stat-label">Overall progress</span>
         </div>
         <div className="sx-profile-stat">
           <span className="sx-profile-stat-value">{installedCourses.length}</span>
@@ -153,7 +166,8 @@ export function ProfilePage({
           {installedCourses.map(course => {
             const isMpm2d = course.id === 'mpm2d-analytic-geometry'
             const isTic = course.id === 'thinking-in-code'
-            const pct = isMpm2d ? coursePct : 0
+            const pct = isMpm2d ? mpm2dSummary.percent : isTic ? csSummary.percent : 0
+            const progressLabel = isMpm2d || isTic ? `${pct}%` : 'Ready'
             return (
               <div key={course.id} className="preference-row sx-profile-course-row">
                 <div className="sx-profile-course-main">
@@ -182,7 +196,7 @@ export function ProfilePage({
                       <div className="sx-profile-bar-track" aria-hidden="true">
                         <div className="sx-profile-bar-fill" style={{ width: `${pct}%` }} />
                       </div>
-                      <span>{isMpm2d ? `${pct}%` : 'Ready'}</span>
+                      <span>{progressLabel}</span>
                     </div>
                   </div>
                 </div>
@@ -218,7 +232,11 @@ export function ProfilePage({
               <p>Community Hub</p>
               <span>Browse courses, app plugins, and embedded tools</span>
             </div>
-            <button type="button" className="sx-btn-secondary sx-btn-sm" onClick={onOpenCommunityHub}>
+            <button
+              type="button"
+              className="sx-btn-secondary sx-btn-sm"
+              onClick={onOpenCommunityHub}
+            >
               Browse
             </button>
           </div>

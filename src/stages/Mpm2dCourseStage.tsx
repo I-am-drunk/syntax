@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowDown, BookOpenText, ClipboardCheck, Layers, RotateCcw, SlidersHorizontal } from 'lucide-react'
+import '../lessons/lesson.css'
+import '../lessons/practiceExplanation.css'
 import '../lessons/completion.css'
+import '../interactives/gridView.css'
 import '../mpm2d/mpm2dBrilliant.css'
 import { playLessonSound, preloadLessonSounds, type LessonSound } from '../services/lessonSounds'
 import { COURSE_LEVELS, type GeoLesson, type GeoLessonPage } from '../mpm2d/pageTypes'
@@ -98,7 +101,7 @@ export default function Mpm2dCourseStage({
   onLessonRouteChange,
   onProgressChanged,
 }: Mpm2dCourseStageProps) {
-  const { setContribution, clearContribution } = useHostSlots()
+  const { setContribution, clearContribution, setFullscreenLesson } = useHostSlots()
   const playbookPluginOn = usePluginActive('formula-playbook')
   const floatingWindowsPluginOn = usePluginActive('floating-windows')
 
@@ -145,9 +148,11 @@ export default function Mpm2dCourseStage({
       setVirtualReviewLesson(null)
       setActiveLessonId(initialLessonId)
       setSelectedId(initialLessonId)
-    } else if (!initialLessonId) {
+      setReturnLessonId(prev => (prev === initialLessonId ? null : prev))
+    } else {
       setVirtualReviewLesson(null)
       setActiveLessonId(null)
+      setReturnLessonId(null)
       setResumeMap(loadResumeMap())
     }
   }, [initialLessonId])
@@ -303,6 +308,11 @@ export default function Mpm2dCourseStage({
       (activeLessonId ? ALL_LESSONS.find(l => l.id === activeLessonId) : undefined),
     [virtualReviewLesson, activeLessonId],
   )
+
+  useEffect(() => {
+    setFullscreenLesson(Boolean(activeLesson))
+    return () => setFullscreenLesson(false)
+  }, [activeLesson, setFullscreenLesson])
 
   const totalExercises = useMemo(
     () => UNIT2_LESSONS.reduce((acc, l) => acc + l.pages.length + l.checks.length, 0),
@@ -938,6 +948,7 @@ export default function Mpm2dCourseStage({
                     onClick={() => {
                       clearLessonResume(sel.id)
                       setResumeMap(loadResumeMap())
+                      onProgressChanged()
                       openLesson(sel.id)
                     }}
                   >

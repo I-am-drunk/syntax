@@ -38,7 +38,7 @@ export function ExplanationDiagram({ map, explanation, position }: {
     {explanation.mode === 'delivery' ? <ExplanationTruckMap map={map} {...sample} roadLayout={explanation.roadLayout} />
       : <RobotBoard map={map} width={map.width * 30 + 60} {...sample} bare delivery={explanation.mode === 'collection'} />}
     <svg className="explanation-frame" aria-hidden="true" overflow="visible">
-      <rect width="100%" height="100%" rx="6" fill="#fff" stroke="rgb(0 0 0 / .1)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+      <rect width="100%" height="100%" rx="12" fill="#fafafa" stroke="rgb(0 0 0 / .12)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
     </svg>
   </div></div>;
 }

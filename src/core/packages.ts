@@ -22,14 +22,21 @@ export const PACKAGE_LABEL_BY_KIND: Record<PackageKind, string> = {
   'embedded-plugin': 'Embedded Plugin',
 }
 
-export function isValidSvgIcon(svg: string): boolean {
-  const trimmed = svg.trim()
-  if (trimmed.length === 0 || trimmed.length > 32000) return false
-  return trimmed.startsWith('<svg') && trimmed.endsWith('</svg>')
-}
+const UNSAFE_SVG_RE =
+  /<script\b|<\/script\b|<foreignobject\b|<iframe\b|<object\b|<embed\b|\son[a-z]+\s*=|javascript:|vbscript:|data:text\/html/i
+
+const MAX_PACKAGE_FILE_BYTES = 2 * 1024 * 1024
 
 export function isSafeSvgIcon(svg: string): boolean {
-  return isValidSvgIcon(svg)
+  const trimmed = svg.trim()
+  if (trimmed.length === 0 || trimmed.length > 32000) return false
+  if (!trimmed.startsWith('<svg') || !trimmed.endsWith('</svg>')) return false
+  if (UNSAFE_SVG_RE.test(trimmed)) return false
+  return true
+}
+
+export function isValidSvgIcon(svg: string): boolean {
+  return isSafeSvgIcon(svg)
 }
 
 export function isSafeSandboxHtml(html: string): boolean {
@@ -38,9 +45,12 @@ export function isSafeSandboxHtml(html: string): boolean {
 
 export function compareSemver(a: string, b: string): number {
   const split = (v: string) => {
-    const [core, pre] = v.split('-')
+    const clean = v.split('+')[0] ?? v
+    const dash = clean.indexOf('-')
+    const core = dash >= 0 ? clean.slice(0, dash) : clean
+    const pre = dash >= 0 ? clean.slice(dash + 1) : ''
     const nums = core.split('.').map(n => Number.parseInt(n, 10) || 0)
-    return { nums, pre: pre ?? '' }
+    return { nums, pre: pre ? pre.split('.') : [] }
   }
   const pa = split(a)
   const pb = split(b)
@@ -49,9 +59,28 @@ export function compareSemver(a: string, b: string): number {
     if (diff !== 0) return diff > 0 ? 1 : -1
   }
   // Stable release is newer than prerelease (e.g. 1.0.0 > 1.0.0-alpha.1)
-  if (pa.pre && !pb.pre) return -1
-  if (!pa.pre && pb.pre) return 1
-  if (pa.pre !== pb.pre) return pa.pre > pb.pre ? 1 : -1
+  if (pa.pre.length > 0 && pb.pre.length === 0) return -1
+  if (pa.pre.length === 0 && pb.pre.length > 0) return 1
+  const maxLen = Math.max(pa.pre.length, pb.pre.length)
+  for (let i = 0; i < maxLen; i++) {
+    const ia = pa.pre[i]
+    const ib = pb.pre[i]
+    if (ia === undefined) return -1
+    if (ib === undefined) return 1
+    if (ia === ib) continue
+    const aNum = /^\d+$/.test(ia)
+    const bNum = /^\d+$/.test(ib)
+    if (aNum && bNum) {
+      const diff = Number.parseInt(ia, 10) - Number.parseInt(ib, 10)
+      if (diff !== 0) return diff > 0 ? 1 : -1
+    } else if (aNum) {
+      return -1
+    } else if (bNum) {
+      return 1
+    } else {
+      return ia > ib ? 1 : -1
+    }
+  }
   return 0
 }
 
@@ -87,15 +116,27 @@ export const PackageAIUsageSchema = z.object({
 })
 export type PackageAIUsage = z.infer<typeof PackageAIUsageSchema>
 
-export const CustomCourseLessonSchema = z.object({
-  id: z.string().min(1),
-  title: z.string().min(2),
-  summary: z.string().min(4),
-  prompt: z.string().optional(),
-  choices: z.array(z.string().min(1)).optional(),
-  answerIndex: z.number().int().min(0).optional(),
-  explanation: z.string().optional(),
-})
+export const CustomCourseLessonSchema = z
+  .object({
+    id: z.string().min(1),
+    title: z.string().min(2),
+    summary: z.string().min(4),
+    prompt: z.string().optional(),
+    choices: z.array(z.string().min(1)).optional(),
+    answerIndex: z.number().int().min(0).optional(),
+    explanation: z.string().optional(),
+  })
+  .superRefine((lesson, ctx) => {
+    if (lesson.answerIndex !== undefined) {
+      if (!lesson.choices || lesson.answerIndex >= lesson.choices.length) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['answerIndex'],
+          message: 'answerIndex must point to a valid entry in choices.',
+        })
+      }
+    }
+  })
 export type CustomCourseLesson = z.infer<typeof CustomCourseLessonSchema>
 
 export const CustomCourseDataSchema = z.object({
@@ -132,8 +173,8 @@ export const SyntaxPackageManifestSchema = z
         'version must follow major.minor.patch (for example 1.0.0).',
       ),
     author: PackageAuthorSchema,
-    iconSvg: z.string().trim().refine(isValidSvgIcon, {
-      message: 'Package requires an inline <svg>...</svg> icon.',
+    iconSvg: z.string().trim().refine(isSafeSvgIcon, {
+      message: 'Package requires a safe inline <svg>...</svg> icon.',
     }),
     accentColor: z.string().regex(/^#[0-9a-fA-F]{3,8}$/, 'accentColor must be a hex color.'),
     tags: z.array(z.string().min(1)).default([]),
@@ -259,6 +300,13 @@ export async function parsePackageFile(file: File): Promise<ValidationResult> {
       errors: [
         'Unsupported file type. Choose a .syntaxcourse, .syntaxplugin, .syntaxembeddedplugin, or .json file.',
       ],
+    }
+  }
+
+  if (file.size > MAX_PACKAGE_FILE_BYTES) {
+    return {
+      ok: false,
+      errors: ['Package file is too large (maximum size is 2 MB).'],
     }
   }
 

@@ -50,19 +50,79 @@ export function CourseStageHost({
   const depStatus = useCourseDependencyStatus(courseId)
 
   const courseRecord = records.find(r => r.manifest.id === courseId)
-  const courseManifest =
-    courseRecord?.manifest ?? catalogPackages.find(p => p.id === courseId) ?? null
+  const catalogCandidate = catalogPackages.find(p => p.id === courseId && p.kind === 'course') ?? null
 
-  if (!courseManifest) {
+  if (!courseRecord) {
     return (
       <main className="sx-dep-gate">
-        <h2>Course not installed</h2>
+        <h2>{catalogCandidate ? `${catalogCandidate.name} is not installed` : 'Course not installed'}</h2>
         <p className="sx-modal-copy">
-          Could not find <code>{courseId}</code> in your Library.
+          {catalogCandidate
+            ? catalogCandidate.tagline
+            : (
+              <>
+                Could not find <code>{courseId}</code> in your Library.
+              </>
+            )}
         </p>
         <div className="sx-modal-actions">
-          <button type="button" className="sx-btn-primary" onClick={onBackToLibrary}>
+          <button type="button" className="sx-btn-secondary" onClick={onBackToLibrary}>
             Back to Library
+          </button>
+          {catalogCandidate && (
+            <button
+              type="button"
+              className="sx-btn-primary"
+              onClick={() => {
+                if (!account) {
+                  onRequireSignIn(catalogCandidate)
+                  return
+                }
+                const res = installPackage(catalogCandidate, {
+                  source: catalogCandidate.builtIn ? 'official' : 'community',
+                  catalogPool: catalogPackages,
+                })
+                if (!res.ok) {
+                  if (res.needsSignIn) {
+                    onRequireSignIn(catalogCandidate)
+                    return
+                  }
+                  toast.error(res.error)
+                  return
+                }
+                toast.success(`Added ${catalogCandidate.name}`)
+              }}
+            >
+              {account ? 'Install & open' : 'Sign in to install'}
+            </button>
+          )}
+        </div>
+      </main>
+    )
+  }
+
+  const courseManifest = courseRecord.manifest
+
+  if (!courseRecord.enabled) {
+    return (
+      <main className="sx-dep-gate">
+        <h2>{courseManifest.name} is disabled</h2>
+        <p className="sx-modal-copy">
+          Enable this course in your Library to resume lessons and interactive exercises.
+        </p>
+        <div className="sx-modal-actions">
+          <button type="button" className="sx-btn-secondary" onClick={onBackToLibrary}>
+            Back to Library
+          </button>
+          <button
+            type="button"
+            className="sx-btn-primary"
+            onClick={() => {
+              setPackageEnabled(courseManifest.id, true)
+              toast.success(`Enabled ${courseManifest.name}`)
+            }}
+          >
+            Enable &amp; open
           </button>
         </div>
       </main>
@@ -145,6 +205,7 @@ export function CourseStageHost({
             soundOn={soundOn}
             onBackToLibrary={onBackToLibrary}
             onLessonRouteChange={onLessonRouteChange}
+            onProgressChanged={onProgressChanged}
           />
         ) : (
           <CustomCourseStage course={courseManifest} theme={theme} />

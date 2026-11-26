@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Popover } from '@base-ui/react/popover'
 import {
   BookOpen,
@@ -22,6 +22,19 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
   const auth = useAuthActions()
   const [open, setOpen] = useState(false)
   const [imgFailed, setImgFailed] = useState(false)
+  const manageTimerRef = useRef<number>(0)
+
+  useEffect(() => {
+    setImgFailed(false)
+  }, [account?.avatarUrl])
+
+  useEffect(() => {
+    if (!account) setOpen(false)
+  }, [account])
+
+  useEffect(() => {
+    return () => window.clearTimeout(manageTimerRef.current)
+  }, [])
 
   if (!account && auth.isClerkActive && sessionStatus === 'hydrating' && !auth.isLoaded) {
     return <span className="sx-header-avatar-skeleton" aria-hidden="true" />
@@ -49,7 +62,8 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
 
   function handleManageAccount() {
     setOpen(false)
-    window.setTimeout(() => {
+    window.clearTimeout(manageTimerRef.current)
+    manageTimerRef.current = window.setTimeout(() => {
       auth.openAccount()
     }, 40)
   }
@@ -94,6 +108,7 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
                   width={40}
                   height={40}
                   className="sx-profile-pop-avatar"
+                  onError={() => setImgFailed(true)}
                 />
               ) : (
                 <div className="sx-profile-pop-avatar is-mono" aria-hidden="true">
@@ -122,7 +137,11 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
                 <Puzzle size={16} strokeWidth={1.9} aria-hidden="true" />
                 <span>Plugins</span>
               </button>
-              <button type="button" className="sx-profile-pop-item" onClick={() => go('/community')}>
+              <button
+                type="button"
+                className="sx-profile-pop-item"
+                onClick={() => go('/community')}
+              >
                 <Compass size={16} strokeWidth={1.9} aria-hidden="true" />
                 <span>Community Hub</span>
               </button>

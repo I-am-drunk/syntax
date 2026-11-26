@@ -75,13 +75,13 @@
   /* GeoCanvas palette calibrated to Brilliant Panda tokens (dark) */
   --geo-bg: #161616;
   --geo-grid: #262626;
-  --geo-axis: #5c5c66;
+  --geo-axis: #595959;
   --geo-halo: #161616;
   --geo-ink: #ffffff;
   --geo-ink-secondary: #cccccc;
-  --geo-ink-muted: #8c8c96;
-  --geo-dim: #73737c;
-  --geo-border: #34343c;
+  --geo-ink-muted: #969696;
+  --geo-dim: #7a7a7a;
+  --geo-border: #333333;
   --geo-surface-subtle: #202020;
   --geo-blue: #7491ff;
   --geo-teal: #61c4b8;
@@ -91,7 +91,7 @@
   --geo-muted: #999999;
   --geo-ghost: #7491ff;
 
-  --choice-border: #3f414a;
+  --choice-border: #3d3d3d;
   --choice-shadow: #2c2c2c;
   --choice-hover: rgb(255 255 255 / 0.055);
   --choice-sel-border: #5c7eff;
@@ -162,7 +162,7 @@
    ========================================================================== */
 
 /* Fix browser default button background on .lesson-close & align with Brilliant circle icon buttons */
-.lesson-close,
+.mpm2d-lesson-shell .lesson-close,
 .lesson-nav-icon-btn {
   width: 48px;
   height: 48px;
@@ -178,13 +178,13 @@
   transition: background-color 120ms ease, color 120ms ease;
 }
 
-.lesson-close:hover,
+.mpm2d-lesson-shell .lesson-close:hover,
 .lesson-nav-icon-btn:hover {
   background: #f5f5f5;
   color: #141414;
 }
 
-:root[data-theme='dark'] .lesson-close,
+:root[data-theme='dark'] .mpm2d-lesson-shell .lesson-close,
 :root[data-theme='dark'] .lesson-nav-icon-btn {
   color: #ffffff80;
   background: transparent;
@@ -1250,7 +1250,7 @@
 }
 
 :root[data-theme='dark'] .br-plan-tile-face {
-  border-color: #3f414a;
+  border-color: #3d3d3d;
   background: #1c1c1c;
   color: #fff;
   box-shadow: 0 2px 0 #2c2c2c;
@@ -1262,7 +1262,7 @@
 }
 
 :root[data-theme='dark'] .br-plan-tile-node[data-read-only='true'] > .br-plan-tile-face {
-  border-color: #34343c;
+  border-color: #333333;
   background: #242424;
   box-shadow: none;
 }
@@ -1963,7 +1963,7 @@
    + Compact Worked Plan Strip & Prior Step Ledger (Zero Pills)
    ============================================================================ */
 
-.lesson-page {
+.mpm2d-lesson-shell .lesson-page {
   container-type: inline-size;
   container-name: lesson-pane;
 }
@@ -2247,7 +2247,7 @@
 :root[data-theme='dark'] .workspace-splitter-cue {
   background: #222222;
   color: #f2f2f2;
-  border-color: #343845;
+  border-color: #343434;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.34);
 }
 
@@ -2273,7 +2273,7 @@
 :root[data-theme='dark'] .workspace-splitter-cue-fullscreen {
   background: #222222;
   color: #f2f2f2;
-  border-color: #343845;
+  border-color: #343434;
 }
 
 /* Snap-to-Full-Screen Drawing Studio */
@@ -2449,7 +2449,7 @@
   border-radius: 20px;
   border: 1.5px solid var(--geo-border);
   background: var(--geo-bg);
-  box-shadow: 0 14px 36px rgba(15, 23, 42, 0.14);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.14);
   overflow: hidden;
 }
 
@@ -2938,7 +2938,7 @@
    Brilliant-Native Top-Left Editorial Corner Plate (Lesson / Notebook Header)
    ========================================================================== */
 
-.lesson-page {
+.mpm2d-lesson-shell .lesson-page {
   position: relative;
 }
 
@@ -2948,21 +2948,8 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   line-height: 1.2;
-  color: var(--muted, #6c7280);
+  color: var(--muted, #707070);
   margin: 0 0 8px;
-}
-
-/* Polished top-right ? Walkthrough trigger button */
-.lesson-copy-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 14px;
-}
-
-.lesson-copy-row .lesson-copy {
-  flex: 1;
-  min-width: 0;
 }
 
 .lesson-walkthrough-trigger {
@@ -3000,10 +2987,6 @@
   border-color: #303030;
   color: #f2f2f2;
   box-shadow: 0 2px 0 #0c0c0c;
-}
-
-.menu-popup {
-  border: 1px solid var(--border);
 }
 
 .br-worked-mc-block {
@@ -3244,9 +3227,9 @@
   box-shadow: 0 16px 38px rgba(0, 0, 0, 0.56);
 }
 
-.lesson-help-option {
+.lesson-help-item {
   appearance: none;
-  border: 0;
+  border: 1.5px solid transparent;
   background: transparent;
   color: var(--text, #141414);
   text-align: left;
@@ -3257,25 +3240,25 @@
   flex-direction: column;
   gap: 2px;
   font: inherit;
-  transition: background-color 120ms ease;
+  transition: background-color 120ms ease, border-color 120ms ease;
 }
 
-.lesson-help-option:hover {
+.lesson-help-item:hover {
   background: rgba(69, 109, 255, 0.08);
 }
 
-:root[data-theme='dark'] .lesson-help-option:hover {
+:root[data-theme='dark'] .lesson-help-item:hover {
   background: rgba(116, 145, 255, 0.16);
 }
 
-.lesson-help-option strong {
+.lesson-help-item strong {
   font-size: 13.5px;
   font-weight: 700;
 }
 
-.lesson-help-option span {
+.lesson-help-item span {
   font-size: 12px;
-  color: var(--muted, #6c7280);
+  color: var(--muted, #707070);
   line-height: 1.35;
 }
 

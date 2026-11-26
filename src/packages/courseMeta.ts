@@ -1,3 +1,5 @@
+import { readLocalCourseProgress } from '../services/progress'
+
 export interface CourseLessonStub {
   id: string
   title: string
@@ -25,10 +27,17 @@ export const MPM2D_LESSON_INDEX: readonly CourseLessonStub[] = [
 
 export const MPM2D_TOTAL_LESSONS = MPM2D_LESSON_INDEX.length
 
+export const THINKING_IN_CODE_LESSONS: readonly CourseLessonStub[] = [
+  { id: 'tappy-onboarding-tic', title: 'Writing Programs', level: 1 },
+  { id: 'sequencing-commands-ss-exp', title: 'Sequencing Commands', level: 1 },
+  { id: 'repetition-tappy-insight-ss-exp', title: 'Repeating Patterns', level: 1 },
+  { id: 'modifying-programs-tappy-insight-ss-exp', title: 'Debugging Programs', level: 1 },
+]
+
 export const THINKING_IN_CODE_META = {
-  totalLessons: 5,
-  firstLessonTitle: 'Writing Programs',
-  secondLessonTitle: 'Sequencing Commands',
+  totalLessons: THINKING_IN_CODE_LESSONS.length,
+  firstLessonTitle: THINKING_IN_CODE_LESSONS[0]!.title,
+  secondLessonTitle: THINKING_IN_CODE_LESSONS[1]!.title,
 } as const
 
 export interface Mpm2dProgressSummary {
@@ -42,6 +51,15 @@ export interface Mpm2dProgressSummary {
   nextLessonLevel: number
   followingLessonTitle?: string
   missedCheckCount: number
+}
+
+export interface ThinkingInCodeProgressSummary {
+  completedCount: number
+  totalLessons: number
+  percent: number
+  nextLessonId: string
+  nextLessonTitle: string
+  followingLessonTitle?: string
 }
 
 const PROGRESS_KEY = 'mpm2d-brilliant-progress-v1'
@@ -94,17 +112,23 @@ export function readMpm2dProgressSummary(): Mpm2dProgressSummary {
   let masteredCount = 0
   for (const stub of MPM2D_LESSON_INDEX) {
     const stat = completed[stub.id]
-    if (stat) {
+    if (!stat) continue
+    if (stat.total === 0 || stat.correct > 0) {
       completedCount += 1
-      if (stat.total > 0 && stat.correct === stat.total) {
-        masteredCount += 1
-      }
     }
+    if (stat.total === 0 || stat.correct >= stat.total) {
+      masteredCount += 1
+    }
+  }
+
+  const isDone = (id: string) => {
+    const stat = completed[id]
+    return Boolean(stat && (stat.total === 0 || stat.correct > 0))
   }
 
   const nextIdx = resumedLessonId
     ? MPM2D_LESSON_INDEX.findIndex(l => l.id === resumedLessonId)
-    : MPM2D_LESSON_INDEX.findIndex(l => !completed[l.id])
+    : MPM2D_LESSON_INDEX.findIndex(l => !isDone(l.id))
 
   const resolvedIdx = nextIdx >= 0 ? nextIdx : 0
   const nextStub = MPM2D_LESSON_INDEX[resolvedIdx] ?? MPM2D_LESSON_INDEX[0]!
@@ -121,5 +145,26 @@ export function readMpm2dProgressSummary(): Mpm2dProgressSummary {
     nextLessonLevel: nextStub.level,
     followingLessonTitle: followingStub?.title,
     missedCheckCount,
+  }
+}
+
+export function readThinkingInCodeProgressSummary(): ThinkingInCodeProgressSummary {
+  const courseProgress = readLocalCourseProgress('thinking-in-code')
+  const completedSlugs = new Set(courseProgress.completedLessons.map(l => l.slug))
+
+  const completedCount = THINKING_IN_CODE_LESSONS.filter(l => completedSlugs.has(l.id)).length
+  const totalLessons = THINKING_IN_CODE_LESSONS.length
+  const nextIdx = THINKING_IN_CODE_LESSONS.findIndex(l => !completedSlugs.has(l.id))
+  const resolvedIdx = nextIdx >= 0 ? nextIdx : 0
+  const nextStub = THINKING_IN_CODE_LESSONS[resolvedIdx] ?? THINKING_IN_CODE_LESSONS[0]!
+  const followingStub = THINKING_IN_CODE_LESSONS[resolvedIdx + 1]
+
+  return {
+    completedCount,
+    totalLessons,
+    percent: Math.round((completedCount / totalLessons) * 100),
+    nextLessonId: nextStub.id,
+    nextLessonTitle: nextStub.title,
+    followingLessonTitle: followingStub?.title,
   }
 }
