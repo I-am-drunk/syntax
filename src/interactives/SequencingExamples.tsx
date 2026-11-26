@@ -2,6 +2,7 @@ import { useId, useLayoutEffect, useRef, useState } from 'react';
 import { SequencingExampleDrawing } from './SequencingExampleDrawing';
 import pythonDiagram from './sequencing-python.svg?raw';
 import './sequencingExamples.css';
+import { assetUrl } from '../mpm2d/assetUrl';
 
 export function SequencingExample({ kind, active }: {
   kind: 'sequencing-program' | 'sequencing-python'; active: boolean;
@@ -58,7 +59,7 @@ export function SequencingExample({ kind, active }: {
           <feBlend in2="shape" mode="normal" />
         </filter></defs>
         <g filter={`url(#${restartShadowId})`}><g transform="matrix(1 0 0 -1 54 18)">
-          <image width="108" height="36" href="/assets/grid/restart-button.svg"
+          <image width="108" height="36" href={assetUrl("/assets/grid/restart-button.svg")}
             transform="scale(1 -1) translate(-54 -18)" />
         </g></g>
         <g transform="matrix(1 0 0 -1 64 22.863999938964845)">

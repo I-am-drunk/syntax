@@ -80,14 +80,7 @@ export function ProfilePage({
           </div>
 
           <div className="sx-profile-titles">
-            <div className="sx-profile-name-row">
-              <h1>{account ? account.displayName : 'Guest learner'}</h1>
-              {account && (
-                <span className="sx-status-pill">
-                  {account.provider === 'clerk' ? 'Clerk' : 'Local'}
-                </span>
-              )}
-            </div>
+            <h1>{account ? account.displayName : 'Guest learner'}</h1>
             <p className="sx-profile-handle">
               {account ? `@${account.handle}` : 'Sign in to sync your account and install community packages'}
               {account?.email ? ` · ${account.email}` : ''}
@@ -100,14 +93,14 @@ export function ProfilePage({
             <>
               <button
                 type="button"
-                className="sx-btn-ghost"
+                className="sx-btn-secondary"
                 onClick={() => auth.openAccount()}
               >
                 Manage account
               </button>
               <button
                 type="button"
-                className="sx-btn-ghost"
+                className="sx-btn-secondary"
                 onClick={() => void auth.signOut()}
               >
                 Sign out
@@ -151,7 +144,7 @@ export function ProfilePage({
       <section className="sx-profile-section" aria-label="Your courses">
         <div className="sx-profile-section-head">
           <h2>Your courses</h2>
-          <button type="button" className="sx-btn-ghost" onClick={onOpenLibrary}>
+          <button type="button" className="sx-btn-secondary sx-btn-sm" onClick={onOpenLibrary}>
             Open Library
           </button>
         </div>
@@ -195,7 +188,7 @@ export function ProfilePage({
                 </div>
                 <button
                   type="button"
-                  className="sx-btn-ghost"
+                  className="sx-btn-secondary sx-btn-sm"
                   onClick={() => onOpenCourse(course.id)}
                 >
                   Open
@@ -216,7 +209,7 @@ export function ProfilePage({
               <p>Active plugins</p>
               <span>{enabledPluginCount} enabled on this device</span>
             </div>
-            <button type="button" className="sx-btn-ghost" onClick={onOpenPlugins}>
+            <button type="button" className="sx-btn-secondary sx-btn-sm" onClick={onOpenPlugins}>
               Plugins
             </button>
           </div>
@@ -225,7 +218,7 @@ export function ProfilePage({
               <p>Community Hub</p>
               <span>Browse courses, app plugins, and embedded tools</span>
             </div>
-            <button type="button" className="sx-btn-ghost" onClick={onOpenCommunityHub}>
+            <button type="button" className="sx-btn-secondary sx-btn-sm" onClick={onOpenCommunityHub}>
               Browse
             </button>
           </div>
@@ -234,7 +227,7 @@ export function ProfilePage({
               <p>Preferences &amp; Sema</p>
               <span>Theme, navigation, Pen Studio, and companion style</span>
             </div>
-            <button type="button" className="sx-btn-ghost" onClick={onOpenSettings}>
+            <button type="button" className="sx-btn-secondary sx-btn-sm" onClick={onOpenSettings}>
               Settings
             </button>
           </div>

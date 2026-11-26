@@ -370,7 +370,7 @@ export default function Mpm2dCourseStage({
     let raf = 0
     const sync = () => {
       raf = 0
-      const atBot = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 140
+      const atBot = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 64
       setOutlineAtBottom(prev => (prev === atBot ? prev : atBot))
       const lvl4 = levelSectionRefs.current.get(4)
       if (lvl4) {
@@ -668,7 +668,7 @@ export default function Mpm2dCourseStage({
 
   return (
     <>
-      <main ref={outlineScrollRef} className="course-outline">
+      <main ref={outlineScrollRef} className="course-outline mpm2d-outline">
         <aside className="course-summary">
           <img
             src={assetUrl('/assets/courses/Coordinate_Geometry-bgclJY.png')}
@@ -786,7 +786,7 @@ export default function Mpm2dCourseStage({
           <div className={`outline-footer-anchor${dockVisible ? ' is-dock-visible' : ' is-dock-hidden'}`}>
             <div
               className="outline-floating-row"
-              style={{ bottom: dockVisible ? dockCardHeight + 12 : 0 }}
+              style={{ bottom: dockVisible ? dockCardHeight + 32 : 20 }}
             >
               <button
                 className={`outline-scroll-btn${outlineAtBottom ? ' is-at-bottom' : ''}`}
@@ -798,7 +798,7 @@ export default function Mpm2dCourseStage({
                   const scroller = outlineScrollRef.current
                   if (scroller) {
                     scroller.scrollTo({
-                      top: outlineAtBottom ? 0 : scroller.scrollHeight,
+                      top: outlineAtBottom ? 0 : Math.max(0, scroller.scrollHeight - scroller.clientHeight),
                       behavior: 'smooth',
                     })
                   }
@@ -903,12 +903,13 @@ export default function Mpm2dCourseStage({
               </div>
             </div>
 
+            <div className="outline-action-clip">
             <motion.div
               ref={dockCardRef}
               key={`dock-bounce-${dockBounceNonce}`}
               className={`outline-action${selIsCatchup ? ' is-catchup' : ''}${dockVisible ? ' is-visible' : ' is-hidden'}`}
               initial={dockBounceNonce > 0 ? { y: -8, opacity: 1 } : false}
-              animate={dockVisible ? { y: 0, opacity: 1 } : { y: 88, opacity: 0 }}
+              animate={dockVisible ? { y: 0, opacity: 1 } : { y: dockCardHeight + 32, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 420, damping: 32, mass: 0.85 }}
             >
               <div className="outline-action-head">
@@ -946,6 +947,7 @@ export default function Mpm2dCourseStage({
                 )}
               </div>
             </motion.div>
+            </div>
           </div>
         </div>
       </main>

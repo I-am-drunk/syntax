@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { X } from 'lucide-react'
+import { Check, X } from 'lucide-react'
 import { compareSemver, type SyntaxPackageManifest } from '../core/packages'
 import { useAccount } from '../core/account'
 import { useInstalledPackages, useRegistryStore } from '../core/registry'
@@ -108,7 +108,7 @@ export function InstallModal({
       <div className="sx-modal">
         <div className="sx-modal-head">
           <div className="sx-modal-identity">
-            <PackageIcon id={manifest.id} kind={manifest.kind} svg={manifest.iconSvg} size={46} />
+            <PackageIcon id={manifest.id} kind={manifest.kind} svg={manifest.iconSvg} size={48} />
             <div className="sx-modal-titles">
               <h2>{manifest.name}</h2>
               <span className="sx-modal-meta">
@@ -128,12 +128,15 @@ export function InstallModal({
         {manifest.kind === 'embedded-plugin' && (
           <div className="sx-account-status-row">
             <span>Embedded plugin</span>
-            <span className={`sx-status-pill${isInstalled && isEnabled ? ' is-ok' : ''}`}>
-              {isInstalled
-                ? isEnabled
-                  ? 'Installed on your account'
-                  : 'Installed (disabled)'
-                : 'Not installed yet'}
+            <span className={`sx-hub-inline-state${isInstalled && isEnabled ? ' is-ok' : ''}`}>
+              {isInstalled && isEnabled && <Check size={14} strokeWidth={2.4} aria-hidden="true" />}
+              <span>
+                {isInstalled
+                  ? isEnabled
+                    ? 'Installed on your account'
+                    : 'Installed (disabled)'
+                  : 'Not installed yet'}
+              </span>
             </span>
           </div>
         )}
@@ -151,12 +154,15 @@ export function InstallModal({
               return (
                 <div key={dep.id} className="sx-dep-item">
                   <span>{dep.name}</span>
-                  <span className={`sx-status-pill${depReady ? ' is-ok' : ''}`}>
-                    {depReady
-                      ? 'Installed on your account'
-                      : depVersionOk
-                        ? 'Disabled (will enable)'
-                        : 'Will install automatically'}
+                  <span className={`sx-hub-inline-state${depReady ? ' is-ok' : ''}`}>
+                    {depReady && <Check size={13} strokeWidth={2.4} aria-hidden="true" />}
+                    <span>
+                      {depReady
+                        ? 'Installed on your account'
+                        : depVersionOk
+                          ? 'Disabled (will enable)'
+                          : 'Will install automatically'}
+                    </span>
                   </span>
                 </div>
               )
@@ -178,7 +184,7 @@ export function InstallModal({
           <div className="sx-sandbox-section">
             <button
               type="button"
-              className="sx-btn-ghost"
+              className="sx-btn-secondary"
               onClick={() => setShowSandbox(v => !v)}
             >
               {showSandbox ? 'Hide preview' : 'Open preview'}
@@ -201,7 +207,7 @@ export function InstallModal({
           {isInstalled && !manifest.builtIn && (
             <button
               type="button"
-              className="sx-btn-danger-ghost"
+              className="sx-btn-danger"
               onClick={() => {
                 uninstallPackage(manifest.id)
                 onClose()
@@ -226,7 +232,7 @@ export function InstallModal({
               ) : (
                 <button
                   type="button"
-                  className="sx-btn-primary"
+                  className={isEnabled ? 'sx-btn-secondary' : 'sx-btn-primary'}
                   onClick={() => {
                     setPackageEnabled(manifest.id, !isEnabled)
                     onClose()
@@ -238,7 +244,7 @@ export function InstallModal({
             ) : (
               <button type="button" className="sx-btn-primary" onClick={handleAddOrRepair}>
                 {account
-                  ? isInstalled
+                  ? isInstalled && hasMissingOrDisabledDeps
                     ? 'Install required plugins & open'
                     : 'Add to Syntax'
                   : 'Sign in to add'}

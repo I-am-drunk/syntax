@@ -2,18 +2,26 @@
    Scroll Performance & Sticky Level 1 + Filter Row Alignment
    ========================================================================== */
 
-.course-outline {
+.mpm2d-outline {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
 }
 
-.course-summary {
+.mpm2d-outline .course-summary {
   contain: layout style;
   transform: translateZ(0);
 }
 
-.outline-level {
+.mpm2d-outline .course-path {
+  padding-bottom: 0;
+}
+
+.mpm2d-outline .outline-level {
   position: relative;
+}
+
+.mpm2d-outline .outline-level:last-of-type {
+  padding-bottom: 108px;
 }
 
 .outline-level-sticky-row {
@@ -1606,10 +1614,21 @@
 
 .outline-footer-anchor {
   position: sticky;
-  bottom: 24px;
+  bottom: 0;
   z-index: 65;
   width: calc(100% - 32px);
-  margin: 48px auto 0;
+  height: 0;
+  margin: 0 auto;
+  pointer-events: none;
+}
+
+.outline-action-clip {
+  position: absolute;
+  left: -24px;
+  right: -24px;
+  bottom: 0;
+  padding: 14px 24px 20px;
+  overflow: hidden;
   pointer-events: none;
 }
 
@@ -2026,35 +2045,31 @@
   line-height: 1.2;
 }
 
-/* Reorganized Brilliant Thick Tab Card (clean, spacious, dark-mode shadows fixed) */
-.outline-action {
+/* Reorganized Brilliant Thick Tab Card (scoped strictly to MPM2D so CS CourseOutline stays untouched) */
+.mpm2d-outline .outline-action {
   position: relative;
   bottom: auto;
   width: 100%;
   margin: 0;
   z-index: 2;
   pointer-events: auto;
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(20px) saturate(1.45);
-  -webkit-backdrop-filter: blur(20px) saturate(1.45);
-  border: 1.5px solid var(--border, #e2e4ea);
-  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(18px) saturate(1.35);
+  -webkit-backdrop-filter: blur(18px) saturate(1.35);
+  border: 2px solid var(--border, #e2e4ea);
+  border-radius: 26px;
   padding: 16px 18px 18px;
-  box-shadow:
-    0 12px 32px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.72);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.08);
 }
 
-.outline-action.is-hidden {
+.mpm2d-outline .outline-action.is-hidden {
   pointer-events: none;
 }
 
-:root[data-theme='dark'] .outline-action {
-  background: rgba(24, 24, 24, 0.94);
+:root[data-theme='dark'] .mpm2d-outline .outline-action {
+  background: rgba(24, 24, 24, 0.96);
   border-color: #323232;
-  box-shadow:
-    0 14px 36px rgba(0, 0, 0, 0.48),
-    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.52);
 }
 
 .outline-action-head {
@@ -2217,7 +2232,10 @@
 @media (max-width: 480px) {
   .outline-footer-anchor {
     width: calc(100% - 20px);
-    bottom: 16px;
+    bottom: 0;
+  }
+  .outline-action-clip {
+    padding-bottom: 16px;
   }
   .outline-redo-pill span {
     display: none;
@@ -2229,52 +2247,4 @@
   }
 }
 
-/* ==========================================================================
-   Dev Site Chrome: Rainbow "Dev" Title, Live Metrics Micro Bar, Sidebar Reset
-   Button, & Chrome-Style Bottom-Corner Hover-Swap Status Pill
-   ========================================================================== */
-
-@keyframes dev-rainbow-shift {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-.dev-rainbow-text {
-  background: linear-gradient(
-    90deg,
-    #ff3b5c 0%,
-    #ff8c00 18%,
-    #facc15 36%,
-    #22c55e 54%,
-    #3b82f6 72%,
-    #a855f7 88%,
-    #ff3b5c 100%
-  );
-  background-size: 240% 240%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
-  font-weight: 800;
-  animation: dev-rainbow-shift 5.5s linear infinite;
-}
-
-.brand-wordmark-stack {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 1px;
-  line-height: 1;
-}
-
-.brand-lockup.is-dev-brand .wordmark {
-  line-height: 1.05;
-}
+/* Dev brand chrome lives canonically in src/ui/syntaxPlatform.css */

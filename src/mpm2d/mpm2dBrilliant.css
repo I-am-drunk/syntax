@@ -204,48 +204,48 @@
   }
 }
 
-/* Guarantee scrolled choices, graphs, and plan slots NEVER overlap or float over the Check footer */
-.lesson-page {
+/* Guarantee scrolled choices, graphs, and plan slots NEVER overlap or float over the Check footer (scoped to MPM2D) */
+.mpm2d-lesson-shell .lesson-page {
   height: 100% !important;
   padding: 16px 20px 116px !important;
 }
 
-.lesson-page[data-is-check='true'] {
+.mpm2d-lesson-shell .lesson-page[data-is-check='true'] {
   height: 100% !important;
   padding: 16px 20px 116px !important;
 }
 
-.lesson-page[data-is-check='true'] .lesson-content {
+.mpm2d-lesson-shell .lesson-page[data-is-check='true'] .lesson-content {
   gap: 16px;
 }
 
-.lesson-page[data-is-check='true'] .lesson-copy {
+.mpm2d-lesson-shell .lesson-page[data-is-check='true'] .lesson-copy {
   margin-top: 4px;
   padding-block: 8px;
 }
 
-.lesson-copy {
+.mpm2d-lesson-shell .lesson-copy {
   padding-block: 8px;
 }
 
-.lesson-footer {
+.mpm2d-lesson-shell .lesson-footer {
   z-index: 30;
   bottom: 0 !important;
   padding: 26px 20px 16px !important;
   background: linear-gradient(to bottom, rgb(255 255 255 / 0) 0%, #ffffff 34%, #ffffff 100%);
 }
 
-.lesson-footer[data-feedback] {
+.mpm2d-lesson-shell .lesson-footer[data-feedback] {
   padding: 16px 24px !important;
   background: #ffffff;
   border-top: 1px solid rgb(0 0 0 / 0.06);
 }
 
-:root[data-theme='dark'] .lesson-footer {
+:root[data-theme='dark'] .mpm2d-lesson-shell .lesson-footer {
   background: linear-gradient(to bottom, rgb(20 20 20 / 0) 0%, #141414 34%, #141414 100%);
 }
 
-:root[data-theme='dark'] .lesson-footer[data-feedback] {
+:root[data-theme='dark'] .mpm2d-lesson-shell .lesson-footer[data-feedback] {
   background: #141414;
   border-top: 1px solid rgb(255 255 255 / 0.08);
 }

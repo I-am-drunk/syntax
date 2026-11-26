@@ -261,7 +261,7 @@ export function LibraryPage({
                 type="button"
                 role="tab"
                 aria-selected={filter === tab.id}
-                className={`sx-lib-filter-pill${filter === tab.id ? ' is-active' : ''}`}
+                className={`sx-lib-filter-tab${filter === tab.id ? ' is-active' : ''}`}
                 onClick={() => setFilter(tab.id)}
               >
                 {tab.label}
@@ -271,10 +271,10 @@ export function LibraryPage({
 
           <button
             type="button"
-            className="sx-btn-ghost"
+            className="sx-browse-hub-btn"
             onClick={onOpenCommunityHub}
           >
-            <Compass size={14} aria-hidden="true" />
+            <Compass size={15} strokeWidth={2} aria-hidden="true" />
             <span>Community Hub</span>
           </button>
         </div>
@@ -330,7 +330,7 @@ export function LibraryPage({
           <p>No courses match this filter yet.</p>
           <div className="sx-library-empty-actions">
             {filter !== 'all' && (
-              <button type="button" className="sx-btn-ghost" onClick={() => setFilter('all')}>
+              <button type="button" className="sx-btn-secondary" onClick={() => setFilter('all')}>
                 Show all installed
               </button>
             )}
@@ -339,7 +339,7 @@ export function LibraryPage({
               className="sx-browse-hub-btn"
               onClick={onOpenCommunityHub}
             >
-              <Compass size={16} aria-hidden="true" />
+              <Compass size={15} strokeWidth={2} aria-hidden="true" />
               <span>Browse Community Hub</span>
             </button>
           </div>
@@ -347,8 +347,8 @@ export function LibraryPage({
       )}
 
       <footer className="sx-library-footer">
-        <button type="button" className="sx-btn-ghost" onClick={onOpenPlugins}>
-          Manage courses &amp; plugins
+        <button type="button" className="sx-btn-secondary" onClick={onOpenPlugins}>
+          Manage plugins &amp; packages
         </button>
       </footer>
     </main>

@@ -968,7 +968,7 @@ export function GeoLessonPlayer({
 
   return (
     <main
-      className="lesson-shell"
+      className="lesson-shell mpm2d-lesson-shell"
       data-phase={isCheck ? 'checks' : 'lesson'}
       data-pen-open={penOpen || undefined}
       aria-label={lesson.title}

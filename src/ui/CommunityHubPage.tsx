@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import MiniSearch from 'minisearch'
 import {
   ArrowLeft,
+  BadgeCheck,
   Check,
   Copy,
   Download,
@@ -30,6 +31,12 @@ import { PackageIcon } from './PackageIcon'
 
 type HubFilter = 'all' | PackageKind
 type HubSort = 'featured' | 'name' | 'installed'
+
+const KIND_SHORT_LABEL: Record<PackageKind, string> = {
+  course: 'Course',
+  plugin: 'App Plugin',
+  'embedded-plugin': 'Embedded Engine',
+}
 
 interface CommunityHubPageProps {
   packages: SyntaxPackageManifest[]
@@ -82,6 +89,11 @@ export function CommunityHubPage({
     return Array.from(map.values())
   }, [packages, records])
 
+  const allById = useMemo(
+    () => new Map(allPackages.map(p => [p.id, p])),
+    [allPackages],
+  )
+
   const counts = useMemo(() => {
     const out = { all: allPackages.length, course: 0, plugin: 0, 'embedded-plugin': 0 }
     for (const p of allPackages) {
@@ -126,8 +138,8 @@ export function CommunityHubPage({
   }, [selectedPackageId])
 
   const selectedPkg = useMemo(
-    () => (selectedPackageId ? allPackages.find(p => p.id === selectedPackageId) ?? null : null),
-    [allPackages, selectedPackageId],
+    () => (selectedPackageId ? allById.get(selectedPackageId) ?? null : null),
+    [allById, selectedPackageId],
   )
 
   const visiblePackages = useMemo(() => {
@@ -182,9 +194,9 @@ export function CommunityHubPage({
         })
       } else {
         list = [...list].sort((a, b) => {
-          const aOff = a.builtIn ? 1 : 0
-          const bOff = b.builtIn ? 1 : 0
-          if (aOff !== bOff) return aOff - bOff
+          const aComm = a.builtIn ? 1 : 0
+          const bComm = b.builtIn ? 1 : 0
+          if (aComm !== bComm) return aComm - bComm
           return a.name.localeCompare(b.name)
         })
       }
@@ -192,6 +204,16 @@ export function CommunityHubPage({
 
     return list
   }, [allPackages, query, searchIndex, filter, sort, installedById])
+
+  const showSpotlight = !query.trim() && filter === 'all' && sort === 'featured' && visiblePackages.length >= 4
+  const spotlightPackages = useMemo(
+    () => (showSpotlight ? visiblePackages.slice(0, 2) : []),
+    [showSpotlight, visiblePackages],
+  )
+  const directoryPackages = useMemo(
+    () => (showSpotlight ? visiblePackages.slice(2) : visiblePackages),
+    [showSpotlight, visiblePackages],
+  )
 
   function handleInstall(pkg: SyntaxPackageManifest) {
     if (!account) {
@@ -231,7 +253,7 @@ export function CommunityHubPage({
   }
 
   // =========================================================================
-  // FULL DEDICATED DETAIL PAGE
+  // DEDICATED PACKAGE DETAIL PAGE (Raycast Store x Obsidian Detail Layout)
   // =========================================================================
   if (selectedPackageId) {
     if (!selectedPkg) {
@@ -254,7 +276,7 @@ export function CommunityHubPage({
                 <p>
                   Could not find <code>{selectedPackageId}</code> in the current catalog.
                 </p>
-                <button type="button" className="sx-btn-ghost" onClick={onRefresh}>
+                <button type="button" className="sx-btn-secondary" onClick={onRefresh}>
                   Refresh catalog
                 </button>
               </>
@@ -280,16 +302,18 @@ export function CommunityHubPage({
 
     return (
       <main className="sx-hub-page sx-hub-detail-page" aria-label={selectedPkg.name}>
-        <button
-          type="button"
-          className="sx-hub-crumb"
-          onClick={() => onSelectPackage(null)}
-        >
-          <ArrowLeft size={15} aria-hidden="true" />
-          <span>Community Hub</span>
-          <span className="sx-hub-crumb-sep">/</span>
+        <nav className="sx-hub-crumb-bar" aria-label="Breadcrumb">
+          <button
+            type="button"
+            className="sx-hub-crumb"
+            onClick={() => onSelectPackage(null)}
+          >
+            <ArrowLeft size={15} aria-hidden="true" />
+            <span>Community Hub</span>
+          </button>
+          <span className="sx-hub-crumb-sep" aria-hidden="true">/</span>
           <span className="sx-hub-crumb-current">{selectedPkg.name}</span>
-        </button>
+        </nav>
 
         <div className="sx-hub-detail-grid">
           <div className="sx-hub-detail-main">
@@ -298,12 +322,16 @@ export function CommunityHubPage({
                 id={selectedPkg.id}
                 kind={selectedPkg.kind}
                 svg={selectedPkg.iconSvg}
-                size={60}
+                size={68}
               />
               <div className="sx-hub-detail-titles">
                 <div className="sx-hub-detail-title-row">
                   <h1>{selectedPkg.name}</h1>
-                  {selectedPkg.builtIn && <span className="sx-hub-pill-official">Official</span>}
+                  {selectedPkg.builtIn && (
+                    <span className="sx-verified-badge" title="Official Syntax package">
+                      <BadgeCheck size={18} aria-hidden="true" />
+                    </span>
+                  )}
                 </div>
                 <p className="sx-hub-detail-tagline">{selectedPkg.tagline}</p>
                 <div className="sx-hub-detail-actions">
@@ -336,7 +364,7 @@ export function CommunityHubPage({
                   ) : (
                     <button
                       type="button"
-                      className={isEnabled ? 'sx-btn-ghost' : 'sx-btn-primary'}
+                      className={isEnabled ? 'sx-btn-secondary' : 'sx-btn-primary'}
                       onClick={() => {
                         setPackageEnabled(selectedPkg.id, !isEnabled)
                         toast.success(`${isEnabled ? 'Disabled' : 'Enabled'} ${selectedPkg.name}`)
@@ -349,7 +377,7 @@ export function CommunityHubPage({
                   {isInstalled && !selectedPkg.builtIn && (
                     <button
                       type="button"
-                      className="sx-btn-danger-ghost"
+                      className="sx-btn-danger"
                       onClick={() => {
                         uninstallPackage(selectedPkg.id)
                         toast.success(`Removed ${selectedPkg.name}`)
@@ -377,11 +405,14 @@ export function CommunityHubPage({
                 <div className="sx-account-status-row">
                   <span>Account status</span>
                   <span className={`sx-hub-inline-state${isInstalled && isEnabled ? ' is-ok' : ''}`}>
-                    {isInstalled
-                      ? isEnabled
-                        ? 'Installed on your account'
-                        : 'Installed (disabled)'
-                      : 'Not installed yet'}
+                    {isInstalled && isEnabled && <Check size={14} strokeWidth={2.4} aria-hidden="true" />}
+                    <span>
+                      {isInstalled
+                        ? isEnabled
+                          ? 'Installed on your account'
+                          : 'Installed (disabled)'
+                        : 'Not installed yet'}
+                    </span>
                   </span>
                 </div>
               </section>
@@ -392,6 +423,7 @@ export function CommunityHubPage({
                 <h2>Required embedded plugins</h2>
                 <div className="sx-dep-list">
                   {requires.map(dep => {
+                    const depPkg = allById.get(dep.id)
                     const depRec = installedById.get(dep.id)
                     const depOk =
                       depRec &&
@@ -399,20 +431,30 @@ export function CommunityHubPage({
                       compareSemver(depRec.manifest.version, dep.minVersion) >= 0
                     const statusLabel = depOk
                       ? depRec.enabled
-                        ? 'Installed'
+                        ? 'Installed on your account'
                         : 'Disabled'
                       : 'Auto-installs'
                     return (
                       <div key={dep.id} className="sx-dep-item">
                         <button
                           type="button"
-                          className="sx-dep-link"
+                          className="sx-dep-link-rich"
                           onClick={() => onSelectPackage(dep.id)}
                         >
-                          {dep.name} <small>v{dep.minVersion}+</small>
+                          <PackageIcon
+                            id={dep.id}
+                            kind={dep.kind}
+                            svg={depPkg?.iconSvg}
+                            size={30}
+                          />
+                          <span className="sx-dep-link-copy">
+                            <strong>{dep.name}</strong>
+                            <small>v{dep.minVersion}+</small>
+                          </span>
                         </button>
                         <span className={`sx-hub-inline-state${depOk && depRec.enabled ? ' is-ok' : ''}`}>
-                          {statusLabel}
+                          {depOk && depRec.enabled && <Check size={13} strokeWidth={2.4} aria-hidden="true" />}
+                          <span>{statusLabel}</span>
                         </span>
                       </div>
                     )
@@ -472,7 +514,7 @@ export function CommunityHubPage({
                 <strong>v{selectedPkg.version}</strong>
               </div>
               <div className="sx-hub-meta-row">
-                <span>Format</span>
+                <span>Package</span>
                 <code>{selectedPkg.extension}</code>
               </div>
               <div className="sx-hub-meta-row">
@@ -504,7 +546,7 @@ export function CommunityHubPage({
               <div className="sx-hub-meta-actions">
                 <button
                   type="button"
-                  className="sx-btn-ghost sx-btn-full"
+                  className="sx-btn-secondary sx-btn-full"
                   onClick={() => void handleCopyInstallLink(selectedPkg)}
                 >
                   {copiedId === selectedPkg.id ? (
@@ -516,7 +558,7 @@ export function CommunityHubPage({
                 </button>
                 <button
                   type="button"
-                  className="sx-btn-ghost sx-btn-full"
+                  className="sx-btn-secondary sx-btn-full"
                   onClick={() => exportPackageFile(selectedPkg)}
                 >
                   <Download size={14} aria-hidden="true" />
@@ -530,8 +572,82 @@ export function CommunityHubPage({
     )
   }
 
+  function renderCard(pkg: SyntaxPackageManifest, featured = false) {
+    const installed = installedById.get(pkg.id)
+    const isInstalled = Boolean(installed)
+    const isEnabled = Boolean(installed?.enabled)
+
+    return (
+      <article key={pkg.id} className={`sx-hub-card${featured ? ' is-featured' : ''}`}>
+        <button
+          type="button"
+          className="sx-hub-card-hit"
+          onClick={() => onSelectPackage(pkg.id)}
+        >
+          <div className="sx-hub-card-top">
+            <PackageIcon
+              id={pkg.id}
+              kind={pkg.kind}
+              svg={pkg.iconSvg}
+              size={featured ? 52 : 44}
+            />
+            <div className="sx-hub-card-id">
+              <div className="sx-hub-card-name-row">
+                <h3>{pkg.name}</h3>
+                {pkg.builtIn && (
+                  <span className="sx-verified-badge" title="Official Syntax package">
+                    <BadgeCheck size={15} aria-hidden="true" />
+                  </span>
+                )}
+                {pkg.touchesCore && <CoreTouchIcon />}
+              </div>
+              <span className="sx-hub-card-author">
+                @{pkg.author.handle} &middot; v{pkg.version}
+              </span>
+            </div>
+          </div>
+          <p className="sx-hub-card-tagline">{pkg.tagline}</p>
+        </button>
+
+        <div className="sx-hub-card-foot">
+          <span className="sx-hub-kind-label">{KIND_SHORT_LABEL[pkg.kind]}</span>
+          {isInstalled ? (
+            pkg.kind === 'course' ? (
+              <button
+                type="button"
+                className="sx-btn-secondary sx-btn-sm"
+                onClick={e => {
+                  e.stopPropagation()
+                  onOpenCourse(pkg.id)
+                }}
+              >
+                Open
+              </button>
+            ) : (
+              <span className={`sx-hub-inline-state${isEnabled ? ' is-ok' : ''}`}>
+                {isEnabled && <Check size={14} strokeWidth={2.4} aria-hidden="true" />}
+                <span>{isEnabled ? 'Installed' : 'Disabled'}</span>
+              </span>
+            )
+          ) : (
+            <button
+              type="button"
+              className="sx-btn-add-cta"
+              onClick={e => {
+                e.stopPropagation()
+                handleInstall(pkg)
+              }}
+            >
+              Add
+            </button>
+          )}
+        </div>
+      </article>
+    )
+  }
+
   // =========================================================================
-  // BROWSE VIEW (Calm Obsidian x Raycast Directory)
+  // BROWSE VIEW (Obsidian Community x Raycast Store in Brilliant Craft)
   // =========================================================================
   return (
     <main className="sx-hub-page" aria-label="Community Hub">
@@ -547,7 +663,7 @@ export function CommunityHubPage({
         <div className="sx-hub-head-actions">
           <button
             type="button"
-            className="sx-btn-ghost"
+            className="sx-btn-secondary"
             onClick={onRefresh}
             disabled={isRefreshing}
           >
@@ -558,7 +674,7 @@ export function CommunityHubPage({
             href={COMMUNITY_HUB_WEB_URL}
             target="_blank"
             rel="noreferrer"
-            className="sx-btn-ghost"
+            className="sx-btn-secondary"
           >
             <span>Web Hub</span>
             <ExternalLink size={13} aria-hidden="true" />
@@ -574,13 +690,13 @@ export function CommunityHubPage({
 
       <div className="sx-hub-controls">
         <div className="sx-search-field sx-hub-search-bar">
-          <Search size={15} className="sx-search-icon" aria-hidden="true" />
+          <Search size={16} className="sx-search-icon" aria-hidden="true" />
           <input
             ref={searchInputRef}
             type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Search courses, plugins, authors..."
+            placeholder="Search courses, plugins, embedded engines, authors..."
             aria-label="Search Community Hub"
           />
           {query ? (
@@ -644,83 +760,42 @@ export function CommunityHubPage({
       </div>
 
       {visiblePackages.length > 0 ? (
-        <div className="sx-hub-grid">
-          {visiblePackages.map(pkg => {
-            const installed = installedById.get(pkg.id)
-            const isInstalled = Boolean(installed)
-            const isEnabled = Boolean(installed?.enabled)
+        <div className="sx-hub-catalog-body">
+          {spotlightPackages.length > 0 && (
+            <section className="sx-hub-section" aria-label="Featured packages">
+              <div className="sx-hub-section-head">
+                <h2>Featured</h2>
+              </div>
+              <div className="sx-hub-spotlight-grid">
+                {spotlightPackages.map(pkg => renderCard(pkg, true))}
+              </div>
+            </section>
+          )}
 
-            return (
-              <article key={pkg.id} className="sx-hub-card">
-                <button
-                  type="button"
-                  className="sx-hub-card-hit"
-                  onClick={() => onSelectPackage(pkg.id)}
-                >
-                  <div className="sx-hub-card-top">
-                    <PackageIcon id={pkg.id} kind={pkg.kind} svg={pkg.iconSvg} size={40} />
-                    <div className="sx-hub-card-id">
-                      <div className="sx-hub-card-name-row">
-                        <h3>{pkg.name}</h3>
-                        {pkg.touchesCore && <CoreTouchIcon />}
-                      </div>
-                      <span className="sx-hub-card-author">
-                        @{pkg.author.handle} &middot; v{pkg.version}
-                      </span>
-                    </div>
-                  </div>
-                  <p className="sx-hub-card-tagline">{pkg.tagline}</p>
-                </button>
-
-                <div className="sx-hub-card-foot">
-                  <span className="sx-hub-kind-label">{PACKAGE_LABEL_BY_KIND[pkg.kind]}</span>
-                  {isInstalled ? (
-                    pkg.kind === 'course' ? (
-                      <button
-                        type="button"
-                        className="sx-btn-ghost sx-btn-xs"
-                        onClick={e => {
-                          e.stopPropagation()
-                          onOpenCourse(pkg.id)
-                        }}
-                      >
-                        Open
-                      </button>
-                    ) : (
-                      <span className={`sx-hub-inline-state${isEnabled ? ' is-ok' : ''}`}>
-                        {isEnabled && <Check size={13} strokeWidth={2.4} aria-hidden="true" />}
-                        <span>{isEnabled ? 'Installed' : 'Disabled'}</span>
-                      </span>
-                    )
-                  ) : (
-                    <button
-                      type="button"
-                      className="sx-btn-ghost sx-btn-xs sx-btn-add"
-                      onClick={e => {
-                        e.stopPropagation()
-                        handleInstall(pkg)
-                      }}
-                    >
-                      Add
-                    </button>
-                  )}
-                </div>
-              </article>
-            )
-          })}
+          <section className="sx-hub-section" aria-label="All packages">
+            {spotlightPackages.length > 0 && (
+              <div className="sx-hub-section-head">
+                <h2>Directory</h2>
+                <span>{directoryPackages.length}</span>
+              </div>
+            )}
+            <div className="sx-hub-grid">
+              {directoryPackages.map(pkg => renderCard(pkg, false))}
+            </div>
+          </section>
         </div>
       ) : (
         <div className="sx-hub-empty">
           <p>No packages match &ldquo;{query}&rdquo;.</p>
           <button
             type="button"
-            className="sx-btn-ghost"
+            className="sx-btn-secondary"
             onClick={() => {
               setQuery('')
               setFilter('all')
             }}
           >
-            Clear filters
+            Reset filters
           </button>
         </div>
       )}

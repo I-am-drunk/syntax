@@ -2,16 +2,14 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Menu } from '@base-ui/react/menu'
 import {
   ArrowLeft,
-  Blocks,
   BookOpen,
   Compass,
-  Home,
   Menu as MenuIcon,
   Moon,
+  Puzzle,
   Settings,
   Sparkles,
   Sun,
-  User,
   Volume2,
   VolumeX,
 } from 'lucide-react'
@@ -110,7 +108,7 @@ export function AppHeader({
         />
       </div>
 
-      {/* Mode-switched Top Navigation with crisp GPU-only cross-slide (no jerky width thrash) */}
+      {/* Mode-switched Top Navigation with crisp GPU-only cross-slide */}
       <div className="sx-nav-stage">
         <AnimatePresence mode="wait" initial={false}>
           {isWorkspace ? (
@@ -125,19 +123,21 @@ export function AppHeader({
             >
               <button
                 type="button"
-                className="sx-nav-back-pill"
+                className="sx-nav-back-btn"
                 aria-label="Back to Library"
                 onClick={() => onNavigate('/library')}
               >
-                <ArrowLeft size={15} strokeWidth={2} aria-hidden="true" />
+                <ArrowLeft size={16} strokeWidth={2.1} aria-hidden="true" />
                 <span className="sx-nav-back-label">Library</span>
               </button>
+
+              <span className="sx-nav-divider" aria-hidden="true" />
 
               <div className="sx-workspace-tabs">
                 {(
                   [
                     { id: 'settings', label: 'Settings', path: '/settings', Icon: Settings },
-                    { id: 'plugins', label: 'Plugins', path: '/plugins', Icon: Blocks },
+                    { id: 'plugins', label: 'Plugins', path: '/plugins', Icon: Puzzle },
                     { id: 'community', label: 'Community Hub', path: '/community', Icon: Compass },
                   ] as const
                 ).map(({ id, label, path, Icon }) => {
@@ -176,37 +176,40 @@ export function AppHeader({
             >
               <button
                 type="button"
-                className="sx-nav-back-pill"
+                className="sx-nav-back-btn"
                 aria-label="Back to Library"
                 title="Back to Library"
                 onClick={() => onNavigate('/library')}
               >
-                <ArrowLeft size={15} strokeWidth={2} aria-hidden="true" />
+                <ArrowLeft size={16} strokeWidth={2.1} aria-hidden="true" />
                 <span className="sx-nav-back-label">Library</span>
               </button>
 
               {courseNavTabs.length > 0 && (
-                <div className="sx-course-tabs">
-                  {courseNavTabs.map(tab => (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      className="primary-nav-btn"
-                      aria-current={tab.active ? 'page' : undefined}
-                      onClick={tab.onClick}
-                    >
-                      {tab.icon}
-                      <span className="primary-nav-label">{tab.label}</span>
-                      {tab.active && (
-                        <motion.span
-                          layoutId="course-nav-indicator"
-                          className="primary-nav-indicator"
-                          transition={{ type: 'spring', stiffness: 520, damping: 38 }}
-                        />
-                      )}
-                    </button>
-                  ))}
-                </div>
+                <>
+                  <span className="sx-nav-divider" aria-hidden="true" />
+                  <div className="sx-course-tabs">
+                    {courseNavTabs.map(tab => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        className="primary-nav-btn"
+                        aria-current={tab.active ? 'page' : undefined}
+                        onClick={tab.onClick}
+                      >
+                        {tab.icon}
+                        <span className="primary-nav-label">{tab.label}</span>
+                        {tab.active && (
+                          <motion.span
+                            layoutId="course-nav-indicator"
+                            className="primary-nav-indicator"
+                            transition={{ type: 'spring', stiffness: 520, damping: 38 }}
+                          />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </>
               )}
             </motion.nav>
           ) : (
@@ -305,78 +308,80 @@ export function AppHeader({
           <Menu.Portal>
             <Menu.Positioner sideOffset={12} align="end" className="menu-positioner">
               <Menu.Popup className="menu-popup sx-menu-popup">
-                <Menu.Group className="menu-group">
-                  <Menu.Item className="menu-item sx-menu-item" onClick={() => onNavigate('/')}>
-                    <Home size={16} strokeWidth={1.9} aria-hidden="true" />
-                    <span>Home</span>
-                  </Menu.Item>
-                  <Menu.Item
-                    className="menu-item sx-menu-item"
-                    onClick={() => onNavigate('/library')}
-                  >
-                    <BookOpen size={16} strokeWidth={1.9} aria-hidden="true" />
-                    <span>Library</span>
-                  </Menu.Item>
-                  <Menu.Item
-                    className="menu-item sx-menu-item"
-                    onClick={() => onNavigate('/profile')}
-                  >
-                    <User size={16} strokeWidth={1.9} aria-hidden="true" />
-                    <span>Profile</span>
-                  </Menu.Item>
-                </Menu.Group>
-
-                <Menu.Separator className="menu-separator" />
-
-                <Menu.Group className="menu-group">
-                  <Menu.Item
-                    className="menu-item sx-menu-item"
-                    onClick={() => onNavigate('/settings')}
-                  >
-                    <Settings size={16} strokeWidth={1.9} aria-hidden="true" />
-                    <span>Settings</span>
-                  </Menu.Item>
-                  <Menu.Item
-                    className="menu-item sx-menu-item"
-                    onClick={() => onNavigate('/plugins')}
-                  >
-                    <Blocks size={16} strokeWidth={1.9} aria-hidden="true" />
-                    <span>Plugins</span>
-                  </Menu.Item>
-                  <Menu.Item
-                    className="menu-item sx-menu-item"
-                    onClick={() => onNavigate('/community')}
-                  >
-                    <Compass size={16} strokeWidth={1.9} aria-hidden="true" />
-                    <span>Community Hub</span>
-                  </Menu.Item>
-                </Menu.Group>
-
-                {isCourse && contribution.menuActions && contribution.menuActions.length > 0 && (
+                {isCourse ? (
                   <>
-                    <Menu.Separator className="menu-separator" />
                     <Menu.Group className="menu-group">
-                      {contribution.menuActions.map(act => (
+                      {contribution.menuActions?.map(act => (
                         <Menu.Item
                           key={act.id}
                           className="menu-item sx-menu-item"
                           onClick={act.onSelect}
                         >
+                          <BookOpen size={16} strokeWidth={1.9} aria-hidden="true" />
                           <span>{act.label}</span>
                         </Menu.Item>
                       ))}
+                      <Menu.Item
+                        className="menu-item sx-menu-item"
+                        onClick={() => onNavigate('/library')}
+                      >
+                        <ArrowLeft size={16} strokeWidth={1.9} aria-hidden="true" />
+                        <span>Back to Library</span>
+                      </Menu.Item>
+                    </Menu.Group>
+
+                    <Menu.Separator className="menu-separator" />
+
+                    <Menu.Group className="menu-group">
+                      <Menu.Item
+                        className="menu-item sx-menu-item"
+                        onClick={() => onNavigate('/settings')}
+                      >
+                        <Settings size={16} strokeWidth={1.9} aria-hidden="true" />
+                        <span>Settings</span>
+                      </Menu.Item>
+                      <Menu.Item className="menu-item sx-menu-item" onClick={onOpenWelcome}>
+                        <Sparkles size={16} strokeWidth={1.9} aria-hidden="true" />
+                        <span>Welcome tour</span>
+                      </Menu.Item>
+                    </Menu.Group>
+                  </>
+                ) : (
+                  <>
+                    <Menu.Group className="menu-group">
+                      <Menu.Item
+                        className="menu-item sx-menu-item"
+                        onClick={() => onNavigate('/settings')}
+                      >
+                        <Settings size={16} strokeWidth={1.9} aria-hidden="true" />
+                        <span>Settings</span>
+                      </Menu.Item>
+                      <Menu.Item
+                        className="menu-item sx-menu-item"
+                        onClick={() => onNavigate('/plugins')}
+                      >
+                        <Puzzle size={16} strokeWidth={1.9} aria-hidden="true" />
+                        <span>Plugins</span>
+                      </Menu.Item>
+                      <Menu.Item
+                        className="menu-item sx-menu-item"
+                        onClick={() => onNavigate('/community')}
+                      >
+                        <Compass size={16} strokeWidth={1.9} aria-hidden="true" />
+                        <span>Community Hub</span>
+                      </Menu.Item>
+                    </Menu.Group>
+
+                    <Menu.Separator className="menu-separator" />
+
+                    <Menu.Group className="menu-group">
+                      <Menu.Item className="menu-item sx-menu-item" onClick={onOpenWelcome}>
+                        <Sparkles size={16} strokeWidth={1.9} aria-hidden="true" />
+                        <span>Welcome tour</span>
+                      </Menu.Item>
                     </Menu.Group>
                   </>
                 )}
-
-                <Menu.Separator className="menu-separator" />
-
-                <Menu.Group className="menu-group">
-                  <Menu.Item className="menu-item sx-menu-item" onClick={onOpenWelcome}>
-                    <Sparkles size={16} strokeWidth={1.9} aria-hidden="true" />
-                    <span>Welcome tour</span>
-                  </Menu.Item>
-                </Menu.Group>
               </Menu.Popup>
             </Menu.Positioner>
           </Menu.Portal>

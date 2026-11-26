@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { voiceSources } from './voiceSources'
 import type { Preferences } from '../services/preferences'
+import { assetUrl } from '../mpm2d/assetUrl'
 
 export function useVoiceSample() {
   const audio = useRef<HTMLAudioElement | null>(null)
@@ -17,7 +18,7 @@ export function useVoiceSample() {
       }
     }
     const key = cycle.current.shift()! as keyof typeof voiceSources.deep
-    const sample = new Audio(voiceSources[voice][key])
+    const sample = new Audio(assetUrl(voiceSources[voice][key]))
     audio.current = sample; setError('')
     try { await sample.play() }
     catch { if (audio.current === sample) setError('The voice sample could not be played.') }

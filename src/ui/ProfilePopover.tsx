@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { Popover } from '@base-ui/react/popover'
 import {
-  Blocks,
   BookOpen,
   Compass,
   LogOut,
+  Puzzle,
   Settings,
   User,
   UserCog,
@@ -119,7 +119,7 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
                 <span>Library</span>
               </button>
               <button type="button" className="sx-profile-pop-item" onClick={() => go('/plugins')}>
-                <Blocks size={16} strokeWidth={1.9} aria-hidden="true" />
+                <Puzzle size={16} strokeWidth={1.9} aria-hidden="true" />
                 <span>Plugins</span>
               </button>
               <button type="button" className="sx-profile-pop-item" onClick={() => go('/community')}>

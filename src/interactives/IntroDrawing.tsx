@@ -3,6 +3,7 @@ import { clamp, ease, mixColor, colors } from './gridAppearance';
 import { cubicProgress } from './gridMotion';
 import { introMotion } from './gridIntroMotion';
 import { DiagramShadow } from './DiagramShadow';
+import { assetUrl } from '../mpm2d/assetUrl';
 
 const transparent = 'rgba(0%,0%,0%,0)';
 const blue = 'rgb(27.06% 42.75% 100%)';
@@ -11,7 +12,7 @@ const matrix = (x: number, y: number, scale = 1, angle = 0) => {
   const c = scale * Math.cos(angle), s = scale * Math.sin(angle);
   return `matrix(${c} ${-s} ${-s} ${-c} ${x} ${y})`;
 };
-const assets = '/assets/grid/';
+const assets = assetUrl('/assets/grid/');
 const phone = 'phone_wrapper_sailr_289x457_2x-uvkefr-1-jWC5K7.png';
 const mask = 'phone_wrapper_mask_289x457_2x-ZJdBWF.png';
 const gridX = [-2, -1, 0, 1, 2], gridY = [-3, -2, -1, 0, 1, 2, 3];

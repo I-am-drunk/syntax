@@ -28,7 +28,7 @@
 }
 
 .sema-topbar-dock[data-logo-phase="merging"] {
-  width: 15px;
+  width: 14px;
 }
 
 .sema-topbar-dock-ghost {
@@ -229,8 +229,8 @@
 .sema-studio-badge.is-motion {
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
-  border-radius: 999px;
+  padding: 4px 9px;
+  border-radius: 7px;
   border: 1px solid var(--border);
   font-size: 11.5px;
   font-weight: 700;
@@ -473,8 +473,8 @@
   left: 0;
   top: 50%;
   transform: translateY(-50%) scale(0.5);
-  width: 15px;
-  height: 36px;
+  width: 14px;
+  height: 34px;
   padding: 0;
   border: none;
   background: transparent;
@@ -526,16 +526,16 @@
     transform: translate3d(0, 0, 0) scaleX(1) scaleY(1);
     opacity: 1;
   }
-  52% {
-    transform: translate3d(-4px, -4px, 0) scaleX(0.94) scaleY(1.07);
+  50% {
+    transform: translate3d(-2px, -3px, 0) scaleX(0.92) scaleY(1.06);
     opacity: 1;
   }
   78% {
-    transform: translate3d(-9px, 1px, 0) scaleX(0.8) scaleY(0.86);
-    opacity: 0.78;
+    transform: translate3d(-3px, 1px, 0) scaleX(0.68) scaleY(0.88);
+    opacity: 0.72;
   }
   100% {
-    transform: translate3d(-11px, 0, 0) scaleX(0.45) scaleY(0.92);
+    transform: translate3d(-2px, 0, 0) scaleX(0.42) scaleY(0.9);
     opacity: 0;
   }
 }

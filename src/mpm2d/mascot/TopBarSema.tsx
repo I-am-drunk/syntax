@@ -458,59 +458,59 @@ export function TopBarSema({
             />
           </div>
 
-          {/* Frozen semicolon glyph Sema transforms into cleanly after "Syntax" or "Syntax Dev" */}
-          <button
-            type="button"
-            className={`sema-frozen-semicolon${isDev ? ' is-dev-rainbow' : ''}`}
-            tabIndex={dockedIntoLogo ? 0 : -1}
-            aria-label="Exit workspace and wake Sema"
-            title="Back to Library"
-            onClick={() => onLogoClick?.()}
-          >
-            <svg
-              className="sema-frozen-semicolon-svg"
-              width="14"
-              height="26"
-              viewBox="-122 -122 244 426"
-              fill="none"
-              aria-hidden="true"
-              shapeRendering="geometricPrecision"
-            >
-              {isDev && (
-                <defs>
-                  <linearGradient
-                    id="sema-dev-rainbow-grad"
-                    x1="0%"
-                    y1="0%"
-                    x2="0%"
-                    y2="100%"
-                  >
-                    <stop offset="0%" stopColor="#ff3b5c" />
-                    <stop offset="25%" stopColor="#f59e0b" />
-                    <stop offset="50%" stopColor="#22c55e" />
-                    <stop offset="75%" stopColor="#3b82f6" />
-                    <stop offset="100%" stopColor="#a855f7" />
-                  </linearGradient>
-                </defs>
-              )}
-              {shape === 'jenson' ? (
-                <path d={SEMA_JENSON_HEAD_PATH} fill={frozenFill} />
-              ) : (
-                <circle cx="0" cy="0" r="98" fill={frozenFill} />
-              )}
-              <path
-                d={SEMA_REST_COMMA_PATHS[tail] ?? SEMA_REST_COMMA_PATHS.jenson}
-                fill={frozenFill}
-              />
-            </svg>
-          </button>
-
           {hoverBubble && !dockedIntoLogo && !isAway && (
             <div className="sema-speech-bubble" data-placement="bottom" role="tooltip">
               Hi, I&rsquo;m Sema
             </div>
           )}
         </div>
+
+        {/* Frozen semicolon glyph anchored directly to .sema-topbar-dock so it sits crisply after "Syntax" or "Syntax Dev" */}
+        <button
+          type="button"
+          className={`sema-frozen-semicolon${isDev ? ' is-dev-rainbow' : ''}`}
+          tabIndex={dockedIntoLogo ? 0 : -1}
+          aria-label="Exit workspace and wake Sema"
+          title="Back to Library"
+          onClick={() => onLogoClick?.()}
+        >
+          <svg
+            className="sema-frozen-semicolon-svg"
+            width="13"
+            height="26"
+            viewBox="-108 -118 216 418"
+            fill="none"
+            aria-hidden="true"
+            shapeRendering="geometricPrecision"
+          >
+            {isDev && (
+              <defs>
+                <linearGradient
+                  id="sema-dev-rainbow-grad"
+                  x1="0%"
+                  y1="0%"
+                  x2="0%"
+                  y2="100%"
+                >
+                  <stop offset="0%" stopColor="#ff3b5c" />
+                  <stop offset="25%" stopColor="#f59e0b" />
+                  <stop offset="50%" stopColor="#22c55e" />
+                  <stop offset="75%" stopColor="#3b82f6" />
+                  <stop offset="100%" stopColor="#a855f7" />
+                </linearGradient>
+              </defs>
+            )}
+            {shape === 'jenson' ? (
+              <path d={SEMA_JENSON_HEAD_PATH} fill={frozenFill} />
+            ) : (
+              <circle cx="0" cy="0" r="98" fill={frozenFill} />
+            )}
+            <path
+              d={SEMA_REST_COMMA_PATHS[tail] ?? SEMA_REST_COMMA_PATHS.jenson}
+              fill={frozenFill}
+            />
+          </svg>
+        </button>
 
         {isAway && <span ref={ghostRef} className="sema-topbar-dock-ghost" aria-hidden="true" />}
       </div>

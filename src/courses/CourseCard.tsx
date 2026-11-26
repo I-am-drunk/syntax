@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { topics } from './catalog'
+import { assetUrl } from '../mpm2d/assetUrl'
 
 export type Course = typeof topics[number]['courses'][number]
 
@@ -8,7 +9,7 @@ export function CourseCard({ course, layout = 'tile' }: {
 }) {
   const [pressed, setPressed] = useState(false)
   const imageWidth = layout === 'row' ? 204 : 156
-  const image = course.image.replace('/assets/courses/', `/assets/courses/cards/${imageWidth}/`)
+  const image = assetUrl(course.image.replace('/assets/courses/', `/assets/courses/cards/${imageWidth}/`))
   const percent = course.capturedPercentComplete
   const progress = percent === 0 || percent === 100 ? null : <span className="course-progress"
     role="progressbar" aria-label={`${course.title} is ${percent}% complete`}

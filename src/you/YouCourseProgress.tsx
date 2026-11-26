@@ -3,6 +3,7 @@ import { writingPrograms } from '../lessons/writingPrograms'
 import { sequencingCommands } from '../lessons/sequencingCommands'
 import { repeatingPatterns } from '../lessons/repeatingPatterns'
 import { debuggingPrograms } from '../lessons/debuggingPrograms'
+import { assetUrl } from '../mpm2d/assetUrl'
 
 export function YouCourseProgress({ activity }: { activity: SavedActivity }) {
   const completed = [writingPrograms, sequencingCommands, repeatingPatterns, debuggingPrograms].filter(lesson =>
@@ -13,8 +14,8 @@ export function YouCourseProgress({ activity }: { activity: SavedActivity }) {
     <h2 id="you-progress-heading">Your learning progress</h2>
     {completed.length > 0 ? <div className="you-course-card">
       <div className="you-course-top">
-        <a className="you-course-title" href="/courses/thinking-in-code/">
-          <img src="/assets/courses/thinking-in-code-DolooX.png" width="48" height="48" alt="" />
+        <a className="you-course-title" href="#/course/thinking-in-code">
+          <img src={assetUrl('/assets/courses/thinking-in-code-DolooX.png')} width="48" height="48" alt="" />
           <div><p>Programming &amp; CS</p><h3>Thinking in Code</h3></div>
         </a>
         <span className="you-course-count">{completed.length} {completed.length === 1 ? 'lesson' : 'lessons'} completed</span>

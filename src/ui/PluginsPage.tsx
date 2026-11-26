@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { Compass, Search, Upload, X } from 'lucide-react'
+import { Check, Compass, Search, Upload, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Toggle } from '../settings/Controls'
 import { OFFICIAL_BY_ID } from '../packages/catalog'
@@ -93,7 +93,7 @@ export function PluginsPage({
           <div className="sx-plugins-cta-group">
             <button
               type="button"
-              className="sx-btn-ghost"
+              className="sx-btn-secondary"
               onClick={() => fileInputRef.current?.click()}
             >
               <Upload size={14} strokeWidth={2} aria-hidden="true" />
@@ -163,7 +163,7 @@ export function PluginsPage({
                     id={manifest.id}
                     kind={manifest.kind}
                     svg={manifest.iconSvg}
-                    size={36}
+                    size={40}
                   />
                   <div className="sx-plugin-copy">
                     <div className="sx-plugin-name-line">
@@ -203,12 +203,16 @@ export function PluginsPage({
                     id={manifest.id}
                     kind={manifest.kind}
                     svg={manifest.iconSvg}
-                    size={36}
+                    size={40}
                   />
                   <div className="sx-plugin-copy">
                     <div className="sx-plugin-name-line">
                       <span className="sx-plugin-name">{manifest.name}</span>
                       <span className="sx-plugin-ver">v{manifest.version}</span>
+                      <span className={`sx-hub-inline-state sx-embedded-flag${enabled ? ' is-ok' : ''}`}>
+                        {enabled && <Check size={12} strokeWidth={2.5} aria-hidden="true" />}
+                        <span>{enabled ? 'Installed' : 'Disabled'}</span>
+                      </span>
                     </div>
                     <span className="sx-plugin-sub">{manifest.tagline}</span>
                   </div>
@@ -242,7 +246,7 @@ export function PluginsPage({
                     id={manifest.id}
                     kind={manifest.kind}
                     svg={manifest.iconSvg}
-                    size={36}
+                    size={40}
                   />
                   <div className="sx-plugin-copy">
                     <div className="sx-plugin-name-line">
@@ -254,7 +258,7 @@ export function PluginsPage({
                 </button>
                 <button
                   type="button"
-                  className="sx-btn-ghost sx-btn-xs"
+                  className="sx-btn-secondary sx-btn-sm"
                   onClick={() => onOpenCourse(manifest.id)}
                 >
                   Open
@@ -268,7 +272,7 @@ export function PluginsPage({
       {filtered.length === 0 && (
         <div className="sx-hub-empty">
           <p>No installed packages match &ldquo;{query}&rdquo;.</p>
-          <button type="button" className="sx-btn-ghost" onClick={() => setQuery('')}>
+          <button type="button" className="sx-btn-secondary" onClick={() => setQuery('')}>
             Clear filter
           </button>
         </div>

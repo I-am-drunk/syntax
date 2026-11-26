@@ -8,6 +8,7 @@ import { GridWarning } from './GridWarning';
 import { RobotBoard } from './RobotBoard';
 import { DeliveryMarker } from './DeliveryDrawing';
 import { DeliveryWarning, PackageWarning } from './DeliveryWarning';
+import { assetUrl } from '../mpm2d/assetUrl';
 
 export type GridArtwork = 'mission-cove' | 'financial-district' | 'solitary-street' | 'botanical-district' | 'broadway' | 'fifth-avenue' | 'park-avenue' | 'canal-street' | 'market-district' | 'robot';
 type Props = { map: GridMap; width: number; frame: GridPlaybackFrame; artwork: GridArtwork; result: GridRun | null; stepMs?: number; delivery?: boolean };
@@ -118,7 +119,7 @@ export function GridBoard({ map, width, frame, artwork, result, stepMs = GRID_ST
     role="img" aria-label={`${map.width} by ${map.height} delivery map`}>
     <g opacity={appearance.backdropOpacity}>
       <g vectorEffect="non-scaling-stroke" transform={`matrix(${1 / 3} 0 0 ${-1 / 3} ${width / 2} 131)`}>
-        <image width="1620" height="516" href={`/assets/grid/${artwork}.svg`}
+        <image width="1620" height="516" href={assetUrl(`/assets/grid/${artwork}.svg`)}
           transform="scale(1 -1) translate(-810 -258)" />
       </g>
       {([['rgb(55.69% 63.53% 71.37%)', 8], ['rgb(69.41% 76.08% 82.35%)', 6]] as const).flatMap(([color, size]) =>

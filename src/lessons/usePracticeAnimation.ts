@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { EventType, Rive } from '@rive-app/webgl2';
 import type { Event } from '@rive-app/webgl2';
+import { assetUrl } from '../mpm2d/assetUrl';
 
 type Options = {
   color: number; percentCorrect: number;
@@ -39,7 +40,7 @@ export function usePracticeAnimation(options: Options) {
     appearance.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     const load = async () => {
       try {
-        const response = await fetch('/assets/completion/endstates.e233a7c3.riv', { signal: request.signal });
+        const response = await fetch(assetUrl('/assets/completion/endstates.e233a7c3.riv'), { signal: request.signal });
         if (!response.ok) throw new Error('Practice animation unavailable');
         const buffer = await response.arrayBuffer();
         if (disposed) return;
