@@ -1,37 +1,34 @@
 import { create } from 'zustand'
-import { z } from 'zod'
+import {
+  CloudExtensionEntrySchema,
+  SyntaxCloudPayloadSchema,
+  extractRemoteCloudPayload,
+  fingerprintCloudPayload,
+  type CloudExtensionEntry,
+  type SyntaxCloudPayload,
+} from './cloudSchema'
 import { loadPrefs, savePrefs, type SyntaxPrefs } from './prefs'
 import { syntaxLog } from './logger'
+
+export {
+  CloudExtensionEntrySchema,
+  SyntaxCloudPayloadSchema,
+  extractRemoteCloudPayload,
+  fingerprintCloudPayload,
+  type CloudExtensionEntry,
+  type SyntaxCloudPayload,
+}
 
 const THEME_KEY = 'syntax.theme.v1'
 const LEGACY_THEME_KEY = 'mpm2d-brilliant-theme-v1'
 const SOUND_KEY = 'syntax.sound.v1'
 const LEGACY_SOUND_KEY = 'mpm2d-brilliant-sound-v1'
+const EXTENSIONS_KEY = 'syntax.extensions.v1'
+const EXTENSION_SETTINGS_KEY = 'syntax.extensions.settings.v1'
+const CLOUD_PAYLOAD_SOFT_LIMIT = 6800
 
 export const CLOUD_SYNC_APPLIED_EVENT = 'syntax:cloud-sync-applied'
-
-/**
- * Compact schema stored inside Clerk `user.unsafeMetadata.syntaxCloudV1`.
- * Strictly kept well under Clerk's 8 KB unsafeMetadata ceiling.
- */
-export const SyntaxCloudPayloadSchema = z.object({
-  v: z.literal(1),
-  updatedAt: z.string(),
-  theme: z.enum(['light', 'dark']).optional(),
-  themePackId: z.string().max(64).optional(),
-  soundOn: z.boolean().optional(),
-  prefs: z
-    .object({
-      onboarded: z.boolean().optional(),
-      logoClickTarget: z.enum(['library', 'home']).optional(),
-      semaShape: z.string().max(32).optional(),
-      semaTail: z.string().max(32).optional(),
-      semaExpression: z.string().max(32).optional(),
-    })
-    .optional(),
-})
-
-export type SyntaxCloudPayload = z.infer<typeof SyntaxCloudPayloadSchema>
+export const CLOUD_SYNC_DIRTY_EVENT = 'syntax:cloud-dirty'
 
 export type CloudSyncStatus = 'local-only' | 'idle' | 'syncing' | 'synced' | 'error'
 
@@ -48,6 +45,55 @@ export const useCloudSyncStore = create<CloudSyncState>(set => ({
   lastError: null,
   setSyncState: patch => set(patch),
 }))
+
+function readLocalExtensionEntries(): CloudExtensionEntry[] {
+  try {
+    const raw = localStorage.getItem(EXTENSIONS_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    const out: CloudExtensionEntry[] = []
+    for (const item of parsed) {
+      if (!item || typeof item !== 'object') continue
+      const candidate = CloudExtensionEntrySchema.safeParse({
+        id: (item as Record<string, unknown>).id,
+        manifestUrl: (item as Record<string, unknown>).manifestUrl,
+        enabled: Boolean((item as Record<string, unknown>).enabled),
+      })
+      if (candidate.success) out.push(candidate.data)
+      if (out.length >= 30) break
+    }
+    return out
+  } catch {
+    return []
+  }
+}
+
+function readLocalExtensionSettings(): Record<string, Record<string, boolean | string | number>> {
+  try {
+    const raw = localStorage.getItem(EXTENSION_SETTINGS_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    const out: Record<string, Record<string, boolean | string | number>> = {}
+    for (const [extId, map] of Object.entries(parsed as Record<string, unknown>)) {
+      if (!extId || extId.length > 64 || !map || typeof map !== 'object' || Array.isArray(map)) {
+        continue
+      }
+      const cleanMap: Record<string, boolean | string | number> = {}
+      for (const [key, val] of Object.entries(map as Record<string, unknown>)) {
+        if (!key || key.length > 64) continue
+        if (typeof val === 'boolean') cleanMap[key] = val
+        else if (typeof val === 'number' && Number.isFinite(val)) cleanMap[key] = val
+        else if (typeof val === 'string' && val.length <= 240) cleanMap[key] = val
+      }
+      if (Object.keys(cleanMap).length > 0) out[extId] = cleanMap
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
 
 export function collectLocalCloudSnapshot(): SyntaxCloudPayload {
   const prefs = loadPrefs()
@@ -68,7 +114,10 @@ export function collectLocalCloudSnapshot(): SyntaxCloudPayload {
     }
   })()
 
-  return {
+  const extensions = readLocalExtensionEntries()
+  const extensionSettings = readLocalExtensionSettings()
+
+  const payload: SyntaxCloudPayload = {
     v: 1,
     updatedAt: new Date().toISOString(),
     theme: rawTheme,
@@ -80,7 +129,23 @@ export function collectLocalCloudSnapshot(): SyntaxCloudPayload {
       semaTail: prefs.semaTail,
       semaExpression: prefs.semaExpression,
     },
+    ...(extensions.length > 0 ? { extensions } : {}),
+    ...(Object.keys(extensionSettings).length > 0 ? { extensionSettings } : {}),
   }
+
+  // Keep payload comfortably under Clerk's 8 KB unsafeMetadata ceiling
+  if (JSON.stringify(payload).length > CLOUD_PAYLOAD_SOFT_LIMIT && payload.extensionSettings) {
+    delete payload.extensionSettings
+  }
+  while (
+    payload.extensions &&
+    payload.extensions.length > 0 &&
+    JSON.stringify(payload).length > CLOUD_PAYLOAD_SOFT_LIMIT
+  ) {
+    payload.extensions = payload.extensions.slice(0, -1)
+  }
+
+  return payload
 }
 
 export function mergeCloudIntoLocal(remote: SyntaxCloudPayload): SyntaxCloudPayload {
@@ -123,6 +188,20 @@ export function mergeCloudIntoLocal(remote: SyntaxCloudPayload): SyntaxCloudPayl
       // ignore
     }
   }
+  if (remote.extensionSettings && Object.keys(remote.extensionSettings).length > 0) {
+    try {
+      const existing = readLocalExtensionSettings()
+      const mergedSettings: Record<string, Record<string, boolean | string | number>> = {
+        ...existing,
+      }
+      for (const [extId, map] of Object.entries(remote.extensionSettings)) {
+        mergedSettings[extId] = { ...(existing[extId] ?? {}), ...map }
+      }
+      localStorage.setItem(EXTENSION_SETTINGS_KEY, JSON.stringify(mergedSettings))
+    } catch {
+      // ignore
+    }
+  }
 
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(CLOUD_SYNC_APPLIED_EVENT, { detail: remote }))
@@ -133,22 +212,9 @@ export function mergeCloudIntoLocal(remote: SyntaxCloudPayload): SyntaxCloudPayl
     updatedAt: new Date().toISOString(),
     theme: remote.theme ?? local.theme,
     soundOn: remote.soundOn ?? local.soundOn,
+    ...(remote.extensions ? { extensions: remote.extensions } : {}),
+    ...(remote.extensionSettings ? { extensionSettings: remote.extensionSettings } : {}),
   }
-}
-
-export function extractRemoteCloudPayload(
-  unsafeMetadata: Record<string, unknown> | null | undefined,
-): SyntaxCloudPayload | null {
-  if (!unsafeMetadata || typeof unsafeMetadata !== 'object') return null
-  const raw = unsafeMetadata.syntaxCloudV1
-  const parsed = SyntaxCloudPayloadSchema.safeParse(raw)
-  return parsed.success ? parsed.data : null
-}
-
-/** Fingerprint ignoring `updatedAt` so identical snapshots don't spam Clerk API writes. */
-export function fingerprintCloudPayload(payload: SyntaxCloudPayload): string {
-  const { updatedAt: _ignored, ...rest } = payload
-  return JSON.stringify(rest)
 }
 
 export async function pushCloudSnapshotToClerk(

@@ -143,8 +143,8 @@ export function ProfilePage({
               </p>
               <span>
                 {isClerkUser
-                  ? `${formatSyncTime(cloudSync.lastSyncedAt)} · Syncs your light/dark mode, Sema style, and workspace preferences across devices`
-                  : 'Sign in to sync your preferences across devices'}
+                  ? `${formatSyncTime(cloudSync.lastSyncedAt)} · Syncs your theme, sound, Sema style, installed extensions, and extension settings across devices`
+                  : 'Sign in to sync your preferences and installed extensions across devices'}
               </span>
             </div>
             {isClerkUser ? (

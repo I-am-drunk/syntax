@@ -6,6 +6,7 @@ import { createMemoryDocumentStore, MAX_DOCUMENT_BYTES } from '../../src/extensi
 import { validateExtensionManifest } from '../../src/extensions/manifest.ts'
 import { isSafeMode, useExtensionStore } from '../../src/extensions/store.ts'
 import { extensionDiagnostics } from '../../src/extensions/diagnostics.ts'
+import { extractRemoteCloudPayload } from '../../src/core/cloudSchema.ts'
 
 describe('ContributionStore ownership and cleanup', () => {
   beforeEach(() => {
@@ -321,5 +322,34 @@ describe('DocumentStore optimistic concurrency and Safe Mode detection', () => {
     assert.match(logs[0].message, /\[truncated\]$/)
     assert.ok((logs[0].detail || '').length < 8100)
     extensionDiagnostics.clear(extId)
+  })
+
+  it('parses cloud sync payloads with extensions/settings and stays tolerant of legacy themePackId', () => {
+    const parsed = extractRemoteCloudPayload({
+      syntaxCloudV1: {
+        v: 1,
+        updatedAt: '2026-11-27T12:00:00Z',
+        theme: 'dark',
+        themePackId: 'legacy-pack',
+        soundOn: false,
+        extensions: [
+          {
+            id: 'tj.storyboard',
+            manifestUrl: 'https://example.com/storyboard/extension.json',
+            enabled: true,
+          },
+        ],
+        extensionSettings: {
+          'tj.storyboard': { defaultPrefix: 'Act', maxTasks: 30, autoSave: true },
+        },
+      },
+    })
+    assert.ok(parsed)
+    assert.equal(parsed.theme, 'dark')
+    assert.equal(parsed.soundOn, false)
+    assert.equal(parsed.extensions?.length, 1)
+    assert.equal(parsed.extensions?.[0].id, 'tj.storyboard')
+    assert.equal(parsed.extensionSettings?.['tj.storyboard']?.defaultPrefix, 'Act')
+    assert.equal('themePackId' in parsed, false)
   })
 })

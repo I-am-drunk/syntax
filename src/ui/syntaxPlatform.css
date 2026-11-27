@@ -3707,3 +3707,29 @@
   flex-shrink: 0;
   margin-top: 2px;
 }
+
+.sx-hub-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sx-hub-filter-bar .sx-search-field {
+  flex: 1 1 240px;
+  max-width: 380px;
+}
+
+.sx-hub-tag-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.sx-ext-card.is-highlighted {
+  border-color: var(--accent-blue, #456dff);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-blue, #456dff) 20%, transparent);
+}

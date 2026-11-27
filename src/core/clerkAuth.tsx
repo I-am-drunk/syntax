@@ -12,6 +12,7 @@ import { ClerkProvider, useAuth, useClerk, useSessionList, useUser } from '@cler
 import { dark } from '@clerk/themes'
 import { isClerkConfigured, sanitizeHandle, useAccountStore } from './account'
 import {
+  CLOUD_SYNC_DIRTY_EVENT,
   collectLocalCloudSnapshot,
   extractRemoteCloudPayload,
   fingerprintCloudPayload,
@@ -266,7 +267,7 @@ function ClerkAccountBridge({ children }: { children: ReactNode }) {
       }, 2200)
     }
 
-    const events = ['syntax:prefs-changed', 'syntax:theme-pack-changed']
+    const events = ['syntax:prefs-changed', CLOUD_SYNC_DIRTY_EVENT]
     for (const ev of events) window.addEventListener(ev, scheduleSync)
 
     return () => {
