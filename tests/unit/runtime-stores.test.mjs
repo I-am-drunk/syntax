@@ -5,6 +5,7 @@ import { ExtensionServiceRegistry, findServiceCycle } from '../../src/extensions
 import { createMemoryDocumentStore } from '../../src/extensions/documents.ts'
 import { validateExtensionManifest } from '../../src/extensions/manifest.ts'
 import { isSafeMode, useExtensionStore } from '../../src/extensions/store.ts'
+import { extensionDiagnostics } from '../../src/extensions/diagnostics.ts'
 
 describe('ContributionStore ownership and cleanup', () => {
   beforeEach(() => {
@@ -239,5 +240,26 @@ describe('DocumentStore optimistic concurrency and Safe Mode detection', () => {
     assert.equal(store.getSetting(extId, 'oldFlag', v2), undefined)
     assert.deepEqual(store.getAllSettings(extId, v2), { prefix: true, count: 5 })
     store.clearSettings(extId)
+  })
+
+  it('bounds diagnostics ring buffer entry count and truncates oversized log payloads', () => {
+    const extId = 'tj.noisy-unit'
+    extensionDiagnostics.clear(extId)
+    for (let i = 0; i < 120; i++) {
+      extensionDiagnostics.push({
+        extensionId: extId,
+        activationId: 'a1',
+        source: 'worker',
+        level: 'info',
+        message: 'x'.repeat(5000),
+        detail: 'y'.repeat(12000),
+      })
+    }
+    const logs = extensionDiagnostics.getLogs(extId)
+    assert.equal(logs.length, 100)
+    assert.ok(logs[0].message.length < 2100)
+    assert.match(logs[0].message, /\[truncated\]$/)
+    assert.ok((logs[0].detail || '').length < 8100)
+    extensionDiagnostics.clear(extId)
   })
 })

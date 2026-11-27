@@ -300,3 +300,11 @@ export const useExtensionStore = create<ExtensionStoreState>((set, get) => ({
     })
   },
 }))
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', event => {
+    if (event.key === SETTINGS_STORAGE_KEY) {
+      useExtensionStore.setState({ settings: readPersistedSettings() })
+    }
+  })
+}
