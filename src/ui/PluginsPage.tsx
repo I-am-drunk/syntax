@@ -2,7 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { Check, Compass, Search, Upload, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Toggle } from '../settings/Controls'
-import { OFFICIAL_BY_ID } from '../packages/catalog'
+import { OFFICIAL_BY_ID, RETIRED_OFFICIAL_IDS } from '../packages/catalog'
 import {
   normalizeExternalManifest,
   parsePackageFile,
@@ -75,6 +75,18 @@ export function PluginsPage({
     const parsed = await parsePackageFile(file)
     if (!parsed.ok) {
       setImportError(parsed.errors[0] || 'Invalid package file.')
+      return
+    }
+    if (OFFICIAL_ID_SET.has(parsed.manifest.id)) {
+      setImportError(
+        `Package ID "${parsed.manifest.id}" is reserved for a built-in official package and cannot be imported from a file.`,
+      )
+      return
+    }
+    if (RETIRED_OFFICIAL_IDS.has(parsed.manifest.id)) {
+      setImportError(
+        `Package ID "${parsed.manifest.id}" is a retired built-in ID and cannot be imported.`,
+      )
       return
     }
     onImportPackage(normalizeExternalManifest(parsed.manifest, OFFICIAL_ID_SET))

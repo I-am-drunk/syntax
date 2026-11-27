@@ -23,6 +23,7 @@ const AuthActionsContext = createContext<AuthActions>({
 })
 
 const BASE_ALLOWED_REDIRECT_ORIGINS = [
+  'https://syntax-platform.github.io',
   'https://i-am-drunk.github.io',
   'http://localhost:5189',
   'http://127.0.0.1:5189',

@@ -349,8 +349,8 @@ export function GeoLessonPlayer({
   const state = states[page.id] ?? emptyState
   const penPluginOn = usePluginActive('pen-studio')
   const walkthroughPluginOn = usePluginActive('walkthrough-player')
-  const checkmarkPluginOn = usePluginActive('checkmark-gate')
-  const historyPluginOn = usePluginActive('work-history')
+  const checkmarkPluginOn = false
+  const historyPluginOn = false
   const playbookPluginOn = usePluginActive('formula-playbook')
   const floatingWindowsPluginOn = usePluginActive('floating-windows')
   const penAllowed = penPluginOn && isPenEnabledForPage(page, isCheck)

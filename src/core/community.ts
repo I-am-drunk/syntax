@@ -6,9 +6,9 @@ import {
   type SyntaxPackageManifest,
 } from './packages'
 
-export const COMMUNITY_HUB_WEB_URL = 'https://i-am-drunk.github.io/syntax-community/'
+export const COMMUNITY_HUB_WEB_URL = 'https://syntax-platform.github.io/syntax-community/'
 export const COMMUNITY_CATALOG_URL =
-  'https://i-am-drunk.github.io/syntax-community/catalog/catalog.json'
+  'https://syntax-platform.github.io/syntax-community/catalog/catalog.json'
 
 const CACHE_KEY = 'syntax-community-catalog-cache-v2'
 const OFFICIAL_ID_SET = new Set(OFFICIAL_BY_ID.keys())
@@ -34,7 +34,7 @@ function mergeWithOfficial(remoteItems: SyntaxPackageManifest[]): SyntaxPackageM
     if (RETIRED_OFFICIAL_IDS.has(rawItem.id)) continue
     const existing = byId.get(rawItem.id)
     if (existing && OFFICIAL_ID_SET.has(rawItem.id)) {
-      byId.set(rawItem.id, { ...existing, packageUrl: rawItem.packageUrl ?? existing.packageUrl })
+      continue
     } else {
       byId.set(rawItem.id, normalizeExternalManifest(rawItem, OFFICIAL_ID_SET))
     }
@@ -167,7 +167,7 @@ export function readInstallDeepLink(): string | null {
     }
     const hash = window.location.hash
     const hashMatch = hash.match(/^#\/?(?:install[=/]|\?install=)([a-z0-9-]+)$/i)
-    if (hashMatch) return hashMatch[1].toLowerCase()
+    if (hashMatch) return hashMatch[1]!.toLowerCase()
   } catch {
     // ignore
   }

@@ -192,7 +192,7 @@ export const SyntaxPackageManifestSchema = z
       .optional(),
     aiUsage: PackageAIUsageSchema.optional(),
     safety: PackageSafetySchema.default({
-      automatedScan: 'passed',
+      automatedScan: 'unverified',
       sandboxed: true,
       networkAccess: 'none',
       lastChecked: '2026-11-26',
@@ -214,13 +214,6 @@ export const SyntaxPackageManifestSchema = z
         code: 'custom',
         path: ['extension'],
         message: `extension must be "${expectedExt}" for kind "${data.kind}".`,
-      })
-    }
-    if (data.touchesCore && (!data.coreTouchReason || data.coreTouchReason.trim().length < 4)) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['coreTouchReason'],
-        message: 'Plugins that touch core should explain why in coreTouchReason.',
       })
     }
   })
@@ -245,21 +238,24 @@ export function validatePackageManifest(raw: unknown): ValidationResult {
 
 export function normalizeExternalManifest(
   manifest: SyntaxPackageManifest,
-  officialIds: ReadonlySet<string>,
+  _officialIds: ReadonlySet<string>,
 ): SyntaxPackageManifest {
-  if (officialIds.has(manifest.id)) {
-    return manifest
-  }
   return {
     ...manifest,
     builtIn: false,
+    touchesCore: false,
+    coreTouchReason: undefined,
     courseRoute: manifest.kind === 'course' ? 'custom' : undefined,
     author: {
       ...manifest.author,
       official: false,
+      verified: false,
     },
     safety: {
-      ...manifest.safety,
+      automatedScan: 'unverified',
+      sandboxed: true,
+      networkAccess: 'none',
+      lastChecked: manifest.safety.lastChecked,
       official: false,
     },
   }

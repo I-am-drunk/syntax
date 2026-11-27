@@ -21,8 +21,8 @@ Syntax is designed around **YAGNI** ("You aren't going to need it"): keep Core s
 
 ## 2. Two-Repo Zero-Cost Ecosystem
 
-1. **`I-am-drunk/syntax`**: The Syntax web app, core runtime, official built-in courses, and official plugins. Deployed free at `https://i-am-drunk.github.io/syntax/` (with `/dev/` alpha channel at `https://i-am-drunk.github.io/syntax/dev/`).
-2. **`I-am-drunk/syntax-community`**: The lightweight community catalog (`catalog/catalog.json`), downloadable package files (`packages/*`), automated GitHub Actions validator (`scripts/validate-catalog.mjs`), and standalone Community Hub website (`https://i-am-drunk.github.io/syntax-community/`) modeled after Obsidian Community + Raycast Store with one-click **"Add to Syntax"** (`?install=<id>`) deep links.
+1. **`syntax-platform/syntax`**: The Syntax web app, core runtime, official built-in courses, and official plugins. Deployed free at `https://syntax-platform.github.io/syntax/` (with `/dev/` alpha channel at `https://syntax-platform.github.io/syntax/dev/`).
+2. **`syntax-platform/syntax-community`**: The lightweight community catalog (`catalog/catalog.json`), downloadable package files (`packages/*`), automated GitHub Actions validator (`scripts/validate-catalog.mjs`), and standalone Community Hub website (`https://syntax-platform.github.io/syntax-community/`) modeled after Obsidian Community + Raycast Store with one-click **"Add to Syntax"** (`?install=<id>`) deep links.
 
 ## 3. Adding Sentry or PostHog Later
 
