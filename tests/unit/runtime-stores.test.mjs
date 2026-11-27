@@ -12,6 +12,7 @@ import { validateExtensionManifest } from '../../src/extensions/manifest.ts'
 import { isSafeMode, useExtensionStore } from '../../src/extensions/store.ts'
 import { extensionDiagnostics } from '../../src/extensions/diagnostics.ts'
 import { extractRemoteCloudPayload } from '../../src/core/cloudSchema.ts'
+import { fetchExtensionCatalog } from '../../src/extensions/catalog.ts'
 
 describe('ContributionStore ownership and cleanup', () => {
   beforeEach(() => {
@@ -269,6 +270,12 @@ describe('DocumentStore optimistic concurrency and Safe Mode detection', () => {
     assert.equal(exportDocumentFilename(docA), 'private-note-a.syntaxdoc.json')
     assert.throws(() => parseImportedDocumentJson('{bad json'), /not valid JSON/)
     assert.throws(() => parseImportedDocumentJson(JSON.stringify({ nope: true })), /Syntax document backup/)
+
+    // Host rename increments revision safely and rejects empty names
+    const renamed = await store.rename(docA.id, 'Renamed Note A')
+    assert.equal(renamed.title, 'Renamed Note A')
+    assert.equal(renamed.revision, 2)
+    await assert.rejects(() => store.rename(docA.id, '   '), /cannot be empty/)
   })
 
   it('detects safeMode from search or hash query params', () => {
@@ -364,5 +371,13 @@ describe('DocumentStore optimistic concurrency and Safe Mode detection', () => {
     assert.equal(parsed.extensions?.[0].id, 'tj.storyboard')
     assert.equal(parsed.extensionSettings?.['tj.storyboard']?.defaultPrefix, 'Act')
     assert.equal('themePackId' in parsed, false)
+  })
+
+  it('fetches catalog gracefully when pre-aborted and validates schema', async () => {
+    const controller = new AbortController()
+    controller.abort()
+    const aborted = await fetchExtensionCatalog('https://example.com/catalog.json', controller.signal)
+    assert.equal(aborted.status, 'idle')
+    assert.deepEqual(aborted.entries, [])
   })
 })

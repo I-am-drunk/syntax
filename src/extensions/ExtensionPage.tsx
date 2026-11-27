@@ -11,6 +11,7 @@ import {
   Square,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { isDevEnvironment } from '../core/devEnv'
 import { SyntaxErrorBoundary } from '../core/ErrorBoundary.tsx'
 import { useContributionStore } from './contributions.ts'
 import {
@@ -148,6 +149,12 @@ export function ExtensionPage({
       return null
     }
   }, [record])
+
+  useEffect(() => {
+    if (!view) return
+    const parts = [doc?.title, view.title, extName, 'Syntax'].filter(Boolean)
+    document.title = isDevEnvironment() ? `${parts.join(' · ')} (Dev)` : parts.join(' · ')
+  }, [doc?.title, view, extName])
 
   if (!view || runtime?.status !== 'active' || !runtime.activationId) {
     const missingViewOnActive = Boolean(!view && runtime?.status === 'active' && runtime.activationId)

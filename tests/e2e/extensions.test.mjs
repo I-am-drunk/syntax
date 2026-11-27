@@ -718,10 +718,16 @@ describe('Syntax Extensions v1 end-to-end acceptance suite (real Chromium)', () 
       })
       await page.waitForSelector('.sx-ext-doc-row:has-text("Imported Backup Board")')
 
+      // Inline rename on LibraryPage updates document title and increments revision
+      await page.click('button[aria-label="Rename Imported Backup Board"]')
+      await page.fill('input[aria-label="Rename Imported Backup Board"]', 'Renamed Backup Board')
+      await page.click('button[aria-label="Save document name"]')
+      await page.waitForSelector('.sx-ext-doc-row:has-text("Renamed Backup Board")')
+
       await page.goto(`${harness.appOrigin}/#/`)
       await page.waitForSelector('h2:has-text("Quick Launch")')
       await page.waitForSelector('h2:has-text("Continue Working")')
-      await page.waitForSelector('.sx-ext-doc-row:has-text("Imported Backup Board")')
+      await page.waitForSelector('.sx-ext-doc-row:has-text("Renamed Backup Board")')
       await page.keyboard.press('Control+k')
       await page.waitForSelector('[data-testid="command-palette"]')
       await page.fill('[data-testid="command-palette"] input', 'Settings')
@@ -799,9 +805,10 @@ describe('Syntax Extensions v1 end-to-end acceptance suite (real Chromium)', () 
       })
       await page.waitForFunction(() => document.documentElement.dataset.theme === 'dark')
 
-      // Verify Focus mode toggle on ExtensionPage and shareable #/extensions?install= review link
+      // Verify Focus mode toggle & dynamic page title on ExtensionPage and shareable #/extensions?install= review link
       await page.goto(`${harness.appOrigin}/#/ext/tj.storyboard/board`)
       await page.waitForSelector('[data-extension-id="tj.storyboard"][data-view-id="board"][data-view-ready="true"]')
+      await page.waitForFunction(() => document.title.includes('Storyboard Editor'))
       await page.click('button:has-text("Focus")')
       await page.waitForSelector('.sx-ext-page.is-focused')
       await page.keyboard.press('Escape')

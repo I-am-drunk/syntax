@@ -2208,6 +2208,18 @@
   flex-shrink: 0;
 }
 
+.sx-ext-doc-rename-form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: default;
+}
+
+.sx-ext-doc-rename-form .sx-ext-url-input {
+  height: 34px;
+  flex: 1 1 auto;
+}
+
 .sx-ext-mode-toggle .segmented {
   width: auto;
   min-width: 260px;
