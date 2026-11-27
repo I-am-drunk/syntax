@@ -12,10 +12,11 @@ Syntax is an open-source, extensible browser-based learning platform.
 ## Core Architecture
 
 - `src/shell/` (`AppShell.tsx`, `AppHeader.tsx`): Hash routing (`wouter`), top navigation, light/dark mode and sound management, and dev inspector loading.
-- `src/core/`: Clerk auth and cloud sync (`clerkAuth.tsx`, `clerkSync.ts`, `account.ts`), preferences (`prefs.ts`), host slots (`hostSlots.tsx`), error boundaries, logging, and dev environment utilities.
+- `src/core/`: Clerk auth and cloud sync (`clerkAuth.tsx`, `clerkSync.ts`, `cloudSchema.ts`, `account.ts`), preferences (`prefs.ts`), error boundaries, logging, and dev environment utilities.
 - `src/extensions/`: PlugOS-adapted Extensions v1 runtime (`plugos/workerSandbox.ts`, `manifest.ts`, `contributions.ts`, `services.ts`, `documents.ts`, `diagnostics.ts`, `store.ts`, `manager.ts`, `ExtensionViewFrame.tsx`, `ExtensionPage.tsx`, `catalog.ts`).
+- `public/sdk/syntax-view-v1.js`: Zero-dependency View SDK for sandboxed extension iframes.
 - `src/mascot/`: Core Sema companion (`Sema.tsx`, `TopBarSema.tsx`, `bloub/`).
-- `src/ui/`: Core platform pages (`HomePage.tsx`, `LibraryPage.tsx`, `ExtensionsPage.tsx`, `CommunityHubPage.tsx`, `ProfilePage.tsx`, `ProfilePopover.tsx`, `SettingsPage.tsx`, `OnboardingModal.tsx`, `AccountModal.tsx`).
+- `src/ui/`: Core platform pages (`HomePage.tsx`, `LibraryPage.tsx`, `ExtensionsPage.tsx`, `ExtensionInstallModal.tsx`, `ExtensionIcon.tsx`, `CommunityHubPage.tsx`, `ProfilePage.tsx`, `ProfilePopover.tsx`, `SettingsPage.tsx`, `OnboardingModal.tsx`, `AccountModal.tsx`).
 
 ## Commands
 

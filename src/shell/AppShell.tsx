@@ -9,12 +9,11 @@ import {
 } from '../core/clerkSync'
 import { isDevEnvironment } from '../core/devEnv'
 import { SyntaxErrorBoundary } from '../core/ErrorBoundary'
-import { HostSlotsProvider, useHostSlots } from '../core/hostSlots'
 import { loadPrefs, savePrefs, type SyntaxPrefs } from '../core/prefs'
 import { ExtensionPage } from '../extensions/ExtensionPage.tsx'
 import { extensionManager } from '../extensions/manager.ts'
 import { isSafeMode, useExtensionStore } from '../extensions/store.ts'
-import { playLessonSound, type LessonSound } from '../services/lessonSounds'
+import { playUiSound, type UiSound } from '../services/uiSounds'
 import { CommunityHubPage } from '../ui/CommunityHubPage'
 import { ExtensionsPage } from '../ui/ExtensionsPage'
 import { HomePage } from '../ui/HomePage'
@@ -107,7 +106,6 @@ function LegacyPluginsRedirect({
 function AppShellInner({ hideToaster = false }: AppShellProps) {
   const isDev = isDevEnvironment()
   const [location, setLocation] = useLocation()
-  const { isFullscreenLesson } = useHostSlots()
 
   const [theme, setTheme] = useState<'light' | 'dark'>(loadTheme)
   const [soundOn, setSoundOn] = useState<boolean>(loadSound)
@@ -117,8 +115,8 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
   const routeInfo = parseRouteInfo(location)
 
   const emitSound = useCallback(
-    (cue: LessonSound) => {
-      if (soundOn) playLessonSound(cue)
+    (cue: UiSound) => {
+      if (soundOn) playUiSound(cue)
     },
     [soundOn],
   )
@@ -232,22 +230,26 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
     <>
       {!hideToaster && <Toaster position="bottom-center" theme={theme} />}
 
-      {!isFullscreenLesson && (
-        <AppHeader
-          mode={routeInfo.mode}
-          mainActiveTab={routeInfo.mainActiveTab}
-          workspaceActiveTab={routeInfo.workspaceActiveTab}
-          theme={theme}
-          soundOn={soundOn}
-          prefs={prefs}
-          hasMissedNotification={false}
-          onNavigate={navigate}
-          onToggleTheme={() => setTheme(t => (t === 'dark' ? 'light' : 'dark'))}
-          onToggleSound={() => setSoundOn(v => !v)}
-          onOpenWelcome={() => patchPrefs({ onboarded: false })}
-          onPokeSema={() => emitSound('lightweight-choice')}
-        />
-      )}
+      <AppHeader
+        mode={routeInfo.mode}
+        mainActiveTab={routeInfo.mainActiveTab}
+        workspaceActiveTab={routeInfo.workspaceActiveTab}
+        theme={theme}
+        soundOn={soundOn}
+        prefs={prefs}
+        onNavigate={navigate}
+        onToggleTheme={() => {
+          emitSound('lightweight-choice')
+          setTheme(t => (t === 'dark' ? 'light' : 'dark'))
+        }}
+        onToggleSound={() => {
+          const next = !soundOn
+          if (next) playUiSound('toggle-on')
+          setSoundOn(next)
+        }}
+        onOpenWelcome={() => patchPrefs({ onboarded: false })}
+        onPokeSema={() => emitSound('lightweight-choice')}
+      />
 
       <Switch>
         <Route path="/">
@@ -405,9 +407,7 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
 export function AppShell(props: AppShellProps) {
   return (
     <Router hook={useHashLocation}>
-      <HostSlotsProvider>
-        <AppShellInner {...props} />
-      </HostSlotsProvider>
+      <AppShellInner {...props} />
     </Router>
   )
 }

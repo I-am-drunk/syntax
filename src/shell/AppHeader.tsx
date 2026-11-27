@@ -3,7 +3,6 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { Menu } from '@base-ui/react/menu'
 import {
   ArrowLeft,
-  BookOpen,
   Compass,
   Home,
   Library,
@@ -19,7 +18,6 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { isDevEnvironment } from '../core/devEnv'
-import { useHostSlots } from '../core/hostSlots'
 import { useContributionStore } from '../extensions/contributions.ts'
 import { extensionManager } from '../extensions/manager.ts'
 import { useExtensionStore } from '../extensions/store.ts'
@@ -27,7 +25,7 @@ import { TopBarSema } from '../mascot/TopBarSema'
 import type { SyntaxPrefs } from '../core/prefs'
 import { ProfilePopover } from '../ui/ProfilePopover'
 
-export type ShellMode = 'main' | 'course' | 'workspace'
+export type ShellMode = 'main' | 'workspace'
 export type WorkspaceTab = 'settings' | 'extensions' | 'community'
 
 interface AppHeaderProps {
@@ -37,7 +35,6 @@ interface AppHeaderProps {
   theme: 'light' | 'dark'
   soundOn: boolean
   prefs: SyntaxPrefs
-  hasMissedNotification: boolean
   onNavigate: (path: string) => void
   onToggleTheme: () => void
   onToggleSound: () => void
@@ -57,7 +54,6 @@ export function AppHeader({
   theme,
   soundOn,
   prefs,
-  hasMissedNotification,
   onNavigate,
   onToggleTheme,
   onToggleSound,
@@ -65,13 +61,11 @@ export function AppHeader({
   onPokeSema,
 }: AppHeaderProps) {
   const isDev = isDevEnvironment()
-  const { contribution } = useHostSlots()
   const extensionToolbar = useContributionStore(s => s.toolbar)
   const extensionCommands = useContributionStore(s => s.commands)
   const extensionRecords = useExtensionStore(s => s.records)
   const [runningCommands, setRunningCommands] = useState<ReadonlySet<string>>(() => new Set())
   const isWorkspace = mode === 'workspace'
-  const isCourse = mode === 'course'
 
   const ownerNames = new Map(extensionRecords.map(r => [r.id, r.manifest.name]))
 
@@ -101,8 +95,6 @@ export function AppHeader({
     onNavigate(prefs.logoClickTarget === 'home' ? '/' : '/library')
   }
 
-  const courseNavTabs = contribution.courseNavTabs ?? []
-
   return (
     <header className="app-header sx-app-header" data-workspace={isWorkspace || undefined}>
       <div
@@ -131,13 +123,13 @@ export function AppHeader({
         </a>
 
         <TopBarSema
-          enableRoaming={prefs.onboarded && !isWorkspace && !isCourse}
+          enableRoaming={prefs.onboarded && !isWorkspace}
           dockedIntoLogo={isWorkspace}
           isDev={isDev}
           shape={prefs.semaShape}
           tail={prefs.semaTail}
           expression={prefs.semaExpression}
-          hasNotification={hasMissedNotification && isCourse}
+          hasNotification={false}
           onPoke={onPokeSema}
           onLogoClick={handleLogoClick}
         />
@@ -199,54 +191,6 @@ export function AppHeader({
                 })}
               </div>
             </motion.nav>
-          ) : isCourse ? (
-            <motion.nav
-              key="nav-course"
-              className="primary-nav sx-course-nav"
-              aria-label="Course navigation"
-              initial={{ opacity: 0, x: -6 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -6 }}
-              transition={NAV_TRANSITION}
-            >
-              <button
-                type="button"
-                className="sx-nav-back-btn"
-                aria-label="Back to Library"
-                title="Back to Library"
-                onClick={() => onNavigate('/library')}
-              >
-                <ArrowLeft size={16} strokeWidth={2.1} aria-hidden="true" />
-                <span className="sx-nav-back-label">Library</span>
-              </button>
-
-              {courseNavTabs.length > 0 && (
-                <>
-                  <span className="sx-nav-divider" aria-hidden="true" />
-                  <div className="sx-course-tabs">
-                    {courseNavTabs.map(tab => (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        className="primary-nav-btn"
-                        aria-current={tab.active ? 'page' : undefined}
-                        onClick={tab.onClick}
-                      >
-                        {tab.icon}
-                        <span className="primary-nav-label">{tab.label}</span>
-                        {tab.active && (
-                          <motion.span
-                            layoutId="course-nav-indicator"
-                            className="primary-nav-indicator"
-                            transition={{ type: 'spring', stiffness: 520, damping: 38 }}
-                          />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </motion.nav>
           ) : (
             <motion.nav
               key="nav-main"
@@ -304,8 +248,6 @@ export function AppHeader({
       </div>
 
       <div className="header-actions">
-        {isCourse && contribution.headerAction}
-
         {extensionToolbar.length > 0 && (
           <div className="sx-ext-header-toolbar" role="toolbar" aria-label="Extension actions">
             {extensionToolbar.map(item => {
@@ -373,102 +315,60 @@ export function AppHeader({
           <Menu.Portal>
             <Menu.Positioner sideOffset={12} align="end" className="menu-positioner">
               <Menu.Popup className="menu-popup sx-menu-popup">
-                {isCourse ? (
+                <Menu.Group className="menu-group">
+                  <Menu.Item
+                    className="menu-item sx-menu-item"
+                    onClick={() => onNavigate('/settings')}
+                  >
+                    <Settings size={16} strokeWidth={1.9} aria-hidden="true" />
+                    <span>Settings</span>
+                  </Menu.Item>
+                  <Menu.Item
+                    className="menu-item sx-menu-item"
+                    onClick={() => onNavigate('/extensions')}
+                  >
+                    <Puzzle size={16} strokeWidth={1.9} aria-hidden="true" />
+                    <span>Extensions</span>
+                  </Menu.Item>
+                  <Menu.Item
+                    className="menu-item sx-menu-item"
+                    onClick={() => onNavigate('/community')}
+                  >
+                    <Compass size={16} strokeWidth={1.9} aria-hidden="true" />
+                    <span>Community Hub</span>
+                  </Menu.Item>
+                </Menu.Group>
+
+                {extensionCommands.length > 0 && (
                   <>
+                    <Menu.Separator className="menu-separator" />
                     <Menu.Group className="menu-group">
-                      {contribution.menuActions?.map(act => (
+                      {extensionCommands.map(cmd => (
                         <Menu.Item
-                          key={act.id}
-                          className="menu-item sx-menu-item"
-                          onClick={act.onSelect}
+                          key={cmd.key}
+                          className="menu-item sx-menu-item sx-ext-cmd-item"
+                          data-extension-command-key={cmd.key}
+                          onClick={() => void handleRunCommand(cmd.key, cmd.ownerId)}
                         >
-                          <BookOpen size={16} strokeWidth={1.9} aria-hidden="true" />
-                          <span>{act.label}</span>
+                          <Terminal size={15} strokeWidth={1.9} aria-hidden="true" />
+                          <span className="sx-ext-cmd-copy">
+                            <span>{cmd.title}</span>
+                            <small>{ownerNames.get(cmd.ownerId) ?? cmd.ownerId}</small>
+                          </span>
                         </Menu.Item>
                       ))}
-                      <Menu.Item
-                        className="menu-item sx-menu-item"
-                        onClick={() => onNavigate('/library')}
-                      >
-                        <ArrowLeft size={16} strokeWidth={1.9} aria-hidden="true" />
-                        <span>Back to Library</span>
-                      </Menu.Item>
-                    </Menu.Group>
-
-                    <Menu.Separator className="menu-separator" />
-
-                    <Menu.Group className="menu-group">
-                      <Menu.Item
-                        className="menu-item sx-menu-item"
-                        onClick={() => onNavigate('/settings')}
-                      >
-                        <Settings size={16} strokeWidth={1.9} aria-hidden="true" />
-                        <span>Settings</span>
-                      </Menu.Item>
-                      <Menu.Item className="menu-item sx-menu-item" onClick={onOpenWelcome}>
-                        <Sparkles size={16} strokeWidth={1.9} aria-hidden="true" />
-                        <span>Welcome tour</span>
-                      </Menu.Item>
-                    </Menu.Group>
-                  </>
-                ) : (
-                  <>
-                    <Menu.Group className="menu-group">
-                      <Menu.Item
-                        className="menu-item sx-menu-item"
-                        onClick={() => onNavigate('/settings')}
-                      >
-                        <Settings size={16} strokeWidth={1.9} aria-hidden="true" />
-                        <span>Settings</span>
-                      </Menu.Item>
-                      <Menu.Item
-                        className="menu-item sx-menu-item"
-                        onClick={() => onNavigate('/extensions')}
-                      >
-                        <Puzzle size={16} strokeWidth={1.9} aria-hidden="true" />
-                        <span>Extensions</span>
-                      </Menu.Item>
-                      <Menu.Item
-                        className="menu-item sx-menu-item"
-                        onClick={() => onNavigate('/community')}
-                      >
-                        <Compass size={16} strokeWidth={1.9} aria-hidden="true" />
-                        <span>Community Hub</span>
-                      </Menu.Item>
-                    </Menu.Group>
-
-                    {extensionCommands.length > 0 && (
-                      <>
-                        <Menu.Separator className="menu-separator" />
-                        <Menu.Group className="menu-group">
-                          {extensionCommands.map(cmd => (
-                            <Menu.Item
-                              key={cmd.key}
-                              className="menu-item sx-menu-item sx-ext-cmd-item"
-                              data-extension-command-key={cmd.key}
-                              onClick={() => void handleRunCommand(cmd.key, cmd.ownerId)}
-                            >
-                              <Terminal size={15} strokeWidth={1.9} aria-hidden="true" />
-                              <span className="sx-ext-cmd-copy">
-                                <span>{cmd.title}</span>
-                                <small>{ownerNames.get(cmd.ownerId) ?? cmd.ownerId}</small>
-                              </span>
-                            </Menu.Item>
-                          ))}
-                        </Menu.Group>
-                      </>
-                    )}
-
-                    <Menu.Separator className="menu-separator" />
-
-                    <Menu.Group className="menu-group">
-                      <Menu.Item className="menu-item sx-menu-item" onClick={onOpenWelcome}>
-                        <Sparkles size={16} strokeWidth={1.9} aria-hidden="true" />
-                        <span>Welcome tour</span>
-                      </Menu.Item>
                     </Menu.Group>
                   </>
                 )}
+
+                <Menu.Separator className="menu-separator" />
+
+                <Menu.Group className="menu-group">
+                  <Menu.Item className="menu-item sx-menu-item" onClick={onOpenWelcome}>
+                    <Sparkles size={16} strokeWidth={1.9} aria-hidden="true" />
+                    <span>Welcome tour</span>
+                  </Menu.Item>
+                </Menu.Group>
               </Menu.Popup>
             </Menu.Positioner>
           </Menu.Portal>
