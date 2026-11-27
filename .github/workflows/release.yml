@@ -346,6 +346,15 @@ jobs:
               "${EXTRA_ARGS[@]}"
           fi
 
+      - name: Upload release notes artifact
+        if: needs.resolve.outputs.channel == 'nightly' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: release-notes.md
+          if-no-files-found: ignore
+          retention-days: 3
+
   deploy_stable:
     name: Deploy Syntax Stable (syntax-platform.github.io/syntax)
     needs: [resolve, build, release]
@@ -375,10 +384,18 @@ jobs:
           name: site-bundle
           path: bundle
 
-      - name: Cross-repo deploy to syntax-platform/syntax-dev (gh-pages)
+      - name: Download generated release notes
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: release-notes
+          path: release-notes
+
+      - name: Cross-repo deploy & tag pre-release on syntax-platform/syntax-dev
         env:
           DEPLOY_KEY: ${{ secrets.SYNTAX_DEV_DEPLOY_KEY }}
           TAG: ${{ needs.resolve.outputs.tag }}
+          RELEASE_NAME: ${{ needs.resolve.outputs.release_name }}
           SHORT_SHA: ${{ needs.resolve.outputs.short_sha }}
         run: |
           set -euo pipefail
@@ -394,6 +411,9 @@ jobs:
 
           tar -xzf bundle/site-nightly.tar.gz -C deploy-site
           touch deploy-site/.nojekyll
+          if [[ -f release-notes/release-notes.md ]]; then
+            cp release-notes/release-notes.md deploy-site/RELEASE_NOTES.md
+          fi
 
           cd deploy-site
           git init -b gh-pages
@@ -401,5 +421,8 @@ jobs:
           git config user.email "actions@users.noreply.github.com"
           git add -A
           git commit -m "deploy(dev): ${TAG} (${SHORT_SHA})"
+          git tag -f -a "${TAG}" -m "${RELEASE_NAME}"
           GIT_SSH_COMMAND="ssh -i $HOME/.ssh/syntax_dev_key -o IdentitiesOnly=yes" \
             git push --force git@github.com:syntax-platform/syntax-dev.git gh-pages:gh-pages
+          GIT_SSH_COMMAND="ssh -i $HOME/.ssh/syntax_dev_key -o IdentitiesOnly=yes" \
+            git push --force git@github.com:syntax-platform/syntax-dev.git "refs/tags/${TAG}:refs/tags/${TAG}"

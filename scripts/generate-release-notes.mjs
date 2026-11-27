@@ -32,11 +32,11 @@ const PULL_REQUEST_BODY_LIMIT = 300
 
 const SUMMARY_INSTRUCTIONS = `Write up to 7 bullet points for the Syntax release notes.
 
-Give a feature a bullet only when it lets learners or course authors do something they could not do before, removes a real limitation they hit in normal use, or meaningfully improves learning, graphing, Pen Studio, Walkthroughs, Sema, Community Hub, or MCP authoring. Judge the real user outcome, regardless of commit prefix.
+Give a feature a bullet only when it lets learners or plugin authors do something they could not do before, removes a real limitation they hit in normal use, or meaningfully improves the core learning app, plugin system, themes, Sema, or cloud sync. Judge the real user outcome, regardless of commit prefix.
 
 Lead with new capabilities. Give a bug fix its own bullet only when it prevented data loss, fixed a security hole, or fixed a core workflow learners could not complete. Leave routine fixes, small polish, and isolated edge cases in the remaining bug-fix count. Skip internal CI work, refactors, docs-only edits, tests, and dependency bumps. Group related commits into one bullet when they deliver the same user outcome. Seven is a ceiling; stop when qualifying changes run out, even if that leaves zero bullets.
 
-Each bullet has a short feature name and one sentence of at most 20 words describing what now works. Use product names learners see in Syntax (Analytic Geometry, Thinking in Code, Pen Studio, Walkthroughs, Sema, Community Hub, Plugins) and omit internal implementation details. No title, headings, introduction, PR numbers, hype, or em dashes.
+Each bullet has a short feature name and one sentence of at most 20 words describing what now works. Use plain product names learners see in Syntax (Syntax, Plugins, Themes, Sema, Community Hub, Cloud Sync) and omit internal implementation details. No title, headings, introduction, PR numbers, hype, or em dashes.
 
 Return valid JSON only with a "highlights" array. Each item must have:
 - "label": plain text feature name without trailing period
