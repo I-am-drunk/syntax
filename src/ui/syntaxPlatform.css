@@ -1643,7 +1643,12 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+}
+
+.sx-ext-install-form .sx-ext-url-input {
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .sx-ext-url-input {
@@ -1847,6 +1852,26 @@
   border: 0;
   padding: 0;
   background: transparent;
+  color: var(--accent-blue, #456dff);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, currentColor 42%, transparent);
+  font-weight: 600;
+  transition: color 120ms ease, text-decoration-color 120ms ease;
+}
+
+.sx-link-btn:hover {
+  text-decoration-color: currentColor;
+}
+
+:root[data-theme='dark'] .sx-link-btn {
+  color: #7491ff;
+}
+
+.sx-section-link {
+  border: 0;
+  padding: 0;
+  background: transparent;
   color: var(--muted);
   text-decoration: none;
   font-size: 13.5px;
@@ -1855,9 +1880,21 @@
   transition: color 120ms ease;
 }
 
-.sx-link-btn:hover {
-  color: var(--accent-blue, #456dff);
-  text-decoration: underline;
+.sx-section-link:hover {
+  color: var(--text);
+}
+
+.sx-empty-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--secondary);
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 2px;
 }
 
 .sx-ext-card-grid {
@@ -2620,7 +2657,17 @@
   border-color: var(--accent-blue, #456dff);
 }
 
+@media (min-width: 481px) {
+  .sx-profile-section .preference-row > .sx-btn-secondary {
+    min-width: 112px;
+  }
+}
+
 @media (max-width: 640px) {
+  .sx-kbd {
+    display: none;
+  }
+
   .sx-workspace-page,
   .sx-hub-page {
     margin: 24px auto 72px;

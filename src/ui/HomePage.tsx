@@ -116,6 +116,10 @@ export function HomePage({
           .filter(Boolean)
           .join(' · ')
 
+  const isMac =
+    typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent)
+  const shortcutLabel = isMac ? '⌘K' : 'Ctrl+K'
+
   return (
     <main className="sx-workspace-page" aria-label="Home">
       <section className="sx-profile-hero">
@@ -150,7 +154,7 @@ export function HomePage({
           <button type="button" className="sx-btn-secondary" onClick={onOpenCommandPalette}>
             <Search size={14} strokeWidth={2} aria-hidden="true" />
             <span>Quick Search</span>
-            <kbd className="sx-kbd">Ctrl+K</kbd>
+            <kbd className="sx-kbd">{shortcutLabel}</kbd>
           </button>
           <button type="button" className="sx-btn-primary" onClick={onOpenLibrary}>
             <Library size={15} strokeWidth={2} aria-hidden="true" />
@@ -199,7 +203,7 @@ export function HomePage({
         <section className="sx-profile-section" aria-label="Quick launch">
           <div className="sx-profile-section-head">
             <h2>Quick Launch</h2>
-            <button type="button" className="sx-link-btn" onClick={onOpenLibrary}>
+            <button type="button" className="sx-section-link" onClick={onOpenLibrary}>
               View all in Library
             </button>
           </div>
@@ -242,7 +246,7 @@ export function HomePage({
         <section className="sx-profile-section" aria-label="Recent documents">
           <div className="sx-profile-section-head">
             <h2>Continue Working</h2>
-            <button type="button" className="sx-link-btn" onClick={onOpenLibrary}>
+            <button type="button" className="sx-section-link" onClick={onOpenLibrary}>
               All documents
             </button>
           </div>
