@@ -314,6 +314,13 @@ export function resolveExtensionAssets(
   const resolveAsset = (rel: string, field: string): string => {
     const resolved = new URL(rel, manifestParsed)
     assertHttpUrl(resolved, field)
+    if (resolved.origin !== manifestParsed.origin) {
+      throw new ExtensionError(
+        'MANIFEST_INVALID',
+        `${field} must be hosted on the same origin as extension.json (${manifestParsed.origin}, got ${resolved.origin}).`,
+        { extensionId: manifest.id },
+      )
+    }
     return resolved.href
   }
 

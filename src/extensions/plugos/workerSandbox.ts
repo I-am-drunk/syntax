@@ -447,7 +447,18 @@ export class WorkerSandbox {
       revokeMod()
     }
 
-    const worker = new Worker(bootstrapBlobUrl, { type: 'module', name: `syntax-ext:${this.extensionId}` })
+    let worker: Worker
+    try {
+      worker = new Worker(bootstrapBlobUrl, { type: 'module', name: `syntax-ext:${this.extensionId}` })
+    } catch (err) {
+      revokeAll()
+      this.disposed = true
+      throw new ExtensionError(
+        'WORKER_PARSE_ERROR',
+        `Failed to create extension worker: ${err instanceof Error ? err.message : String(err)}`,
+        { extensionId: this.extensionId, cause: err },
+      )
+    }
     this.worker = worker
     this.callbacks.onWorkerCountChange?.(1)
 

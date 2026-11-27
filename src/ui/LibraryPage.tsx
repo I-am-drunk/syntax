@@ -43,6 +43,7 @@ export function LibraryPage({
 
   function openDocument(doc: DocumentEnvelope) {
     const matchingView =
+      pageViews.find(v => v.ownerId === doc.createdByExtensionId && v.docTypes.includes(doc.type)) ??
       pageViews.find(v => v.docTypes.includes(doc.type)) ??
       pageViews.find(v => v.ownerId === doc.createdByExtensionId)
 

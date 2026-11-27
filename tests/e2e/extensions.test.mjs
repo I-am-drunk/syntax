@@ -47,6 +47,23 @@ describe('Syntax Extensions v1 end-to-end acceptance suite (real Chromium)', () 
       await installViaUi(page, harness.extUrl('storyboard/extension.json'))
       await page.waitForSelector('[data-extension-id="tj.storyboard"][data-extension-status="active"]')
 
+      // Verify onActivate received declared default setting on brand-new install,
+      // and settings.set persists & enforces schema types
+      const settingsCheck = await page.evaluate(async () => {
+        const m = window.__SYNTAX_EXTENSIONS__.manager
+        const initialPrefix = await m.invokeWorker('tj.storyboard', 'getActivatedPrefix')
+        await m.invokeWorker('tj.storyboard', 'setPrefix', ['Act'])
+        let wrongTypeRejected = false
+        try {
+          await m.invokeWorker('tj.storyboard', 'setPrefix', [12345])
+        } catch {
+          wrongTypeRejected = true
+        }
+        return { initialPrefix, wrongTypeRejected }
+      })
+      assert.equal(settingsCheck.initialPrefix, 'Scene')
+      assert.equal(settingsCheck.wrongTypeRejected, true)
+
       // Verify legacy /plugins route redirects cleanly to /extensions
       await page.goto(`${harness.appOrigin}/#/plugins`)
       await page.waitForFunction(() => window.location.hash.includes('/extensions'))
