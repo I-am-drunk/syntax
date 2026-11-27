@@ -431,16 +431,6 @@
   }
 }
 
-/* Subtle reactive Sema buddy inside Lesson nav bar */
-.lesson-sema-buddy {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 40px;
-  flex-shrink: 0;
-}
-
 .sema-roam-layer {
   position: fixed;
   top: 0;
