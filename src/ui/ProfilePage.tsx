@@ -108,7 +108,7 @@ export function ProfilePage({
             <p className="sx-profile-handle">
               {account
                 ? `@${account.handle}`
-                : 'Sign in with Passkey, Google, GitHub, or Apple to cloud-sync your progress'}
+                : 'Sign in with Passkey, Google, or Apple to cloud-sync your progress'}
               {account?.email ? ` · ${account.email}` : ''}
             </p>
           </div>

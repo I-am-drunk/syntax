@@ -53,7 +53,7 @@
 - **Guided Video Walkthroughs** ([`src/mpm2d/walkthrough/`](src/mpm2d/walkthrough)): Manim Community Edition scenes rendered as seekable MP4s with chapter markers, WebVTT captions, Video.js 10 (`@videojs/react`), and draggable WinBox study windows.
 - **Sema Companion** ([`Sema.tsx`](src/mpm2d/mascot/Sema.tsx)): Parametric 3D spherical-eye semicolon mascot with 16 expressions, 8 morph shapes, elastic drag physics, and synchronized walkthrough choreography.
 - **WCAG Theme Packs** ([`themePacks.ts`](src/core/themePacks.ts)): Pure JSON `syntax.theme.v1` color palettes validated automatically for >= 4.5:1 text contrast before applying.
-- **Clerk Auth & Cloud Sync** ([`clerkAuth.tsx`](src/core/clerkAuth.tsx), [`clerkSync.ts`](src/core/clerkSync.ts)): Passkeys, Google/GitHub/Apple OAuth, optional 2FA, multi-session account switching, and automatic cross-device sync of progress, Sema style, theme pack, and workspace tools.
+- **Clerk Auth & Cloud Sync** ([`clerkAuth.tsx`](src/core/clerkAuth.tsx), [`clerkSync.ts`](src/core/clerkSync.ts)): Passkeys, Google and Apple OAuth, optional 2FA, multi-session account switching, and automatic cross-device sync of progress, Sema style, theme pack, and workspace tools.
 
 <a id="mathematical-exactness"></a>
 ## Mathematical Exactness
