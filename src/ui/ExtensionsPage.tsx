@@ -7,6 +7,7 @@ import {
   Download,
   ExternalLink,
   FileText,
+  Link2,
   Play,
   Plus,
   Power,
@@ -89,6 +90,75 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
   useEffect(() => {
     return extensionDiagnostics.subscribe(() => setLogsVersion(v => v + 1))
   }, [])
+
+  // Support shareable 1-click install review links: #/extensions?install=https://.../extension.json
+  useEffect(() => {
+    const checkInstallParam = () => {
+      let rawInstall: string | null = null
+      try {
+        const hash = window.location.hash || ''
+        const qIdx = hash.indexOf('?')
+        if (qIdx >= 0) {
+          rawInstall = new URLSearchParams(hash.slice(qIdx + 1)).get('install')
+        }
+        if (!rawInstall && window.location.search) {
+          rawInstall = new URLSearchParams(window.location.search).get('install')
+        }
+      } catch {
+        return
+      }
+      const candidate = rawInstall?.trim()
+      if (!candidate || (!candidate.startsWith('https://') && !candidate.startsWith('http://'))) {
+        return
+      }
+      // Strip install param immediately so refresh never re-prompts
+      try {
+        const url = new URL(window.location.href)
+        url.searchParams.delete('install')
+        const [hashPath, hashQuery] = (url.hash || '#/extensions').split('?')
+        if (hashQuery) {
+          const params = new URLSearchParams(hashQuery)
+          params.delete('install')
+          const qs = params.toString()
+          url.hash = qs ? `${hashPath}?${qs}` : hashPath
+        }
+        window.history.replaceState(null, '', url.toString())
+      } catch {
+        // ignore URL cleanup error
+      }
+      setManifestUrl(candidate)
+      setFetchingManifest(true)
+      setInstallError(null)
+      setModalError(null)
+      void fetchExtensionManifest(candidate)
+        .then(inspected => {
+          setPendingInstall(inspected)
+        })
+        .catch(err => {
+          setInstallError(
+            err instanceof Error ? err.message : 'Failed to read extension manifest from link.',
+          )
+        })
+        .finally(() => {
+          setFetchingManifest(false)
+        })
+    }
+
+    checkInstallParam()
+    window.addEventListener('hashchange', checkInstallParam)
+    return () => window.removeEventListener('hashchange', checkInstallParam)
+  }, [])
+
+  async function handleCopyShareLink(rec: ExtensionRecord) {
+    try {
+      const base = `${window.location.origin}${window.location.pathname}`
+      const link = `${base}#/extensions?install=${encodeURIComponent(rec.manifestUrl)}`
+      await navigator.clipboard.writeText(link)
+      toast.success(`Copied install link for ${rec.manifest.name}`)
+    } catch {
+      toast.error('Clipboard is unavailable in this browser context.')
+    }
+  }
 
   function setBusy(id: string, busy: boolean) {
     setBusyById(prev => ({ ...prev, [id]: busy }))
@@ -522,6 +592,16 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
                           <span>{isSettingsOpen ? 'Hide settings' : 'Settings'}</span>
                         </button>
                       )}
+
+                      <button
+                        type="button"
+                        className="sx-btn-ghost sx-btn-sm"
+                        title="Copy shareable install link"
+                        onClick={() => void handleCopyShareLink(rec)}
+                      >
+                        <Link2 size={13} aria-hidden="true" />
+                        <span>Share</span>
+                      </button>
 
                       <button
                         type="button"

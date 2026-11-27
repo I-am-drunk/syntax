@@ -24,12 +24,12 @@ Syntax is a fast, browser-native workspace built around isolated extensions. Sta
 
 ## What you get
 
-- **Isolated extensions.** Each extension runs background code in its own Web Worker and renders custom screens or embedded widgets inside opaque-origin sandboxed iframes. See [docs/extensions/ARCHITECTURE.md](docs/extensions/ARCHITECTURE.md).
-- **Zero-crash collaboration.** Extensions share capabilities through versioned services with semver validation, staged updates, Safe Mode recovery (`?safeMode=1`), and user-owned documents that survive uninstall.
-- **Runs in the browser.** Static web app with nothing to install.
-- **Accounts and sync.** Sign in with passkeys, Google, or Apple to sync preferences across devices.
+- **Isolated extensions.** Each extension runs background code in its own Web Worker and renders custom screens or auto-resizing embedded widgets inside opaque-origin sandboxed iframes, with a zero-dependency View SDK (`public/sdk/syntax-view-v1.js`). See [docs/extensions/ARCHITECTURE.md](docs/extensions/ARCHITECTURE.md).
+- **Zero-crash collaboration & user-owned data.** Extensions share capabilities through versioned services with live dependency healing, staged updates, pre-install review, Safe Mode recovery (`?safeMode=1`), per-extension document isolation, and portable `.syntaxdoc.json` export/import.
+- **Fast keyboard-first workspace.** Jump to any extension command, course, saved document, or setting with `Ctrl+K` / `Cmd+K`.
+- **Accounts, cloud sync, and offline backup.** Sign in with passkeys, Google, or Apple to sync preferences and installed extensions across devices, or export/import a local workspace backup file anytime.
 - **Sema.** An interactive companion that lives alongside your workspace.
-- **Open source.** Built in the open so anyone can write and share extensions using plain ES modules and HTML.
+- **Open source.** Built in the open so anyone can write and share extensions via 1-click `#/extensions?install=...` links using plain ES modules and HTML.
 
 ## Ecosystem
 

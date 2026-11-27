@@ -1970,9 +1970,27 @@
 }
 
 .sx-ext-page {
+  max-width: 1200px;
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.sx-ext-page.is-focused {
+  position: fixed;
+  inset: 0;
+  z-index: 320;
+  max-width: none;
+  margin: 0;
+  padding: 14px 18px 18px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.sx-ext-page.is-focused .sx-ext-view-frame.is-page,
+.sx-ext-page.is-focused .sx-ext-view-frame.is-tab {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .sx-ext-page-bar {
@@ -2017,7 +2035,7 @@
 }
 
 .sx-ext-view-frame.is-embed {
-  min-height: 320px;
+  min-height: 160px;
 }
 
 .sx-ext-embed-bar {

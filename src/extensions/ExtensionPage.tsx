@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, ArrowLeft, Download, Play, Puzzle, RefreshCw, Square } from 'lucide-react'
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Download,
+  Maximize2,
+  Minimize2,
+  Play,
+  Puzzle,
+  RefreshCw,
+  Square,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { SyntaxErrorBoundary } from '../core/ErrorBoundary.tsx'
 import { useContributionStore } from './contributions.ts'
@@ -54,6 +64,16 @@ export function ExtensionPage({
 
   const [doc, setDoc] = useState<DocumentEnvelope | null>(null)
   const [busy, setBusy] = useState(false)
+  const [focused, setFocused] = useState(false)
+
+  useEffect(() => {
+    if (!focused) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFocused(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [focused])
 
   useEffect(() => {
     let cancelled = false
@@ -228,7 +248,10 @@ export function ExtensionPage({
   }
 
   return (
-    <main className="sx-workspace-page sx-ext-page" aria-label={`${extName} view`}>
+    <main
+      className={`sx-workspace-page sx-ext-page${focused ? ' is-focused' : ''}`}
+      aria-label={`${extName} view`}
+    >
       <div className="sx-ext-page-bar">
         <div className="sx-ext-page-meta">
           <button type="button" className="sx-btn-ghost sx-btn-sm" onClick={onBackToLibrary}>
@@ -251,6 +274,20 @@ export function ExtensionPage({
         </div>
 
         <div className="sx-ext-page-actions">
+          <button
+            type="button"
+            className="sx-btn-ghost sx-btn-sm"
+            aria-pressed={focused}
+            title={focused ? 'Exit focus view (Esc)' : 'Expand to full screen'}
+            onClick={() => setFocused(v => !v)}
+          >
+            {focused ? (
+              <Minimize2 size={13} aria-hidden="true" />
+            ) : (
+              <Maximize2 size={13} aria-hidden="true" />
+            )}
+            <span>{focused ? 'Exit focus' : 'Focus'}</span>
+          </button>
           {runtime.hasLiveWorker && (
             <button
               type="button"
