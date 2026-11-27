@@ -229,8 +229,8 @@ export function ExtensionPage({
 
       <SyntaxErrorBoundary
         scope={`extension:${extensionId}:${viewId}`}
-        pluginName={extName}
-        onDisablePlugin={() => void extensionManager.disable(extensionId)}
+        extensionName={extName}
+        onDisableExtension={() => void extensionManager.disable(extensionId)}
         onExitScope={onBackToLibrary}
         resetKeys={[extensionId, viewId, runtime.activationId, docId]}
       >

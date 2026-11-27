@@ -216,9 +216,9 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
                 <BookOpen size={16} strokeWidth={1.9} aria-hidden="true" />
                 <span>Library</span>
               </button>
-              <button type="button" className="sx-profile-pop-item" onClick={() => go('/plugins')}>
+              <button type="button" className="sx-profile-pop-item" onClick={() => go('/extensions')}>
                 <Puzzle size={16} strokeWidth={1.9} aria-hidden="true" />
-                <span>Plugins &amp; Themes</span>
+                <span>Extensions</span>
               </button>
               <button
                 type="button"

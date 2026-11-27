@@ -12,11 +12,14 @@ import {
   resolveThemePack,
   useThemePackStore,
 } from '../core/themePacks'
+import { ExtensionPage } from '../extensions/ExtensionPage.tsx'
+import { extensionManager } from '../extensions/manager.ts'
+import { isSafeMode } from '../extensions/store.ts'
 import { playLessonSound, type LessonSound } from '../services/lessonSounds'
 import { CommunityHubPage } from '../ui/CommunityHubPage'
+import { ExtensionsPage } from '../ui/ExtensionsPage'
 import { HomePage } from '../ui/HomePage'
 import { LibraryPage } from '../ui/LibraryPage'
-import { PluginsPage } from '../ui/PluginsPage'
 import { ProfilePage } from '../ui/ProfilePage'
 import { AppHeader, type ShellMode, type WorkspaceTab } from './AppHeader'
 
@@ -69,11 +72,14 @@ function parseRouteInfo(location: string): {
   if (clean === '/settings') {
     return { clean, mode: 'workspace', mainActiveTab: null, workspaceActiveTab: 'settings' }
   }
-  if (clean === '/plugins') {
-    return { clean, mode: 'workspace', mainActiveTab: null, workspaceActiveTab: 'plugins' }
+  if (clean === '/extensions' || clean === '/plugins') {
+    return { clean, mode: 'workspace', mainActiveTab: null, workspaceActiveTab: 'extensions' }
   }
   if (clean === '/community' || clean.startsWith('/community/')) {
     return { clean, mode: 'workspace', mainActiveTab: null, workspaceActiveTab: 'community' }
+  }
+  if (clean.startsWith('/ext/')) {
+    return { clean, mode: 'main', mainActiveTab: null, workspaceActiveTab: null }
   }
   if (clean === '/' || clean === '') {
     return { clean: '/', mode: 'main', mainActiveTab: 'home', workspaceActiveTab: null }
@@ -82,6 +88,21 @@ function parseRouteInfo(location: string): {
     return { clean, mode: 'main', mainActiveTab: null, workspaceActiveTab: null }
   }
   return { clean, mode: 'main', mainActiveTab: 'library', workspaceActiveTab: null }
+}
+
+function LegacyPluginsRedirect({
+  onRedirect,
+  onOpenCommunityHub,
+  onNavigate,
+}: {
+  onRedirect: () => void
+  onOpenCommunityHub: () => void
+  onNavigate: (path: string) => void
+}) {
+  useEffect(() => {
+    onRedirect()
+  }, [onRedirect])
+  return <ExtensionsPage onOpenCommunityHub={onOpenCommunityHub} onNavigate={onNavigate} />
 }
 
 function AppShellInner({ hideToaster = false }: AppShellProps) {
@@ -105,6 +126,32 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
 
   const patchPrefs = useCallback((patch: Partial<SyntaxPrefs>) => {
     setPrefs(prev => ({ ...prev, ...patch }))
+  }, [])
+
+  const navigate = useCallback(
+    (path: string) => {
+      if (path !== location) {
+        setLocation(path)
+      }
+      window.scrollTo({ top: 0 })
+    },
+    [location, setLocation],
+  )
+
+  useEffect(() => {
+    extensionManager.setNavigator(navigate)
+    return () => extensionManager.setNavigator(null)
+  }, [navigate])
+
+  useEffect(() => {
+    const safeMode = isSafeMode()
+    void extensionManager.boot({ safeMode })
+    const cleanLoc = location.split('?')[0] || '/'
+    if (safeMode && cleanLoc === '/') {
+      setLocation('/extensions', { replace: true })
+    }
+    // Boot once on mount (StrictMode-safe inside extensionManager.boot)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -157,29 +204,25 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
     const baseTitle =
       routeInfo.workspaceActiveTab === 'settings'
         ? 'Settings · Syntax'
-        : routeInfo.workspaceActiveTab === 'plugins'
-          ? 'Plugins · Syntax'
+        : routeInfo.workspaceActiveTab === 'extensions'
+          ? 'Extensions · Syntax'
           : routeInfo.workspaceActiveTab === 'community'
             ? 'Community Hub · Syntax'
-            : routeInfo.clean === '/library'
-              ? 'Library · Syntax'
-              : routeInfo.clean === '/profile'
-                ? 'Profile · Syntax'
-                : routeInfo.clean === '/'
-                  ? 'Syntax'
-                  : 'Library · Syntax'
+            : routeInfo.clean.startsWith('/ext/')
+              ? 'Extension · Syntax'
+              : routeInfo.clean === '/library'
+                ? 'Library · Syntax'
+                : routeInfo.clean === '/profile'
+                  ? 'Profile · Syntax'
+                  : routeInfo.clean === '/'
+                    ? 'Syntax'
+                    : 'Library · Syntax'
     document.title = isDev ? `${baseTitle} (Dev)` : baseTitle
   }, [routeInfo, isDev])
 
-  const navigate = useCallback(
-    (path: string) => {
-      if (path !== location) {
-        setLocation(path)
-      }
-      window.scrollTo({ top: 0 })
-    },
-    [location, setLocation],
-  )
+  const redirectLegacyPlugins = useCallback(() => {
+    setLocation('/extensions', { replace: true })
+  }, [setLocation])
 
   return (
     <>
@@ -208,7 +251,7 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
             <HomePage
               prefs={prefs}
               onOpenLibrary={() => navigate('/library')}
-              onOpenPlugins={() => navigate('/plugins')}
+              onOpenExtensions={() => navigate('/extensions')}
               onOpenSettings={() => navigate('/settings')}
             />
           </SyntaxErrorBoundary>
@@ -217,8 +260,9 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
         <Route path="/library">
           <SyntaxErrorBoundary scope="page:library" onExitScope={() => navigate('/')}>
             <LibraryPage
-              onOpenPlugins={() => navigate('/plugins')}
+              onOpenExtensions={() => navigate('/extensions')}
               onOpenCommunityHub={() => navigate('/community')}
+              onNavigate={navigate}
             />
           </SyntaxErrorBoundary>
         </Route>
@@ -228,7 +272,7 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
             <ProfilePage
               prefs={prefs}
               onOpenLibrary={() => navigate('/library')}
-              onOpenPlugins={() => navigate('/plugins')}
+              onOpenExtensions={() => navigate('/extensions')}
               onOpenCommunityHub={() => navigate('/community')}
               onOpenSettings={() => navigate('/settings')}
             />
@@ -260,35 +304,72 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
           </SyntaxErrorBoundary>
         </Route>
 
-        <Route path="/plugins">
-          <SyntaxErrorBoundary scope="workspace:plugins" onExitScope={() => navigate('/library')}>
-            <PluginsPage onOpenCommunityHub={() => navigate('/community')} />
+        <Route path="/extensions">
+          <SyntaxErrorBoundary scope="workspace:extensions" onExitScope={() => navigate('/library')}>
+            <ExtensionsPage
+              onOpenCommunityHub={() => navigate('/community')}
+              onNavigate={navigate}
+            />
           </SyntaxErrorBoundary>
+        </Route>
+
+        <Route path="/plugins">
+          <SyntaxErrorBoundary scope="workspace:extensions" onExitScope={() => navigate('/library')}>
+            <LegacyPluginsRedirect
+              onRedirect={redirectLegacyPlugins}
+              onOpenCommunityHub={() => navigate('/community')}
+              onNavigate={navigate}
+            />
+          </SyntaxErrorBoundary>
+        </Route>
+
+        <Route path="/ext/:extensionId/:viewId/:docId">
+          {params => (
+            <ExtensionPage
+              extensionId={params.extensionId}
+              viewId={params.viewId}
+              docId={params.docId}
+              onBackToLibrary={() => navigate('/library')}
+              onOpenExtensions={() => navigate('/extensions')}
+            />
+          )}
+        </Route>
+
+        <Route path="/ext/:extensionId/:viewId">
+          {params => (
+            <ExtensionPage
+              extensionId={params.extensionId}
+              viewId={params.viewId}
+              onBackToLibrary={() => navigate('/library')}
+              onOpenExtensions={() => navigate('/extensions')}
+            />
+          )}
         </Route>
 
         <Route path="/community">
           <SyntaxErrorBoundary scope="workspace:community" onExitScope={() => navigate('/library')}>
-            <CommunityHubPage onOpenPlugins={() => navigate('/plugins')} />
+            <CommunityHubPage onOpenExtensions={() => navigate('/extensions')} />
           </SyntaxErrorBoundary>
         </Route>
 
         <Route path="/community/:id">
           <SyntaxErrorBoundary scope="workspace:community" onExitScope={() => navigate('/library')}>
-            <CommunityHubPage onOpenPlugins={() => navigate('/plugins')} />
+            <CommunityHubPage onOpenExtensions={() => navigate('/extensions')} />
           </SyntaxErrorBoundary>
         </Route>
 
         <Route>
           <SyntaxErrorBoundary scope="page:library-fallback" onExitScope={() => navigate('/')}>
             <LibraryPage
-              onOpenPlugins={() => navigate('/plugins')}
+              onOpenExtensions={() => navigate('/extensions')}
               onOpenCommunityHub={() => navigate('/community')}
+              onNavigate={navigate}
             />
           </SyntaxErrorBoundary>
         </Route>
       </Switch>
 
-      {!prefs.onboarded && (
+      {!prefs.onboarded && !isSafeMode() && (
         <Suspense fallback={null}>
           <OnboardingModal
             open={!prefs.onboarded}
