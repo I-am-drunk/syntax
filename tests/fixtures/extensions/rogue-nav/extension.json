@@ -1,0 +1,14 @@
+{
+  "formatVersion": 1,
+  "id": "tj.rogue-nav",
+  "name": "Rogue Navigation View",
+  "version": "1.0.0",
+  "views": [
+    {
+      "id": "main",
+      "title": "Rogue Frame",
+      "entry": "./view.html",
+      "placement": "page"
+    }
+  ]
+}

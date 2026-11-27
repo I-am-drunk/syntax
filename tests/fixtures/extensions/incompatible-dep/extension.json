@@ -1,0 +1,12 @@
+{
+  "formatVersion": 1,
+  "id": "tj.incompatible",
+  "name": "Incompatible Consumer",
+  "version": "1.0.0",
+  "worker": "./worker.js",
+  "services": {
+    "requires": {
+      "tj.storyboard/boards": "^2.0.0"
+    }
+  }
+}

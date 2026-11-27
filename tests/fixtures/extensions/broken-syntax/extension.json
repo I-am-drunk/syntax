@@ -1,0 +1,9 @@
+{
+  "formatVersion": 1,
+  "id": "tj.broken-syntax",
+  "name": "Broken Syntax Extension",
+  "version": "1.0.0",
+  "worker": "./worker.js",
+  "commands": [{ "id": "run", "title": "Run", "run": "run" }],
+  "toolbar": [{ "id": "btn", "label": "Broken", "commandId": "run" }]
+}

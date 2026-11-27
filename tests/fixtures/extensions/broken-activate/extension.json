@@ -1,0 +1,14 @@
+{
+  "formatVersion": 1,
+  "id": "tj.broken-activate",
+  "name": "Broken Activate Extension",
+  "version": "1.0.0",
+  "worker": "./worker.js",
+  "commands": [{ "id": "run", "title": "Never Committed", "run": "run" }],
+  "toolbar": [{ "id": "btn", "label": "Never Committed", "commandId": "run" }],
+  "services": {
+    "provides": {
+      "tj.broken/svc": "1.0.0"
+    }
+  }
+}

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Storyboard Editor</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: var(--font-sans, system-ui, sans-serif);
+      background: var(--bg, #fff);
+      color: var(--text, #111);
+    }
+    .row { display: flex; gap: 8px; margin-bottom: 12px; }
+    button { padding: 6px 12px; border-radius: 8px; border: 1px solid #888; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h2 id="heading">Storyboard Editor</h2>
+  <div id="security-probe"></div>
+  <div id="theme-mode">unknown</div>
+  <div id="doc-status">no-doc</div>
+  <div class="row">
+    <button id="create-btn" type="button">Create Storyboard</button>
+    <button id="add-task-btn" type="button">Add Task</button>
+    <button id="stale-save-btn" type="button">Test Stale Save</button>
+  </div>
+  <ul id="task-list"></ul>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
