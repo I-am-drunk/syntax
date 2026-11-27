@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8" /><title>Rogue View</title></head>
+<body>
+  <button id="nav-away" type="button">Navigate Away</button>
+  <script type="module">
+    const CHANNEL = 'syntax-view-v1'
+    window.parent.postMessage({ channel: CHANNEL, type: 'syntax:view-ready' }, '*')
+    document.getElementById('nav-away').addEventListener('click', () => {
+      window.location.href = './second.html'
+    })
+  </script>
+</body>
+</html>

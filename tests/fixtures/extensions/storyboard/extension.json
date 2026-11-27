@@ -1,0 +1,57 @@
+{
+  "formatVersion": 1,
+  "id": "tj.storyboard",
+  "name": "Storyboard Studio",
+  "version": "1.4.0",
+  "description": "General-purpose storyboard workspace with fullscreen and embedded views.",
+  "author": "Fixture Author",
+  "worker": "./worker.js",
+  "views": [
+    {
+      "id": "board",
+      "title": "Storyboard Editor",
+      "entry": "./view/index.html",
+      "placement": "page",
+      "docTypes": ["storyboard"]
+    },
+    {
+      "id": "scratchpad",
+      "title": "Quick Scratchpad",
+      "entry": "./view/embed.html",
+      "placement": "embed",
+      "docTypes": []
+    }
+  ],
+  "commands": [
+    {
+      "id": "export",
+      "title": "Export",
+      "run": "exportOwn"
+    },
+    {
+      "id": "createSample",
+      "title": "New Storyboard",
+      "run": "createSample"
+    }
+  ],
+  "toolbar": [
+    {
+      "id": "open-board",
+      "label": "Storyboard",
+      "viewId": "board"
+    }
+  ],
+  "services": {
+    "provides": {
+      "tj.storyboard/boards": "1.4.0"
+    }
+  },
+  "settings": [
+    {
+      "id": "defaultPrefix",
+      "type": "string",
+      "label": "Board Prefix",
+      "default": "Scene"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Quick Scratchpad</title>
+</head>
+<body>
+  <div id="embed-status">booting</div>
+  <script type="module">
+    const CHANNEL = 'syntax-view-v1'
+    window.addEventListener('message', event => {
+      const msg = event.data
+      if (msg?.channel === CHANNEL && msg.type === 'syntax:view-init') {
+        document.getElementById('embed-status').textContent = `embed-ready:${msg.viewId}:${msg.theme.mode}`
+      }
+    })
+    window.parent.postMessage({ channel: CHANNEL, type: 'syntax:view-ready' }, '*')
+  </script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+{
+  "formatVersion": 1,
+  "id": "tj.exporter",
+  "name": "Storyboard Exporter",
+  "version": "1.0.0",
+  "description": "Exports tasks from Storyboard Studio via services.call.",
+  "author": "Second Friend",
+  "worker": "./worker.js",
+  "commands": [
+    {
+      "id": "export",
+      "title": "Export",
+      "run": "exportBoard"
+    },
+    {
+      "id": "exportBad",
+      "title": "Export (Broken)",
+      "run": "exportWithError"
+    },
+    {
+      "id": "hang",
+      "title": "Hang Forever",
+      "run": "hangForever"
+    }
+  ],
+  "toolbar": [
+    {
+      "id": "export-btn",
+      "label": "Export Board",
+      "commandId": "export"
+    }
+  ],
+  "services": {
+    "requires": {
+      "tj.storyboard/boards": "^1.0.0"
+    },
+    "optional": {
+      "tj.missing/analytics": "^1.0.0"
+    }
+  }
+}

@@ -180,6 +180,12 @@ function createCtx(meta) {
       notify: (message, kind) => syscall('ui.notify', message, kind),
       openView: (viewId, docId) => syscall('ui.openView', viewId, docId),
     }),
+    log: Object.freeze({
+      debug: (...args) => console.debug(...args),
+      info: (...args) => console.info(...args),
+      warn: (...args) => console.warn(...args),
+      error: (...args) => console.error(...args),
+    }),
   };
   return Object.freeze(ctx);
 }

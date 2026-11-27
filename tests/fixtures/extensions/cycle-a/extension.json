@@ -1,0 +1,11 @@
+{
+  "formatVersion": 1,
+  "id": "tj.cycle-a",
+  "name": "Cycle A",
+  "version": "1.0.0",
+  "worker": "./worker.js",
+  "services": {
+    "provides": { "tj.cycle/a": "1.0.0" },
+    "requires": { "tj.cycle/b": "^1.0.0" }
+  }
+}
