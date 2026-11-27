@@ -102,7 +102,6 @@ export function ExtensionViewFrame({
   const loadCountRef = useRef(0)
   const terminatedRef = useRef(false)
   const readyRef = useRef(false)
-  const instanceIdRef = useRef('')
 
   const [frameNonce, setFrameNonce] = useState(0)
   const [ready, setReady] = useState(false)
@@ -111,7 +110,6 @@ export function ExtensionViewFrame({
 
   useEffect(() => {
     const instanceId = nextViewInstanceId()
-    instanceIdRef.current = instanceId
     loadCountRef.current = 0
     terminatedRef.current = false
     readyRef.current = false
