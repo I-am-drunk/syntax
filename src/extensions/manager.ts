@@ -178,7 +178,7 @@ export class ExtensionManager {
         if (!raw || typeof raw !== 'object') {
           throw new ExtensionError('SYSCALL_DENIED', 'documents.create requires an input object.')
         }
-        return await documentStore.create({
+        const created = await documentStore.create({
           id: typeof raw.id === 'string' ? raw.id : undefined,
           type: typeof raw.type === 'string' ? raw.type : '',
           title: typeof raw.title === 'string' ? raw.title : 'Untitled',
@@ -187,6 +187,10 @@ export class ExtensionManager {
           createdByExtensionId: inst.extensionId,
           data: raw.data,
         })
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('syntax:documents-changed'))
+        }
+        return created
       }
 
       case 'documents.save': {
@@ -204,13 +208,17 @@ export class ExtensionManager {
             'documents.save requires { id, expectedRevision (>= 1), data }.',
           )
         }
-        return await documentStore.save({
+        const saved = await documentStore.save({
           id: raw.id,
           expectedRevision: raw.expectedRevision,
           title: typeof raw.title === 'string' ? raw.title : undefined,
           schemaVersion: typeof raw.schemaVersion === 'number' ? raw.schemaVersion : undefined,
           data: raw.data,
         })
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('syntax:documents-changed'))
+        }
+        return saved
       }
 
       case 'settings.get': {

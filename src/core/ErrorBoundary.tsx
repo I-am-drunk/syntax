@@ -5,8 +5,8 @@ import { exportLogsText, syntaxLog } from './logger'
 
 type SyntaxErrorBoundaryProps = {
   scope: string
-  pluginName?: string
-  onDisablePlugin?: () => void
+  extensionName?: string
+  onDisableExtension?: () => void
   onExitScope?: () => void
   exitLabel?: string
   resetKeys?: unknown[]
@@ -17,14 +17,14 @@ function SyntaxCrashFallback({
   error,
   resetErrorBoundary,
   scope,
-  pluginName,
-  onDisablePlugin,
+  extensionName,
+  onDisableExtension,
   onExitScope,
   exitLabel,
 }: FallbackProps & {
   scope: string
-  pluginName?: string
-  onDisablePlugin?: () => void
+  extensionName?: string
+  onDisableExtension?: () => void
   onExitScope?: () => void
   exitLabel?: string
 }) {
@@ -36,7 +36,7 @@ function SyntaxCrashFallback({
     try {
       const report = [
         `Scope: ${scope}`,
-        pluginName ? `Plugin/Course: ${pluginName}` : null,
+        extensionName ? `Extension: ${extensionName}` : null,
         `Error: ${message}`,
         stack ? `\nStack:\n${stack}` : null,
         `\nRecent logs:\n${exportLogsText()}`,
@@ -58,7 +58,7 @@ function SyntaxCrashFallback({
         <span>Isolated error in {scope}</span>
       </div>
       <h3>
-        {pluginName ? `${pluginName} ran into a bug` : 'Something broke inside this view'}
+        {extensionName ? `${extensionName} ran into a bug` : 'Something broke inside this view'}
       </h3>
       <p className="sx-error-summary">
         Syntax caught this error inside its separation layer so the rest of the app stays intact.
@@ -77,16 +77,16 @@ function SyntaxCrashFallback({
           <RotateCcw size={15} aria-hidden="true" />
           <span>Try again</span>
         </button>
-        {onDisablePlugin && (
+        {onDisableExtension && (
           <button
             type="button"
             className="sx-btn-danger-ghost"
             onClick={() => {
-              onDisablePlugin()
+              onDisableExtension()
               resetErrorBoundary()
             }}
           >
-            Turn off {pluginName ?? 'plugin'}
+            Turn off {extensionName ?? 'extension'}
           </button>
         )}
         {onExitScope && (
@@ -112,8 +112,8 @@ function SyntaxCrashFallback({
 
 export function SyntaxErrorBoundary({
   scope,
-  pluginName,
-  onDisablePlugin,
+  extensionName,
+  onDisableExtension,
   onExitScope,
   exitLabel,
   resetKeys,
@@ -132,8 +132,8 @@ export function SyntaxErrorBoundary({
         <SyntaxCrashFallback
           {...props}
           scope={scope}
-          pluginName={pluginName}
-          onDisablePlugin={onDisablePlugin}
+          extensionName={extensionName}
+          onDisableExtension={onDisableExtension}
           onExitScope={onExitScope}
           exitLabel={exitLabel}
         />

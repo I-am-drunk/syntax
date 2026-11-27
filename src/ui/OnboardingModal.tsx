@@ -68,7 +68,7 @@ export function OnboardingModal({
               </motion.div>
               <Dialog.Title className="ob-title">Welcome to Syntax</Dialog.Title>
               <p className="ob-copy">
-                Meet Sema. Customize your theme, manage plugins in your workspace, and learn at your own pace.
+                Meet Sema. Customize your workspace, install extensions, and build at your own pace.
               </p>
               <div className="ob-actions">
                 <button type="button" className="ob-skip" onClick={onFinish}>

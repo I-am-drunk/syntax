@@ -12,17 +12,22 @@ import {
   Settings,
   Sparkles,
   Sun,
+  Terminal,
   Volume2,
   VolumeX,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { isDevEnvironment } from '../core/devEnv'
 import { useHostSlots } from '../core/hostSlots'
+import { useContributionStore } from '../extensions/contributions.ts'
+import { extensionManager } from '../extensions/manager.ts'
+import { useExtensionStore } from '../extensions/store.ts'
 import { TopBarSema } from '../mascot/TopBarSema'
 import type { SyntaxPrefs } from '../core/prefs'
 import { ProfilePopover } from '../ui/ProfilePopover'
 
 export type ShellMode = 'main' | 'course' | 'workspace'
-export type WorkspaceTab = 'settings' | 'plugins' | 'community'
+export type WorkspaceTab = 'settings' | 'extensions' | 'community'
 
 interface AppHeaderProps {
   mode: ShellMode
@@ -60,8 +65,22 @@ export function AppHeader({
 }: AppHeaderProps) {
   const isDev = isDevEnvironment()
   const { contribution } = useHostSlots()
+  const extensionToolbar = useContributionStore(s => s.toolbar)
+  const extensionCommands = useContributionStore(s => s.commands)
+  const extensionRecords = useExtensionStore(s => s.records)
   const isWorkspace = mode === 'workspace'
   const isCourse = mode === 'course'
+
+  const ownerNames = new Map(extensionRecords.map(r => [r.id, r.manifest.name]))
+
+  async function handleRunCommand(commandKey: string, ownerId: string) {
+    try {
+      await extensionManager.runCommand(commandKey)
+    } catch (err) {
+      const owner = ownerNames.get(ownerId) ?? ownerId
+      toast.error(`${owner}: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
 
   function handleLogoClick() {
     onPokeSema()
@@ -139,7 +158,7 @@ export function AppHeader({
                 {(
                   [
                     { id: 'settings', label: 'Settings', path: '/settings', Icon: Settings },
-                    { id: 'plugins', label: 'Plugins', path: '/plugins', Icon: Puzzle },
+                    { id: 'extensions', label: 'Extensions', path: '/extensions', Icon: Puzzle },
                     { id: 'community', label: 'Community Hub', path: '/community', Icon: Compass },
                   ] as const
                 ).map(({ id, label, path, Icon }) => {
@@ -273,6 +292,31 @@ export function AppHeader({
       <div className="header-actions">
         {isCourse && contribution.headerAction}
 
+        {extensionToolbar.length > 0 && (
+          <div className="sx-ext-header-toolbar" role="toolbar" aria-label="Extension actions">
+            {extensionToolbar.map(item => (
+              <button
+                key={item.key}
+                type="button"
+                className="sx-ext-toolbar-btn"
+                data-extension-toolbar-key={item.key}
+                title={`${item.label} (${ownerNames.get(item.ownerId) ?? item.ownerId})`}
+                onClick={() => {
+                  if (item.commandKey) {
+                    void handleRunCommand(item.commandKey, item.ownerId)
+                  } else if (item.viewId) {
+                    onNavigate(
+                      `/ext/${encodeURIComponent(item.ownerId)}/${encodeURIComponent(item.viewId)}`,
+                    )
+                  }
+                }}
+              >
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         <button
           type="button"
           className="header-icon-btn"
@@ -360,10 +404,10 @@ export function AppHeader({
                       </Menu.Item>
                       <Menu.Item
                         className="menu-item sx-menu-item"
-                        onClick={() => onNavigate('/plugins')}
+                        onClick={() => onNavigate('/extensions')}
                       >
                         <Puzzle size={16} strokeWidth={1.9} aria-hidden="true" />
-                        <span>Plugins</span>
+                        <span>Extensions</span>
                       </Menu.Item>
                       <Menu.Item
                         className="menu-item sx-menu-item"
@@ -373,6 +417,28 @@ export function AppHeader({
                         <span>Community Hub</span>
                       </Menu.Item>
                     </Menu.Group>
+
+                    {extensionCommands.length > 0 && (
+                      <>
+                        <Menu.Separator className="menu-separator" />
+                        <Menu.Group className="menu-group">
+                          {extensionCommands.map(cmd => (
+                            <Menu.Item
+                              key={cmd.key}
+                              className="menu-item sx-menu-item sx-ext-cmd-item"
+                              data-extension-command-key={cmd.key}
+                              onClick={() => void handleRunCommand(cmd.key, cmd.ownerId)}
+                            >
+                              <Terminal size={15} strokeWidth={1.9} aria-hidden="true" />
+                              <span className="sx-ext-cmd-copy">
+                                <span>{cmd.title}</span>
+                                <small>{ownerNames.get(cmd.ownerId) ?? cmd.ownerId}</small>
+                              </span>
+                            </Menu.Item>
+                          ))}
+                        </Menu.Group>
+                      </>
+                    )}
 
                     <Menu.Separator className="menu-separator" />
 

@@ -9,7 +9,7 @@ import { Sema } from '../mascot/Sema'
 export interface ProfilePageProps {
   prefs: SyntaxPrefs
   onOpenLibrary: () => void
-  onOpenPlugins: () => void
+  onOpenExtensions: () => void
   onOpenCommunityHub: () => void
   onOpenSettings: () => void
 }
@@ -26,7 +26,7 @@ function formatSyncTime(iso: string | null): string {
 export function ProfilePage({
   prefs,
   onOpenLibrary,
-  onOpenPlugins,
+  onOpenExtensions,
   onOpenCommunityHub,
   onOpenSettings,
 }: ProfilePageProps) {
@@ -214,7 +214,7 @@ export function ProfilePage({
           <div className="preference-row">
             <div className="syntax-pref-copy">
               <p>Library</p>
-              <span>Browse installed courses</span>
+              <span>Browse extension views and saved documents</span>
             </div>
             <button type="button" className="sx-btn-secondary sx-btn-sm" onClick={onOpenLibrary}>
               Library
@@ -222,17 +222,17 @@ export function ProfilePage({
           </div>
           <div className="preference-row">
             <div className="syntax-pref-copy">
-              <p>Plugins &amp; Themes</p>
-              <span>Manage WCAG theme packs and Syntax plugins</span>
+              <p>Extensions</p>
+              <span>Manage installed standalone and embedded Syntax extensions</span>
             </div>
-            <button type="button" className="sx-btn-secondary sx-btn-sm" onClick={onOpenPlugins}>
-              Plugins
+            <button type="button" className="sx-btn-secondary sx-btn-sm" onClick={onOpenExtensions}>
+              Extensions
             </button>
           </div>
           <div className="preference-row">
             <div className="syntax-pref-copy">
               <p>Community Hub</p>
-              <span>Explore community courses and plugins</span>
+              <span>Explore community extensions</span>
             </div>
             <button
               type="button"

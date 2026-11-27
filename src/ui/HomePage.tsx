@@ -6,14 +6,14 @@ import { Sema } from '../mascot/Sema'
 export interface HomePageProps {
   prefs: SyntaxPrefs
   onOpenLibrary: () => void
-  onOpenPlugins: () => void
+  onOpenExtensions: () => void
   onOpenSettings: () => void
 }
 
 export function HomePage({
   prefs,
   onOpenLibrary,
-  onOpenPlugins,
+  onOpenExtensions,
   onOpenSettings,
 }: HomePageProps) {
   const account = useAccount()
@@ -46,7 +46,7 @@ export function HomePage({
           <div className="sx-profile-titles">
             <h1>{greetingName ? `Welcome back, ${greetingName}` : 'Welcome to Syntax'}</h1>
             <p className="sx-profile-handle">
-              Core platform ready. Courses and workspace tools load through the plugin runtime.
+              Core platform ready. Tools, workflows, and courses load through Syntax Extensions.
             </p>
           </div>
         </div>
@@ -67,7 +67,7 @@ export function HomePage({
           <div className="preference-row">
             <div className="syntax-pref-copy">
               <p>Library</p>
-              <span>Your installed courses will appear here once added</span>
+              <span>Your extension views, embedded tools, and saved documents live here</span>
             </div>
             <button type="button" className="sx-btn-secondary sx-btn-sm" onClick={onOpenLibrary}>
               <Library size={14} aria-hidden="true" />
@@ -77,19 +77,19 @@ export function HomePage({
 
           <div className="preference-row">
             <div className="syntax-pref-copy">
-              <p>Plugins &amp; Themes</p>
-              <span>Manage WCAG theme packs and installed Syntax extensions</span>
+              <p>Extensions</p>
+              <span>Install, reload, inspect logs, and manage standalone or embedded extensions</span>
             </div>
-            <button type="button" className="sx-btn-secondary sx-btn-sm" onClick={onOpenPlugins}>
+            <button type="button" className="sx-btn-secondary sx-btn-sm" onClick={onOpenExtensions}>
               <Puzzle size={14} aria-hidden="true" />
-              <span>Plugins</span>
+              <span>Extensions</span>
             </button>
           </div>
 
           <div className="preference-row">
             <div className="syntax-pref-copy">
               <p>Settings &amp; Sema</p>
-              <span>Customize theme palettes, audio cues, and Sema appearance</span>
+              <span>Customize appearance, audio cues, and Sema companion style</span>
             </div>
             <button type="button" className="sx-btn-secondary sx-btn-sm" onClick={onOpenSettings}>
               <Settings size={14} aria-hidden="true" />
@@ -99,7 +99,7 @@ export function HomePage({
 
           <div className="preference-row">
             <div className="syntax-pref-copy">
-              <p>Official Plugins Repository</p>
+              <p>Official Extensions Repository</p>
               <span>First-party courses and tools live in syntax-official-plugins</span>
             </div>
             <a
