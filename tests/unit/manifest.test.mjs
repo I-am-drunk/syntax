@@ -130,6 +130,39 @@ describe('extension manifest validation', () => {
       /same origin as extension\.json/,
     )
   })
+
+  it('rejects overlapping requires/optional or self-required service declarations', () => {
+    assert.throws(
+      () =>
+        validateExtensionManifest({
+          formatVersion: 1,
+          id: 'tj.overlap',
+          name: 'Overlap',
+          version: '1.0.0',
+          worker: './worker.js',
+          services: {
+            requires: { 'svc.x': '^1.0.0' },
+            optional: { 'svc.x': '^1.0.0' },
+          },
+        }),
+      /cannot be declared in both/,
+    )
+    assert.throws(
+      () =>
+        validateExtensionManifest({
+          formatVersion: 1,
+          id: 'tj.self',
+          name: 'Self',
+          version: '1.0.0',
+          worker: './worker.js',
+          services: {
+            provides: { 'svc.self': '1.0.0' },
+            requires: { 'svc.self': '^1.0.0' },
+          },
+        }),
+      /cannot require service/,
+    )
+  })
 })
 
 describe('semver comparison and ranges', () => {

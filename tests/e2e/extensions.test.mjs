@@ -580,6 +580,12 @@ describe('Syntax Extensions v1 end-to-end acceptance suite (real Chromium)', () 
       const timelineStatus = await page.frameLocator('iframe.sx-ext-iframe').first().locator('#timeline-status').textContent()
       assert.equal(timelineStatus, 'timeline-ready:timeline')
 
+      // Missing viewId on an active extension shows dedicated View-not-found recovery with Open button
+      await page.goto(`${harness.appOrigin}/#/ext/tj.storyboard/nonexistent`)
+      await page.waitForSelector('h3:has-text("View \\"nonexistent\\" was not found in Storyboard Studio")')
+      await page.click('button:has-text("Open Storyboard Editor")')
+      await page.waitForSelector('[data-extension-id="tj.storyboard"][data-view-id="board"][data-view-ready="true"]')
+
       // View-only extension (no worker) saves a document directly via host syscall
       await page.goto(`${harness.appOrigin}/#/ext/tj.view-only/pad`)
       await page.waitForSelector('[data-extension-id="tj.view-only"][data-view-id="pad"][data-view-ready="true"]')

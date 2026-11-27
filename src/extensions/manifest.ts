@@ -149,6 +149,23 @@ export const extensionManifestSchema = z
       })
     }
 
+    for (const svc of Object.keys(m.services.requires)) {
+      if (svc in m.services.optional) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['services', 'optional', svc],
+          message: `Service "${svc}" cannot be declared in both services.requires and services.optional.`,
+        })
+      }
+      if (svc in m.services.provides) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['services', 'requires', svc],
+          message: `Extension cannot require service "${svc}" that it also provides.`,
+        })
+      }
+    }
+
     m.toolbar.forEach((item, idx) => {
       if (item.commandId && !cmdIds.has(item.commandId)) {
         ctx.addIssue({
@@ -366,6 +383,14 @@ export async function fetchExtensionManifest(
       throw new ExtensionError(
         'MANIFEST_FETCH_FAILED',
         `Could not download extension.json (${res.status} ${res.statusText}).`,
+        { detail: parsedUrl.href },
+      )
+    }
+    const ct = (res.headers.get('content-type') || '').toLowerCase()
+    if (ct.startsWith('text/html')) {
+      throw new ExtensionError(
+        'MANIFEST_INVALID',
+        'URL returned HTML instead of extension.json (verify the link points directly to extension.json).',
         { detail: parsedUrl.href },
       )
     }

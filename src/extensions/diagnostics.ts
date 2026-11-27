@@ -2,6 +2,13 @@ import { syntaxLog } from '../core/logger.ts'
 import type { WorkerLogLevel } from './plugos/protocol.ts'
 
 const MAX_LOGS_PER_EXTENSION = 100
+const MAX_LOG_MESSAGE_CHARS = 2_000
+const MAX_LOG_DETAIL_CHARS = 8_000
+
+function clipText(value: string, maxChars: number): string {
+  if (value.length <= maxChars) return value
+  return `${value.slice(0, maxChars)}... [truncated]`
+}
 
 export interface ExtensionLogEntry {
   ts: number
@@ -53,7 +60,10 @@ function notify() {
 
 export const extensionDiagnostics = {
   push(entry: Omit<ExtensionLogEntry, 'ts'>) {
-    const full: ExtensionLogEntry = { ...entry, ts: Date.now() }
+    const message = clipText(String(entry.message ?? ''), MAX_LOG_MESSAGE_CHARS)
+    const detail =
+      entry.detail !== undefined ? clipText(String(entry.detail), MAX_LOG_DETAIL_CHARS) : undefined
+    const full: ExtensionLogEntry = { ...entry, message, detail, ts: Date.now() }
     const list = logsByExtension.get(entry.extensionId) ?? []
     list.push(full)
     if (list.length > MAX_LOGS_PER_EXTENSION) {
@@ -62,9 +72,9 @@ export const extensionDiagnostics = {
     logsByExtension.set(entry.extensionId, list)
 
     if (entry.level === 'error') {
-      syntaxLog.error(`ext:${entry.extensionId}`, entry.message, entry.detail)
+      syntaxLog.error(`ext:${entry.extensionId}`, message, detail)
     } else if (entry.level === 'warn') {
-      syntaxLog.warn(`ext:${entry.extensionId}`, entry.message, entry.detail)
+      syntaxLog.warn(`ext:${entry.extensionId}`, message, detail)
     }
     notify()
   },

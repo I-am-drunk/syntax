@@ -479,7 +479,7 @@ export class ExtensionManager {
               { extensionId: extId },
             )
           }
-          return await sandbox.invoke(method, args)
+          return await this.invokeWorker(extId, method, args, activationId)
         },
       }),
     )

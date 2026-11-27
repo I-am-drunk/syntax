@@ -110,6 +110,7 @@ export function ExtensionPage({
   const extName = record?.manifest.name ?? extensionId
 
   if (!view || runtime?.status !== 'active' || !runtime.activationId) {
+    const missingViewOnActive = Boolean(!view && runtime?.status === 'active' && runtime.activationId)
     return (
       <main className="sx-workspace-page sx-ext-page" aria-label="Extension recovery">
         <div className="sx-ext-page-bar">
@@ -126,7 +127,13 @@ export function ExtensionPage({
         <div className="sx-error-card" role="status">
           <div className="sx-error-badge">
             <AlertTriangle size={14} aria-hidden="true" />
-            <span>{safeMode ? 'Safe Mode' : runtime?.status ?? 'Not installed'}</span>
+            <span>
+              {safeMode
+                ? 'Safe Mode'
+                : missingViewOnActive
+                  ? 'View not found'
+                  : (runtime?.status ?? 'Not installed')}
+            </span>
           </div>
           <h3>
             {doc
@@ -137,22 +144,41 @@ export function ExtensionPage({
                   ? `Extension "${extensionId}" is not installed`
                   : !record.enabled
                     ? `${extName} is disabled`
-                    : `${extName} is not currently active`}
+                    : missingViewOnActive
+                      ? `View "${viewId}" was not found in ${extName}`
+                      : `${extName} is not currently active`}
           </h3>
           <p className="sx-error-summary">
             {doc
               ? `Your document "${doc.title}" (type: ${doc.type}, revision ${doc.revision}) is safely stored in Syntax.`
-              : runtime?.lastError?.message ??
-                'Enable, reload, or install this extension to open its view.'}
+              : missingViewOnActive
+                ? `${extName} is active, but it does not declare a view with id "${viewId}".`
+                : (runtime?.lastError?.message ??
+                  'Enable, reload, or install this extension to open its view.')}
           </p>
 
-          {runtime?.lastError && (
+          {runtime?.lastError && !missingViewOnActive && (
             <pre className="sx-error-message">
               [{runtime.lastError.code}] {runtime.lastError.message}
             </pre>
           )}
 
           <div className="sx-error-actions">
+            {missingViewOnActive && siblingViews[0] && (
+              <button
+                type="button"
+                className="sx-btn-primary"
+                onClick={() =>
+                  onNavigate(
+                    docId
+                      ? `/ext/${encodeURIComponent(extensionId)}/${encodeURIComponent(siblingViews[0]!.id)}/${encodeURIComponent(docId)}`
+                      : `/ext/${encodeURIComponent(extensionId)}/${encodeURIComponent(siblingViews[0]!.id)}`,
+                  )
+                }
+              >
+                <span>Open {siblingViews[0].title}</span>
+              </button>
+            )}
             {record && !record.enabled && !safeMode && (
               <button
                 type="button"

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { AlertTriangle, Check, Download, ExternalLink, Puzzle, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -25,18 +25,23 @@ export function CommunityHubPage({ onOpenExtensions }: CommunityHubPageProps) {
     error: null,
   })
   const [installingId, setInstallingId] = useState<string | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
-  const loadCatalog = useCallback((signal?: AbortSignal) => {
+  const loadCatalog = useCallback(() => {
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
     setCatalog({ status: 'loading', entries: [], updatedAt: null, error: null })
-    void fetchExtensionCatalog(undefined, signal).then(state => {
-      if (!signal?.aborted) setCatalog(state)
+    void fetchExtensionCatalog(undefined, controller.signal).then(state => {
+      if (!controller.signal.aborted) setCatalog(state)
     })
   }, [])
 
   useEffect(() => {
-    const controller = new AbortController()
-    loadCatalog(controller.signal)
-    return () => controller.abort()
+    loadCatalog()
+    return () => {
+      abortRef.current?.abort()
+    }
   }, [loadCatalog])
 
   async function handleInstall(entry: CatalogEntry) {
@@ -156,6 +161,9 @@ export function CommunityHubPage({ onOpenExtensions }: CommunityHubPageProps) {
                   <div className="sx-ext-card-id">
                     <div className="sx-ext-card-title-row">
                       <h3>{entry.name}</h3>
+                      {entry.kind === 'course' && (
+                        <span className="sx-ext-status-badge">Course</span>
+                      )}
                       <span className="sx-ext-version-tag">v{entry.version}</span>
                     </div>
                     <p className="sx-ext-meta-line">

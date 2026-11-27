@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Menu } from '@base-ui/react/menu'
 import {
@@ -68,17 +69,30 @@ export function AppHeader({
   const extensionToolbar = useContributionStore(s => s.toolbar)
   const extensionCommands = useContributionStore(s => s.commands)
   const extensionRecords = useExtensionStore(s => s.records)
+  const [runningCommands, setRunningCommands] = useState<ReadonlySet<string>>(() => new Set())
   const isWorkspace = mode === 'workspace'
   const isCourse = mode === 'course'
 
   const ownerNames = new Map(extensionRecords.map(r => [r.id, r.manifest.name]))
 
   async function handleRunCommand(commandKey: string, ownerId: string) {
+    setRunningCommands(prev => {
+      const next = new Set(prev)
+      next.add(commandKey)
+      return next
+    })
     try {
       await extensionManager.runCommand(commandKey)
     } catch (err) {
       const owner = ownerNames.get(ownerId) ?? ownerId
       toast.error(`${owner}: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setRunningCommands(prev => {
+        if (!prev.has(commandKey)) return prev
+        const next = new Set(prev)
+        next.delete(commandKey)
+        return next
+      })
     }
   }
 
@@ -294,26 +308,31 @@ export function AppHeader({
 
         {extensionToolbar.length > 0 && (
           <div className="sx-ext-header-toolbar" role="toolbar" aria-label="Extension actions">
-            {extensionToolbar.map(item => (
-              <button
-                key={item.key}
-                type="button"
-                className="sx-ext-toolbar-btn"
-                data-extension-toolbar-key={item.key}
-                title={`${item.label} (${ownerNames.get(item.ownerId) ?? item.ownerId})`}
-                onClick={() => {
-                  if (item.commandKey) {
-                    void handleRunCommand(item.commandKey, item.ownerId)
-                  } else if (item.viewId) {
-                    onNavigate(
-                      `/ext/${encodeURIComponent(item.ownerId)}/${encodeURIComponent(item.viewId)}`,
-                    )
-                  }
-                }}
-              >
-                <span>{item.label}</span>
-              </button>
-            ))}
+            {extensionToolbar.map(item => {
+              const busy = Boolean(item.commandKey && runningCommands.has(item.commandKey))
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  className="sx-ext-toolbar-btn"
+                  data-extension-toolbar-key={item.key}
+                  disabled={busy}
+                  aria-busy={busy || undefined}
+                  title={`${item.label} (${ownerNames.get(item.ownerId) ?? item.ownerId})`}
+                  onClick={() => {
+                    if (item.commandKey) {
+                      void handleRunCommand(item.commandKey, item.ownerId)
+                    } else if (item.viewId) {
+                      onNavigate(
+                        `/ext/${encodeURIComponent(item.ownerId)}/${encodeURIComponent(item.viewId)}`,
+                      )
+                    }
+                  }}
+                >
+                  <span>{item.label}</span>
+                </button>
+              )
+            })}
           </div>
         )}
 
