@@ -461,9 +461,15 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
   )
 }
 
+function useCleanHashLocation(): [string, ReturnType<typeof useHashLocation>[1]] {
+  const [rawLocation, navigate] = useHashLocation()
+  const cleanLocation = rawLocation.split('?')[0] || '/'
+  return [cleanLocation, navigate]
+}
+
 export function AppShell(props: AppShellProps) {
   return (
-    <Router hook={useHashLocation}>
+    <Router hook={useCleanHashLocation}>
       <AppShellInner {...props} />
     </Router>
   )

@@ -798,6 +798,24 @@ describe('Syntax Extensions v1 end-to-end acceptance suite (real Chromium)', () 
       })
       await page.waitForFunction(() => document.documentElement.dataset.theme === 'dark')
 
+      // Verify Focus mode toggle on ExtensionPage and shareable #/extensions?install= review link
+      await page.goto(`${harness.appOrigin}/#/ext/tj.storyboard/board`)
+      await page.waitForSelector('[data-extension-id="tj.storyboard"][data-view-id="board"][data-view-ready="true"]')
+      await page.click('button:has-text("Focus")')
+      await page.waitForSelector('.sx-ext-page.is-focused')
+      await page.keyboard.press('Escape')
+      await page.waitForFunction(() => !document.querySelector('.sx-ext-page.is-focused'))
+
+      const shareInstallUrl = `${harness.appOrigin}/#/extensions?install=${encodeURIComponent(harness.extUrl('demo-course/extension.json'))}`
+      await page.goto(shareInstallUrl)
+      await page.waitForSelector('[data-testid="extension-install-modal"]')
+      assert.equal(
+        await page.evaluate(() => window.location.hash.includes('install=')),
+        false,
+        'install= query param should be stripped after opening review modal',
+      )
+      await page.click('[data-testid="extension-install-modal"] button:has-text("Cancel")')
+
       assert.equal(pageErrors.length, 0, `Unexpected page errors: ${pageErrors.map(e => e.message).join('; ')}`)
     } finally {
       await context.close()
