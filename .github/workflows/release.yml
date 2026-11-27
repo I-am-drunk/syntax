@@ -72,7 +72,9 @@ jobs:
         with:
           script: |
             const fs = require('node:fs');
-            const mod = await import('./.github/scripts/check-nightly-release.mjs');
+            const path = require('node:path');
+            const { pathToFileURL } = require('node:url');
+            const mod = await import(pathToFileURL(path.resolve('.github/scripts/check-nightly-release.mjs')).href);
             const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
             const owner = context.repo.owner;
             const repo = context.repo.repo;
