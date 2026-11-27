@@ -156,10 +156,17 @@ export function HomePage({
             <span>Quick Search</span>
             <kbd className="sx-kbd">{shortcutLabel}</kbd>
           </button>
-          <button type="button" className="sx-btn-primary" onClick={onOpenLibrary}>
-            <Library size={15} strokeWidth={2} aria-hidden="true" />
-            <span>Open Library</span>
-          </button>
+          {records.length === 0 && totalDocCount === 0 ? (
+            <button type="button" className="sx-btn-primary" onClick={onOpenCommunityHub}>
+              <Compass size={15} strokeWidth={2} aria-hidden="true" />
+              <span>Community Hub</span>
+            </button>
+          ) : (
+            <button type="button" className="sx-btn-primary" onClick={onOpenLibrary}>
+              <Library size={15} strokeWidth={2} aria-hidden="true" />
+              <span>Open Library</span>
+            </button>
+          )}
         </div>
       </section>
 

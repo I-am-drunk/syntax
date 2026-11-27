@@ -828,7 +828,7 @@
    Clean Single-Column Workspace Layout (Settings, Home, Library & Extensions)
    ========================================================================== */
 .sx-workspace-page {
-  max-width: 760px;
+  max-width: 920px;
   margin: 36px auto 96px;
   padding: 0 24px;
   display: flex;
@@ -838,7 +838,7 @@
 
 .sx-workspace-page.sx-library-page,
 .sx-workspace-page.sx-plugins-page {
-  max-width: 980px;
+  max-width: 920px;
 }
 
 .sx-workspace-head {
@@ -1040,7 +1040,7 @@
    In-App Community Hub
    ========================================================================== */
 .sx-hub-page {
-  max-width: 980px;
+  max-width: 920px;
   margin: 36px auto 96px;
   padding: 0 24px;
   display: flex;
@@ -1095,7 +1095,7 @@
    Profile Page (Clean Brilliant Base)
    ========================================================================== */
 .sx-profile-page {
-  max-width: 760px;
+  max-width: 920px;
   margin: 36px auto 88px;
   padding: 0 24px;
   display: flex;
@@ -2070,6 +2070,11 @@
   background: #1b1b1b !important;
   border-color: #2f2f2f !important;
   color: #f5f5f5 !important;
+}
+
+:root[data-theme='dark'] .cl-providerIcon__apple,
+:root[data-theme='dark'] .cl-socialButtonsProviderIcon__apple {
+  filter: brightness(0) invert(1) !important;
 }
 
 .sx-ext-embed-grid {
