@@ -22,11 +22,14 @@ import { useContributionStore } from '../extensions/contributions.ts'
 import { extensionDiagnostics, type ExtensionLogEntry } from '../extensions/diagnostics.ts'
 import { extensionManager } from '../extensions/manager.ts'
 import { useExtensionStore, type ExtensionRecord } from '../extensions/store.ts'
+import { Segmented } from './Controls'
 
 export interface ExtensionsPageProps {
   onOpenCommunityHub: () => void
   onNavigate: (path: string) => void
 }
+
+type ExtensionsViewMode = 'extensions' | 'courses'
 
 function statusLabel(status: string | undefined, enabled: boolean): string {
   if (status === 'active') return 'Active'
@@ -53,6 +56,7 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
   const safeMode = useExtensionStore(s => s.safeMode)
   const views = useContributionStore(s => s.views)
 
+  const [viewMode, setViewMode] = useState<ExtensionsViewMode>('extensions')
   const [manifestUrl, setManifestUrl] = useState('')
   const [installing, setInstalling] = useState(false)
   const [installError, setInstallError] = useState<string | null>(null)
@@ -61,6 +65,10 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
   const [openSettingsId, setOpenSettingsId] = useState<string | null>(null)
   const [logsVersion, setLogsVersion] = useState(0)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  const extensionRecords = records.filter(r => r.manifest.kind !== 'course')
+  const courseRecords = records.filter(r => r.manifest.kind === 'course')
+  const visibleRecords = viewMode === 'courses' ? courseRecords : extensionRecords
 
   useEffect(() => {
     return extensionDiagnostics.subscribe(() => setLogsVersion(v => v + 1))
@@ -81,6 +89,7 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
         enableImmediately: !safeMode,
       })
       setManifestUrl('')
+      setViewMode(rec.manifest.kind === 'course' ? 'courses' : 'extensions')
       toast.success(
         safeMode
           ? `Installed ${rec.manifest.name} (paused while in Safe Mode)`
@@ -182,12 +191,25 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
       <header className="sx-plugins-header">
         <div className="sx-plugins-title-row">
           <div className="sx-workspace-head">
-            <h1>Extensions</h1>
+            <h1>{viewMode === 'courses' ? 'Courses' : 'Extensions'}</h1>
             <span className="sx-hub-count">
-              Standalone and embedded Syntax extensions
+              {viewMode === 'courses'
+                ? 'Installable interactive courses'
+                : 'Standalone and embedded Syntax extensions'}
             </span>
           </div>
           <div className="sx-plugins-cta-group">
+            <div className="sx-ext-mode-toggle" data-testid="extensions-mode-toggle">
+              <Segmented
+                label="Show extensions or courses"
+                value={viewMode}
+                onChange={setViewMode}
+                options={[
+                  { value: 'extensions', label: `Extensions (${extensionRecords.length})` },
+                  { value: 'courses', label: `Courses (${courseRecords.length})` },
+                ]}
+              />
+            </div>
             <button
               type="button"
               className="sx-browse-hub-btn"
@@ -246,26 +268,45 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
         )}
       </section>
 
-      <section className="sx-plugins-section" aria-label="Installed extensions">
+      <section
+        className="sx-plugins-section"
+        aria-label={viewMode === 'courses' ? 'Installed courses' : 'Installed extensions'}
+      >
         <div className="sx-plugins-section-head">
-          <h2>Installed Extensions</h2>
-          <span data-testid="installed-extensions-count">{records.length}</span>
+          <h2>{viewMode === 'courses' ? 'Installed Courses' : 'Installed Extensions'}</h2>
+          <span data-testid="installed-extensions-count">{visibleRecords.length}</span>
         </div>
 
-        {records.length === 0 ? (
+        {visibleRecords.length === 0 ? (
           <div className="sx-hub-empty">
-            <p>No extensions installed yet.</p>
+            <p>
+              {viewMode === 'courses'
+                ? 'No courses installed yet.'
+                : 'No extensions installed yet.'}
+            </p>
             <p className="sx-profile-handle">
-              Paste any extension&apos;s <code>extension.json</code> URL above, or browse{' '}
-              <button type="button" className="sx-link-btn" onClick={onOpenCommunityHub}>
-                Community Hub
-              </button>
-              .
+              {viewMode === 'courses' ? (
+                <>
+                  Install a course by pasting its <code>extension.json</code> URL above, or browse{' '}
+                  <button type="button" className="sx-link-btn" onClick={onOpenCommunityHub}>
+                    Community Hub
+                  </button>
+                  .
+                </>
+              ) : (
+                <>
+                  Paste any extension&apos;s <code>extension.json</code> URL above, or browse{' '}
+                  <button type="button" className="sx-link-btn" onClick={onOpenCommunityHub}>
+                    Community Hub
+                  </button>
+                  .
+                </>
+              )}
             </p>
           </div>
         ) : (
           <div className="sx-ext-list">
-            {records.map(rec => {
+            {visibleRecords.map(rec => {
               const rt = runtimeById[rec.id]
               const status = rt?.status ?? (rec.enabled ? 'loading' : 'disabled')
               const busy = Boolean(busyById[rec.id])

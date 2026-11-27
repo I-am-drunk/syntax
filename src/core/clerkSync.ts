@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import { z } from 'zod'
 import { loadPrefs, savePrefs, type SyntaxPrefs } from './prefs'
-import { useThemePackStore } from './themePacks'
 import { syntaxLog } from './logger'
 
 const THEME_KEY = 'syntax.theme.v1'
@@ -69,13 +68,10 @@ export function collectLocalCloudSnapshot(): SyntaxCloudPayload {
     }
   })()
 
-  const activeThemeId = useThemePackStore.getState().activeThemeId
-
   return {
     v: 1,
     updatedAt: new Date().toISOString(),
     theme: rawTheme,
-    themePackId: activeThemeId,
     soundOn,
     prefs: {
       onboarded: prefs.onboarded,
@@ -127,9 +123,6 @@ export function mergeCloudIntoLocal(remote: SyntaxCloudPayload): SyntaxCloudPayl
       // ignore
     }
   }
-  if (remote.themePackId) {
-    useThemePackStore.getState().setActiveThemeId(remote.themePackId)
-  }
 
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(CLOUD_SYNC_APPLIED_EVENT, { detail: remote }))
@@ -139,7 +132,6 @@ export function mergeCloudIntoLocal(remote: SyntaxCloudPayload): SyntaxCloudPayl
     ...local,
     updatedAt: new Date().toISOString(),
     theme: remote.theme ?? local.theme,
-    themePackId: remote.themePackId ?? local.themePackId,
     soundOn: remote.soundOn ?? local.soundOn,
   }
 }

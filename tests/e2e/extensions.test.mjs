@@ -608,6 +608,25 @@ describe('Syntax Extensions v1 end-to-end acceptance suite (real Chromium)', () 
       await page.waitForSelector('[data-extension-id="tj.exporter"][data-extension-status="active"]')
       await page.waitForSelector('[data-extension-id="tj.view-only"][data-extension-status="active"]')
 
+      // Verify Extensions / Courses top toggle cleanly separates courses from general extensions
+      await installViaUi(page, harness.extUrl('demo-course/extension.json'))
+      // Auto-switches to Courses mode after installing kind: "course"
+      await page.waitForSelector('h1:has-text("Courses")')
+      await page.waitForSelector('[data-extension-id="tj.demo-course"][data-extension-status="active"]')
+      assert.equal(await page.locator('[data-extension-id="tj.storyboard"]').count(), 0)
+
+      // Toggle back to Extensions -> shows general extensions only, hides course
+      await page.click('[data-testid="extensions-mode-toggle"] [role="radio"]:has-text("Extensions")')
+      await page.waitForSelector('h1:has-text("Extensions")')
+      await page.waitForSelector('[data-extension-id="tj.storyboard"]')
+      assert.equal(await page.locator('[data-extension-id="tj.demo-course"]').count(), 0)
+
+      // Verify Theme Packs / .syntaxtheme are completely removed from Settings while Light/Dark works
+      await page.goto(`${harness.appOrigin}/#/settings`)
+      await page.waitForSelector('h1:has-text("Settings")')
+      assert.equal(await page.locator('text=Theme Packs').count(), 0)
+      assert.equal(await page.locator('text=.syntaxtheme').count(), 0)
+
       assert.equal(pageErrors.length, 0, `Unexpected page errors: ${pageErrors.map(e => e.message).join('; ')}`)
     } finally {
       await context.close()

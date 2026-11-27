@@ -91,6 +91,7 @@ function checkDuplicateIds(
 export const extensionManifestSchema = z
   .object({
     formatVersion: z.literal(1),
+    kind: z.enum(['extension', 'course']).default('extension'),
     id: z
       .string()
       .trim()

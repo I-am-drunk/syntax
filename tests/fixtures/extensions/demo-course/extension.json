@@ -1,0 +1,17 @@
+{
+  "formatVersion": 1,
+  "kind": "course",
+  "id": "tj.demo-course",
+  "name": "Intro to Logic",
+  "version": "1.0.0",
+  "description": "Sample interactive course extension.",
+  "author": "Syntax Team",
+  "worker": "./worker.js",
+  "commands": [
+    {
+      "id": "summary",
+      "title": "Course Summary",
+      "run": "summary"
+    }
+  ]
+}
