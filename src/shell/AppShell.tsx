@@ -132,6 +132,7 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const themeMountedRef = useRef(false)
   const soundMountedRef = useRef(false)
+  const prefsMountedRef = useRef(false)
   const routeInfo = parseRouteInfo(location)
 
   useEffect(() => {
@@ -198,7 +199,11 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
   }, [])
 
   useEffect(() => {
-    savePrefs(prefs)
+    if (prefsMountedRef.current) {
+      savePrefs(prefs)
+    } else {
+      prefsMountedRef.current = true
+    }
   }, [prefs])
 
   useEffect(() => {

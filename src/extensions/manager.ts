@@ -755,19 +755,20 @@ export class ExtensionManager {
       const store = useExtensionStore.getState()
       const existing = store.records.find(r => r.id === manifest.id)
       const now = Date.now()
-      const enableImmediately = opts?.enableImmediately ?? true
+      const wantsEnabled = opts?.enableImmediately ?? true
+      const activateNow = wantsEnabled && !store.safeMode
 
       const record: ExtensionRecord = {
         id: manifest.id,
         manifestUrl: assets.manifestUrl,
         origin: assets.origin,
-        enabled: enableImmediately,
+        enabled: wantsEnabled,
         installedAt: existing?.installedAt ?? now,
         updatedAt: now,
         manifest,
       }
 
-      if (enableImmediately) {
+      if (activateNow) {
         try {
           await this.stageAndActivate(manifest, assets, {
             preserveLiveOnFailure: Boolean(existing),
@@ -784,13 +785,13 @@ export class ExtensionManager {
         }
       }
 
-      if (!enableImmediately && this.active.has(manifest.id)) {
-        this.deactivateNow(manifest.id, store.safeMode ? 'safe-mode' : 'disabled')
+      if (!activateNow && this.active.has(manifest.id)) {
+        this.deactivateNow(manifest.id, wantsEnabled && store.safeMode ? 'safe-mode' : 'disabled')
       }
       store.upsertRecord(record)
-      if (!enableImmediately) {
+      if (!activateNow) {
         store.setRuntime(record.id, {
-          status: store.safeMode ? 'safe-mode' : 'disabled',
+          status: wantsEnabled && store.safeMode ? 'safe-mode' : 'disabled',
           activationId: null,
           hasLiveWorker: false,
         })
@@ -806,6 +807,14 @@ export class ExtensionManager {
       if (!rec) throw new ExtensionError('MANIFEST_INVALID', `Extension "${extId}" is not installed.`)
       const updated: ExtensionRecord = { ...rec, enabled: true, updatedAt: Date.now() }
       store.upsertRecord(updated)
+      if (store.safeMode) {
+        store.setRuntime(extId, {
+          status: 'safe-mode',
+          activationId: null,
+          hasLiveWorker: false,
+        })
+        return
+      }
       const assets = resolveExtensionAssets(updated.manifestUrl, updated.manifest)
       await this.stageAndActivate(updated.manifest, assets)
     })
@@ -887,6 +896,13 @@ export class ExtensionManager {
     this.stopStagingWorkers(extId)
     await this.withLock(extId, async () => {
       const store = useExtensionStore.getState()
+      if (store.safeMode) {
+        throw new ExtensionError(
+          'SYSCALL_DENIED',
+          'Cannot reload extension workers while Safe Mode is active. Exit Safe Mode first.',
+          { extensionId: extId },
+        )
+      }
       const rec = store.records.find(r => r.id === extId)
       if (!rec) throw new ExtensionError('MANIFEST_INVALID', `Extension "${extId}" is not installed.`)
       this.deactivateNow(extId, 'disabled')
@@ -1058,7 +1074,7 @@ export class ExtensionManager {
       if (!existing) {
         try {
           await this.installFromUrl(entry.manifestUrl, {
-            enableImmediately: entry.enabled && !safeMode,
+            enableImmediately: entry.enabled,
           })
         } catch (err) {
           extensionDiagnostics.push({

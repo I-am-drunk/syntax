@@ -81,8 +81,7 @@
 }
 
 .sx-main-nav-tabs,
-.sx-workspace-tabs,
-.sx-course-tabs {
+.sx-workspace-tabs {
   display: flex;
   align-items: stretch;
   height: 100%;
@@ -288,8 +287,7 @@
     gap: 10px;
   }
   .sx-main-nav-tabs,
-  .sx-workspace-tabs,
-  .sx-course-tabs {
+  .sx-workspace-tabs {
     gap: 14px;
   }
   .primary-nav-btn {
@@ -356,8 +354,7 @@
     justify-content: center;
   }
   .sx-main-nav-tabs,
-  .sx-workspace-tabs,
-  .sx-course-tabs {
+  .sx-workspace-tabs {
     gap: 4px;
   }
   .primary-nav-btn,
@@ -639,36 +636,11 @@
   cursor: default;
 }
 
-.sx-btn-sm,
-.sx-btn-xs {
+.sx-btn-sm {
   min-height: 34px;
   padding: 0 12px;
   border-radius: 9px;
   font-size: 13px;
-}
-
-.sx-btn-add-cta {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 31px;
-  padding: 0 14px;
-  border-radius: 9px;
-  background: #456dff;
-  color: #ffffff;
-  font-size: 13px;
-  font-weight: 700;
-  box-shadow: 0 2px 0 #2e50d4;
-  transition: filter 120ms ease, transform 90ms ease, box-shadow 90ms ease;
-}
-
-.sx-btn-add-cta:hover {
-  filter: brightness(1.06);
-}
-
-.sx-btn-add-cta:active {
-  transform: translateY(1px);
-  box-shadow: none;
 }
 
 .sx-browse-hub-btn {
@@ -729,10 +701,6 @@
 .sx-btn-danger-ghost:hover {
   background: color-mix(in srgb, #ef4444 10%, transparent);
   border-color: #ef4444;
-}
-
-.sx-btn-full {
-  width: 100%;
 }
 
 /* ==========================================================================
@@ -967,21 +935,6 @@
 .sx-search-clear:hover {
   background: var(--hover);
   color: var(--text);
-}
-
-.sx-hub-kbd {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  padding: 2px 7px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--tertiary);
-  font-size: 11px;
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
-  pointer-events: none;
 }
 
 /* ==========================================================================
@@ -1370,13 +1323,6 @@
   justify-content: space-between;
   gap: 10px;
   padding-top: 4px;
-}
-
-.sx-modal-actions-right {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 /* Local Auth Form */
