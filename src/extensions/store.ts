@@ -1,0 +1,288 @@
+import { create } from 'zustand'
+import { z } from 'zod'
+import { extensionManifestSchema, type ExtensionManifest } from './manifest.ts'
+
+const RECORDS_STORAGE_KEY = 'syntax.extensions.v1'
+const SETTINGS_STORAGE_KEY = 'syntax.extensions.settings.v1'
+
+export interface ExtensionRecord {
+  id: string
+  manifestUrl: string
+  origin: string
+  enabled: boolean
+  installedAt: number
+  updatedAt: number
+  manifest: ExtensionManifest
+}
+
+export type ExtensionStatus = 'disabled' | 'safe-mode' | 'loading' | 'active' | 'failed'
+
+export interface ExtensionRuntimeInfo {
+  id: string
+  status: ExtensionStatus
+  activationId: string | null
+  lastError: {
+    code: string
+    message: string
+    detail?: string
+    at: number
+  } | null
+  unavailableOptionalServices: Record<string, string>
+  hasLiveWorker: boolean
+}
+
+export type ExtensionSettingValue = boolean | string | number
+
+const persistedRecordSchema = z.object({
+  id: z.string().min(3),
+  manifestUrl: z.string().url(),
+  origin: z.string().min(1),
+  enabled: z.boolean(),
+  installedAt: z.number(),
+  updatedAt: z.number(),
+  manifest: extensionManifestSchema,
+})
+
+export function isSafeMode(
+  search = typeof window !== 'undefined' ? window.location.search : '',
+  hash = typeof window !== 'undefined' ? window.location.hash : '',
+): boolean {
+  try {
+    if (search) {
+      const params = new URLSearchParams(search)
+      const val = params.get('safeMode')
+      if (val === '1' || val === 'true') return true
+    }
+    const qIdx = hash.indexOf('?')
+    if (qIdx >= 0) {
+      const params = new URLSearchParams(hash.slice(qIdx + 1))
+      const val = params.get('safeMode')
+      if (val === '1' || val === 'true') return true
+    }
+  } catch {
+    // ignore malformed query strings
+  }
+  return false
+}
+
+function readPersistedRecords(): ExtensionRecord[] {
+  if (typeof localStorage === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(RECORDS_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    const valid: ExtensionRecord[] = []
+    const seen = new Set<string>()
+    for (const item of parsed) {
+      const check = persistedRecordSchema.safeParse(item)
+      if (!check.success) continue
+      if (seen.has(check.data.id) || check.data.id !== check.data.manifest.id) continue
+      seen.add(check.data.id)
+      valid.push(check.data)
+    }
+    return valid
+  } catch {
+    return []
+  }
+}
+
+function writePersistedRecords(records: ExtensionRecord[]) {
+  if (typeof localStorage === 'undefined') return
+  try {
+    localStorage.setItem(RECORDS_STORAGE_KEY, JSON.stringify(records))
+  } catch {
+    // ignore quota errors
+  }
+}
+
+function readPersistedSettings(): Record<string, Record<string, ExtensionSettingValue>> {
+  if (typeof localStorage === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    return parsed as Record<string, Record<string, ExtensionSettingValue>>
+  } catch {
+    return {}
+  }
+}
+
+function writePersistedSettings(settings: Record<string, Record<string, ExtensionSettingValue>>) {
+  if (typeof localStorage === 'undefined') return
+  try {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
+  } catch {
+    // ignore quota errors
+  }
+}
+
+export function createInitialRuntime(
+  record: ExtensionRecord,
+  safeMode: boolean,
+): ExtensionRuntimeInfo {
+  return {
+    id: record.id,
+    status: !record.enabled ? 'disabled' : safeMode ? 'safe-mode' : 'disabled',
+    activationId: null,
+    lastError: null,
+    unavailableOptionalServices: {},
+    hasLiveWorker: false,
+  }
+}
+
+interface ExtensionStoreState {
+  records: ExtensionRecord[]
+  runtime: Record<string, ExtensionRuntimeInfo>
+  settings: Record<string, Record<string, ExtensionSettingValue>>
+  safeMode: boolean
+  booted: boolean
+
+  setSafeMode: (safeMode: boolean) => void
+  setBooted: (booted: boolean) => void
+  upsertRecord: (record: ExtensionRecord) => void
+  removeRecord: (id: string) => void
+  setRuntime: (id: string, patch: Partial<ExtensionRuntimeInfo>) => void
+  removeRuntime: (id: string) => void
+  getSetting: (extId: string, key: string) => ExtensionSettingValue | undefined
+  setSetting: (extId: string, key: string, value: ExtensionSettingValue) => void
+  getAllSettings: (extId: string) => Record<string, ExtensionSettingValue>
+  clearSettings: (extId: string) => void
+  reloadFromStorage: () => void
+}
+
+const initialSafeMode = isSafeMode()
+const initialRecords = readPersistedRecords()
+const initialRuntime: Record<string, ExtensionRuntimeInfo> = {}
+for (const rec of initialRecords) {
+  initialRuntime[rec.id] = createInitialRuntime(rec, initialSafeMode)
+}
+
+export const useExtensionStore = create<ExtensionStoreState>((set, get) => ({
+  records: initialRecords,
+  runtime: initialRuntime,
+  settings: readPersistedSettings(),
+  safeMode: initialSafeMode,
+  booted: false,
+
+  setSafeMode(safeMode) {
+    set({ safeMode })
+  },
+
+  setBooted(booted) {
+    set({ booted })
+  },
+
+  upsertRecord(record) {
+    set(state => {
+      const idx = state.records.findIndex(r => r.id === record.id)
+      const next =
+        idx >= 0
+          ? state.records.map(r => (r.id === record.id ? record : r))
+          : [...state.records, record]
+      writePersistedRecords(next)
+      const runtime = state.runtime[record.id]
+        ? state.runtime
+        : { ...state.runtime, [record.id]: createInitialRuntime(record, state.safeMode) }
+      return { records: next, runtime }
+    })
+  },
+
+  removeRecord(id) {
+    set(state => {
+      const next = state.records.filter(r => r.id !== id)
+      writePersistedRecords(next)
+      const nextRuntime = { ...state.runtime }
+      delete nextRuntime[id]
+      return { records: next, runtime: nextRuntime }
+    })
+  },
+
+  setRuntime(id, patch) {
+    set(state => {
+      const prev = state.runtime[id] ?? {
+        id,
+        status: 'disabled' as const,
+        activationId: null,
+        lastError: null,
+        unavailableOptionalServices: {},
+        hasLiveWorker: false,
+      }
+      return {
+        runtime: {
+          ...state.runtime,
+          [id]: { ...prev, ...patch },
+        },
+      }
+    })
+  },
+
+  removeRuntime(id) {
+    set(state => {
+      const next = { ...state.runtime }
+      delete next[id]
+      return { runtime: next }
+    })
+  },
+
+  getSetting(extId, key) {
+    const rec = get().records.find(r => r.id === extId)
+    const saved = get().settings[extId]?.[key]
+    if (saved !== undefined) return saved
+    return rec?.manifest.settings.find(s => s.id === key)?.default
+  },
+
+  setSetting(extId, key, value) {
+    set(state => {
+      const nextSettings = {
+        ...state.settings,
+        [extId]: {
+          ...(state.settings[extId] ?? {}),
+          [key]: value,
+        },
+      }
+      writePersistedSettings(nextSettings)
+      return { settings: nextSettings }
+    })
+  },
+
+  getAllSettings(extId) {
+    const rec = get().records.find(r => r.id === extId)
+    const out: Record<string, ExtensionSettingValue> = {}
+    for (const def of rec?.manifest.settings ?? []) {
+      out[def.id] = def.default
+    }
+    const saved = get().settings[extId]
+    if (saved) {
+      for (const [k, v] of Object.entries(saved)) {
+        out[k] = v
+      }
+    }
+    return out
+  },
+
+  clearSettings(extId) {
+    set(state => {
+      const next = { ...state.settings }
+      delete next[extId]
+      writePersistedSettings(next)
+      return { settings: next }
+    })
+  },
+
+  reloadFromStorage() {
+    const safeMode = isSafeMode()
+    const records = readPersistedRecords()
+    const runtime: Record<string, ExtensionRuntimeInfo> = {}
+    for (const rec of records) {
+      runtime[rec.id] = createInitialRuntime(rec, safeMode)
+    }
+    set({
+      safeMode,
+      records,
+      runtime,
+      settings: readPersistedSettings(),
+    })
+  },
+}))
