@@ -5,14 +5,10 @@ dist/
 .references/
 classroom-materials/
 CODDY/
-docs/
 test-results/
 playwright-report/
 *.local
 .data/
 *.tsbuildinfo
-manim-pipeline/.cache/
 **/__pycache__/
 *.pyc
-manim-pipeline/media/
-public/assets/walkthroughs/.qa/
