@@ -12,27 +12,24 @@ reviews:
     drafts: false
     base_branches:
       - "main"
-      - "cleanup/.*"
-      - "security/.*"
       - "feat/.*"
+      - "fix/.*"
   path_filters:
     - "src/**"
-    - "shared/**"
-    - "tools/**"
     - "scripts/**"
+    - "tests/**"
     - ".github/**"
     - "!dist/**"
     - "!public/assets/**"
   path_instructions:
+    - path: "src/extensions/**"
+      instructions: |
+        Enforce strict browser isolation and ownership boundaries:
+        1. Sandboxed extension iframes must NEVER combine allow-scripts with allow-same-origin or allow-top-navigation.
+        2. Every postMessage handler must check event.source === iframe.contentWindow, event.origin === 'null', and current (instanceId, activationId) so stale/forged messages are dropped.
+        3. Blob URLs must not be revoked synchronously before the worker loads, and must always be revoked on settle/error/timeout.
+        4. Host manifest records are authoritative; never trust extension-supplied IDs or safety flags.
+        5. Termination/disable/reload must reject all pending promises and leave zero dangling workers, listeners, or UI contributions.
     - path: "src/core/**"
       instructions: |
-        Enforce zero-trust boundaries: never trust manifest JSON for safety, verification, official status, networkAccess, or core-touch text. Flag any Function()/eval, unsafe-inline without isolation, wildcard postMessage without origin/source checks, or hand-rolled crypto/ZIP/SemVer code where audited libraries belong.
-    - path: "src/ui/**"
-      instructions: |
-        Never execute untrusted plugin HTML/JS prior to installation. Ensure all permission/capability disclosures are host-derived immutable text, and verified official packages always rank ahead of unverified community items.
-    - path: "src/mpm2d/**"
-      instructions: |
-        Verify math parser safety (zero eval/Function), geometric accuracy, and compatibility with npm run verify:graphs.
-    - path: "tools/syntax-mcp/**"
-      instructions: |
-        Ensure MCP tools share schemas directly with src/ (single source of truth), return structured outputs, and gate packaging behind real validation and conformance checks.
+        Verify Clerk auth and sync boundaries, zero eval/Function usage, and safe localStorage/cookie handling.
