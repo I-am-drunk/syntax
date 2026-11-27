@@ -757,6 +757,47 @@ describe('Syntax Extensions v1 end-to-end acceptance suite (real Chromium)', () 
       assert.ok(cloudCheck.dirtyCount >= 2, `Expected theme & sound toggles to emit syntax:cloud-dirty, got ${cloudCheck.dirtyCount}`)
       assert.equal(cloudCheck.synced, true)
 
+      // Verify live dependency reconciliation: disabling tj.storyboard surfaces SERVICE_MISSING on tj.exporter,
+      // and re-enabling tj.storyboard clears it automatically; also verify ui.notify rate limit
+      const depAndRateCheck = await page.evaluate(async () => {
+        const ext = window.__SYNTAX_EXTENSIONS__
+        await ext.manager.disable('tj.storyboard')
+        const warnAfterDisable = ext.store.getState().runtime['tj.exporter']?.lastError?.code ?? null
+        await ext.manager.enable('tj.storyboard')
+        const afterReenable = ext.store.getState().runtime['tj.exporter']?.lastError ?? null
+
+        let rateLimited = false
+        for (let i = 0; i < 7; i++) {
+          try {
+            await ext.manager.runCommand('tj.storyboard:export')
+          } catch (err) {
+            if (/Notification rate limit/.test(err.message)) {
+              rateLimited = true
+              break
+            }
+          }
+        }
+        return { warnAfterDisable, afterReenable, rateLimited }
+      })
+      assert.equal(depAndRateCheck.warnAfterDisable, 'SERVICE_MISSING')
+      assert.equal(depAndRateCheck.afterReenable, null)
+      assert.equal(depAndRateCheck.rateLimited, true)
+
+      // Verify offline Workspace Backup Import on SettingsPage restores theme cleanly
+      await page.setInputFiles('input[aria-label="Import workspace backup file"]', {
+        name: 'syntax-workspace-backup.json',
+        mimeType: 'application/json',
+        buffer: Buffer.from(
+          JSON.stringify({
+            v: 1,
+            updatedAt: '2026-11-27T12:00:00Z',
+            theme: 'dark',
+            soundOn: false,
+          }),
+        ),
+      })
+      await page.waitForFunction(() => document.documentElement.dataset.theme === 'dark')
+
       assert.equal(pageErrors.length, 0, `Unexpected page errors: ${pageErrors.map(e => e.message).join('; ')}`)
     } finally {
       await context.close()

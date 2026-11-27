@@ -1,5 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { Download, Upload } from 'lucide-react'
+import { toast } from 'sonner'
 import { Segmented, Toggle } from './Controls'
+import {
+  collectLocalCloudSnapshot,
+  mergeCloudIntoLocal,
+  SyntaxCloudPayloadSchema,
+} from '../core/clerkSync'
 import type { SyntaxPrefs } from '../core/prefs'
 import { Sema } from '../mascot/Sema'
 import {
@@ -34,6 +41,37 @@ export function SettingsPage({
 }) {
   const [previewAnim, setPreviewAnim] = useState<StateId>('idle')
   const [studioTab, setStudioTab] = useState<StudioTab>('shape')
+  const backupInputRef = useRef<HTMLInputElement | null>(null)
+
+  function handleExportWorkspace() {
+    const snapshot = collectLocalCloudSnapshot()
+    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'syntax-workspace-backup.json'
+    a.click()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    toast.success('Exported workspace backup')
+  }
+
+  async function handleImportWorkspace(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    try {
+      const text = await file.text()
+      const parsed = SyntaxCloudPayloadSchema.safeParse(JSON.parse(text))
+      if (!parsed.success) {
+        toast.error('That file is not a valid Syntax workspace backup.')
+        return
+      }
+      mergeCloudIntoLocal(parsed.data)
+      toast.success('Workspace backup restored')
+    } catch {
+      toast.error('Could not read workspace backup file.')
+    }
+  }
 
   useEffect(() => {
     window.scrollTo({ top: 0 })
@@ -284,6 +322,54 @@ export function SettingsPage({
                 checked={soundOn}
                 onChange={onChangeSound}
               />
+            </div>
+          </div>
+        </section>
+
+        <hr />
+
+        <section id="pref-backup" aria-labelledby="pref-backup-h">
+          <h2 id="pref-backup-h">Backup &amp; Restore</h2>
+          <div className="preference-rows">
+            <div className="preference-row">
+              <div className="syntax-pref-copy">
+                <p>Export workspace backup</p>
+                <span>
+                  Download your theme, sound, Sema style, installed extensions, and settings as a
+                  portable file
+                </span>
+              </div>
+              <button
+                type="button"
+                className="sx-btn-secondary sx-btn-sm"
+                onClick={handleExportWorkspace}
+              >
+                <Download size={14} aria-hidden="true" />
+                <span>Export</span>
+              </button>
+            </div>
+
+            <div className="preference-row">
+              <div className="syntax-pref-copy">
+                <p>Import workspace backup</p>
+                <span>Restore preferences and extensions from a saved backup file</span>
+              </div>
+              <input
+                ref={backupInputRef}
+                type="file"
+                accept=".json,application/json"
+                className="sx-sr-only"
+                aria-label="Import workspace backup file"
+                onChange={e => void handleImportWorkspace(e)}
+              />
+              <button
+                type="button"
+                className="sx-btn-secondary sx-btn-sm"
+                onClick={() => backupInputRef.current?.click()}
+              >
+                <Upload size={14} aria-hidden="true" />
+                <span>Import</span>
+              </button>
             </div>
           </div>
         </section>

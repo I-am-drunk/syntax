@@ -77,13 +77,46 @@ function orderForBoot(records: ExtensionRecord[]): ExtensionRecord[] {
   return ordered
 }
 
+const NOTIFY_RATE_LIMIT = 5
+const NOTIFY_WINDOW_MS = 10_000
+const NAVIGATE_RATE_LIMIT = 3
+const NAVIGATE_WINDOW_MS = 5_000
+
 export class ExtensionManager {
   private readonly active = new Map<string, ActiveInstance>()
   private readonly staging = new Map<string, ActiveInstance>()
   private readonly locks = new Map<string, Promise<unknown>>()
+  private readonly rateBuckets = new Map<string, number[]>()
   private activationSeq = 0
   private bootInFlight: Promise<void> | null = null
   private navigateFn: ExtensionNavigateFn | null = null
+
+  private consumeRateLimit(
+    extId: string,
+    bucket: 'notify' | 'openView',
+    limit: number,
+    windowMs: number,
+  ) {
+    const key = `${extId}:${bucket}`
+    const now = Date.now()
+    const recent = (this.rateBuckets.get(key) ?? []).filter(ts => now - ts < windowMs)
+    if (recent.length >= limit) {
+      throw new ExtensionError(
+        'SYSCALL_DENIED',
+        bucket === 'notify'
+          ? `Notification rate limit exceeded (${limit} per ${Math.round(windowMs / 1000)}s).`
+          : `Navigation rate limit exceeded (${limit} per ${Math.round(windowMs / 1000)}s).`,
+        { extensionId: extId },
+      )
+    }
+    recent.push(now)
+    this.rateBuckets.set(key, recent)
+  }
+
+  private clearRateLimits(extId: string) {
+    this.rateBuckets.delete(`${extId}:notify`)
+    this.rateBuckets.delete(`${extId}:openView`)
+  }
 
   setNavigator(fn: ExtensionNavigateFn | null) {
     this.navigateFn = fn
@@ -274,6 +307,7 @@ export class ExtensionManager {
         const [message, kind] = args as [string, 'info' | 'success' | 'error' | undefined]
         const clean = String(message ?? '').slice(0, 200)
         if (!clean) return
+        this.consumeRateLimit(inst.extensionId, 'notify', NOTIFY_RATE_LIMIT, NOTIFY_WINDOW_MS)
         if (kind === 'success') toast.success(clean)
         else if (kind === 'error') toast.error(clean)
         else toast(clean)
@@ -290,6 +324,7 @@ export class ExtensionManager {
             { extensionId: inst.extensionId },
           )
         }
+        this.consumeRateLimit(inst.extensionId, 'openView', NAVIGATE_RATE_LIMIT, NAVIGATE_WINDOW_MS)
         const path =
           typeof docId === 'string' && docId.trim()
             ? `/ext/${encodeURIComponent(inst.extensionId)}/${encodeURIComponent(viewId)}/${encodeURIComponent(docId.trim())}`
@@ -525,7 +560,80 @@ export class ExtensionManager {
       message: `Activated ${manifest.name} v${manifest.version}`,
     })
 
+    this.reconcileActiveDependents(extId)
+    if (Object.keys(manifest.services.provides).length > 0) {
+      void this.healFailedDependents(extId)
+    }
+
     return candidate
+  }
+
+  /**
+   * Re-checks dependency health for every other active extension whenever a provider
+   * activates, updates, stops, disables, or uninstalls.
+   */
+  private reconcileActiveDependents(changedExtId: string) {
+    const store = useExtensionStore.getState()
+    for (const [id, inst] of this.active.entries()) {
+      if (id === changedExtId) continue
+      const depCheck = serviceRegistry.checkDependencies(inst.manifest)
+      const unavailableOptionalServices: Record<string, string> = {}
+      for (const issue of depCheck.optionalUnavailable) {
+        unavailableOptionalServices[issue.service] = issue.reason
+      }
+      const prevRt = store.runtime[id]
+      if (!depCheck.ok) {
+        const first = depCheck.requiredFailures[0]!
+        store.setRuntime(id, {
+          unavailableOptionalServices,
+          lastError: {
+            code: first.installedVersion ? 'SERVICE_INCOMPATIBLE' : 'SERVICE_MISSING',
+            message: depCheck.requiredFailures.map(f => f.reason).join(' '),
+            at: Date.now(),
+          },
+        })
+      } else {
+        const clearStaleDepError =
+          prevRt?.lastError?.code === 'SERVICE_MISSING' ||
+          prevRt?.lastError?.code === 'SERVICE_INCOMPATIBLE'
+        store.setRuntime(id, {
+          unavailableOptionalServices,
+          ...(clearStaleDepError ? { lastError: null } : {}),
+        })
+      }
+    }
+  }
+
+  /**
+   * Automatically retries enabled extensions that previously failed with SERVICE_MISSING
+   * or SERVICE_INCOMPATIBLE once a newly activated provider satisfies their requirements.
+   */
+  private async healFailedDependents(providerExtId: string): Promise<void> {
+    const store = useExtensionStore.getState()
+    if (store.safeMode) return
+    const candidates = store.records.filter(r => {
+      if (!r.enabled || r.id === providerExtId || this.active.has(r.id)) return false
+      const rt = store.runtime[r.id]
+      if (rt?.status !== 'failed') return false
+      const code = rt.lastError?.code
+      if (code !== 'SERVICE_MISSING' && code !== 'SERVICE_INCOMPATIBLE') return false
+      return serviceRegistry.checkDependencies(r.manifest).ok
+    })
+    for (const rec of candidates) {
+      await this.withLock(rec.id, async () => {
+        const latest = useExtensionStore.getState()
+        if (latest.safeMode || this.active.has(rec.id)) return
+        const current = latest.records.find(r => r.id === rec.id)
+        if (!current || !current.enabled) return
+        if (!serviceRegistry.checkDependencies(current.manifest).ok) return
+        try {
+          const assets = resolveExtensionAssets(current.manifestUrl, current.manifest)
+          await this.stageAndActivate(current.manifest, assets)
+        } catch {
+          // Recorded per-extension
+        }
+      })
+    }
   }
 
   private recordActivationFailure(
@@ -557,6 +665,7 @@ export class ExtensionManager {
     const prev = this.active.get(extId)
     // Retire identity first so late messages or in-flight syscalls are immediately ignored
     this.active.delete(extId)
+    this.clearRateLimits(extId)
     serviceRegistry.removeByOwner(extId)
     useContributionStore.getState().removeByOwner(extId)
     if (prev?.sandbox) {
@@ -568,6 +677,7 @@ export class ExtensionManager {
       hasLiveWorker: false,
       unavailableOptionalServices: {},
     })
+    this.reconcileActiveDependents(extId)
   }
 
   async boot(opts?: { safeMode?: boolean; force?: boolean }): Promise<void> {
@@ -753,6 +863,7 @@ export class ExtensionManager {
           at: Date.now(),
         },
       })
+      this.reconcileActiveDependents(extId)
       extensionDiagnostics.push({
         extensionId: extId,
         activationId: live.activationId,
