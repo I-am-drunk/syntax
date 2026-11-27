@@ -20,8 +20,6 @@ import {
   useCloudSyncStore,
 } from './clerkSync'
 import { syntaxLog } from './logger'
-import { useRegistryStore } from './registry'
-import { CS_PROGRESS_EVENT } from '../services/progress'
 
 export interface SwitchableSession {
   id: string
@@ -222,11 +220,6 @@ function ClerkAccountBridge({ children }: { children: ReactNode }) {
           status: 'synced',
           lastSyncedAt: snapshot.updatedAt,
           lastError: null,
-          syncedSummary: {
-            mpm2dLessons: Object.keys(snapshot.mpm2dCompleted ?? {}).length,
-            csLessons: (snapshot.csCompletedSlugs ?? []).length,
-            pinnedCourses: (snapshot.pinnedCourses ?? []).length,
-          },
         })
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err)
@@ -237,7 +230,7 @@ function ClerkAccountBridge({ children }: { children: ReactNode }) {
     [user, setSyncState],
   )
 
-  // 3. Initial hydration & monotonic merge when Clerk user signs in
+  // 3. Initial hydration & merge when Clerk user signs in
   useEffect(() => {
     if (!isLoaded || !user) return
     if (hydratedUserIdRef.current === user.id) return
@@ -252,11 +245,6 @@ function ClerkAccountBridge({ children }: { children: ReactNode }) {
         status: 'synced',
         lastSyncedAt: remote.updatedAt,
         lastError: null,
-        syncedSummary: {
-          mpm2dLessons: Object.keys(merged.mpm2dCompleted ?? {}).length,
-          csLessons: (merged.csCompletedSlugs ?? []).length,
-          pinnedCourses: (merged.pinnedCourses ?? []).length,
-        },
       })
       if (mergedFp !== remoteFp) {
         void runCloudPush(true)
@@ -268,7 +256,7 @@ function ClerkAccountBridge({ children }: { children: ReactNode }) {
     }
   }, [isLoaded, user, runCloudPush, setSyncState])
 
-  // 4. Debounced live auto-sync whenever progress, preferences, theme, or packages change
+  // 4. Debounced live auto-sync whenever preferences or theme change
   useEffect(() => {
     if (!user) return
     const scheduleSync = () => {
@@ -278,21 +266,12 @@ function ClerkAccountBridge({ children }: { children: ReactNode }) {
       }, 2200)
     }
 
-    const events = [
-      'syntax:prefs-changed',
-      'syntax:mpm2d-progress-changed',
-      'syntax:custom-progress-changed',
-      'syntax:theme-pack-changed',
-      'syntax:library-pins-changed',
-      CS_PROGRESS_EVENT,
-    ]
+    const events = ['syntax:prefs-changed', 'syntax:theme-pack-changed']
     for (const ev of events) window.addEventListener(ev, scheduleSync)
-    const unsubRegistry = useRegistryStore.subscribe(scheduleSync)
 
     return () => {
       window.clearTimeout(syncTimerRef.current)
       for (const ev of events) window.removeEventListener(ev, scheduleSync)
-      unsubRegistry()
     }
   }, [user, runCloudPush])
 

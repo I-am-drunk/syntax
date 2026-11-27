@@ -1,4 +1,4 @@
-import { assetUrl } from '../mpm2d/assetUrl'
+import { assetUrl } from '../core/assetUrl'
 import { Howl, Howler } from 'howler'
 
 const mp3Cues = [

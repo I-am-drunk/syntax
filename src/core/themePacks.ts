@@ -1,19 +1,115 @@
+import { z } from 'zod'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import {
-  contrastRatio,
-  SyntaxThemeV1Schema,
-  type SyntaxThemeV1,
-  type ThemeTokenPalette,
-} from '../contracts'
 import { syntaxLog } from './logger'
+
+const HEX_COLOR_RE = /^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})$/
+
+function expandHex(hex: string): [number, number, number] {
+  const clean = hex.trim().replace(/^#/, '')
+  const full =
+    clean.length === 3
+      ? clean
+          .split('')
+          .map(ch => ch + ch)
+          .join('')
+      : clean
+  return [
+    Number.parseInt(full.slice(0, 2), 16),
+    Number.parseInt(full.slice(2, 4), 16),
+    Number.parseInt(full.slice(4, 6), 16),
+  ]
+}
+
+/** WCAG 2.1 relative luminance in [0, 1]. */
+export function relativeLuminance(hex: string): number {
+  const [r, g, b] = expandHex(hex).map(c => {
+    const s = c / 255
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4
+  })
+  return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!
+}
+
+/** WCAG 2.1 contrast ratio in [1, 21]. */
+export function contrastRatio(hexA: string, hexB: string): number {
+  const la = relativeLuminance(hexA)
+  const lb = relativeLuminance(hexB)
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05)
+}
+
+const HexColorSchema = z
+  .string()
+  .trim()
+  .regex(HEX_COLOR_RE, 'Color must be a 3-digit or 6-digit hex value (e.g. #456dff).')
+
+const ThemeTokenPaletteSchema = z
+  .object({
+    canvas: HexColorSchema,
+    surface: HexColorSchema,
+    surfaceMuted: HexColorSchema,
+    ink: HexColorSchema,
+    inkMuted: HexColorSchema,
+    accent: HexColorSchema,
+    accentInk: HexColorSchema,
+    border: HexColorSchema,
+  })
+  .superRefine((tokens, ctx) => {
+    const bodyContrast = contrastRatio(tokens.ink, tokens.surface)
+    if (bodyContrast < 4.5) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['ink'],
+        message: `Primary text contrast on surface is ${bodyContrast.toFixed(2)}:1 (WCAG AA requires >= 4.5:1).`,
+      })
+    }
+    const canvasContrast = contrastRatio(tokens.ink, tokens.canvas)
+    if (canvasContrast < 4.5) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['canvas'],
+        message: `Primary text contrast on canvas is ${canvasContrast.toFixed(2)}:1 (WCAG AA requires >= 4.5:1).`,
+      })
+    }
+    const accentContrast = contrastRatio(tokens.accentInk, tokens.accent)
+    if (accentContrast < 4.5) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['accentInk'],
+        message: `Button label contrast on accent is ${accentContrast.toFixed(2)}:1 (WCAG AA requires >= 4.5:1).`,
+      })
+    }
+    const mutedContrast = contrastRatio(tokens.inkMuted, tokens.surface)
+    if (mutedContrast < 3.0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['inkMuted'],
+        message: `Muted text contrast on surface is ${mutedContrast.toFixed(2)}:1 (minimum 3.0:1).`,
+      })
+    }
+  })
+
+export type ThemeTokenPalette = z.infer<typeof ThemeTokenPaletteSchema>
+
+export const SyntaxThemeV1Schema = z.object({
+  contract: z.literal('syntax.theme.v1'),
+  id: z.string().regex(/^[a-z0-9][a-z0-9-]{1,62}$/),
+  name: z.string().trim().min(2).max(48),
+  tagline: z.string().trim().min(4).max(120),
+  author: z.string().trim().min(2).max(48),
+  version: z.string().regex(/^\d+\.\d+\.\d+$/),
+  builtIn: z.boolean().optional(),
+  light: ThemeTokenPaletteSchema,
+  dark: ThemeTokenPaletteSchema,
+})
+
+export type SyntaxThemeV1 = z.infer<typeof SyntaxThemeV1Schema>
 
 export const BUILTIN_THEME_PACKS: readonly SyntaxThemeV1[] = [
   {
     contract: 'syntax.theme.v1',
     id: 'syntax-default',
     name: 'Syntax Default',
-    tagline: 'Brilliant-inspired crisp white and neutral charcoal with Syntax blue.',
+    tagline: 'Crisp white and neutral charcoal with Syntax blue.',
     author: 'Syntax Official',
     version: '1.0.0',
     builtIn: true,
@@ -42,7 +138,7 @@ export const BUILTIN_THEME_PACKS: readonly SyntaxThemeV1[] = [
     contract: 'syntax.theme.v1',
     id: 'paper-ink',
     name: 'Paper & Ink',
-    tagline: 'Warm textbook paper for long geometry sessions and comfortable eye relief.',
+    tagline: 'Warm textbook paper for long study sessions.',
     author: 'Syntax Official',
     version: '1.0.0',
     builtIn: true,
@@ -71,7 +167,7 @@ export const BUILTIN_THEME_PACKS: readonly SyntaxThemeV1[] = [
     contract: 'syntax.theme.v1',
     id: 'emerald-chalk',
     name: 'Emerald Studio',
-    tagline: 'Calm botanical emerald accents paired with clean monochrome surfaces.',
+    tagline: 'Calm botanical emerald accents on monochrome surfaces.',
     author: 'Syntax Official',
     version: '1.0.0',
     builtIn: true,
@@ -100,7 +196,7 @@ export const BUILTIN_THEME_PACKS: readonly SyntaxThemeV1[] = [
     contract: 'syntax.theme.v1',
     id: 'nordic-slate',
     name: 'Nordic Slate',
-    tagline: 'Cool architectural slate surfaces tuned for deep CS and algebra focus.',
+    tagline: 'Cool architectural slate surfaces tuned for deep focus.',
     author: 'Syntax Official',
     version: '1.0.0',
     builtIn: true,
@@ -169,7 +265,6 @@ export function applyThemePackToDocument(pack: SyntaxThemeV1, mode: 'light' | 'd
   root.style.setProperty('--sx-pack-accent-ink', palette.accentInk)
   root.style.setProperty('--sx-pack-border', palette.border)
 
-  // Map cleanly onto Syntax shell root CSS custom properties
   root.style.background = palette.canvas
   root.style.color = palette.ink
   root.style.setProperty('--surface', palette.surface)

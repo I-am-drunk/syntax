@@ -17,8 +17,8 @@ import {
 } from 'lucide-react'
 import { isDevEnvironment } from '../core/devEnv'
 import { useHostSlots } from '../core/hostSlots'
-import { TopBarSema } from '../mpm2d/mascot/TopBarSema'
-import type { SyntaxPrefs } from '../mpm2d/storage'
+import { TopBarSema } from '../mascot/TopBarSema'
+import type { SyntaxPrefs } from '../core/prefs'
 import { ProfilePopover } from '../ui/ProfilePopover'
 
 export type ShellMode = 'main' | 'course' | 'workspace'
