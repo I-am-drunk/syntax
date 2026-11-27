@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, ArrowLeft, Download, Play, Puzzle, RefreshCw, Square } from 'lucide-react'
 import { toast } from 'sonner'
 import { SyntaxErrorBoundary } from '../core/ErrorBoundary.tsx'
@@ -14,6 +14,7 @@ export interface ExtensionPageProps {
   docId?: string | null
   onBackToLibrary: () => void
   onOpenExtensions: () => void
+  onNavigate: (path: string) => void
 }
 
 function safeDecode(value: string): string {
@@ -30,6 +31,7 @@ export function ExtensionPage({
   docId: rawDocId,
   onBackToLibrary,
   onOpenExtensions,
+  onNavigate,
 }: ExtensionPageProps) {
   const extensionId = safeDecode(rawExtensionId)
   const viewId = safeDecode(rawViewId)
@@ -38,8 +40,14 @@ export function ExtensionPage({
   const safeMode = useExtensionStore(s => s.safeMode)
   const record = useExtensionStore(s => s.records.find(r => r.id === extensionId))
   const runtime = useExtensionStore(s => s.runtime[extensionId])
-  const view = useContributionStore(s =>
-    s.views.find(v => v.ownerId === extensionId && v.id === viewId),
+  const allViews = useContributionStore(s => s.views)
+  const siblingViews = useMemo(
+    () => allViews.filter(v => v.ownerId === extensionId && v.placement !== 'embed'),
+    [allViews, extensionId],
+  )
+  const view = useMemo(
+    () => allViews.find(v => v.ownerId === extensionId && v.id === viewId),
+    [allViews, extensionId, viewId],
   )
 
   const [doc, setDoc] = useState<DocumentEnvelope | null>(null)
@@ -226,6 +234,30 @@ export function ExtensionPage({
           </button>
         </div>
       </div>
+
+      {siblingViews.length > 1 && (
+        <div className="sx-ext-view-tabs" role="tablist" aria-label={`${extName} views`}>
+          {siblingViews.map(tab => {
+            const active = tab.id === view.id
+            const tabPath = docId
+              ? `/ext/${encodeURIComponent(extensionId)}/${encodeURIComponent(tab.id)}/${encodeURIComponent(docId)}`
+              : `/ext/${encodeURIComponent(extensionId)}/${encodeURIComponent(tab.id)}`
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                className={`sx-ext-view-tab${active ? ' is-active' : ''}`}
+                data-extension-tab-id={tab.id}
+                onClick={() => onNavigate(tabPath)}
+              >
+                {tab.title}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       <SyntaxErrorBoundary
         scope={`extension:${extensionId}:${viewId}`}

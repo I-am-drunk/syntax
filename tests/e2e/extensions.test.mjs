@@ -515,4 +515,102 @@ describe('Syntax Extensions v1 end-to-end acceptance suite (real Chromium)', () 
       await context.close()
     }
   })
+
+  it('16. settings UI round-trip, multi-tab view switcher, view-only extension, embed recovery, reverse-order boot, and doc delete', async () => {
+    const { context, page, pageErrors } = await createCleanPage()
+    try {
+      await page.goto(`${harness.appOrigin}/#/extensions`)
+      await page.waitForFunction(() => Boolean(window.__SYNTAX_EXTENSIONS__))
+
+      // Install Storyboard + Exporter + View-Only extension
+      await page.evaluate(
+        async ([u1, u2, u3]) => {
+          const m = window.__SYNTAX_EXTENSIONS__.manager
+          await m.installFromUrl(u1)
+          await m.installFromUrl(u2)
+          await m.installFromUrl(u3)
+        },
+        [
+          harness.extUrl('storyboard/extension.json'),
+          harness.extUrl('storyboard-exporter/extension.json'),
+          harness.extUrl('view-only/extension.json'),
+        ],
+      )
+
+      // Edit string, boolean, and number settings via the Extensions UI drawer
+      await page.click('[data-extension-id="tj.storyboard"] button:has-text("Settings")')
+      await page.waitForSelector('[data-extension-settings-panel="tj.storyboard"]')
+      await page.fill('[data-extension-settings-panel="tj.storyboard"] [data-setting-id="defaultPrefix"]', 'Chapter')
+      await page.uncheck('[data-extension-settings-panel="tj.storyboard"] [data-setting-id="autoSave"]')
+      await page.fill('[data-extension-settings-panel="tj.storyboard"] [data-setting-id="maxTasks"]', '42')
+
+      const updatedSettings = await page.evaluate(() =>
+        window.__SYNTAX_EXTENSIONS__.manager.invokeWorker('tj.storyboard', 'readAllSettings'),
+      )
+      assert.deepEqual(updatedSettings, {
+        defaultPrefix: 'Chapter',
+        autoSave: false,
+        maxTasks: 42,
+      })
+
+      // Reset defaults button restores schema defaults
+      await page.click('[data-extension-settings-panel="tj.storyboard"] button:has-text("Reset defaults")')
+      const resetSettings = await page.evaluate(() =>
+        window.__SYNTAX_EXTENSIONS__.manager.invokeWorker('tj.storyboard', 'readAllSettings'),
+      )
+      assert.deepEqual(resetSettings, {
+        defaultPrefix: 'Scene',
+        autoSave: true,
+        maxTasks: 20,
+      })
+
+      // Multi-tab view switcher inside ExtensionPage (board -> timeline)
+      await page.goto(`${harness.appOrigin}/#/ext/tj.storyboard/board`)
+      await page.waitForSelector('[data-extension-tab-id="timeline"]')
+      await page.click('[data-extension-tab-id="timeline"]')
+      await page.waitForSelector('[data-extension-id="tj.storyboard"][data-view-id="timeline"][data-view-ready="true"]')
+      const timelineStatus = await page.frameLocator('iframe.sx-ext-iframe').first().locator('#timeline-status').textContent()
+      assert.equal(timelineStatus, 'timeline-ready:timeline')
+
+      // View-only extension (no worker) saves a document directly via host syscall
+      await page.goto(`${harness.appOrigin}/#/ext/tj.view-only/pad`)
+      await page.waitForSelector('[data-extension-id="tj.view-only"][data-view-id="pad"][data-view-ready="true"]')
+      const voFrame = page.frameLocator('iframe.sx-ext-iframe').first()
+      await voFrame.locator('#vo-create').click()
+      await voFrame.locator('#vo-status:has-text("created:")').waitFor()
+
+      // Embedded extension recovery on Library when worker is stopped + reload recovers it live
+      await page.goto(`${harness.appOrigin}/#/library`)
+      await page.waitForSelector('[data-extension-id="tj.storyboard"][data-view-id="scratchpad"][data-view-ready="true"]')
+      await page.evaluate(() => window.__SYNTAX_EXTENSIONS__.manager.stopWorker('tj.storyboard'))
+      await page.waitForSelector('[data-extension-id="tj.storyboard"][data-view-id="scratchpad"] .sx-ext-embed-recovery')
+      await page.click('[data-extension-id="tj.storyboard"][data-view-id="scratchpad"] button:has-text("Reload")')
+      await page.waitForSelector('[data-extension-id="tj.storyboard"][data-view-id="scratchpad"][data-view-ready="true"]')
+
+      // Explicit user document delete on LibraryPage removes the view-only document
+      await page.waitForSelector('.sx-ext-doc-row:has-text("View Only Note")')
+      await page.click('button[aria-label="Delete View Only Note"]')
+      await page.waitForFunction(() => document.querySelectorAll('.sx-ext-doc-row').length === 0)
+      const remainingDocs = await page.evaluate(() => window.__SYNTAX_EXTENSIONS__.documents.list())
+      assert.equal(remainingDocs.length, 0)
+
+      // Reverse-order localStorage boot: store tj.exporter BEFORE tj.storyboard, reload page, verify both boot active!
+      await page.evaluate(() => {
+        const raw = JSON.parse(localStorage.getItem('syntax.extensions.v1') || '[]')
+        const exporter = raw.find(r => r.id === 'tj.exporter')
+        const storyboard = raw.find(r => r.id === 'tj.storyboard')
+        const viewOnly = raw.find(r => r.id === 'tj.view-only')
+        localStorage.setItem('syntax.extensions.v1', JSON.stringify([exporter, viewOnly, storyboard]))
+      })
+      await page.goto(`${harness.appOrigin}/#/extensions`)
+      await page.reload()
+      await page.waitForSelector('[data-extension-id="tj.storyboard"][data-extension-status="active"]')
+      await page.waitForSelector('[data-extension-id="tj.exporter"][data-extension-status="active"]')
+      await page.waitForSelector('[data-extension-id="tj.view-only"][data-extension-status="active"]')
+
+      assert.equal(pageErrors.length, 0, `Unexpected page errors: ${pageErrors.map(e => e.message).join('; ')}`)
+    } finally {
+      await context.close()
+    }
+  })
 })

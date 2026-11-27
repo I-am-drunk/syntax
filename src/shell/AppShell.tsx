@@ -331,6 +331,7 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
               docId={params.docId}
               onBackToLibrary={() => navigate('/library')}
               onOpenExtensions={() => navigate('/extensions')}
+              onNavigate={navigate}
             />
           )}
         </Route>
@@ -342,6 +343,7 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
               viewId={params.viewId}
               onBackToLibrary={() => navigate('/library')}
               onOpenExtensions={() => navigate('/extensions')}
+              onNavigate={navigate}
             />
           )}
         </Route>

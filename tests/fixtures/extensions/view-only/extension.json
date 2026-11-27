@@ -1,0 +1,16 @@
+{
+  "formatVersion": 1,
+  "id": "tj.view-only",
+  "name": "View-Only Notebook",
+  "version": "1.0.0",
+  "description": "Extension without a worker using direct view syscalls.",
+  "views": [
+    {
+      "id": "pad",
+      "title": "Scratch Note",
+      "entry": "./index.html",
+      "placement": "page",
+      "docTypes": ["note"]
+    }
+  ]
+}

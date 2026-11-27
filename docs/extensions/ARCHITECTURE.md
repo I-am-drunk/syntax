@@ -47,3 +47,68 @@ src/extensions/
 1. Host `extension.json`, `worker.js`, and any `view/*` files with `Access-Control-Allow-Origin: *` (required for both cross-origin worker fetch and `<script type="module">` inside opaque-origin sandboxed iframes).
 2. Keep `worker.js` self-contained (or use absolute CORS URLs for imports; relative `./helper.js` ES imports are unsupported inside Blob Workers). Use `ctx.extension.assetUrl('./file.json')` for relative data fetches.
 3. Custom views cannot access `window.localStorage` or `window.parent.document`; persist state through `syntax:view-call` RPC to the extension worker or host `DocumentStore`.
+
+## Quick Start: Writing an Extension
+
+Host three static files on any server that sends `Access-Control-Allow-Origin: *`:
+
+### 1. `extension.json`
+
+```json
+{
+  "formatVersion": 1,
+  "id": "you.notes",
+  "name": "Quick Notes",
+  "version": "1.0.0",
+  "worker": "./worker.js",
+  "views": [
+    { "id": "main", "title": "Notes", "entry": "./view/index.html", "placement": "page", "docTypes": ["note"] },
+    { "id": "widget", "title": "Scratchpad", "entry": "./view/embed.html", "placement": "embed" }
+  ],
+  "commands": [
+    { "id": "new-note", "title": "New Note", "run": "createNote" }
+  ],
+  "toolbar": [
+    { "id": "open-notes", "label": "Notes", "viewId": "main" }
+  ],
+  "settings": [
+    { "id": "defaultTitle", "type": "string", "label": "Default title", "default": "Untitled Note" }
+  ]
+}
+```
+
+### 2. `worker.js`
+
+```js
+export async function onActivate(ctx) {
+  ctx.log.info('Quick Notes ready', await ctx.settings.get('defaultTitle'))
+}
+
+export async function createNote(ctx, body = '') {
+  const title = await ctx.settings.get('defaultTitle')
+  return await ctx.documents.create({ type: 'note', title, data: { body } })
+}
+```
+
+### 3. `view/index.html` (Opaque-Origin View Bridge)
+
+```html
+<!doctype html>
+<html>
+<body>
+  <script type="module">
+    const CHANNEL = 'syntax-view-v1'
+    let session = null
+    window.addEventListener('message', (event) => {
+      const msg = event.data
+      if (msg?.channel !== CHANNEL) return
+      if (msg.type === 'syntax:view-init') {
+        session = msg
+        // Apply msg.theme.mode and msg.theme.cssVars, then call worker or syscall via syntax:view-call
+      }
+    })
+    window.parent.postMessage({ channel: CHANNEL, type: 'syntax:view-ready' }, '*')
+  </script>
+</body>
+</html>
+```

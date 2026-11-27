@@ -15,6 +15,13 @@
       "docTypes": ["storyboard"]
     },
     {
+      "id": "timeline",
+      "title": "Timeline",
+      "entry": "./view/timeline.html",
+      "placement": "tab",
+      "docTypes": ["storyboard"]
+    },
+    {
       "id": "scratchpad",
       "title": "Quick Scratchpad",
       "entry": "./view/embed.html",
@@ -52,6 +59,18 @@
       "type": "string",
       "label": "Board Prefix",
       "default": "Scene"
+    },
+    {
+      "id": "autoSave",
+      "type": "boolean",
+      "label": "Auto Save",
+      "default": true
+    },
+    {
+      "id": "maxTasks",
+      "type": "number",
+      "label": "Max Tasks",
+      "default": 20
     }
   ]
 }

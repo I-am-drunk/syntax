@@ -13,6 +13,10 @@ export async function setPrefix(ctx, nextPrefix) {
   return await ctx.settings.set('defaultPrefix', nextPrefix)
 }
 
+export async function readAllSettings(ctx) {
+  return await ctx.settings.getAll()
+}
+
 export async function listBoards(ctx) {
   const docs = await ctx.documents.list('storyboard')
   if (docs.length === 0) {
