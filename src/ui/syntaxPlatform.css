@@ -721,19 +721,12 @@
 /* ==========================================================================
    Library Page
    ========================================================================== */
-.sx-library-page {
-  max-width: 1120px;
-  margin: 40px auto 88px;
-  padding: 0 28px;
-}
-
 .sx-library-head {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
   gap: 20px;
   flex-wrap: wrap;
-  margin-bottom: 34px;
 }
 
 .sx-library-head-copy {
@@ -743,21 +736,21 @@
 }
 
 .sx-library-head-copy h1 {
-  font-size: 30px;
+  font-size: 28px;
   line-height: 1.2;
   font-weight: 700;
   letter-spacing: -0.025em;
 }
 
 .sx-library-count {
-  font-size: 14px;
+  font-size: 13.5px;
   color: var(--muted);
 }
 
 .sx-library-controls {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
@@ -780,16 +773,8 @@
   flex-wrap: wrap;
 }
 
-@media (max-width: 768px) {
-  .sx-library-page {
-    width: auto;
-    margin: 24px auto 64px;
-    padding: 0 16px;
-  }
-}
-
 /* ==========================================================================
-   Clean Single-Column Workspace Layout (Settings & Plugins)
+   Clean Single-Column Workspace Layout (Settings, Home, Library & Extensions)
    ========================================================================== */
 .sx-workspace-page {
   max-width: 760px;
@@ -798,6 +783,11 @@
   display: flex;
   flex-direction: column;
   gap: 28px;
+}
+
+.sx-workspace-page.sx-library-page,
+.sx-workspace-page.sx-plugins-page {
+  max-width: 980px;
 }
 
 .sx-workspace-head {
@@ -2636,6 +2626,10 @@
     margin: 24px auto 72px;
     padding: 0 16px;
     gap: 22px;
+  }
+
+  .sx-workspace-page.sx-ext-page {
+    margin: 14px auto 20px;
   }
 
   .sx-profile-hero {
