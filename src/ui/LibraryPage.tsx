@@ -215,7 +215,7 @@ export function LibraryPage({
           </button>
           <button
             type="button"
-            className="sx-browse-hub-btn"
+            className="sx-btn-primary"
             onClick={onOpenCommunityHub}
           >
             <Compass size={15} strokeWidth={2} aria-hidden="true" />
@@ -241,7 +241,7 @@ export function LibraryPage({
             </button>
             <button
               type="button"
-              className="sx-browse-hub-btn"
+              className="sx-btn-primary"
               onClick={onOpenCommunityHub}
             >
               <Compass size={15} strokeWidth={2} aria-hidden="true" />

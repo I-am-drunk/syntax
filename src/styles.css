@@ -20,8 +20,8 @@
   --surface: #fff;
   --secondary: #f8f8f8;
   --text: #000;
-  --muted: #0009;
-  --tertiary: #0006;
+  --muted: rgb(0 0 0 / .62);
+  --tertiary: rgb(0 0 0 / .56);
   --border: rgb(0 0 0 / .1);
   --hover: rgb(0 0 0 / .05);
   --shadow: 0 0 15px rgb(0 0 0 / .1);
@@ -32,8 +32,8 @@
   --surface: #141414;
   --secondary: #252525;
   --text: #fff;
-  --muted: #fff9;
-  --tertiary: #fff6;
+  --muted: rgb(255 255 255 / .68);
+  --tertiary: rgb(255 255 255 / .58);
   --border: #ffffff1f;
   --hover: #ffffff1a;
   --shadow: 0 0 16px #0006;
@@ -85,18 +85,19 @@ a:focus-visible, button:focus-visible { outline: 2px solid var(--focus-ring); ou
 .preference-row p { flex: 1; }
 .preference-choices { padding-block: 18px; flex-wrap: wrap; }
 .segmented {
-  display: inline-flex; align-items: center; gap: 4px; padding: 6px;
-  width: fit-content; min-width: 220px; max-width: 100%; height: 44px; border-radius: 9999px; background: var(--secondary);
+  display: inline-flex; align-items: center; gap: 4px; padding: 4px;
+  width: fit-content; min-width: 220px; max-width: 100%; height: 42px; border-radius: 12px;
+  background: var(--secondary); border: 1px solid var(--border);
 }
 .segment {
   display: flex; align-items: center; justify-content: center; position: relative;
   flex: 1 0 auto; gap: 8px; height: 32px; padding: 0 14px; cursor: pointer;
-  border: 1px solid transparent; border-radius: 9999px; white-space: nowrap;
-  color: var(--tertiary); font-weight: 500; line-height: 24px; outline: 0; text-align: center;
+  border: 1px solid transparent; border-radius: 8px; white-space: nowrap;
+  color: var(--tertiary); font-weight: 600; font-size: 13.5px; line-height: 24px; outline: 0; text-align: center;
   transition: background-color 150ms ease-out, border-color 150ms ease-out,
     box-shadow 150ms ease-out, color 150ms ease-out;
 }
-.segment[data-checked] { background: var(--surface); border-color: var(--border); box-shadow: var(--shadow); color: var(--text); }
+.segment[data-checked] { background: var(--surface); border-color: var(--border); box-shadow: 0 1px 3px rgb(0 0 0 / .08); color: var(--text); }
 :root[data-theme='dark'] .segmented { background: #121212; border: 1px solid #2b2b2b; }
 :root[data-theme='dark'] .segment[data-checked] { background: #2a2a2a; border-color: #3f3f3f; color: #ffffff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4); }
 .segment[data-unchecked]:hover { background: var(--hover); color: var(--text); }

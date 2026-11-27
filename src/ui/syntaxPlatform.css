@@ -398,6 +398,28 @@
   }
 }
 
+@media (max-width: 370px) {
+  .sx-app-header {
+    padding-inline: 8px;
+    gap: 2px;
+  }
+  .sx-nav-back-btn,
+  .primary-nav-btn,
+  .sx-main-nav-tabs a {
+    width: 28px;
+  }
+  .sx-app-header .header-icon-btn,
+  .sx-app-header .menu-trigger {
+    width: 30px;
+    height: 30px;
+  }
+  .sx-header-signin {
+    height: 30px;
+    padding: 0 8px;
+    font-size: 12px;
+  }
+}
+
 /* ==========================================================================
    Custom Zero-Flash Profile Avatar & Brilliant Popover
    ========================================================================== */
@@ -687,40 +709,6 @@
   font-size: 13px;
 }
 
-.sx-browse-hub-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  min-height: 38px;
-  padding: 0 16px;
-  border-radius: 11px;
-  background: var(--text);
-  color: var(--surface);
-  font-size: 13.5px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  white-space: nowrap;
-  flex-shrink: 0;
-  box-shadow: 0 3px 0 color-mix(in srgb, var(--text) 32%, transparent);
-  transition: transform 90ms ease, opacity 120ms ease, box-shadow 90ms ease;
-}
-
-:root[data-theme='dark'] .sx-browse-hub-btn {
-  background: #f2f2f2;
-  color: #141414;
-  box-shadow: 0 3px 0 rgba(255, 255, 255, 0.25);
-}
-
-.sx-browse-hub-btn:hover {
-  opacity: 0.92;
-}
-
-.sx-browse-hub-btn:active {
-  transform: translateY(1px);
-  box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 32%, transparent);
-}
-
 .sx-btn-danger {
   display: inline-flex;
   align-items: center;
@@ -806,7 +794,7 @@
 
 .sx-library-empty {
   border: 1.5px solid var(--border);
-  border-radius: 18px;
+  border-radius: 16px;
   padding: 40px 24px;
   text-align: center;
   display: flex;
@@ -1030,7 +1018,8 @@
   color: var(--muted);
 }
 
-.sx-plugins-section-head span {
+.sx-plugins-section-head > span,
+.sx-ext-section-head-actions > span {
   font-size: 12px;
   color: var(--tertiary);
   font-variant-numeric: tabular-nums;
@@ -1104,8 +1093,8 @@
 }
 
 .sx-profile-hero {
-  border: 2px solid var(--border);
-  border-radius: 22px;
+  border: 1.5px solid var(--border);
+  border-radius: 18px;
   padding: 22px 24px;
   background: var(--surface);
   display: flex;
@@ -1943,19 +1932,24 @@
 }
 
 .sx-section-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
   border: 0;
-  padding: 0;
+  padding: 0 6px;
+  border-radius: 8px;
   background: transparent;
   color: var(--muted);
   text-decoration: none;
   font-size: 13.5px;
   font-weight: 600;
   white-space: nowrap;
-  transition: color 120ms ease;
+  transition: color 120ms ease, background-color 120ms ease;
 }
 
 .sx-section-link:hover {
   color: var(--text);
+  background: var(--hover);
 }
 
 .sx-empty-icon {
@@ -2737,6 +2731,11 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
+}
+
+.sx-workspace-page .preference-row {
+  border-width: 1.5px;
+  border-radius: 14px;
 }
 
 :root[data-theme='dark'] .sx-workspace-page .preference-row,
