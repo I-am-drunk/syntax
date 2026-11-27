@@ -78,6 +78,7 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
   const [busyById, setBusyById] = useState<Record<string, boolean>>({})
   const [openLogsId, setOpenLogsId] = useState<string | null>(null)
   const [openSettingsId, setOpenSettingsId] = useState<string | null>(null)
+  const [updatingAll, setUpdatingAll] = useState(false)
   const [logsVersion, setLogsVersion] = useState(0)
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
@@ -176,6 +177,33 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
       toast.error(`Update rejected (${rec.manifest.name} kept running): ${msg}`)
     } finally {
       setBusy(rec.id, false)
+    }
+  }
+
+  async function handleUpdateAll() {
+    if (visibleRecords.length === 0) return
+    setUpdatingAll(true)
+    let updatedCount = 0
+    let failedCount = 0
+    try {
+      for (const rec of visibleRecords) {
+        setBusy(rec.id, true)
+        try {
+          await extensionManager.update(rec.id)
+          updatedCount += 1
+        } catch {
+          failedCount += 1
+        } finally {
+          setBusy(rec.id, false)
+        }
+      }
+      if (failedCount === 0) {
+        toast.success(`Checked and updated ${updatedCount} ${updatedCount === 1 ? 'package' : 'packages'}`)
+      } else {
+        toast.warning(`Updated ${updatedCount}, kept ${failedCount} on previous working version`)
+      }
+    } finally {
+      setUpdatingAll(false)
     }
   }
 
@@ -315,7 +343,20 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
       >
         <div className="sx-plugins-section-head">
           <h2>{viewMode === 'courses' ? 'Installed Courses' : 'Installed Extensions'}</h2>
-          <span data-testid="installed-extensions-count">{visibleRecords.length}</span>
+          <div className="sx-ext-section-head-actions">
+            {visibleRecords.length > 1 && (
+              <button
+                type="button"
+                className="sx-btn-ghost sx-btn-sm"
+                disabled={updatingAll}
+                onClick={() => void handleUpdateAll()}
+              >
+                <Download size={13} aria-hidden="true" />
+                <span>{updatingAll ? 'Updating...' : 'Update all'}</span>
+              </button>
+            )}
+            <span data-testid="installed-extensions-count">{visibleRecords.length}</span>
+          </div>
         </div>
 
         {visibleRecords.length === 0 ? (
@@ -624,18 +665,29 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
                     <div className="sx-ext-logs-panel">
                       <div className="sx-ext-logs-head">
                         <strong>Diagnostics ({openLogs.length})</strong>
-                        <button
-                          type="button"
-                          className="sx-btn-ghost sx-btn-sm"
-                          onClick={() => void handleCopyReport(rec.id)}
-                        >
-                          {copiedId === rec.id ? (
-                            <Check size={13} aria-hidden="true" />
-                          ) : (
-                            <Copy size={13} aria-hidden="true" />
+                        <div className="sx-ext-section-head-actions">
+                          {openLogs.length > 0 && (
+                            <button
+                              type="button"
+                              className="sx-btn-ghost sx-btn-sm"
+                              onClick={() => extensionDiagnostics.clear(rec.id)}
+                            >
+                              <span>Clear</span>
+                            </button>
                           )}
-                          <span>{copiedId === rec.id ? 'Copied' : 'Copy bug report'}</span>
-                        </button>
+                          <button
+                            type="button"
+                            className="sx-btn-ghost sx-btn-sm"
+                            onClick={() => void handleCopyReport(rec.id)}
+                          >
+                            {copiedId === rec.id ? (
+                              <Check size={13} aria-hidden="true" />
+                            ) : (
+                              <Copy size={13} aria-hidden="true" />
+                            )}
+                            <span>{copiedId === rec.id ? 'Copied' : 'Copy bug report'}</span>
+                          </button>
+                        </div>
                       </div>
                       {openLogs.length === 0 ? (
                         <p className="sx-ext-logs-empty">No log entries recorded yet.</p>

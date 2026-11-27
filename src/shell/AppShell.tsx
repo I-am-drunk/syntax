@@ -14,15 +14,24 @@ import { ExtensionPage } from '../extensions/ExtensionPage.tsx'
 import { extensionManager } from '../extensions/manager.ts'
 import { isSafeMode, useExtensionStore } from '../extensions/store.ts'
 import { playUiSound, type UiSound } from '../services/uiSounds'
-import { CommunityHubPage } from '../ui/CommunityHubPage'
-import { ExtensionsPage } from '../ui/ExtensionsPage'
 import { HomePage } from '../ui/HomePage'
 import { LibraryPage } from '../ui/LibraryPage'
-import { ProfilePage } from '../ui/ProfilePage'
 import { AppHeader, type ShellMode, type WorkspaceTab } from './AppHeader'
 
 const SettingsPage = lazy(() =>
   import('../ui/SettingsPage').then(m => ({ default: m.SettingsPage })),
+)
+const ExtensionsPage = lazy(() =>
+  import('../ui/ExtensionsPage').then(m => ({ default: m.ExtensionsPage })),
+)
+const CommunityHubPage = lazy(() =>
+  import('../ui/CommunityHubPage').then(m => ({ default: m.CommunityHubPage })),
+)
+const ProfilePage = lazy(() =>
+  import('../ui/ProfilePage').then(m => ({ default: m.ProfilePage })),
+)
+const CommandPalette = lazy(() =>
+  import('../ui/CommandPalette').then(m => ({ default: m.CommandPalette })),
 )
 const OnboardingModal = lazy(() =>
   import('../ui/OnboardingModal').then(m => ({ default: m.OnboardingModal })),
@@ -88,6 +97,16 @@ function parseRouteInfo(location: string): {
   return { clean, mode: 'main', mainActiveTab: 'library', workspaceActiveTab: null }
 }
 
+function RouteLoadingFallback({ label }: { label: string }) {
+  return (
+    <main className="sx-course-loading">
+      <div className="sx-course-loading-card">
+        <h2>{label}&hellip;</h2>
+      </div>
+    </main>
+  )
+}
+
 function LegacyPluginsRedirect({
   onRedirect,
   onOpenCommunityHub,
@@ -110,9 +129,21 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
   const [theme, setTheme] = useState<'light' | 'dark'>(loadTheme)
   const [soundOn, setSoundOn] = useState<boolean>(loadSound)
   const [prefs, setPrefs] = useState<SyntaxPrefs>(loadPrefs)
+  const [paletteOpen, setPaletteOpen] = useState(false)
   const themeMountedRef = useRef(false)
   const soundMountedRef = useRef(false)
   const routeInfo = parseRouteInfo(location)
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setPaletteOpen(prev => !prev)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   const emitSound = useCallback(
     (cue: UiSound) => {
@@ -226,6 +257,19 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
     setLocation('/extensions', { replace: true })
   }, [setLocation])
 
+  const toggleTheme = useCallback(() => {
+    emitSound('lightweight-choice')
+    setTheme(t => (t === 'dark' ? 'light' : 'dark'))
+  }, [emitSound])
+
+  const toggleSound = useCallback(() => {
+    setSoundOn(prev => {
+      const next = !prev
+      if (next) playUiSound('toggle-on')
+      return next
+    })
+  }, [])
+
   return (
     <>
       {!hideToaster && <Toaster position="bottom-center" theme={theme} />}
@@ -238,15 +282,9 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
         soundOn={soundOn}
         prefs={prefs}
         onNavigate={navigate}
-        onToggleTheme={() => {
-          emitSound('lightweight-choice')
-          setTheme(t => (t === 'dark' ? 'light' : 'dark'))
-        }}
-        onToggleSound={() => {
-          const next = !soundOn
-          if (next) playUiSound('toggle-on')
-          setSoundOn(next)
-        }}
+        onOpenCommandPalette={() => setPaletteOpen(true)}
+        onToggleTheme={toggleTheme}
+        onToggleSound={toggleSound}
         onOpenWelcome={() => patchPrefs({ onboarded: false })}
         onPokeSema={() => emitSound('lightweight-choice')}
       />
@@ -256,8 +294,11 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
           <SyntaxErrorBoundary scope="page:home" onExitScope={() => navigate('/library')}>
             <HomePage
               prefs={prefs}
+              onNavigate={navigate}
+              onOpenCommandPalette={() => setPaletteOpen(true)}
               onOpenLibrary={() => navigate('/library')}
               onOpenExtensions={() => navigate('/extensions')}
+              onOpenCommunityHub={() => navigate('/community')}
               onOpenSettings={() => navigate('/settings')}
             />
           </SyntaxErrorBoundary>
@@ -275,27 +316,21 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
 
         <Route path="/profile">
           <SyntaxErrorBoundary scope="page:profile" onExitScope={() => navigate('/library')}>
-            <ProfilePage
-              prefs={prefs}
-              onOpenLibrary={() => navigate('/library')}
-              onOpenExtensions={() => navigate('/extensions')}
-              onOpenCommunityHub={() => navigate('/community')}
-              onOpenSettings={() => navigate('/settings')}
-            />
+            <Suspense fallback={<RouteLoadingFallback label="Loading profile" />}>
+              <ProfilePage
+                prefs={prefs}
+                onOpenLibrary={() => navigate('/library')}
+                onOpenExtensions={() => navigate('/extensions')}
+                onOpenCommunityHub={() => navigate('/community')}
+                onOpenSettings={() => navigate('/settings')}
+              />
+            </Suspense>
           </SyntaxErrorBoundary>
         </Route>
 
         <Route path="/settings">
           <SyntaxErrorBoundary scope="workspace:settings" onExitScope={() => navigate('/library')}>
-            <Suspense
-              fallback={
-                <main className="sx-course-loading">
-                  <div className="sx-course-loading-card">
-                    <h2>Loading settings&hellip;</h2>
-                  </div>
-                </main>
-              }
-            >
+            <Suspense fallback={<RouteLoadingFallback label="Loading settings" />}>
               <SettingsPage
                 onClose={() => navigate('/library')}
                 theme={theme}
@@ -312,20 +347,24 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
 
         <Route path="/extensions">
           <SyntaxErrorBoundary scope="workspace:extensions" onExitScope={() => navigate('/library')}>
-            <ExtensionsPage
-              onOpenCommunityHub={() => navigate('/community')}
-              onNavigate={navigate}
-            />
+            <Suspense fallback={<RouteLoadingFallback label="Loading extensions" />}>
+              <ExtensionsPage
+                onOpenCommunityHub={() => navigate('/community')}
+                onNavigate={navigate}
+              />
+            </Suspense>
           </SyntaxErrorBoundary>
         </Route>
 
         <Route path="/plugins">
           <SyntaxErrorBoundary scope="workspace:extensions" onExitScope={() => navigate('/library')}>
-            <LegacyPluginsRedirect
-              onRedirect={redirectLegacyPlugins}
-              onOpenCommunityHub={() => navigate('/community')}
-              onNavigate={navigate}
-            />
+            <Suspense fallback={<RouteLoadingFallback label="Loading extensions" />}>
+              <LegacyPluginsRedirect
+                onRedirect={redirectLegacyPlugins}
+                onOpenCommunityHub={() => navigate('/community')}
+                onNavigate={navigate}
+              />
+            </Suspense>
           </SyntaxErrorBoundary>
         </Route>
 
@@ -356,17 +395,21 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
 
         <Route path="/community">
           <SyntaxErrorBoundary scope="workspace:community" onExitScope={() => navigate('/library')}>
-            <CommunityHubPage onOpenExtensions={() => navigate('/extensions')} />
+            <Suspense fallback={<RouteLoadingFallback label="Loading Community Hub" />}>
+              <CommunityHubPage onOpenExtensions={() => navigate('/extensions')} />
+            </Suspense>
           </SyntaxErrorBoundary>
         </Route>
 
         <Route path="/community/:id">
           {params => (
             <SyntaxErrorBoundary scope="workspace:community" onExitScope={() => navigate('/library')}>
-              <CommunityHubPage
-                highlightedId={params.id}
-                onOpenExtensions={() => navigate('/extensions')}
-              />
+              <Suspense fallback={<RouteLoadingFallback label="Loading Community Hub" />}>
+                <CommunityHubPage
+                  highlightedId={params.id}
+                  onOpenExtensions={() => navigate('/extensions')}
+                />
+              </Suspense>
             </SyntaxErrorBoundary>
           )}
         </Route>
@@ -381,6 +424,20 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
           </SyntaxErrorBoundary>
         </Route>
       </Switch>
+
+      {paletteOpen && (
+        <Suspense fallback={null}>
+          <CommandPalette
+            open={paletteOpen}
+            theme={theme}
+            soundOn={soundOn}
+            onOpenChange={setPaletteOpen}
+            onNavigate={navigate}
+            onToggleTheme={toggleTheme}
+            onToggleSound={toggleSound}
+          />
+        </Suspense>
+      )}
 
       {!prefs.onboarded && !isSafeMode() && (
         <Suspense fallback={null}>

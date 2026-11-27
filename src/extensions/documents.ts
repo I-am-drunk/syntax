@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import { ExtensionError } from './plugos/protocol.ts'
 
 const DB_NAME = 'syntax-extensions-v1'
@@ -453,3 +454,47 @@ export function createIndexedDbDocumentStore(): DocumentStore {
 }
 
 export const documentStore: DocumentStore = createIndexedDbDocumentStore()
+
+const importedDocumentSchema = z.object({
+  id: z.string().trim().min(1).max(128).optional(),
+  type: z.string().trim().min(1).max(64),
+  title: z.string().trim().min(1).max(160),
+  schemaVersion: z.number().int().min(1).default(1),
+  createdByExtensionId: z.string().trim().min(3).max(64),
+  data: z.unknown(),
+})
+
+export function parseImportedDocumentJson(rawText: string): CreateDocumentInput {
+  if (rawText.length > MAX_DOCUMENT_BYTES + 4096) {
+    throw new ExtensionError(
+      'SYSCALL_DENIED',
+      `Document file exceeds maximum size (${Math.round(MAX_DOCUMENT_BYTES / (1024 * 1024))} MB).`,
+    )
+  }
+  let parsedJson: unknown
+  try {
+    parsedJson = JSON.parse(rawText)
+  } catch {
+    throw new ExtensionError('MANIFEST_INVALID', 'File is not valid JSON.')
+  }
+  const check = importedDocumentSchema.safeParse(parsedJson)
+  if (!check.success) {
+    throw new ExtensionError(
+      'MANIFEST_INVALID',
+      'File does not look like a Syntax document backup (.syntaxdoc.json).',
+    )
+  }
+  assertDocumentPayloadWithinLimit(check.data.data)
+  return {
+    type: check.data.type,
+    title: check.data.title,
+    schemaVersion: check.data.schemaVersion,
+    createdByExtensionId: check.data.createdByExtensionId,
+    data: check.data.data,
+  }
+}
+
+export function exportDocumentFilename(doc: Pick<DocumentEnvelope, 'id' | 'title'>): string {
+  const slug = doc.title.replace(/[^a-z0-9-_]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase()
+  return `${slug || doc.id}.syntaxdoc.json`
+}

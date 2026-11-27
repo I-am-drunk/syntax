@@ -2,7 +2,12 @@ import { describe, it, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { useContributionStore, qualifyContributionKey } from '../../src/extensions/contributions.ts'
 import { ExtensionServiceRegistry, findServiceCycle } from '../../src/extensions/services.ts'
-import { createMemoryDocumentStore, MAX_DOCUMENT_BYTES } from '../../src/extensions/documents.ts'
+import {
+  createMemoryDocumentStore,
+  exportDocumentFilename,
+  MAX_DOCUMENT_BYTES,
+  parseImportedDocumentJson,
+} from '../../src/extensions/documents.ts'
 import { validateExtensionManifest } from '../../src/extensions/manifest.ts'
 import { isSafeMode, useExtensionStore } from '../../src/extensions/store.ts'
 import { extensionDiagnostics } from '../../src/extensions/diagnostics.ts'
@@ -256,6 +261,14 @@ describe('DocumentStore optimistic concurrency and Safe Mode detection', () => {
     const restored = await store.get(docA.id, 'ext.a')
     assert.equal(restored?.title, 'Private Note A')
     assert.equal(restored?.revision, 1)
+
+    // Validated document backup parsing & filename helper
+    const imported = parseImportedDocumentJson(JSON.stringify(docA))
+    assert.equal(imported.title, 'Private Note A')
+    assert.equal(imported.createdByExtensionId, 'ext.a')
+    assert.equal(exportDocumentFilename(docA), 'private-note-a.syntaxdoc.json')
+    assert.throws(() => parseImportedDocumentJson('{bad json'), /not valid JSON/)
+    assert.throws(() => parseImportedDocumentJson(JSON.stringify({ nope: true })), /Syntax document backup/)
   })
 
   it('detects safeMode from search or hash query params', () => {

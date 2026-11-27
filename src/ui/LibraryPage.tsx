@@ -1,8 +1,25 @@
-import { useEffect, useState } from 'react'
-import { AlertTriangle, Compass, ExternalLink, FileText, Puzzle, RefreshCw, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  AlertTriangle,
+  Compass,
+  Download,
+  ExternalLink,
+  FileText,
+  Puzzle,
+  RefreshCw,
+  Search,
+  Trash2,
+  Upload,
+  X,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { useContributionStore } from '../extensions/contributions.ts'
-import { documentStore, type DocumentEnvelope } from '../extensions/documents.ts'
+import {
+  documentStore,
+  exportDocumentFilename,
+  parseImportedDocumentJson,
+  type DocumentEnvelope,
+} from '../extensions/documents.ts'
 import { ExtensionViewFrame } from '../extensions/ExtensionViewFrame.tsx'
 import { extensionManager } from '../extensions/manager.ts'
 import { resolveExtensionAssets } from '../extensions/manifest.ts'
@@ -24,6 +41,8 @@ export function LibraryPage({
   const runtimeById = useExtensionStore(s => s.runtime)
   const views = useContributionStore(s => s.views)
   const [documents, setDocuments] = useState<DocumentEnvelope[]>([])
+  const [docQuery, setDocQuery] = useState('')
+  const importInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -62,6 +81,41 @@ export function LibraryPage({
   const extensionViews = pageViews.filter(v => kindById.get(v.ownerId) !== 'course')
   const embedViews = views.filter(v => v.placement === 'embed')
   const nameById = new Map(records.map(r => [r.id, r.manifest.name]))
+
+  const filteredDocuments = useMemo(() => {
+    const q = docQuery.trim().toLowerCase()
+    if (!q) return documents
+    return documents.filter(doc => {
+      const owner = nameById.get(doc.createdByExtensionId) ?? doc.createdByExtensionId
+      return `${doc.title} ${doc.type} ${owner}`.toLowerCase().includes(q)
+    })
+  }, [documents, docQuery, records])
+
+  function handleExportDocument(doc: DocumentEnvelope) {
+    const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = exportDocumentFilename(doc)
+    a.click()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+
+  async function handleImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    try {
+      const text = await file.text()
+      const parsed = parseImportedDocumentJson(text)
+      const created = await documentStore.create(parsed)
+      setDocuments(prev => [created, ...prev])
+      window.dispatchEvent(new CustomEvent('syntax:documents-changed'))
+      toast.success(`Imported "${created.title}"`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not import document file.')
+    }
+  }
 
   function openDocument(doc: DocumentEnvelope) {
     const ownerViews = nonEmbedViews.filter(v => v.ownerId === doc.createdByExtensionId)
@@ -116,6 +170,22 @@ export function LibraryPage({
         </div>
 
         <div className="sx-library-controls">
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".json,.syntaxdoc.json,application/json"
+            className="sx-sr-only"
+            aria-label="Import document backup file"
+            onChange={e => void handleImportFile(e)}
+          />
+          <button
+            type="button"
+            className="sx-btn-ghost sx-btn-sm"
+            onClick={() => importInputRef.current?.click()}
+          >
+            <Upload size={14} strokeWidth={2} aria-hidden="true" />
+            <span>Import doc</span>
+          </button>
           <button type="button" className="sx-btn-secondary" onClick={onOpenExtensions}>
             <Puzzle size={15} strokeWidth={2} aria-hidden="true" />
             <span>Extensions</span>
@@ -243,10 +313,32 @@ export function LibraryPage({
             <section className="sx-plugins-section" aria-label="Saved documents">
               <div className="sx-plugins-section-head">
                 <h2>Documents</h2>
-                <span>{documents.length}</span>
+                <span>{filteredDocuments.length === documents.length ? documents.length : `${filteredDocuments.length} / ${documents.length}`}</span>
               </div>
+              {documents.length > 1 && (
+                <div className="sx-search-field">
+                  <Search size={15} className="sx-search-icon" aria-hidden="true" />
+                  <input
+                    type="search"
+                    placeholder="Filter saved documents..."
+                    aria-label="Filter saved documents"
+                    value={docQuery}
+                    onChange={e => setDocQuery(e.target.value)}
+                  />
+                  {docQuery && (
+                    <button
+                      type="button"
+                      className="sx-search-clear"
+                      aria-label="Clear document filter"
+                      onClick={() => setDocQuery('')}
+                    >
+                      <X size={14} aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+              )}
               <div className="sx-ext-doc-list">
-                {documents.map(doc => (
+                {filteredDocuments.map(doc => (
                   <div key={doc.id} className="sx-ext-doc-item" data-doc-id={doc.id}>
                     <button
                       type="button"
@@ -264,6 +356,15 @@ export function LibraryPage({
                         </span>
                       </span>
                       <span className="sx-ext-doc-open">Open</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="sx-btn-ghost sx-btn-sm sx-ext-doc-delete"
+                      aria-label={`Export ${doc.title}`}
+                      title={`Export ${doc.title} backup`}
+                      onClick={() => handleExportDocument(doc)}
+                    >
+                      <Download size={14} aria-hidden="true" />
                     </button>
                     <button
                       type="button"

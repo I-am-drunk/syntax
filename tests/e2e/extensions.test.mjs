@@ -700,9 +700,34 @@ describe('Syntax Extensions v1 end-to-end acceptance suite (real Chromium)', () 
       await page.waitForSelector('[data-extension-id="tj.storyboard"]')
       assert.equal(await page.locator('[data-extension-id="tj.demo-course"]').count(), 0)
 
-      // Verify Theme Packs / .syntaxtheme are completely removed from Settings while Light/Dark works
-      await page.goto(`${harness.appOrigin}/#/settings`)
+      // Import a .syntaxdoc.json backup on LibraryPage, then verify alive HomePage (Quick Launch + Continue Working) and Ctrl+K Command Palette
+      await page.goto(`${harness.appOrigin}/#/library`)
+      await page.setInputFiles('input[aria-label="Import document backup file"]', {
+        name: 'backup.syntaxdoc.json',
+        mimeType: 'application/json',
+        buffer: Buffer.from(
+          JSON.stringify({
+            type: 'storyboard',
+            title: 'Imported Backup Board',
+            schemaVersion: 1,
+            createdByExtensionId: 'tj.storyboard',
+            data: { tasks: ['Restored from backup'] },
+          }),
+        ),
+      })
+      await page.waitForSelector('.sx-ext-doc-row:has-text("Imported Backup Board")')
+
+      await page.goto(`${harness.appOrigin}/#/`)
+      await page.waitForSelector('h2:has-text("Quick Launch")')
+      await page.waitForSelector('h2:has-text("Continue Working")')
+      await page.waitForSelector('.sx-ext-doc-row:has-text("Imported Backup Board")')
+      await page.keyboard.press('Control+k')
+      await page.waitForSelector('[data-testid="command-palette"]')
+      await page.fill('[data-testid="command-palette"] input', 'Settings')
+      await page.keyboard.press('Enter')
       await page.waitForSelector('h1:has-text("Settings")')
+
+      // Verify Theme Packs / .syntaxtheme are completely removed from Settings while Light/Dark works
       assert.equal(await page.locator('text=Theme Packs').count(), 0)
       assert.equal(await page.locator('text=.syntaxtheme').count(), 0)
 

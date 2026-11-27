@@ -25,6 +25,21 @@ export default defineConfig(() => {
   return {
     base,
     plugins: [react(), rewritePublicCssUrls(base)],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (!id.includes('node_modules')) return undefined
+            if (id.includes('@clerk')) return 'vendor-clerk'
+            if (id.includes('framer-motion')) return 'vendor-motion'
+            if (id.includes('zod') || id.includes('zustand') || id.includes('wouter')) {
+              return 'vendor-core'
+            }
+            return undefined
+          },
+        },
+      },
+    },
     server: {
       host: '0.0.0.0',
       port: 5189,
