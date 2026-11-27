@@ -155,7 +155,7 @@ export function CommunityHubPage({ highlightedId: rawHighlightedId, onOpenExtens
         <div className="sx-hub-head-actions">
           <button
             type="button"
-            className="sx-btn-ghost sx-btn-sm"
+            className="sx-btn-secondary"
             onClick={() => loadCatalog()}
             disabled={catalog.status === 'loading'}
           >

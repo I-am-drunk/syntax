@@ -68,7 +68,14 @@
   display: flex;
   align-items: stretch;
   height: 100%;
+  flex: 1 1 auto;
   min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.sx-nav-stage::-webkit-scrollbar {
+  display: none;
 }
 
 .sx-app-header .primary-nav {
@@ -566,9 +573,9 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 40px;
-  padding: 0 18px;
-  border-radius: 12px;
+  min-height: 38px;
+  padding: 0 17px;
+  border-radius: 11px;
   background: #456dff;
   color: #ffffff;
   font-size: 14px;
@@ -577,7 +584,6 @@
   white-space: nowrap;
   flex-shrink: 0;
   box-shadow: 0 3px 0 #2e50d4;
-  transform: translateY(-1px);
   transition: filter 120ms ease, transform 90ms ease, box-shadow 90ms ease;
 }
 
@@ -596,9 +602,9 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 36px;
-  padding: 0 13px;
-  border-radius: 10px;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 11px;
   border: 1.5px solid var(--border);
   background: var(--surface);
   color: var(--text);
@@ -866,15 +872,6 @@
   font-size: 13px;
   color: var(--muted);
   line-height: 1.4;
-}
-
-.syntax-pref-btn {
-  min-height: 36px;
-  padding: 0 14px;
-  border-radius: 10px;
-  border: 1.5px solid var(--border);
-  font-size: 13px;
-  font-weight: 600;
 }
 
 /* Unified Crisp Search Field */
@@ -1565,9 +1562,11 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  max-width: 340px;
+  overflow: hidden;
 }
 
-@media (max-width: 940px) {
+@media (max-width: 1160px) {
   .sx-ext-header-toolbar {
     display: none;
   }
@@ -1660,7 +1659,7 @@
 .sx-ext-url-input {
   flex: 1 1 320px;
   min-width: 0;
-  height: 40px;
+  height: 38px;
   padding: 0 14px;
   border-radius: 11px;
   border: 1.5px solid var(--border);
@@ -1961,6 +1960,7 @@
 
 .sx-ext-page {
   max-width: 1200px;
+  margin: 18px auto 28px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -2613,6 +2613,7 @@
   gap: 5px;
 }
 
+:root[data-theme='dark'] .sx-workspace-page .preference-row,
 :root[data-theme='dark'] .sx-ext-card,
 :root[data-theme='dark'] .sx-ext-launch-card,
 :root[data-theme='dark'] .sx-ext-doc-row,
