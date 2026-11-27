@@ -444,11 +444,12 @@ export function SyntaxAuthProvider({
       theme: isDark ? dark : undefined,
       variables: {
         colorPrimary: '#456dff',
+        colorPrimaryForeground: '#ffffff',
         colorBackground: isDark ? '#181818' : '#ffffff',
         colorInput: isDark ? '#222222' : '#f7f7f7',
         colorForeground: isDark ? '#ffffff' : '#141414',
         colorNeutral: isDark ? '#e5e5e5' : '#141414',
-        borderRadius: '14px',
+        borderRadius: '12px',
         fontFamily: "'CoFo Brilliant', -apple-system, BlinkMacSystemFont, sans-serif",
       },
       elements: {
@@ -465,16 +466,20 @@ export function SyntaxAuthProvider({
         },
         formButtonPrimary: {
           backgroundColor: '#456dff',
-          borderRadius: '999px',
-          fontWeight: 600,
-          boxShadow: 'none',
+          color: '#ffffff',
+          borderRadius: '11px',
+          fontWeight: 700,
+          boxShadow: '0 3px 0 #2e50d4',
         },
         socialButtonsBlockButton: {
-          borderRadius: '12px',
+          borderRadius: '11px',
           border: isDark ? '1px solid rgba(255, 255, 255, 0.14)' : '1px solid rgba(0, 0, 0, 0.12)',
         },
         footer: {
           background: isDark ? '#151515' : '#fafafa',
+        },
+        footerActionLink: {
+          color: isDark ? '#7491ff' : '#456dff',
         },
         badge: {
           borderRadius: '999px',
