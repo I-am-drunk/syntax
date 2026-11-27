@@ -19,7 +19,6 @@ import { isDevEnvironment } from '../core/devEnv'
 import { useHostSlots } from '../core/hostSlots'
 import { TopBarSema } from '../mpm2d/mascot/TopBarSema'
 import type { SyntaxPrefs } from '../mpm2d/storage'
-import { PluginToolbarButtons } from '../ui/PluginToolbarHost'
 import { ProfilePopover } from '../ui/ProfilePopover'
 
 export type ShellMode = 'main' | 'course' | 'workspace'
@@ -273,7 +272,6 @@ export function AppHeader({
 
       <div className="header-actions">
         {isCourse && contribution.headerAction}
-        <PluginToolbarButtons />
 
         <button
           type="button"

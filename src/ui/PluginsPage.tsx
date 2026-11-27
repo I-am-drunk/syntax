@@ -1,35 +1,16 @@
-import { useMemo, useRef, useState, type DragEvent } from 'react'
-import {
-  AlertTriangle,
-  Compass,
-  Download,
-  Hammer,
-  Search,
-  Upload,
-  X,
-  XCircle,
-} from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'
+import { Check, Compass, Search, Upload, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Toggle } from '../settings/Controls'
 import { OFFICIAL_BY_ID } from '../packages/catalog'
 import {
-  exportSytxArchive,
-  parsePackageFile,
-  type UnpackedSytx,
-} from '../core/archive'
-import { evaluateInstalledHealth } from '../core/compatibility'
-import {
-  SYNTAX_API_VERSION,
-  SYNTAX_HOST_VERSION,
   normalizeExternalManifest,
+  parsePackageFile,
   type SyntaxPackageManifest,
 } from '../core/packages'
-import { getVaultArchive } from '../core/packageVault'
-import { usePluginRuntimeStore } from '../core/pluginRuntime'
-import { useInstalledPackages, useRegistryStore } from '../core/registry'
-import { BuildPluginModal } from './BuildPluginModal'
-import { CoreTouchIcon } from './CoreTouchWarning'
+import { getDependentsOf, useInstalledPackages, useRegistryStore } from '../core/registry'
 import { PackageIcon } from './PackageIcon'
+import { CoreTouchIcon } from './CoreTouchWarning'
 
 const OFFICIAL_ID_SET = new Set(OFFICIAL_BY_ID.keys())
 
@@ -37,71 +18,20 @@ interface PluginsPageProps {
   onSelectPackage: (pkg: SyntaxPackageManifest) => void
   onOpenCourse: (courseId: string) => void
   onOpenCommunityHub: () => void
-  onImportArchive: (archive: UnpackedSytx) => void
+  onImportPackage: (pkg: SyntaxPackageManifest) => void
 }
 
 export function PluginsPage({
   onSelectPackage,
   onOpenCourse,
   onOpenCommunityHub,
-  onImportArchive,
+  onImportPackage,
 }: PluginsPageProps) {
   const entries = useInstalledPackages()
   const setPackageEnabled = useRegistryStore(s => s.setPackageEnabled)
-  const runtimeHealthById = usePluginRuntimeStore(s => s.healthById)
-
   const [query, setQuery] = useState('')
   const [importError, setImportError] = useState('')
-  const [buildModalOpen, setBuildModalOpen] = useState(false)
-  const [isDraggingFile, setIsDraggingFile] = useState(false)
-  const dragDepthRef = useRef(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const healthById = useMemo(() => {
-    const map = new Map<
-      string,
-      { state: 'healthy' | 'warning' | 'error'; label?: string; detail?: string }
-    >()
-    for (const rec of entries) {
-      const rt = runtimeHealthById[rec.manifest.id]
-      if (rt?.quarantined) {
-        map.set(rec.manifest.id, {
-          state: 'error',
-          label: 'Quarantined',
-          detail: rt.lastError ?? 'Disabled after repeated crashes.',
-        })
-        continue
-      }
-      const health = evaluateInstalledHealth(rec, entries)
-      if (health.state !== 'healthy') {
-        const first = health.issues[0]
-        const label =
-          first?.code === 'host-incompatible'
-            ? 'Incompatible'
-            : first?.code === 'breaks-installed'
-              ? 'Conflict'
-              : first?.code === 'missing-dep'
-                ? 'Missing dep'
-                : first?.code === 'disabled-dep'
-                  ? 'Dep disabled'
-                  : 'Warning'
-        map.set(rec.manifest.id, {
-          state: health.state,
-          label,
-          detail: first?.message,
-        })
-      } else {
-        map.set(rec.manifest.id, { state: 'healthy' })
-      }
-    }
-    return map
-  }, [entries, runtimeHealthById])
-
-  const activeCount = useMemo(() => entries.filter(e => e.enabled).length, [entries])
-  const issueCount = useMemo(
-    () => [...healthById.values()].filter(h => h.state !== 'healthy').length,
-    [healthById],
-  )
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -129,22 +59,15 @@ export function PluginsPage({
   )
 
   function handleToggle(manifest: SyntaxPackageManifest, next: boolean) {
-    const res = setPackageEnabled(manifest.id, next)
-    if (!res.ok) {
-      toast.error(res.error)
-      return
+    if (!next && manifest.kind === 'embedded-plugin') {
+      const dependents = getDependentsOf(manifest.id)
+      if (dependents.length > 0) {
+        toast.message(`Disabled ${manifest.name}`, {
+          description: `Required by ${dependents.map(d => d.manifest.name).join(', ')}.`,
+        })
+      }
     }
-    if (!next && res.impact && !res.impact.safe) {
-      toast.message(`Disabled ${manifest.name}`, {
-        description: res.impact.summary,
-      })
-    }
-  }
-
-  async function handleExport(manifest: SyntaxPackageManifest) {
-    const vaultRec = await getVaultArchive(manifest.id)
-    exportSytxArchive(manifest, vaultRec?.rawBytes)
-    toast.success(`Exported ${manifest.id}-${manifest.version}.sytx`)
+    setPackageEnabled(manifest.id, next)
   }
 
   async function handleImportFile(file: File) {
@@ -154,95 +77,18 @@ export function PluginsPage({
       setImportError(parsed.errors[0] || 'Invalid package file.')
       return
     }
-    const normalized = normalizeExternalManifest(parsed.archive.manifest, OFFICIAL_ID_SET)
-    onImportArchive({ ...parsed.archive, manifest: normalized })
-  }
-
-  function handleDragEnter(e: DragEvent<HTMLElement>) {
-    if (!e.dataTransfer.types.includes('Files')) return
-    e.preventDefault()
-    dragDepthRef.current += 1
-    setIsDraggingFile(true)
-  }
-
-  function handleDragOver(e: DragEvent<HTMLElement>) {
-    if (!e.dataTransfer.types.includes('Files')) return
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'copy'
-  }
-
-  function handleDragLeave(e: DragEvent<HTMLElement>) {
-    if (!e.dataTransfer.types.includes('Files')) return
-    e.preventDefault()
-    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1)
-    if (dragDepthRef.current === 0) {
-      setIsDraggingFile(false)
-    }
-  }
-
-  function handleDrop(e: DragEvent<HTMLElement>) {
-    e.preventDefault()
-    dragDepthRef.current = 0
-    setIsDraggingFile(false)
-    const file = e.dataTransfer.files?.[0]
-    if (file) {
-      void handleImportFile(file)
-    }
-  }
-
-  function renderHealthFlag(id: string) {
-    const health = healthById.get(id)
-    if (!health || health.state === 'healthy') return null
-    return (
-      <span
-        className={`sx-health-flag is-${health.state}`}
-        title={health.detail}
-      >
-        {health.state === 'error' ? (
-          <XCircle size={12} aria-hidden="true" />
-        ) : (
-          <AlertTriangle size={12} aria-hidden="true" />
-        )}
-        <span>{health.label}</span>
-      </span>
-    )
+    onImportPackage(normalizeExternalManifest(parsed.manifest, OFFICIAL_ID_SET))
   }
 
   return (
-    <main
-      className={`sx-workspace-page sx-plugins-page${isDraggingFile ? ' is-dragging' : ''}`}
-      aria-label="Plugins"
-      onDragEnter={handleDragEnter}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      {isDraggingFile && (
-        <div className="sx-drop-overlay" aria-live="polite">
-          <div className="sx-drop-overlay-card">
-            <Upload size={26} aria-hidden="true" />
-            <strong>Drop .sytx archive to inspect</strong>
-            <span>Syntax verifies compatibility, permissions, and files before installing.</span>
-          </div>
-        </div>
-      )}
-
+    <main className="sx-workspace-page sx-plugins-page" aria-label="Plugins">
       <header className="sx-plugins-header">
         <div className="sx-plugins-title-row">
           <div className="sx-workspace-head">
             <h1>Plugins</h1>
             <span className="sx-hub-count">
-              Syntax {SYNTAX_HOST_VERSION} &middot; API v{SYNTAX_API_VERSION.split('.')[0]} &middot;{' '}
-              {activeCount} active
+              {entries.length} installed {entries.length === 1 ? 'package' : 'packages'}
             </span>
-            {issueCount > 0 && (
-              <span className="sx-health-flag is-warning">
-                <AlertTriangle size={12} aria-hidden="true" />
-                <span>
-                  {issueCount} {issueCount === 1 ? 'issue' : 'issues'}
-                </span>
-              </span>
-            )}
           </div>
           <div className="sx-plugins-cta-group">
             <button
@@ -251,15 +97,7 @@ export function PluginsPage({
               onClick={() => fileInputRef.current?.click()}
             >
               <Upload size={14} strokeWidth={2} aria-hidden="true" />
-              <span>Import .sytx</span>
-            </button>
-            <button
-              type="button"
-              className="sx-btn-secondary"
-              onClick={() => setBuildModalOpen(true)}
-            >
-              <Hammer size={14} strokeWidth={2} aria-hidden="true" />
-              <span>Build a plugin</span>
+              <span>Import file</span>
             </button>
             <button
               type="button"
@@ -278,7 +116,7 @@ export function PluginsPage({
             type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Filter installed plugins, engines, and courses..."
+            placeholder="Filter installed plugins and courses..."
             aria-label="Filter installed plugins"
           />
           {query && (
@@ -293,14 +131,10 @@ export function PluginsPage({
           )}
         </div>
 
-        <p className="sx-drop-hint">
-          Drop a <code>.sytx</code> archive anywhere on this page to inspect and install locally.
-        </p>
-
         <input
           ref={fileInputRef}
           type="file"
-          accept=".sytx,.zip,.syntaxcourse,.syntaxplugin,.syntaxembeddedplugin,.json"
+          accept=".syntaxcourse,.syntaxplugin,.syntaxembeddedplugin,.json"
           style={{ display: 'none' }}
           onChange={e => {
             const file = e.target.files?.[0]
@@ -336,27 +170,15 @@ export function PluginsPage({
                       <span className="sx-plugin-name">{manifest.name}</span>
                       {manifest.touchesCore && <CoreTouchIcon />}
                       <span className="sx-plugin-ver">v{manifest.version}</span>
-                      {renderHealthFlag(manifest.id)}
                     </div>
                     <span className="sx-plugin-sub">{manifest.tagline}</span>
                   </div>
                 </button>
-                <div className="sx-plugin-row-controls">
-                  <button
-                    type="button"
-                    className="sx-row-export-btn"
-                    title={`Export ${manifest.name} as .sytx`}
-                    aria-label={`Export ${manifest.name} as .sytx`}
-                    onClick={() => void handleExport(manifest)}
-                  >
-                    <Download size={14} aria-hidden="true" />
-                  </button>
-                  <Toggle
-                    label={`Enable ${manifest.name}`}
-                    checked={enabled}
-                    onChange={next => handleToggle(manifest, next)}
-                  />
-                </div>
+                <Toggle
+                  label={`Enable ${manifest.name}`}
+                  checked={enabled}
+                  onChange={next => handleToggle(manifest, next)}
+                />
               </div>
             ))}
           </div>
@@ -387,32 +209,19 @@ export function PluginsPage({
                     <div className="sx-plugin-name-line">
                       <span className="sx-plugin-name">{manifest.name}</span>
                       <span className="sx-plugin-ver">v{manifest.version}</span>
-                      {!enabled && (
-                        <span className="sx-hub-inline-state sx-embedded-flag">
-                          <span>Disabled</span>
-                        </span>
-                      )}
-                      {renderHealthFlag(manifest.id)}
+                      <span className={`sx-hub-inline-state sx-embedded-flag${enabled ? ' is-ok' : ''}`}>
+                        {enabled && <Check size={12} strokeWidth={2.5} aria-hidden="true" />}
+                        <span>{enabled ? 'Installed' : 'Disabled'}</span>
+                      </span>
                     </div>
                     <span className="sx-plugin-sub">{manifest.tagline}</span>
                   </div>
                 </button>
-                <div className="sx-plugin-row-controls">
-                  <button
-                    type="button"
-                    className="sx-row-export-btn"
-                    title={`Export ${manifest.name} as .sytx`}
-                    aria-label={`Export ${manifest.name} as .sytx`}
-                    onClick={() => void handleExport(manifest)}
-                  >
-                    <Download size={14} aria-hidden="true" />
-                  </button>
-                  <Toggle
-                    label={`Enable ${manifest.name}`}
-                    checked={enabled}
-                    onChange={next => handleToggle(manifest, next)}
-                  />
-                </div>
+                <Toggle
+                  label={`Enable ${manifest.name}`}
+                  checked={enabled}
+                  onChange={next => handleToggle(manifest, next)}
+                />
               </div>
             ))}
           </div>
@@ -448,29 +257,17 @@ export function PluginsPage({
                           <span>Disabled</span>
                         </span>
                       )}
-                      {renderHealthFlag(manifest.id)}
                     </div>
                     <span className="sx-plugin-sub">{manifest.tagline}</span>
                   </div>
                 </button>
-                <div className="sx-plugin-row-controls">
-                  <button
-                    type="button"
-                    className="sx-row-export-btn"
-                    title={`Export ${manifest.name} as .sytx`}
-                    aria-label={`Export ${manifest.name} as .sytx`}
-                    onClick={() => void handleExport(manifest)}
-                  >
-                    <Download size={14} aria-hidden="true" />
-                  </button>
-                  <button
-                    type="button"
-                    className="sx-btn-secondary sx-btn-sm"
-                    onClick={() => onOpenCourse(manifest.id)}
-                  >
-                    {enabled ? 'Open' : 'Enable'}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  className="sx-btn-secondary sx-btn-sm"
+                  onClick={() => onOpenCourse(manifest.id)}
+                >
+                  {enabled ? 'Open' : 'Enable'}
+                </button>
               </div>
             ))}
           </div>
@@ -485,12 +282,6 @@ export function PluginsPage({
           </button>
         </div>
       )}
-
-      <BuildPluginModal
-        open={buildModalOpen}
-        onClose={() => setBuildModalOpen(false)}
-        onTestInstall={archive => onImportArchive(archive)}
-      />
     </main>
   )
 }
