@@ -241,10 +241,10 @@ export class ExtensionManager {
             { extensionId: inst.extensionId },
           )
         }
-        if (typeof value !== def.type) {
+        if (typeof value !== def.type || (def.type === 'number' && !Number.isFinite(value))) {
           throw new ExtensionError(
             'SYSCALL_DENIED',
-            `Setting "${key}" expects type "${def.type}" (got "${typeof value}").`,
+            `Setting "${key}" expects a valid "${def.type}" (got "${String(value)}").`,
             { extensionId: inst.extensionId },
           )
         }

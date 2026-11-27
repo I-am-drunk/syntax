@@ -4,7 +4,7 @@ import { useContributionStore, qualifyContributionKey } from '../../src/extensio
 import { ExtensionServiceRegistry, findServiceCycle } from '../../src/extensions/services.ts'
 import { createMemoryDocumentStore } from '../../src/extensions/documents.ts'
 import { validateExtensionManifest } from '../../src/extensions/manifest.ts'
-import { isSafeMode } from '../../src/extensions/store.ts'
+import { isSafeMode, useExtensionStore } from '../../src/extensions/store.ts'
 
 describe('ContributionStore ownership and cleanup', () => {
   beforeEach(() => {
@@ -162,5 +162,43 @@ describe('DocumentStore optimistic concurrency and Safe Mode detection', () => {
     assert.equal(isSafeMode('', '#/?safeMode=1'), true)
     assert.equal(isSafeMode('', '#/extensions?safeMode=true'), true)
     assert.equal(isSafeMode('', '#/extensions'), false)
+  })
+
+  it('validates persisted settings against current manifest schema and rejects NaN', () => {
+    const store = useExtensionStore.getState()
+    const extId = 'tj.settings-unit'
+    const v1 = validateExtensionManifest({
+      formatVersion: 1,
+      id: extId,
+      name: 'Settings Test',
+      version: '1.0.0',
+      settings: [
+        { id: 'prefix', type: 'string', label: 'Prefix', default: 'Scene' },
+        { id: 'count', type: 'number', label: 'Count', default: 3 },
+        { id: 'oldFlag', type: 'boolean', label: 'Old Flag', default: false },
+      ],
+    })
+    store.setSetting(extId, 'prefix', 'Act')
+    store.setSetting(extId, 'oldFlag', true)
+    store.setSetting(extId, 'count', Number.NaN)
+
+    assert.equal(store.getSetting(extId, 'prefix', v1), 'Act')
+    assert.equal(store.getSetting(extId, 'count', v1), 3)
+
+    // v2 changes prefix from string -> boolean and drops oldFlag
+    const v2 = validateExtensionManifest({
+      formatVersion: 1,
+      id: extId,
+      name: 'Settings Test',
+      version: '2.0.0',
+      settings: [
+        { id: 'prefix', type: 'boolean', label: 'Use Prefix', default: true },
+        { id: 'count', type: 'number', label: 'Count', default: 5 },
+      ],
+    })
+    assert.equal(store.getSetting(extId, 'prefix', v2), true)
+    assert.equal(store.getSetting(extId, 'oldFlag', v2), undefined)
+    assert.deepEqual(store.getAllSettings(extId, v2), { prefix: true, count: 5 })
+    store.clearSettings(extId)
   })
 })

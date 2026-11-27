@@ -54,6 +54,7 @@ function generateDocId(): string {
 }
 
 function cloneData<T>(value: T): T {
+  if (value === undefined) return undefined as T
   return typeof structuredClone === 'function'
     ? structuredClone(value)
     : (JSON.parse(JSON.stringify(value)) as T)
@@ -150,10 +151,21 @@ export function createIndexedDbDocumentStore(): DocumentStore {
   let dbPromise: Promise<IDBDatabase> | null = null
   const getDb = () => {
     if (!dbPromise) {
-      dbPromise = openDocumentsDb().catch(err => {
-        dbPromise = null
-        throw err
-      })
+      dbPromise = openDocumentsDb()
+        .then(db => {
+          db.onversionchange = () => {
+            db.close()
+            dbPromise = null
+          }
+          db.onclose = () => {
+            dbPromise = null
+          }
+          return db
+        })
+        .catch(err => {
+          dbPromise = null
+          throw err
+        })
     }
     return dbPromise
   }
@@ -204,16 +216,29 @@ export function createIndexedDbDocumentStore(): DocumentStore {
       return await new Promise<DocumentEnvelope<T>>((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, 'readwrite')
         const store = tx.objectStore(STORE_NAME)
+        let settled = false
+        let reqErr: Error | null = null
+        const fail = (err: Error) => {
+          if (settled) return
+          settled = true
+          reject(err)
+        }
+        const ok = (val: DocumentEnvelope<T>) => {
+          if (settled) return
+          settled = true
+          resolve(val)
+        }
         const req = store.add(env)
         req.onerror = () => {
-          if (req.error?.name === 'ConstraintError') {
-            reject(new ExtensionError('REVISION_CONFLICT', `Document "${id}" already exists.`))
-          } else {
-            reject(req.error ?? new Error('Create failed'))
-          }
+          reqErr =
+            req.error?.name === 'ConstraintError'
+              ? new ExtensionError('REVISION_CONFLICT', `Document "${id}" already exists.`)
+              : (req.error ?? new Error('Create failed'))
+          fail(reqErr)
         }
-        tx.oncomplete = () => resolve(cloneData(env))
-        tx.onerror = () => reject(tx.error ?? new Error('Create transaction failed'))
+        tx.onabort = () => fail(reqErr ?? tx.error ?? new Error('Create aborted'))
+        tx.onerror = () => fail(reqErr ?? tx.error ?? new Error('Create transaction failed'))
+        tx.oncomplete = () => ok(cloneData(env))
       })
     },
 
@@ -286,9 +311,20 @@ export function createIndexedDbDocumentStore(): DocumentStore {
       const db = await getDb()
       await new Promise<void>((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, 'readwrite')
+        let settled = false
+        const fail = (err: Error) => {
+          if (settled) return
+          settled = true
+          reject(err)
+        }
         tx.objectStore(STORE_NAME).delete(id)
-        tx.oncomplete = () => resolve()
-        tx.onerror = () => reject(tx.error ?? new Error('Delete failed'))
+        tx.oncomplete = () => {
+          if (settled) return
+          settled = true
+          resolve()
+        }
+        tx.onabort = () => fail(tx.error ?? new Error('Delete aborted'))
+        tx.onerror = () => fail(tx.error ?? new Error('Delete failed'))
       })
     },
   }
