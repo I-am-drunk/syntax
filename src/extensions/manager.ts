@@ -917,6 +917,19 @@ export class ExtensionManager {
   }
 
   /**
+   * Pushes updated settings live to active extension workers that export `onSettingsChanged`.
+   */
+  notifySettingsChanged(extId?: string | null) {
+    const store = useExtensionStore.getState()
+    const targets = extId ? [this.active.get(extId)].filter(Boolean) : [...this.active.values()]
+    for (const inst of targets) {
+      if (!inst?.sandbox) continue
+      const all = store.getAllSettings(inst.extensionId, inst.manifest)
+      inst.sandbox.notifySettingsChanged(all)
+    }
+  }
+
+  /**
    * Reconciles cloud-synced extension entries onto this device without blocking UI
    * or failing the app if any individual extension host is temporarily unreachable.
    */
@@ -972,6 +985,10 @@ declare global {
 }
 
 if (typeof window !== 'undefined') {
+  window.addEventListener('syntax:extension-settings-changed', ev => {
+    const detail = (ev as CustomEvent<{ extensionId?: string | null } | undefined>).detail
+    extensionManager.notifySettingsChanged(detail?.extensionId ?? null)
+  })
   window.__SYNTAX_EXTENSIONS__ = {
     manager: extensionManager,
     store: useExtensionStore,

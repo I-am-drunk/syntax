@@ -90,25 +90,36 @@ export async function createNote(ctx, body = '') {
 }
 ```
 
-### 3. `view/index.html` (Opaque-Origin View Bridge)
+### 3. `view/index.html` (Zero-Boilerplate View SDK)
+
+Use the official zero-dependency SDK (`public/sdk/syntax-view-v1.js`) to connect to Syntax, sync Light/Dark theme tokens automatically, auto-resize embedded widgets, and call your worker or Syntax documents:
 
 ```html
 <!doctype html>
 <html>
 <body>
   <script type="module">
-    const CHANNEL = 'syntax-view-v1'
-    let session = null
-    window.addEventListener('message', (event) => {
-      const msg = event.data
-      if (msg?.channel !== CHANNEL) return
-      if (msg.type === 'syntax:view-init') {
-        session = msg
-        // Apply msg.theme.mode and msg.theme.cssVars, then call worker or syscall via syntax:view-call
-      }
+    import { connectSyntaxView } from 'https://syntax-platform.github.io/syntax/sdk/syntax-view-v1.js'
+
+    const view = await connectSyntaxView({
+      autoResize: true,
+      onSettings(settings) {
+        console.log('Live settings:', settings)
+      },
     })
-    window.parent.postMessage({ channel: CHANNEL, type: 'syntax:view-ready' }, '*')
+
+    const docs = await view.documents.list()
+    const created = await view.callWorker('createNote', 'Hello Syntax')
+    await view.ui.notify(`Created ${created.title}`, 'success')
   </script>
 </body>
 </html>
 ```
+
+Workers can also export `export function onSettingsChanged(ctx, settings) {}` to react immediately whenever the user edits settings on the Extensions page.
+
+### Security & Ownership Guarantees
+
+- **Per-extension document isolation:** Extensions can only list, read, and save documents they created (`createdByExtensionId`). Cross-extension collaboration goes explicitly through versioned `services`.
+- **Per-extension quotas:** Documents are capped at 2 MB each and 250 documents per extension.
+- **Pre-install review:** Installing from a URL or Community Hub validates `extension.json` first and displays host origin and declared capabilities before executing any code.

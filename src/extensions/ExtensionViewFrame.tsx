@@ -107,6 +107,7 @@ export function ExtensionViewFrame({
   const [ready, setReady] = useState(false)
   const [fault, setFault] = useState<ViewFault | null>(null)
   const [copied, setCopied] = useState(false)
+  const [embedHeight, setEmbedHeight] = useState<number | null>(null)
 
   useEffect(() => {
     const instanceId = nextViewInstanceId()
@@ -119,6 +120,7 @@ export function ExtensionViewFrame({
     const MAX_IN_FLIGHT_CALLS = 64
     setReady(false)
     setFault(null)
+    setEmbedHeight(null)
 
     extensionDiagnostics.adjustCounter('views', 1)
     extensionDiagnostics.adjustCounter('windowListeners', 1)
@@ -198,7 +200,23 @@ export function ExtensionViewFrame({
           viewId,
           docId,
           theme: readCurrentViewTheme(),
+          settings: useExtensionStore.getState().getAllSettings(extensionId),
         })
+        return
+      }
+
+      if (raw.type === 'syntax:view-resize') {
+        if (
+          placement !== 'embed' ||
+          raw.instanceId !== instanceId ||
+          raw.activationId !== activationId ||
+          typeof raw.height !== 'number' ||
+          !Number.isFinite(raw.height)
+        ) {
+          return
+        }
+        const clamped = Math.round(Math.min(1200, Math.max(120, raw.height)))
+        setEmbedHeight(clamped)
         return
       }
 
@@ -319,15 +337,32 @@ export function ExtensionViewFrame({
       attributeFilter: ['data-theme', 'style'],
     })
 
+    const onSettingsChanged = (ev: Event) => {
+      if (disposed || terminatedRef.current || !readyRef.current) return
+      const detail = (ev as CustomEvent<{ extensionId?: string | null } | undefined>).detail
+      if (detail?.extensionId && detail.extensionId !== extensionId) return
+      const win = iframeRef.current?.contentWindow
+      if (!win) return
+      postToView(win, {
+        channel: VIEW_BRIDGE_CHANNEL,
+        type: 'syntax:view-settings',
+        instanceId,
+        activationId,
+        settings: useExtensionStore.getState().getAllSettings(extensionId),
+      })
+    }
+    window.addEventListener('syntax:extension-settings-changed', onSettingsChanged)
+
     return () => {
       disposed = true
       window.clearTimeout(readyTimer)
       window.removeEventListener('message', handleMessage)
+      window.removeEventListener('syntax:extension-settings-changed', onSettingsChanged)
       themeObserver.disconnect()
       extensionDiagnostics.adjustCounter('views', -1)
       extensionDiagnostics.adjustCounter('windowListeners', -1)
     }
-  }, [extensionId, viewId, entryUrl, activationId, docId, title, readyTimeoutMs, frameNonce])
+  }, [extensionId, viewId, entryUrl, activationId, docId, title, placement, readyTimeoutMs, frameNonce])
 
   function handleIframeLoad() {
     loadCountRef.current += 1
@@ -467,6 +502,7 @@ export function ExtensionViewFrame({
           src={entryUrl}
           title={`${extensionName}: ${title}`}
           className="sx-ext-iframe"
+          style={placement === 'embed' && embedHeight ? { height: `${embedHeight}px` } : undefined}
           sandbox="allow-scripts allow-forms"
           allow="camera 'none'; microphone 'none'; geolocation 'none'; payment 'none'; usb 'none'"
           referrerPolicy="no-referrer"

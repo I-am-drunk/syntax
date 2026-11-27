@@ -3423,6 +3423,11 @@
   background: transparent;
 }
 
+.sx-ext-view-frame.is-embed .sx-ext-iframe {
+  flex: 0 0 auto;
+  min-height: 120px;
+}
+
 .sx-ext-embed-recovery {
   display: flex;
   align-items: center;

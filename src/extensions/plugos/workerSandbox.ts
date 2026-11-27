@@ -270,6 +270,17 @@ self.onmessage = async (ev) => {
     } else {
       pending.resolve(msg.result);
     }
+    return;
+  }
+
+  if (msg.type === 'settings-changed') {
+    if (mod && typeof mod.onSettingsChanged === 'function') {
+      try {
+        await Promise.resolve(mod.onSettingsChanged(globalThis.syntax, msg.settings || {}));
+      } catch (err) {
+        self.postMessage({ type: 'runtime-error', error: serializeErr(err) });
+      }
+    }
   }
 };
 `
@@ -664,6 +675,16 @@ export class WorkerSandbox {
         )
       }
     })
+  }
+
+  notifySettingsChanged(settings: Record<string, boolean | string | number>) {
+    if (!this.isRunning || !this.worker) return
+    try {
+      const msg: HostToWorkerMessage = { type: 'settings-changed', settings }
+      this.worker.postMessage(msg)
+    } catch {
+      // ignore postMessage errors on closing worker
+    }
   }
 
   private terminateWorkerOnly() {

@@ -1,12 +1,24 @@
 let activatedPrefix = null
+let livePrefix = null
 
 export async function onActivate(ctx) {
   activatedPrefix = await ctx.settings.get('defaultPrefix')
+  livePrefix = activatedPrefix
   ctx.log.info(`Storyboard Studio activated (prefix=${activatedPrefix})`)
+}
+
+export function onSettingsChanged(_ctx, settings) {
+  if (settings && typeof settings.defaultPrefix === 'string') {
+    livePrefix = settings.defaultPrefix
+  }
 }
 
 export async function getActivatedPrefix() {
   return activatedPrefix
+}
+
+export async function getLivePrefix() {
+  return livePrefix
 }
 
 export async function setPrefix(ctx, nextPrefix) {
