@@ -499,13 +499,25 @@ describe('Syntax Extensions v1 end-to-end acceptance suite (real Chromium)', () 
       assert.equal(safeState.records.length, 2)
       assert.ok(safeState.records.every(r => r.status === 'safe-mode'))
 
-      // Calling update() while in Safe Mode must NEVER start a worker
-      const safeUpdateWorkers = await page.evaluate(async () => {
+      // Calling update(), enable(), installFromUrl(), or reload() while in Safe Mode must NEVER start a worker
+      const safeUpdateWorkers = await page.evaluate(async url => {
         const ext = window.__SYNTAX_EXTENSIONS__
         await ext.manager.update('tj.storyboard')
-        return ext.diagnostics.getResourceCounters().workers
-      })
-      assert.equal(safeUpdateWorkers, 0)
+        await ext.manager.enable('tj.storyboard')
+        await ext.manager.installFromUrl(url)
+        let reloadBlocked = false
+        try {
+          await ext.manager.reload('tj.storyboard')
+        } catch (err) {
+          reloadBlocked = /Safe Mode/.test(err.message)
+        }
+        return {
+          workers: ext.diagnostics.getResourceCounters().workers,
+          reloadBlocked,
+        }
+      }, harness.extUrl('storyboard/extension.json'))
+      assert.equal(safeUpdateWorkers.workers, 0)
+      assert.equal(safeUpdateWorkers.reloadBlocked, true)
 
       // Exit Safe Mode via UI button -> boots cleanly!
       await page.click('button:has-text("Exit Safe Mode")')
