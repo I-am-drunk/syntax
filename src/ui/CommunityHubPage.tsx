@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, Check, Download, ExternalLink, Puzzle, RefreshCw, Search, X } from 'lucide-react'
+import { AlertTriangle, Check, Compass, Download, ExternalLink, Puzzle, RefreshCw, Search, X } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   COMMUNITY_HUB_WEB_URL,
@@ -259,6 +259,9 @@ export function CommunityHubPage({ highlightedId: rawHighlightedId, onOpenExtens
 
       {catalog.status === 'ready' && catalog.entries.length === 0 && (
         <div className="sx-hub-empty">
+          <span className="sx-empty-icon" aria-hidden="true">
+            <Compass size={20} strokeWidth={1.9} />
+          </span>
           <p>No published extensions in the community catalog yet.</p>
           <p className="sx-profile-handle">
             You can install any extension directly by URL from the Extensions page.

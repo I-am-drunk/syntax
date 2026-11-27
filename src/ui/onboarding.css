@@ -227,23 +227,23 @@
 .ob-primary {
   appearance: none;
   border: none;
-  background: #179f40;
+  background: #456dff;
   color: #ffffff;
   font: inherit;
   font-size: 14.5px;
   font-weight: 700;
   padding: 10px 22px;
-  border-radius: 13px;
-  box-shadow: 0 3px 0 #10772f;
+  border-radius: 12px;
+  box-shadow: 0 3px 0 #2e50d4;
   cursor: pointer;
-  transition: background-color 120ms ease, transform 80ms ease, box-shadow 80ms ease;
+  transition: filter 120ms ease, transform 80ms ease, box-shadow 80ms ease;
 }
 
 .ob-primary:hover {
-  background: #148f39;
+  filter: brightness(1.05);
 }
 
 .ob-primary:active {
   transform: translateY(1px);
-  box-shadow: 0 2px 0 #10772f;
+  box-shadow: 0 1px 0 #2e50d4;
 }

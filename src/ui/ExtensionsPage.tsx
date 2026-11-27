@@ -11,6 +11,7 @@ import {
   Play,
   Plus,
   Power,
+  Puzzle,
   RefreshCw,
   RotateCcw,
   Search,
@@ -433,6 +434,9 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
 
         {visibleRecords.length === 0 ? (
           <div className="sx-hub-empty">
+            <span className="sx-empty-icon" aria-hidden="true">
+              <Puzzle size={20} strokeWidth={1.9} />
+            </span>
             <p>
               {viewMode === 'courses'
                 ? 'No courses installed yet.'
@@ -822,27 +826,29 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
         )}
       </section>
 
-      <footer className="sx-ext-runtime-footer" aria-label="Extension runtime diagnostics">
-        <span className="sx-ext-runtime-stats">
-          {liveCounters.workers} {liveCounters.workers === 1 ? 'worker' : 'workers'}
-          {' · '}
-          {liveCounters.views} {liveCounters.views === 1 ? 'view' : 'views'}
-          {' · '}
-          {liveCounters.commands} {liveCounters.commands === 1 ? 'command' : 'commands'}
-          {' · '}
-          {liveCounters.services} {liveCounters.services === 1 ? 'service' : 'services'}
-          {' · '}
-          {liveCounters.blobUrls} active blobs
-        </span>
-        <button
-          type="button"
-          className="sx-btn-ghost sx-btn-sm"
-          onClick={() => void handleCopyReport()}
-        >
-          {copiedId === '__all__' ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
-          <span>{copiedId === '__all__' ? 'Copied' : 'Copy runtime report'}</span>
-        </button>
-      </footer>
+      {(records.length > 0 || safeMode) && (
+        <footer className="sx-ext-runtime-footer" aria-label="Extension runtime diagnostics">
+          <span className="sx-ext-runtime-stats">
+            {liveCounters.workers} {liveCounters.workers === 1 ? 'worker' : 'workers'}
+            {' · '}
+            {liveCounters.views} {liveCounters.views === 1 ? 'view' : 'views'}
+            {' · '}
+            {liveCounters.commands} {liveCounters.commands === 1 ? 'command' : 'commands'}
+            {' · '}
+            {liveCounters.services} {liveCounters.services === 1 ? 'service' : 'services'}
+            {' · '}
+            {liveCounters.blobUrls} active blobs
+          </span>
+          <button
+            type="button"
+            className="sx-btn-ghost sx-btn-sm"
+            onClick={() => void handleCopyReport()}
+          >
+            {copiedId === '__all__' ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
+            <span>{copiedId === '__all__' ? 'Copied' : 'Copy runtime report'}</span>
+          </button>
+        </footer>
+      )}
 
       <ExtensionInstallModal
         open={Boolean(pendingInstall)}

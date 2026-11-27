@@ -169,14 +169,14 @@
   flex-direction: column;
   gap: 16px;
   padding: 20px;
-  border-radius: 16px;
-  border: 1px solid var(--border);
+  border-radius: 14px;
+  border: 1.5px solid var(--border);
   background: var(--surface);
 }
 
 :root[data-theme='dark'] .sema-studio-card {
-  background: #1a1a1a;
-  border-color: #2f2f2f;
+  background: #181818;
+  border-color: #2c2c2c;
 }
 
 .sema-studio-hero {

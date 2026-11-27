@@ -226,6 +226,9 @@ export function LibraryPage({
 
       {pageViews.length === 0 && embedViews.length === 0 && documents.length === 0 ? (
         <div className="sx-library-empty">
+          <span className="sx-empty-icon" aria-hidden="true">
+            <Puzzle size={20} strokeWidth={1.9} />
+          </span>
           <p>No extensions or documents yet.</p>
           <p className="sx-profile-handle">
             Install standalone or embedded extensions from Extensions or Community Hub to add new
