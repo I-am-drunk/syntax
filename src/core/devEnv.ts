@@ -16,7 +16,9 @@ export function isDevEnvironment(): boolean {
       path === '/dev' ||
       path.startsWith('/dev/') ||
       path.endsWith('/dev') ||
-      path.includes('/dev/')
+      path.includes('/dev/') ||
+      path === '/syntax-dev' ||
+      path.startsWith('/syntax-dev/')
     ) {
       return true
     }

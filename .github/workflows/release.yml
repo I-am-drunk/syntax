@@ -1,0 +1,403 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+      - "!v*-nightly.*"
+      - "!v*-preview.*"
+  schedule:
+    # Avoid minute zero, when GitHub scheduled runners are busiest.
+    - cron: "8 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "Release channel (nightly -> syntax-dev, stable -> syntax, preview -> draft dry-run)"
+        required: false
+        default: nightly
+        type: choice
+        options:
+          - nightly
+          - stable
+          - preview
+      version:
+        description: "Optional stable version override (for example 0.3.0). Defaults to latest nightly's base version."
+        required: false
+        type: string
+
+concurrency:
+  group: release-${{ (github.event_name == 'schedule' || inputs.channel == 'nightly' || inputs.channel == 'preview') && 'nightly' || 'stable' }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: read
+  id-token: none
+
+jobs:
+  resolve:
+    name: Resolve release commit & version
+    if: github.repository == 'syntax-platform/syntax' && (github.event_name != 'schedule' || vars.PAUSE_NIGHTLY != 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      should_release: ${{ steps.meta.outputs.should_release }}
+      channel: ${{ steps.meta.outputs.channel }}
+      ref: ${{ steps.meta.outputs.ref }}
+      short_sha: ${{ steps.meta.outputs.short_sha }}
+      version: ${{ steps.meta.outputs.version }}
+      tag: ${{ steps.meta.outputs.tag }}
+      release_name: ${{ steps.meta.outputs.release_name }}
+      previous_tag: ${{ steps.meta.outputs.previous_tag }}
+      is_prerelease: ${{ steps.meta.outputs.is_prerelease }}
+      make_latest: ${{ steps.meta.outputs.make_latest }}
+      vite_base: ${{ steps.meta.outputs.vite_base }}
+      vite_channel: ${{ steps.meta.outputs.vite_channel }}
+    steps:
+      - name: Checkout scripts
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            .github/scripts
+            package.json
+
+      - id: meta
+        name: Resolve channel, ref, and tags
+        uses: actions/github-script@v7
+        env:
+          DISPATCH_CHANNEL: ${{ github.event.inputs.channel }}
+          DISPATCH_VERSION: ${{ github.event.inputs.version }}
+          RUN_STARTED_AT: ${{ github.run_started_at }}
+          RUN_NUMBER: ${{ github.run_number }}
+        with:
+          script: |
+            const fs = require('node:fs');
+            const mod = await import('./.github/scripts/check-nightly-release.mjs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const defaultBranch = context.payload.repository?.default_branch || 'main';
+
+            const channel = context.eventName === 'schedule'
+              ? 'nightly'
+              : context.eventName === 'workflow_dispatch'
+                ? (process.env.DISPATCH_CHANNEL || 'nightly')
+                : 'stable';
+
+            const releases = await mod.listPublishedReleases({ github, owner, repo });
+            const latestStable = mod.findLatestRelease(releases, tag => mod.isStableTag(tag));
+
+            let targetSha = context.sha;
+            let version = '';
+            let tag = '';
+            let releaseName = '';
+            let isPrerelease = 'false';
+            let makeLatest = 'false';
+
+            if (channel === 'nightly') {
+              if (context.eventName === 'workflow_dispatch' && context.ref !== `refs/heads/${defaultBranch}`) {
+                throw new Error(`Nightly releases must run from ${defaultBranch}. Use channel=preview for branches.`);
+              }
+              await mod.assertCommitOnDefaultBranch({ github, owner, repo, defaultBranch, sha: targetSha });
+
+              if (context.eventName === 'schedule') {
+                const due = await mod.shouldReleaseNightly({ github, owner, repo, sha: targetSha, releases, core });
+                if (!due) {
+                  core.setOutput('should_release', 'false');
+                  return;
+                }
+              }
+
+              const baseVersion = mod.resolveNextBaseVersion({
+                latestStableTag: latestStable?.tagName,
+                pkgVersion: pkg.version,
+              });
+              const dateStr = new Date(process.env.RUN_STARTED_AT || Date.now())
+                .toISOString()
+                .slice(0, 10)
+                .replace(/-/g, '');
+              const formatted = mod.formatNightlyTag({
+                baseVersion,
+                dateStr,
+                runNumber: process.env.RUN_NUMBER,
+              });
+              version = formatted.version;
+              tag = formatted.tag;
+              releaseName = `Syntax Dev ${version} (${targetSha.slice(0, 8)})`;
+              isPrerelease = 'true';
+              makeLatest = 'false';
+            } else if (channel === 'preview') {
+              const baseVersion = mod.resolveNextBaseVersion({
+                latestStableTag: latestStable?.tagName,
+                pkgVersion: pkg.version,
+              });
+              const dateStr = new Date(process.env.RUN_STARTED_AT || Date.now())
+                .toISOString()
+                .slice(0, 10)
+                .replace(/-/g, '');
+              const formatted = mod.formatPreviewTag({
+                baseVersion,
+                dateStr,
+                runNumber: process.env.RUN_NUMBER,
+              });
+              version = formatted.version;
+              tag = formatted.tag;
+              releaseName = `Syntax Preview ${version} (${targetSha.slice(0, 8)})`;
+              isPrerelease = 'true';
+              makeLatest = 'false';
+            } else {
+              // Stable channel: tag push OR manual promotion of the latest published nightly
+              let nightlyVersion = null;
+              if (context.eventName === 'workflow_dispatch') {
+                if (context.ref !== `refs/heads/${defaultBranch}`) {
+                  throw new Error(`Stable releases must be dispatched from ${defaultBranch}.`);
+                }
+                const promoted = await mod.resolveLatestNightlyCommit({ github, owner, repo, releases, core });
+                if (promoted) {
+                  targetSha = promoted.sha;
+                  nightlyVersion = promoted.version;
+                  core.notice(`Promoting latest nightly ${promoted.tag} (${targetSha.slice(0, 8)}) to Stable.`);
+                }
+                await mod.assertCommitOnDefaultBranch({ github, owner, repo, defaultBranch, sha: targetSha });
+                version = (process.env.DISPATCH_VERSION || nightlyVersion || mod.resolveNextBaseVersion({
+                  latestStableTag: latestStable?.tagName,
+                  pkgVersion: pkg.version,
+                })).replace(/^v/, '');
+              } else {
+                version = context.ref.replace(/^refs\/tags\/v?/, '');
+                await mod.assertCommitOnDefaultBranch({ github, owner, repo, defaultBranch, sha: targetSha });
+              }
+
+              if (!/^\d+\.\d+\.\d+$/.test(version)) {
+                throw new Error(`Invalid stable semver version: ${version}`);
+              }
+              tag = `v${version}`;
+              releaseName = `Syntax v${version}`;
+              isPrerelease = 'false';
+              makeLatest = 'true';
+            }
+
+            const previousTag = mod.resolvePreviousTag({ releases, channel, currentTag: tag });
+            const viteBase = channel === 'stable' ? '/syntax/' : '/syntax-dev/';
+            const viteChannel = channel === 'stable' ? 'stable' : 'dev';
+
+            core.setOutput('should_release', 'true');
+            core.setOutput('channel', channel);
+            core.setOutput('ref', targetSha);
+            core.setOutput('short_sha', targetSha.slice(0, 8));
+            core.setOutput('version', version);
+            core.setOutput('tag', tag);
+            core.setOutput('release_name', releaseName);
+            core.setOutput('previous_tag', previousTag);
+            core.setOutput('is_prerelease', isPrerelease);
+            core.setOutput('make_latest', makeLatest);
+            core.setOutput('vite_base', viteBase);
+            core.setOutput('vite_channel', viteChannel);
+
+  build:
+    name: Verify & build (${{ needs.resolve.outputs.channel }})
+    needs: [resolve]
+    if: needs.resolve.result == 'success' && needs.resolve.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout target commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.ref }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify all 335 GeoScenes
+        run: npm run verify:graphs
+
+      - name: Build production bundle
+        env:
+          VITE_BASE: ${{ needs.resolve.outputs.vite_base }}
+          VITE_CHANNEL: ${{ needs.resolve.outputs.vite_channel }}
+          VITE_RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+          VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY }}
+        run: npm run build
+
+      - name: Prepare static site archive
+        run: |
+          touch dist/.nojekyll
+          tar -czf "site-${{ needs.resolve.outputs.channel }}.tar.gz" -C dist .
+
+      - name: Upload release bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-bundle
+          path: |
+            site-${{ needs.resolve.outputs.channel }}.tar.gz
+          retention-days: 7
+
+      - name: Upload GitHub Pages artifact (Stable)
+        if: needs.resolve.outputs.channel == 'stable'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  release:
+    name: Publish GitHub Release
+    needs: [resolve, build]
+    if: needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: read
+      models: read
+    steps:
+      - name: Checkout history for release notes
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.ref }}
+          fetch-depth: 0
+          filter: blob:none
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Download built bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: site-bundle
+          path: release-assets
+
+      - name: Generate T3-style release notes
+        if: needs.resolve.outputs.channel != 'preview'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          node scripts/generate-release-notes.mjs \
+            --repository "${{ github.repository }}" \
+            --tag "${{ needs.resolve.outputs.tag }}" \
+            --ref "${{ needs.resolve.outputs.ref }}" \
+            --previous-tag "${{ needs.resolve.outputs.previous_tag }}" \
+            --version "${{ needs.resolve.outputs.version }}" \
+            --output release-notes.md
+          if [[ -f release-notes.md ]]; then
+            cat release-notes.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Write preview warning notes
+        if: needs.resolve.outputs.channel == 'preview'
+        run: |
+          cat > release-notes.md <<'EOF'
+          > [!WARNING]
+          > **This is a preview build cut from an unreleased branch.**
+          >
+          > Preview builds stay drafts and never deploy to Syntax Stable or Syntax Dev. For the live app, open [Syntax Stable](https://syntax-platform.github.io/syntax/) or [Syntax Dev](https://syntax-platform.github.io/syntax-dev/).
+
+          Built from `${{ needs.resolve.outputs.ref }}`.
+          EOF
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          TARGET_REF: ${{ needs.resolve.outputs.ref }}
+          RELEASE_NAME: ${{ needs.resolve.outputs.release_name }}
+          CHANNEL: ${{ needs.resolve.outputs.channel }}
+          IS_PRERELEASE: ${{ needs.resolve.outputs.is_prerelease }}
+          MAKE_LATEST: ${{ needs.resolve.outputs.make_latest }}
+        run: |
+          set -euo pipefail
+          EXTRA_ARGS=()
+          if [[ "$IS_PRERELEASE" == "true" ]]; then
+            EXTRA_ARGS+=(--prerelease)
+          fi
+          if [[ "$CHANNEL" == "preview" ]]; then
+            EXTRA_ARGS+=(--draft)
+          fi
+          if [[ "$MAKE_LATEST" == "true" ]]; then
+            EXTRA_ARGS+=(--latest)
+          else
+            EXTRA_ARGS+=(--latest=false)
+          fi
+          if [[ -f release-notes.md ]]; then
+            EXTRA_ARGS+=(--notes-file release-notes.md)
+          else
+            EXTRA_ARGS+=(--generate-notes)
+          fi
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$RELEASE_NAME" "${EXTRA_ARGS[@]}"
+            gh release upload "$TAG" release-assets/*.tar.gz --clobber
+          else
+            gh release create "$TAG" release-assets/*.tar.gz \
+              --target "$TARGET_REF" \
+              --title "$RELEASE_NAME" \
+              "${EXTRA_ARGS[@]}"
+          fi
+
+  deploy_stable:
+    name: Deploy Syntax Stable (syntax-platform.github.io/syntax)
+    needs: [resolve, build, release]
+    if: needs.release.result == 'success' && needs.resolve.outputs.channel == 'stable'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  deploy_dev:
+    name: Deploy Syntax Dev (syntax-platform.github.io/syntax-dev)
+    needs: [resolve, build, release]
+    if: needs.release.result == 'success' && needs.resolve.outputs.channel == 'nightly'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download Dev bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: site-bundle
+          path: bundle
+
+      - name: Cross-repo deploy to syntax-platform/syntax-dev (gh-pages)
+        env:
+          DEPLOY_KEY: ${{ secrets.SYNTAX_DEV_DEPLOY_KEY }}
+          TAG: ${{ needs.resolve.outputs.tag }}
+          SHORT_SHA: ${{ needs.resolve.outputs.short_sha }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${DEPLOY_KEY:-}" ]]; then
+            echo "::error::Missing SYNTAX_DEV_DEPLOY_KEY secret." >&2
+            exit 1
+          fi
+
+          mkdir -p "$HOME/.ssh" deploy-site
+          printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/syntax_dev_key"
+          chmod 600 "$HOME/.ssh/syntax_dev_key"
+          ssh-keyscan -t ed25519 github.com >> "$HOME/.ssh/known_hosts" 2>/dev/null
+
+          tar -xzf bundle/site-nightly.tar.gz -C deploy-site
+          touch deploy-site/.nojekyll
+
+          cd deploy-site
+          git init -b gh-pages
+          git config user.name "Syntax Release Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "deploy(dev): ${TAG} (${SHORT_SHA})"
+          GIT_SSH_COMMAND="ssh -i $HOME/.ssh/syntax_dev_key -o IdentitiesOnly=yes" \
+            git push --force git@github.com:syntax-platform/syntax-dev.git gh-pages:gh-pages

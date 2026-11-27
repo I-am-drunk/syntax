@@ -11,7 +11,7 @@ Syntax is designed around **YAGNI** ("You aren't going to need it"): keep Core s
 - **Accounts (`src/core/clerkAuth.tsx`, `src/core/account.ts`)**: Clerk Core 3 (`@clerk/react` + `@clerk/themes`) with modal sign-in (avoiding URL hash conflicts on GitHub Pages) and a lightweight local fallback when `VITE_CLERK_PUBLISHABLE_KEY` is not yet configured.
 - **Theme Token Groundwork (`src/core/themes.ts`)**: Obsidian-inspired CSS variable contract ready for future community `.syntaxtheme` packages.
 - **Sandbox (`src/core/sandbox.tsx`)**: `<iframe sandbox="allow-scripts">` host with strict Content Security Policy (`default-src 'none'`), neutral charcoal/light CSS tokens, and automatic error capture.
-- **Crash Isolation & Dev Diagnostics (`src/core/ErrorBoundary.tsx`, `src/core/logger.ts`, `src/mpm2d/components/DevChannelBadge.tsx`)**: `react-error-boundary` wrappers + ring-buffer event/error logger surfaced exclusively in the `/dev/` channel, with drop-in `registerErrorSink` (Sentry) and `registerAnalyticsSink` (PostHog) hooks.
+- **Crash Isolation & Dev Diagnostics (`src/core/ErrorBoundary.tsx`, `src/core/logger.ts`)**: `react-error-boundary` wrappers + ring-buffer event/error logger surfaced exclusively in the `syntax-dev` channel, with drop-in `registerErrorSink` (Sentry) and `registerAnalyticsSink` (PostHog) hooks.
 - **Sema (`src/mpm2d/mascot/`)**: Syntax's living mascot stays in Core so every surface feels alive without depending on plugins.
 
 ### What Lives as Packages
@@ -19,10 +19,11 @@ Syntax is designed around **YAGNI** ("You aren't going to need it"): keep Core s
 - **Embedded Course Plugins (`.syntaxembeddedplugin`)**: Shared interactive engines (`math-graph-engine`, `grid-coding-engine`, `unit-circle-lab`). Each clearly shows installed status on your account and declares an `aiUsage` card so future MCP connectors can discover and reuse them.
 - **Global App Plugins (`.syntaxplugin`)**: `pen-studio`, `walkthrough-player`, `checkmark-gate`, `floating-windows`, `formula-playbook`. Any plugin with `touchesCore: true` shows a compact amber warning triangle in lists and **"This plugin touches core."** in its detail/install view.
 
-## 2. Two-Repo Zero-Cost Ecosystem
+## 2. Three-Repo Zero-Cost Organization (`syntax-platform`)
 
-1. **`syntax-platform/syntax`**: The Syntax web app, core runtime, official built-in courses, and official plugins. Deployed free at `https://syntax-platform.github.io/syntax/` (with `/dev/` alpha channel at `https://syntax-platform.github.io/syntax/dev/`).
-2. **`syntax-platform/syntax-community`**: The lightweight community catalog (`catalog/catalog.json`), downloadable package files (`packages/*`), automated GitHub Actions validator (`scripts/validate-catalog.mjs`), and standalone Community Hub website (`https://syntax-platform.github.io/syntax-community/`) modeled after Obsidian Community + Raycast Store with one-click **"Add to Syntax"** (`?install=<id>`) deep links.
+1. **`syntax-platform/syntax`**: Single source of truth for the Syntax web app, core runtime, official built-in courses, official plugins, PRs, and release notes. Stable releases deploy to `https://syntax-platform.github.io/syntax/` via `.github/workflows/release.yml`.
+2. **`syntax-platform/syntax-dev`**: Dedicated static hosting target for automated Nightly/Dev pre-releases (`https://syntax-platform.github.io/syntax-dev/`), cross-deployed automatically from `syntax-platform/syntax` without duplicating source history.
+3. **`syntax-platform/syntax-community`**: The lightweight community catalog (`catalog/catalog.json`), downloadable package files (`packages/*`), automated GitHub Actions validator (`scripts/validate-catalog.mjs`), and standalone Community Hub website (`https://syntax-platform.github.io/syntax-community/`) modeled after Obsidian Community + Raycast Store with one-click **"Add to Syntax"** (`?install=<id>`) deep links.
 
 ## 3. Adding Sentry or PostHog Later
 

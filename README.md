@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="https://syntax-platform.github.io/syntax/"><img src="https://img.shields.io/badge/Launch-Syntax_Live-456dff?style=for-the-badge&logo=vercel&logoColor=white" alt="Open Syntax" /></a>
-  <a href="https://syntax-platform.github.io/syntax/dev/"><img src="https://img.shields.io/badge/Channel-Syntax_Dev-22c55e?style=for-the-badge&logo=githubactions&logoColor=white" alt="Open Syntax Dev" /></a>
+  <a href="https://syntax-platform.github.io/syntax-dev/"><img src="https://img.shields.io/badge/Channel-Syntax_Dev-22c55e?style=for-the-badge&logo=githubactions&logoColor=white" alt="Open Syntax Dev" /></a>
   <a href="https://syntax-platform.github.io/syntax-community/"><img src="https://img.shields.io/badge/Directory-Community_Hub-8b5cf6?style=for-the-badge&logo=bookstack&logoColor=white" alt="Community Hub" /></a>
   <a href="https://github.com/syntax-platform/syntax/releases"><img src="https://img.shields.io/github/v/tag/syntax-platform/syntax?style=for-the-badge&label=Release&color=111827" alt="Latest Release" /></a>
 </p>
@@ -47,8 +47,8 @@ Everything deploys automatically via [GitHub Actions](.github/workflows) at **$0
 
 | Channel | URL | Trigger | Purpose |
 | :--- | :--- | :--- | :--- |
-| **Syntax Stable** | [syntax-platform.github.io/syntax](https://syntax-platform.github.io/syntax/) | Tagged `vX.Y.Z` ([release-main.yml](.github/workflows/release-main.yml)) | Production learner workspace |
-| **Syntax Dev** | [syntax-platform.github.io/syntax/dev](https://syntax-platform.github.io/syntax/dev/) | Pre-release `vX.Y.Z-alpha.N` ([release-dev.yml](.github/workflows/release-dev.yml)) | Diagnostics, new engines, preview builds |
+| **Syntax Stable** | [syntax-platform.github.io/syntax](https://syntax-platform.github.io/syntax/) | Promoted `vX.Y.Z` release ([release.yml](.github/workflows/release.yml)) | Production learner workspace |
+| **Syntax Dev** | [syntax-platform.github.io/syntax-dev](https://syntax-platform.github.io/syntax-dev/) | Automated Nightly `vX.Y.Z-nightly.*` ([release.yml](.github/workflows/release.yml)) | Diagnostics, new engines, nightly builds (hosted via [`syntax-dev`](https://github.com/syntax-platform/syntax-dev)) |
 | **Community Hub** | [syntax-platform.github.io/syntax-community](https://syntax-platform.github.io/syntax-community/) | Catalog manifest sync | Verified community courses and extensions |
 
 ---
