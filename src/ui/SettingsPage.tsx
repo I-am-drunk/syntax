@@ -1,11 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
-import { Check, Palette, Trash2, Upload } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Segmented, Toggle } from './Controls'
-import {
-  getAllThemePacks,
-  getThemeContrastSummary,
-  useThemePackStore,
-} from '../core/themePacks'
 import type { SyntaxPrefs } from '../core/prefs'
 import { Sema } from '../mascot/Sema'
 import {
@@ -40,27 +34,10 @@ export function SettingsPage({
 }) {
   const [previewAnim, setPreviewAnim] = useState<StateId>('idle')
   const [studioTab, setStudioTab] = useState<StudioTab>('shape')
-  const [themeImportError, setThemeImportError] = useState('')
-  const themeFileRef = useRef<HTMLInputElement>(null)
-  const activeThemeId = useThemePackStore(s => s.activeThemeId)
-  const customThemes = useThemePackStore(s => s.customThemes)
-  const setActiveThemeId = useThemePackStore(s => s.setActiveThemeId)
-  const importThemeJson = useThemePackStore(s => s.importThemeJson)
-  const removeCustomTheme = useThemePackStore(s => s.removeCustomTheme)
-  const allThemes = getAllThemePacks(customThemes)
 
   useEffect(() => {
     window.scrollTo({ top: 0 })
   }, [])
-
-  async function handleThemeImport(file: File) {
-    setThemeImportError('')
-    const text = await file.text()
-    const res = importThemeJson(text)
-    if (!res.ok) {
-      setThemeImportError(res.error)
-    }
-  }
 
   const activeShapeLabel =
     SEMA_SHAPES.find(s => s.id === prefs.semaShape)?.label ?? prefs.semaShape
@@ -109,85 +86,6 @@ export function SettingsPage({
                   { value: 'home', label: 'Home' },
                 ]}
               />
-            </div>
-
-            <div className="sx-theme-packs-block">
-              <div className="sx-theme-packs-head">
-                <div className="syntax-pref-copy">
-                  <p className="sx-inline-icon-label">
-                    <Palette size={15} aria-hidden="true" />
-                    <span>Theme Packs (WCAG-verified)</span>
-                  </p>
-                  <span>Pure JSON color palettes validated for at least 4.5:1 text contrast</span>
-                </div>
-                <button
-                  type="button"
-                  className="sx-btn-secondary sx-btn-sm"
-                  onClick={() => themeFileRef.current?.click()}
-                >
-                  <Upload size={13} aria-hidden="true" />
-                  <span>Import .syntaxtheme</span>
-                </button>
-                <input
-                  ref={themeFileRef}
-                  type="file"
-                  accept=".syntaxtheme,.json"
-                  style={{ display: 'none' }}
-                  onChange={e => {
-                    const file = e.target.files?.[0]
-                    if (file) void handleThemeImport(file)
-                    e.target.value = ''
-                  }}
-                />
-              </div>
-
-              {themeImportError && <p className="sx-field-error">{themeImportError}</p>}
-
-              <div className="sx-theme-pack-grid">
-                {allThemes.map(pack => {
-                  const palette = theme === 'dark' ? pack.dark : pack.light
-                  const active = activeThemeId === pack.id
-                  return (
-                    <div
-                      key={pack.id}
-                      className={`sx-theme-pack-card${active ? ' is-active' : ''}`}
-                    >
-                      <button
-                        type="button"
-                        className="sx-theme-pack-hit"
-                        aria-pressed={active}
-                        onClick={() => setActiveThemeId(pack.id)}
-                      >
-                        <span className="sx-theme-swatches" aria-hidden="true">
-                          <span style={{ background: palette.canvas }} />
-                          <span style={{ background: palette.surface }} />
-                          <span style={{ background: palette.accent }} />
-                          <span style={{ background: palette.ink }} />
-                        </span>
-                        <span className="sx-theme-pack-meta">
-                          <strong>{pack.name}</strong>
-                          <small>{getThemeContrastSummary(pack, theme)}</small>
-                        </span>
-                        {active && (
-                          <span className="sx-theme-active-check" aria-hidden="true">
-                            <Check size={14} strokeWidth={2.5} />
-                          </span>
-                        )}
-                      </button>
-                      {!pack.builtIn && (
-                        <button
-                          type="button"
-                          className="sx-theme-remove-btn"
-                          aria-label={`Remove ${pack.name} theme`}
-                          onClick={() => removeCustomTheme(pack.id)}
-                        >
-                          <Trash2 size={13} aria-hidden="true" />
-                        </button>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
             </div>
           </div>
         </section>

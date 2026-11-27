@@ -7,11 +7,6 @@ import { isDevEnvironment } from '../core/devEnv'
 import { SyntaxErrorBoundary } from '../core/ErrorBoundary'
 import { HostSlotsProvider, useHostSlots } from '../core/hostSlots'
 import { loadPrefs, savePrefs, type SyntaxPrefs } from '../core/prefs'
-import {
-  applyThemePackToDocument,
-  resolveThemePack,
-  useThemePackStore,
-} from '../core/themePacks'
 import { ExtensionPage } from '../extensions/ExtensionPage.tsx'
 import { extensionManager } from '../extensions/manager.ts'
 import { isSafeMode } from '../extensions/store.ts'
@@ -113,8 +108,6 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
   const [theme, setTheme] = useState<'light' | 'dark'>(loadTheme)
   const [soundOn, setSoundOn] = useState<boolean>(loadSound)
   const [prefs, setPrefs] = useState<SyntaxPrefs>(loadPrefs)
-  const activeThemeId = useThemePackStore(s => s.activeThemeId)
-  const customThemes = useThemePackStore(s => s.customThemes)
   const routeInfo = parseRouteInfo(location)
 
   const emitSound = useCallback(
@@ -171,26 +164,16 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
   useEffect(() => {
     document.documentElement.dataset.theme = theme
     document.documentElement.style.colorScheme = theme
-    const activePack = resolveThemePack(activeThemeId, customThemes)
-    applyThemePackToDocument(activePack, theme)
     const meta = document.querySelector('meta[name="theme-color"]')
     if (meta) {
-      const palette = theme === 'dark' ? activePack.dark : activePack.light
-      meta.setAttribute(
-        'content',
-        activePack.id === 'syntax-default'
-          ? theme === 'dark'
-            ? '#141414'
-            : '#ffffff'
-          : palette.canvas,
-      )
+      meta.setAttribute('content', theme === 'dark' ? '#141414' : '#ffffff')
     }
     try {
       localStorage.setItem(THEME_KEY, theme)
     } catch {
       // ignore
     }
-  }, [theme, activeThemeId, customThemes])
+  }, [theme])
 
   useEffect(() => {
     try {

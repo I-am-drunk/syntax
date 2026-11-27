@@ -3647,3 +3647,8 @@
   align-self: center;
   flex-shrink: 0;
 }
+
+.sx-ext-mode-toggle .segmented {
+  width: auto;
+  min-width: 260px;
+}

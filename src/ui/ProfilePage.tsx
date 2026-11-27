@@ -143,8 +143,8 @@ export function ProfilePage({
               </p>
               <span>
                 {isClerkUser
-                  ? `${formatSyncTime(cloudSync.lastSyncedAt)} · Syncs your theme pack, Sema style, and workspace preferences across devices`
-                  : 'Sign in to sync your preferences and themes across devices'}
+                  ? `${formatSyncTime(cloudSync.lastSyncedAt)} · Syncs your light/dark mode, Sema style, and workspace preferences across devices`
+                  : 'Sign in to sync your preferences across devices'}
               </span>
             </div>
             {isClerkUser ? (
@@ -245,7 +245,7 @@ export function ProfilePage({
           <div className="preference-row">
             <div className="syntax-pref-copy">
               <p>Preferences &amp; Sema</p>
-              <span>Color themes, audio cues, and Sema companion style</span>
+              <span>Light or dark mode, audio cues, and Sema companion style</span>
             </div>
             <button type="button" className="sx-btn-secondary sx-btn-sm" onClick={onOpenSettings}>
               Settings
