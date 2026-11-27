@@ -141,6 +141,17 @@
   transform: translateX(-50%) rotate(225deg);
 }
 
+@media (max-width: 768px) {
+  .sema-topbar-dock .sema-speech-bubble {
+    left: 0;
+    transform: none;
+  }
+
+  .sema-topbar-dock .sema-speech-bubble::before {
+    left: 18px;
+  }
+}
+
 @keyframes sema-bubble-pop {
   from {
     opacity: 0;

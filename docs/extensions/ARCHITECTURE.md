@@ -123,3 +123,7 @@ Workers can also export `export function onSettingsChanged(ctx, settings) {}` to
 - **Per-extension document isolation:** Extensions can only list, read, and save documents they created (`createdByExtensionId`). Cross-extension collaboration goes explicitly through versioned `services`.
 - **Per-extension quotas:** Documents are capped at 2 MB each and 250 documents per extension.
 - **Pre-install review:** Installing from a URL or Community Hub validates `extension.json` first and displays host origin and declared capabilities before executing any code.
+
+## Planned Improvements
+
+- **Automatic Safe Mode on true startup failure:** Currently Safe Mode is entered explicitly via `?safeMode=1` (or `#/?safeMode=1`). A planned reliability safeguard is a lightweight boot-sentinel check (for example, marking a boot-in-progress flag in `sessionStorage` / `localStorage` before extension startup and clearing it once the app shell and extension boot finish cleanly). If startup truly crashes or repeatedly fails to settle on consecutive loads, Syntax should automatically restart into Safe Mode so the user is never trapped in a broken boot loop, while explaining why Safe Mode was triggered and offering a one-click Exit Safe Mode action.

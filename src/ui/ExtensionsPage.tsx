@@ -30,7 +30,7 @@ import {
   type ExtensionManifest,
   type ResolvedExtensionAssets,
 } from '../extensions/manifest.ts'
-import { useExtensionStore, type ExtensionRecord } from '../extensions/store.ts'
+import { exitSafeModeAndReload, useExtensionStore, type ExtensionRecord } from '../extensions/store.ts'
 import { Segmented } from './Controls'
 import { ExtensionIcon } from './ExtensionIcon'
 import { ExtensionInstallModal } from './ExtensionInstallModal'
@@ -315,17 +315,7 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
   }
 
   function handleExitSafeMode() {
-    const url = new URL(window.location.href)
-    url.searchParams.delete('safeMode')
-    if (url.hash.includes('safeMode=')) {
-      const [hashPath, hashQuery] = url.hash.split('?')
-      const params = new URLSearchParams(hashQuery ?? '')
-      params.delete('safeMode')
-      const qs = params.toString()
-      url.hash = qs ? `${hashPath}?${qs}` : hashPath || '#/extensions'
-    }
-    window.history.replaceState(null, '', url.toString())
-    window.location.reload()
+    exitSafeModeAndReload()
   }
 
   // Subscribe logs and live counters cleanly to logsVersion updates
