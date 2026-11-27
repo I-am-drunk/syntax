@@ -553,11 +553,11 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
                     <div className="sx-ext-card-actions">
                       {extViews
                         .filter(v => v.placement !== 'embed')
-                        .map(v => (
+                        .map((v, idx) => (
                           <button
                             key={v.key}
                             type="button"
-                            className="sx-btn-primary sx-btn-sm"
+                            className={idx === 0 ? 'sx-btn-primary sx-btn-sm' : 'sx-btn-secondary sx-btn-sm'}
                             onClick={() =>
                               onNavigate(
                                 `/ext/${encodeURIComponent(rec.id)}/${encodeURIComponent(v.id)}`,

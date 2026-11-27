@@ -48,12 +48,16 @@ export function HomePage({
   const safeMode = useExtensionStore(s => s.safeMode)
   const views = useContributionStore(s => s.views)
   const [recentDocs, setRecentDocs] = useState<DocumentEnvelope[]>([])
+  const [totalDocCount, setTotalDocCount] = useState(0)
 
   useEffect(() => {
     let cancelled = false
     const refresh = () => {
       void documentStore.list().then(list => {
-        if (!cancelled) setRecentDocs(list.slice(0, 4))
+        if (!cancelled) {
+          setTotalDocCount(list.length)
+          setRecentDocs(list.slice(0, 4))
+        }
       })
     }
     refresh()
@@ -100,13 +104,13 @@ export function HomePage({
   }
 
   const summaryLine =
-    records.length === 0 && recentDocs.length === 0
+    records.length === 0 && totalDocCount === 0
       ? 'Install courses and tools from Community Hub or by link to build your workspace.'
       : [
           courseCount > 0 ? `${courseCount} ${courseCount === 1 ? 'course' : 'courses'}` : null,
           extCount > 0 ? `${extCount} ${extCount === 1 ? 'extension' : 'extensions'}` : null,
-          recentDocs.length > 0
-            ? `${recentDocs.length}${recentDocs.length === 4 ? '+' : ''} saved ${recentDocs.length === 1 ? 'document' : 'documents'}`
+          totalDocCount > 0
+            ? `${totalDocCount} saved ${totalDocCount === 1 ? 'document' : 'documents'}`
             : null,
         ]
           .filter(Boolean)
@@ -118,8 +122,8 @@ export function HomePage({
         <div className="sx-profile-identity">
           <div
             style={{
-              width: 72,
-              height: 72,
+              width: 58,
+              height: 58,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -131,7 +135,7 @@ export function HomePage({
               shape={prefs.semaShape}
               tail={prefs.semaTail}
               expression={prefs.semaExpression}
-              size={58}
+              size={52}
               interactive
               ariaLabel="Sema companion"
             />

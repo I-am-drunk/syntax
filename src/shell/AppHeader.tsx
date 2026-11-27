@@ -368,10 +368,29 @@ export function AppHeader({
                   </Menu.Item>
                 </Menu.Group>
 
-                {extensionCommands.length > 0 && (
+                {(extensionCommands.length > 0 || extensionToolbar.some(t => t.viewId && !t.commandKey)) && (
                   <>
                     <Menu.Separator className="menu-separator" />
                     <Menu.Group className="menu-group">
+                      {extensionToolbar
+                        .filter(item => item.viewId && !item.commandKey)
+                        .map(item => (
+                          <Menu.Item
+                            key={`tb:${item.key}`}
+                            className="menu-item sx-menu-item sx-ext-cmd-item"
+                            onClick={() =>
+                              onNavigate(
+                                `/ext/${encodeURIComponent(item.ownerId)}/${encodeURIComponent(item.viewId!)}`,
+                              )
+                            }
+                          >
+                            <Puzzle size={15} strokeWidth={1.9} aria-hidden="true" />
+                            <span className="sx-ext-cmd-copy">
+                              <span>{item.label}</span>
+                              <small>{ownerNames.get(item.ownerId) ?? item.ownerId}</small>
+                            </span>
+                          </Menu.Item>
+                        ))}
                       {extensionCommands.map(cmd => (
                         <Menu.Item
                           key={cmd.key}

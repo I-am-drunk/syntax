@@ -423,36 +423,38 @@ export function LibraryPage({
                             </span>
                             <span className="sx-ext-doc-open">Open</span>
                           </button>
-                          <button
-                            type="button"
-                            className="sx-btn-ghost sx-btn-sm sx-ext-doc-delete"
-                            aria-label={`Rename ${doc.title}`}
-                            title={`Rename ${doc.title}`}
-                            onClick={() => {
-                              setRenamingId(doc.id)
-                              setRenameDraft(doc.title)
-                            }}
-                          >
-                            <Pencil size={14} aria-hidden="true" />
-                          </button>
-                          <button
-                            type="button"
-                            className="sx-btn-ghost sx-btn-sm sx-ext-doc-delete"
-                            aria-label={`Export ${doc.title}`}
-                            title={`Export ${doc.title} backup`}
-                            onClick={() => handleExportDocument(doc)}
-                          >
-                            <Download size={14} aria-hidden="true" />
-                          </button>
-                          <button
-                            type="button"
-                            className="sx-btn-ghost sx-btn-sm sx-ext-doc-delete"
-                            aria-label={`Delete ${doc.title}`}
-                            title={`Delete ${doc.title}`}
-                            onClick={() => void handleDeleteDocument(doc)}
-                          >
-                            <Trash2 size={14} aria-hidden="true" />
-                          </button>
+                          <div className="sx-ext-doc-actions">
+                            <button
+                              type="button"
+                              className="sx-btn-ghost sx-btn-sm sx-ext-doc-delete"
+                              aria-label={`Rename ${doc.title}`}
+                              title={`Rename ${doc.title}`}
+                              onClick={() => {
+                                setRenamingId(doc.id)
+                                setRenameDraft(doc.title)
+                              }}
+                            >
+                              <Pencil size={14} aria-hidden="true" />
+                            </button>
+                            <button
+                              type="button"
+                              className="sx-btn-ghost sx-btn-sm sx-ext-doc-delete"
+                              aria-label={`Export ${doc.title}`}
+                              title={`Export ${doc.title} backup`}
+                              onClick={() => handleExportDocument(doc)}
+                            >
+                              <Download size={14} aria-hidden="true" />
+                            </button>
+                            <button
+                              type="button"
+                              className="sx-btn-ghost sx-btn-sm sx-ext-doc-delete"
+                              aria-label={`Delete ${doc.title}`}
+                              title={`Delete ${doc.title}`}
+                              onClick={() => void handleDeleteDocument(doc)}
+                            >
+                              <Trash2 size={14} aria-hidden="true" />
+                            </button>
+                          </div>
                         </>
                       )}
                     </div>

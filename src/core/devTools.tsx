@@ -62,7 +62,9 @@ export function DevToolsSuite() {
 
       const isDark = document.documentElement.dataset.theme === 'dark'
       eruda.init({
-        tool: ['elements', 'console', 'network', 'resources', 'info'],
+        // Keep Console first so Elements does NOT auto-activate its full-screen DOM
+        // box highlighter overlay on initial load.
+        tool: ['console', 'elements', 'network', 'resources', 'info'],
         useShadowDom: true,
         autoScale: true,
         defaults: {
@@ -71,6 +73,11 @@ export function DevToolsSuite() {
           theme: isDark ? 'Dark' : 'Light',
         },
       })
+      try {
+        ;(eruda as unknown as { hide?: () => void }).hide?.()
+      } catch {
+        // ignore
+      }
 
       try {
         eruda.add(erudaMonitor)
@@ -155,19 +162,30 @@ export function DevToolsSuite() {
       }
 
       // Park Eruda button cleanly at bottom-left so it never overlaps Agentation (bottom-right)
-      try {
-        eruda.position({ x: 16, y: Math.max(84, window.innerHeight - 64) })
-      } catch {
-        // ignore
+      const parkEruda = () => {
+        try {
+          eruda.position({ x: 16, y: Math.max(84, window.innerHeight - 64) })
+        } catch {
+          // ignore
+        }
       }
+      parkEruda()
+      window.addEventListener('resize', parkEruda, { passive: true })
 
       window.__SYNTAX_ERUDA_INIT__ = true
+      return () => {
+        window.removeEventListener('resize', parkEruda)
+      }
     }
 
-    void mountEruda()
+    let detachListeners: (() => void) | undefined
+    void mountEruda().then(fn => {
+      detachListeners = fn
+    })
 
     return () => {
       cancelled = true
+      detachListeners?.()
       if (erudaRef && window.__SYNTAX_ERUDA_INIT__) {
         try {
           erudaRef.destroy()
