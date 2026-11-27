@@ -23,6 +23,7 @@ import {
 
 const DEFAULT_BOOT_TIMEOUT_MS = 5_000
 const MAX_WORKER_BYTES = 2 * 1024 * 1024
+const MAX_IN_FLIGHT_SYSCALLS = 64
 
 export interface WorkerSandboxCallbacks {
   onSyscall: (
@@ -315,6 +316,7 @@ export class WorkerSandbox {
   private ready = false
   private disposed = false
   private reqId = 0
+  private inFlightSyscalls = 0
   private exportedFunctions: string[] = []
   private outstandingInvocations = new Map<
     number,
@@ -619,6 +621,22 @@ export class WorkerSandbox {
   }
 
   private async handleSyscall(worker: Worker, id: number, name: string, args: unknown[]) {
+    if (this.inFlightSyscalls >= MAX_IN_FLIGHT_SYSCALLS) {
+      if (!this.disposed && this.worker === worker) {
+        const resMsg: HostToWorkerMessage = {
+          type: 'sysr',
+          id,
+          error: {
+            name: 'ExtensionError',
+            code: 'SYSCALL_DENIED',
+            message: `Too many concurrent worker syscalls (limit ${MAX_IN_FLIGHT_SYSCALLS}).`,
+          },
+        }
+        worker.postMessage(resMsg)
+      }
+      return
+    }
+    this.inFlightSyscalls += 1
     try {
       const result = await this.callbacks.onSyscall(
         this.extensionId,
@@ -641,6 +659,8 @@ export class WorkerSandbox {
         const resMsg: HostToWorkerMessage = { type: 'sysr', id, error: ser }
         worker.postMessage(resMsg)
       }
+    } finally {
+      this.inFlightSyscalls = Math.max(0, this.inFlightSyscalls - 1)
     }
   }
 

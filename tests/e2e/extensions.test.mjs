@@ -621,13 +621,14 @@ describe('Syntax Extensions v1 end-to-end acceptance suite (real Chromium)', () 
         maxTasks: 20,
       })
 
-      // Multi-tab view switcher inside ExtensionPage (board -> timeline)
+      // Multi-tab view switcher inside ExtensionPage (board -> timeline powered by real public/sdk/syntax-view-v1.js)
       await page.goto(`${harness.appOrigin}/#/ext/tj.storyboard/board`)
       await page.waitForSelector('[data-extension-tab-id="timeline"]')
       await page.click('[data-extension-tab-id="timeline"]')
       await page.waitForSelector('[data-extension-id="tj.storyboard"][data-view-id="timeline"][data-view-ready="true"]')
-      const timelineStatus = await page.frameLocator('iframe.sx-ext-iframe').first().locator('#timeline-status').textContent()
-      assert.equal(timelineStatus, 'timeline-ready:timeline')
+      const timelineFrame = page.frameLocator('iframe.sx-ext-iframe').first()
+      await timelineFrame.locator('#timeline-status:text-is("timeline-ready:timeline")').waitFor()
+      await timelineFrame.locator('#timeline-sdk-boards:has-text("Storyboard")').waitFor()
 
       // Missing viewId on an active extension shows dedicated View-not-found recovery with Open button
       await page.goto(`${harness.appOrigin}/#/ext/tj.storyboard/nonexistent`)
