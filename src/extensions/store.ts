@@ -145,9 +145,16 @@ interface ExtensionStoreState {
   removeRecord: (id: string) => void
   setRuntime: (id: string, patch: Partial<ExtensionRuntimeInfo>) => void
   removeRuntime: (id: string) => void
-  getSetting: (extId: string, key: string) => ExtensionSettingValue | undefined
+  getSetting: (
+    extId: string,
+    key: string,
+    manifestOverride?: ExtensionManifest,
+  ) => ExtensionSettingValue | undefined
   setSetting: (extId: string, key: string, value: ExtensionSettingValue) => void
-  getAllSettings: (extId: string) => Record<string, ExtensionSettingValue>
+  getAllSettings: (
+    extId: string,
+    manifestOverride?: ExtensionManifest,
+  ) => Record<string, ExtensionSettingValue>
   clearSettings: (extId: string) => void
   reloadFromStorage: () => void
 }
@@ -226,11 +233,11 @@ export const useExtensionStore = create<ExtensionStoreState>((set, get) => ({
     })
   },
 
-  getSetting(extId, key) {
-    const rec = get().records.find(r => r.id === extId)
+  getSetting(extId, key, manifestOverride) {
+    const manifest = manifestOverride ?? get().records.find(r => r.id === extId)?.manifest
     const saved = get().settings[extId]?.[key]
     if (saved !== undefined) return saved
-    return rec?.manifest.settings.find(s => s.id === key)?.default
+    return manifest?.settings.find(s => s.id === key)?.default
   },
 
   setSetting(extId, key, value) {
@@ -247,10 +254,10 @@ export const useExtensionStore = create<ExtensionStoreState>((set, get) => ({
     })
   },
 
-  getAllSettings(extId) {
-    const rec = get().records.find(r => r.id === extId)
+  getAllSettings(extId, manifestOverride) {
+    const manifest = manifestOverride ?? get().records.find(r => r.id === extId)?.manifest
     const out: Record<string, ExtensionSettingValue> = {}
-    for (const def of rec?.manifest.settings ?? []) {
+    for (const def of manifest?.settings ?? []) {
       out[def.id] = def.default
     }
     const saved = get().settings[extId]

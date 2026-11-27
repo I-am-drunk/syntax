@@ -1,5 +1,16 @@
+let activatedPrefix = null
+
 export async function onActivate(ctx) {
-  ctx.log.info('Storyboard Studio activated')
+  activatedPrefix = await ctx.settings.get('defaultPrefix')
+  ctx.log.info(`Storyboard Studio activated (prefix=${activatedPrefix})`)
+}
+
+export async function getActivatedPrefix() {
+  return activatedPrefix
+}
+
+export async function setPrefix(ctx, nextPrefix) {
+  return await ctx.settings.set('defaultPrefix', nextPrefix)
 }
 
 export async function listBoards(ctx) {

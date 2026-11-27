@@ -116,6 +116,20 @@ describe('extension manifest validation', () => {
     assert.equal(assets.workerUrl, 'https://friend.example/ext/storyboard/worker.js')
     assert.equal(assets.viewUrls.board, 'https://friend.example/ext/storyboard/view/index.html')
   })
+
+  it('rejects cross-origin worker or view asset URLs', () => {
+    const m = validateExtensionManifest({
+      formatVersion: 1,
+      id: 'tj.cross',
+      name: 'Cross Origin',
+      version: '1.0.0',
+      worker: 'https://other.example/worker.js',
+    })
+    assert.throws(
+      () => resolveExtensionAssets('https://friend.example/ext/extension.json', m),
+      /same origin as extension\.json/,
+    )
+  })
 })
 
 describe('semver comparison and ranges', () => {

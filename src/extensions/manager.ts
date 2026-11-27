@@ -224,11 +224,11 @@ export class ExtensionManager {
       case 'settings.get': {
         const [key] = args as [string]
         if (typeof key !== 'string') return undefined
-        return useExtensionStore.getState().getSetting(inst.extensionId, key)
+        return useExtensionStore.getState().getSetting(inst.extensionId, key, inst.manifest)
       }
 
       case 'settings.getAll': {
-        return useExtensionStore.getState().getAllSettings(inst.extensionId)
+        return useExtensionStore.getState().getAllSettings(inst.extensionId, inst.manifest)
       }
 
       case 'settings.set': {
@@ -576,9 +576,13 @@ export class ExtensionManager {
       const ordered = orderForBoot(store.records)
       for (const rec of ordered) {
         await this.withLock(rec.id, async () => {
+          const latestStore = useExtensionStore.getState()
+          if (latestStore.safeMode) return
+          const current = latestStore.records.find(r => r.id === rec.id)
+          if (!current || !current.enabled) return
           try {
-            const assets = resolveExtensionAssets(rec.manifestUrl, rec.manifest)
-            await this.stageAndActivate(rec.manifest, assets)
+            const assets = resolveExtensionAssets(current.manifestUrl, current.manifest)
+            await this.stageAndActivate(current.manifest, assets)
           } catch {
             // Failure recorded per-extension; continue booting unrelated extensions
           }
@@ -659,7 +663,21 @@ export class ExtensionManager {
     })
   }
 
+  private stopStagingWorkers(extId: string): boolean {
+    let stoppedAny = false
+    for (const [actId, staged] of this.staging.entries()) {
+      if (staged.extensionId === extId && staged.sandbox) {
+        staged.sandbox.stop()
+        staged.sandbox = null
+        this.staging.delete(actId)
+        stoppedAny = true
+      }
+    }
+    return stoppedAny
+  }
+
   async disable(extId: string): Promise<void> {
+    this.stopStagingWorkers(extId)
     await this.withLock(extId, async () => {
       const store = useExtensionStore.getState()
       const rec = store.records.find(r => r.id === extId)
@@ -682,23 +700,13 @@ export class ExtensionManager {
    * rejecting all pending invocations with `Plug sandbox stopped`.
    */
   stopWorker(extId: string) {
-    let stoppedAny = false
-
-    for (const [actId, staged] of this.staging.entries()) {
-      if (staged.extensionId === extId && staged.sandbox) {
-        staged.sandbox.stop()
-        staged.sandbox = null
-        this.staging.delete(actId)
-        stoppedAny = true
-      }
-    }
+    const stoppedAny = this.stopStagingWorkers(extId)
 
     const live = this.active.get(extId)
     if (live?.sandbox) {
       serviceRegistry.removeByOwner(extId)
       live.sandbox.stop()
       live.sandbox = null
-      stoppedAny = true
       useExtensionStore.getState().setRuntime(extId, {
         hasLiveWorker: false,
         status: 'failed',
@@ -778,6 +786,7 @@ export class ExtensionManager {
    * User-owned documents in DocumentStore are NEVER deleted here.
    */
   async uninstall(extId: string, opts?: { deleteSettings?: boolean }): Promise<void> {
+    this.stopStagingWorkers(extId)
     await this.withLock(extId, async () => {
       this.deactivateNow(extId, 'disabled')
       const store = useExtensionStore.getState()
