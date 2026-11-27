@@ -470,6 +470,7 @@ export function ExtensionViewFrame({
           title={`${extensionName}: ${title}`}
           className="sx-ext-iframe"
           sandbox="allow-scripts allow-forms"
+          allow="camera 'none'; microphone 'none'; geolocation 'none'; payment 'none'; usb 'none'"
           referrerPolicy="no-referrer"
           onLoad={handleIframeLoad}
         />

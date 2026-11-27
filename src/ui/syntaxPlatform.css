@@ -2886,114 +2886,6 @@
   color: var(--muted);
 }
 
-.sx-theme-packs-block {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding-top: 6px;
-}
-
-.sx-theme-packs-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.sx-theme-pack-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 10px;
-}
-
-.sx-theme-pack-card {
-  position: relative;
-  display: flex;
-  align-items: stretch;
-  border-radius: 14px;
-  border: 1.5px solid var(--border);
-  background: var(--surface);
-  transition: border-color 140ms ease, box-shadow 140ms ease;
-}
-
-.sx-theme-pack-card.is-active {
-  border-color: var(--accent-blue, #456dff);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-blue, #456dff) 18%, transparent);
-}
-
-.sx-theme-pack-hit {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 11px;
-  padding: 11px 12px;
-  background: transparent;
-  text-align: left;
-  border-radius: 12px;
-  min-width: 0;
-}
-
-.sx-theme-swatches {
-  display: grid;
-  grid-template-columns: repeat(2, 14px);
-  grid-template-rows: repeat(2, 14px);
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.sx-theme-pack-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  flex: 1;
-}
-
-.sx-theme-pack-meta strong {
-  font-size: 13.5px;
-  font-weight: 600;
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.sx-theme-pack-meta small {
-  font-size: 11.5px;
-  color: var(--muted);
-}
-
-.sx-theme-active-check {
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  background: var(--accent-blue, #456dff);
-  color: #ffffff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.sx-theme-remove-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 10px;
-  background: transparent;
-  color: var(--muted);
-  border-left: 1px solid var(--border);
-  border-radius: 0 12px 12px 0;
-}
-
-.sx-theme-remove-btn:hover {
-  color: #dc2626;
-  background: color-mix(in srgb, #ef4444 10%, var(--surface));
-}
-
 .sx-custom-course-bar {
   margin-top: 8px;
   width: 100%;
@@ -3651,4 +3543,20 @@
 .sx-ext-mode-toggle .segmented {
   width: auto;
   min-width: 260px;
+}
+
+.sx-ext-runtime-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.sx-ext-runtime-stats {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--muted);
 }

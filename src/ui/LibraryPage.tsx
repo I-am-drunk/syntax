@@ -38,7 +38,10 @@ export function LibraryPage({
     }
   }, [records.length, views.length])
 
+  const kindById = new Map(records.map(r => [r.id, r.manifest.kind]))
   const pageViews = views.filter(v => v.placement !== 'embed')
+  const courseViews = pageViews.filter(v => kindById.get(v.ownerId) === 'course')
+  const extensionViews = pageViews.filter(v => kindById.get(v.ownerId) !== 'course')
   const embedViews = views.filter(v => v.placement === 'embed')
   const nameById = new Map(records.map(r => [r.id, r.manifest.name]))
 
@@ -118,14 +121,43 @@ export function LibraryPage({
         </div>
       ) : (
         <>
-          {pageViews.length > 0 && (
+          {courseViews.length > 0 && (
+            <section className="sx-plugins-section" aria-label="Course views">
+              <div className="sx-plugins-section-head">
+                <h2>Courses</h2>
+                <span>{courseViews.length}</span>
+              </div>
+              <div className="sx-ext-card-grid">
+                {courseViews.map(v => (
+                  <button
+                    key={v.key}
+                    type="button"
+                    className="sx-ext-launch-card"
+                    onClick={() =>
+                      onNavigate(
+                        `/ext/${encodeURIComponent(v.ownerId)}/${encodeURIComponent(v.id)}`,
+                      )
+                    }
+                  >
+                    <span className="sx-ext-launch-title">
+                      <strong>{v.title}</strong>
+                      <ExternalLink size={14} aria-hidden="true" />
+                    </span>
+                    <small>{nameById.get(v.ownerId) ?? v.ownerId}</small>
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {extensionViews.length > 0 && (
             <section className="sx-plugins-section" aria-label="Extension views">
               <div className="sx-plugins-section-head">
                 <h2>Extensions</h2>
-                <span>{pageViews.length}</span>
+                <span>{extensionViews.length}</span>
               </div>
               <div className="sx-ext-card-grid">
-                {pageViews.map(v => (
+                {extensionViews.map(v => (
                   <button
                     key={v.key}
                     type="button"

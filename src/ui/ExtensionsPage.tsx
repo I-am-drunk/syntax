@@ -157,12 +157,13 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
     }
   }
 
-  async function handleCopyReport(extId: string) {
+  async function handleCopyReport(extId?: string) {
     try {
       const report = extensionDiagnostics.buildBugReport({ extensionId: extId, safeMode })
       await navigator.clipboard.writeText(JSON.stringify(report, null, 2))
-      setCopiedId(extId)
-      window.setTimeout(() => setCopiedId(prev => (prev === extId ? null : prev)), 1800)
+      const tag = extId ?? '__all__'
+      setCopiedId(tag)
+      window.setTimeout(() => setCopiedId(prev => (prev === tag ? null : prev)), 1800)
     } catch {
       toast.error('Clipboard is unavailable in this browser context.')
     }
@@ -182,9 +183,10 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
     window.location.reload()
   }
 
-  // Subscribe logs render cleanly to logsVersion updates
+  // Subscribe logs and live counters cleanly to logsVersion updates
   const openLogs: ExtensionLogEntry[] =
     openLogsId && logsVersion >= 0 ? extensionDiagnostics.getLogs(openLogsId) : []
+  const liveCounters = logsVersion >= 0 ? extensionDiagnostics.getResourceCounters() : extensionDiagnostics.getResourceCounters()
 
   return (
     <main className="sx-workspace-page sx-plugins-page" aria-label="Extensions">
@@ -581,6 +583,28 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
           </div>
         )}
       </section>
+
+      <footer className="sx-ext-runtime-footer" aria-label="Extension runtime diagnostics">
+        <span className="sx-ext-runtime-stats">
+          {liveCounters.workers} {liveCounters.workers === 1 ? 'worker' : 'workers'}
+          {' · '}
+          {liveCounters.views} {liveCounters.views === 1 ? 'view' : 'views'}
+          {' · '}
+          {liveCounters.commands} {liveCounters.commands === 1 ? 'command' : 'commands'}
+          {' · '}
+          {liveCounters.services} {liveCounters.services === 1 ? 'service' : 'services'}
+          {' · '}
+          {liveCounters.blobUrls} active blobs
+        </span>
+        <button
+          type="button"
+          className="sx-btn-ghost sx-btn-sm"
+          onClick={() => void handleCopyReport()}
+        >
+          {copiedId === '__all__' ? <Check size={13} aria-hidden="true" /> : <Copy size={13} aria-hidden="true" />}
+          <span>{copiedId === '__all__' ? 'Copied' : 'Copy runtime report'}</span>
+        </button>
+      </footer>
     </main>
   )
 }
