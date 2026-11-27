@@ -5,7 +5,9 @@ import { useContributionStore } from '../extensions/contributions.ts'
 import { documentStore, type DocumentEnvelope } from '../extensions/documents.ts'
 import { ExtensionViewFrame } from '../extensions/ExtensionViewFrame.tsx'
 import { extensionManager } from '../extensions/manager.ts'
+import { resolveExtensionAssets } from '../extensions/manifest.ts'
 import { useExtensionStore } from '../extensions/store.ts'
+import { ExtensionIcon } from './ExtensionIcon'
 
 export interface LibraryPageProps {
   onOpenExtensions: () => void
@@ -39,17 +41,32 @@ export function LibraryPage({
   }, [records.length, views.length])
 
   const kindById = new Map(records.map(r => [r.id, r.manifest.kind]))
-  const pageViews = views.filter(v => v.placement !== 'embed')
+  const iconUrlById = new Map(
+    records.map(r => {
+      try {
+        return [r.id, resolveExtensionAssets(r.manifestUrl, r.manifest).iconUrl] as const
+      } catch {
+        return [r.id, null] as const
+      }
+    }),
+  )
+  const nonEmbedViews = views.filter(v => v.placement !== 'embed')
+  const ownersWithPageView = new Set(
+    nonEmbedViews.filter(v => v.placement === 'page').map(v => v.ownerId),
+  )
+  // Primary launch cards: show 'page' views, falling back to 'tab' views only if an extension has no 'page' view.
+  const pageViews = nonEmbedViews.filter(
+    v => v.placement === 'page' || !ownersWithPageView.has(v.ownerId),
+  )
   const courseViews = pageViews.filter(v => kindById.get(v.ownerId) === 'course')
   const extensionViews = pageViews.filter(v => kindById.get(v.ownerId) !== 'course')
   const embedViews = views.filter(v => v.placement === 'embed')
   const nameById = new Map(records.map(r => [r.id, r.manifest.name]))
 
   function openDocument(doc: DocumentEnvelope) {
+    const ownerViews = nonEmbedViews.filter(v => v.ownerId === doc.createdByExtensionId)
     const matchingView =
-      pageViews.find(v => v.ownerId === doc.createdByExtensionId && v.docTypes.includes(doc.type)) ??
-      pageViews.find(v => v.docTypes.includes(doc.type)) ??
-      pageViews.find(v => v.ownerId === doc.createdByExtensionId)
+      ownerViews.find(v => v.docTypes.includes(doc.type)) ?? ownerViews[0]
 
     const ownerId = matchingView?.ownerId ?? doc.createdByExtensionId
     const viewId = matchingView?.id ?? 'main'
@@ -62,7 +79,24 @@ export function LibraryPage({
     try {
       await documentStore.delete(doc.id)
       setDocuments(prev => prev.filter(d => d.id !== doc.id))
-      toast(`Deleted "${doc.title}"`)
+      window.dispatchEvent(new CustomEvent('syntax:documents-changed'))
+      toast(`Deleted "${doc.title}"`, {
+        duration: 6000,
+        action: {
+          label: 'Undo',
+          onClick: () => {
+            void documentStore
+              .restore(doc)
+              .then(() => {
+                window.dispatchEvent(new CustomEvent('syntax:documents-changed'))
+                toast.success(`Restored "${doc.title}"`)
+              })
+              .catch(() => {
+                toast.error(`Could not restore "${doc.title}"`)
+              })
+          },
+        },
+      })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to delete document')
     }
@@ -128,24 +162,37 @@ export function LibraryPage({
                 <span>{courseViews.length}</span>
               </div>
               <div className="sx-ext-card-grid">
-                {courseViews.map(v => (
-                  <button
-                    key={v.key}
-                    type="button"
-                    className="sx-ext-launch-card"
-                    onClick={() =>
-                      onNavigate(
-                        `/ext/${encodeURIComponent(v.ownerId)}/${encodeURIComponent(v.id)}`,
-                      )
-                    }
-                  >
-                    <span className="sx-ext-launch-title">
-                      <strong>{v.title}</strong>
-                      <ExternalLink size={14} aria-hidden="true" />
-                    </span>
-                    <small>{nameById.get(v.ownerId) ?? v.ownerId}</small>
-                  </button>
-                ))}
+                {courseViews.map(v => {
+                  const extName = nameById.get(v.ownerId) ?? v.ownerId
+                  return (
+                    <button
+                      key={v.key}
+                      type="button"
+                      className="sx-ext-launch-card"
+                      onClick={() =>
+                        onNavigate(
+                          `/ext/${encodeURIComponent(v.ownerId)}/${encodeURIComponent(v.id)}`,
+                        )
+                      }
+                    >
+                      <span className="sx-ext-launch-head">
+                        <ExtensionIcon
+                          src={iconUrlById.get(v.ownerId)}
+                          name={extName}
+                          kind="course"
+                          size={32}
+                        />
+                        <span className="sx-ext-launch-copy">
+                          <span className="sx-ext-launch-title">
+                            <strong>{v.title}</strong>
+                            <ExternalLink size={14} aria-hidden="true" />
+                          </span>
+                          <small>{extName}</small>
+                        </span>
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             </section>
           )}
@@ -157,24 +204,37 @@ export function LibraryPage({
                 <span>{extensionViews.length}</span>
               </div>
               <div className="sx-ext-card-grid">
-                {extensionViews.map(v => (
-                  <button
-                    key={v.key}
-                    type="button"
-                    className="sx-ext-launch-card"
-                    onClick={() =>
-                      onNavigate(
-                        `/ext/${encodeURIComponent(v.ownerId)}/${encodeURIComponent(v.id)}`,
-                      )
-                    }
-                  >
-                    <span className="sx-ext-launch-title">
-                      <strong>{v.title}</strong>
-                      <ExternalLink size={14} aria-hidden="true" />
-                    </span>
-                    <small>{nameById.get(v.ownerId) ?? v.ownerId}</small>
-                  </button>
-                ))}
+                {extensionViews.map(v => {
+                  const extName = nameById.get(v.ownerId) ?? v.ownerId
+                  return (
+                    <button
+                      key={v.key}
+                      type="button"
+                      className="sx-ext-launch-card"
+                      onClick={() =>
+                        onNavigate(
+                          `/ext/${encodeURIComponent(v.ownerId)}/${encodeURIComponent(v.id)}`,
+                        )
+                      }
+                    >
+                      <span className="sx-ext-launch-head">
+                        <ExtensionIcon
+                          src={iconUrlById.get(v.ownerId)}
+                          name={extName}
+                          kind="extension"
+                          size={32}
+                        />
+                        <span className="sx-ext-launch-copy">
+                          <span className="sx-ext-launch-title">
+                            <strong>{v.title}</strong>
+                            <ExternalLink size={14} aria-hidden="true" />
+                          </span>
+                          <small>{extName}</small>
+                        </span>
+                      </span>
+                    </button>
+                  )
+                })}
               </div>
             </section>
           )}

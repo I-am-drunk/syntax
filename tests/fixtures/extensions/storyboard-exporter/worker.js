@@ -23,3 +23,11 @@ export async function hangForever() {
   // eslint-disable-next-line no-constant-condition
   while (true) {}
 }
+
+export async function listOwnDocs(ctx) {
+  return await ctx.documents.list()
+}
+
+export async function tryReadDoc(ctx, docId) {
+  return await ctx.documents.get(docId)
+}
