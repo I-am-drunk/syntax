@@ -4,6 +4,12 @@ import { useHashLocation } from 'wouter/use-hash-location'
 import { Toaster, toast } from 'sonner'
 import { useAccount } from '../core/account'
 import { useAuthActions } from '../core/clerkAuth'
+import { CLOUD_SYNC_APPLIED_EVENT } from '../core/clerkSync'
+import {
+  applyThemePackToDocument,
+  resolveThemePack,
+  useThemePackStore,
+} from '../core/themePacks'
 import {
   clearInstallDeepLink,
   fetchCommunityCatalog,
@@ -182,6 +188,8 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
   const [theme, setTheme] = useState<'light' | 'dark'>(loadTheme)
   const [soundOn, setSoundOn] = useState<boolean>(loadSound)
   const [prefs, setPrefs] = useState<SyntaxPrefs>(loadPrefs)
+  const activeThemeId = useThemePackStore(s => s.activeThemeId)
+  const customThemes = useThemePackStore(s => s.customThemes)
   const [mpm2dSummary, setMpm2dSummary] = useState<Mpm2dProgressSummary>(readMpm2dProgressSummary)
   const [csSummary, setCsSummary] = useState<ThinkingInCodeProgressSummary>(
     readThinkingInCodeProgressSummary,
@@ -212,6 +220,9 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
   const refreshProgressSummaries = useCallback(() => {
     setMpm2dSummary(readMpm2dProgressSummary())
     setCsSummary(readThinkingInCodeProgressSummary())
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('syntax:mpm2d-progress-changed'))
+    }
   }, [])
 
   // Refresh progress summaries when leaving a course or when CS progress changes
@@ -225,11 +236,20 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
   useEffect(() => {
     const onCsProgress = () => setCsSummary(readThinkingInCodeProgressSummary())
     const onAuthClosed = () => setPendingInstall(null)
+    const onCloudApplied = () => {
+      setTheme(loadTheme())
+      setSoundOn(loadSound())
+      setPrefs(loadPrefs())
+      setMpm2dSummary(readMpm2dProgressSummary())
+      setCsSummary(readThinkingInCodeProgressSummary())
+    }
     window.addEventListener(CS_PROGRESS_EVENT, onCsProgress)
     window.addEventListener('syntax:auth-modal-closed', onAuthClosed)
+    window.addEventListener(CLOUD_SYNC_APPLIED_EVENT, onCloudApplied)
     return () => {
       window.removeEventListener(CS_PROGRESS_EVENT, onCsProgress)
       window.removeEventListener('syntax:auth-modal-closed', onAuthClosed)
+      window.removeEventListener(CLOUD_SYNC_APPLIED_EVENT, onCloudApplied)
     }
   }, [])
 
@@ -241,14 +261,19 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
   useEffect(() => {
     document.documentElement.dataset.theme = theme
     document.documentElement.style.colorScheme = theme
+    const activePack = resolveThemePack(activeThemeId, customThemes)
+    applyThemePackToDocument(activePack, theme)
     const meta = document.querySelector('meta[name="theme-color"]')
-    if (meta) meta.setAttribute('content', theme === 'dark' ? '#141414' : '#ffffff')
+    if (meta) {
+      const palette = theme === 'dark' ? activePack.dark : activePack.light
+      meta.setAttribute('content', activePack.id === 'syntax-default' ? (theme === 'dark' ? '#141414' : '#ffffff') : palette.canvas)
+    }
     try {
       localStorage.setItem(THEME_KEY, theme)
     } catch {
       // ignore
     }
-  }, [theme])
+  }, [theme, activeThemeId, customThemes])
 
   useEffect(() => {
     try {

@@ -124,6 +124,8 @@ export const CustomCourseLessonSchema = z
     prompt: z.string().optional(),
     choices: z.array(z.string().min(1)).optional(),
     answerIndex: z.number().int().min(0).optional(),
+    acceptedAnswers: z.array(z.string().min(1)).optional(),
+    hint: z.string().optional(),
     explanation: z.string().optional(),
   })
   .superRefine((lesson, ctx) => {

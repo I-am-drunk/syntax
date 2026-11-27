@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { Check, Compass, Search, Upload, X } from 'lucide-react'
+import { Check, Compass, Palette, Search, Trash2, Upload, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Toggle } from '../settings/Controls'
 import { OFFICIAL_BY_ID, RETIRED_OFFICIAL_IDS } from '../packages/catalog'
@@ -9,6 +9,11 @@ import {
   type SyntaxPackageManifest,
 } from '../core/packages'
 import { getDependentsOf, useInstalledPackages, useRegistryStore } from '../core/registry'
+import {
+  getAllThemePacks,
+  getThemeContrastSummary,
+  useThemePackStore,
+} from '../core/themePacks'
 import { PackageIcon } from './PackageIcon'
 import { CoreTouchIcon } from './CoreTouchWarning'
 
@@ -29,6 +34,16 @@ export function PluginsPage({
 }: PluginsPageProps) {
   const entries = useInstalledPackages()
   const setPackageEnabled = useRegistryStore(s => s.setPackageEnabled)
+  const activeThemeId = useThemePackStore(s => s.activeThemeId)
+  const customThemes = useThemePackStore(s => s.customThemes)
+  const setActiveThemeId = useThemePackStore(s => s.setActiveThemeId)
+  const importThemeJson = useThemePackStore(s => s.importThemeJson)
+  const removeCustomTheme = useThemePackStore(s => s.removeCustomTheme)
+  const allThemes = getAllThemePacks(customThemes)
+  const currentMode: 'light' | 'dark' =
+    typeof document !== 'undefined' && document.documentElement.dataset.theme === 'dark'
+      ? 'dark'
+      : 'light'
   const [query, setQuery] = useState('')
   const [importError, setImportError] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -72,8 +87,31 @@ export function PluginsPage({
 
   async function handleImportFile(file: File) {
     setImportError('')
+    if (file.name.toLowerCase().endsWith('.syntaxtheme')) {
+      const text = await file.text()
+      const res = importThemeJson(text)
+      if (!res.ok) {
+        setImportError(res.error)
+      } else {
+        toast.success(`Applied theme pack "${res.theme.name}"`)
+      }
+      return
+    }
     const parsed = await parsePackageFile(file)
     if (!parsed.ok) {
+      // Also allow .json files that declare syntax.theme.v1
+      if (file.name.toLowerCase().endsWith('.json')) {
+        const text = await file.text()
+        if (text.includes('"syntax.theme.v1"')) {
+          const themeRes = importThemeJson(text)
+          if (themeRes.ok) {
+            toast.success(`Applied theme pack "${themeRes.theme.name}"`)
+            return
+          }
+          setImportError(themeRes.error)
+          return
+        }
+      }
       setImportError(parsed.errors[0] || 'Invalid package file.')
       return
     }
@@ -146,7 +184,7 @@ export function PluginsPage({
         <input
           ref={fileInputRef}
           type="file"
-          accept=".syntaxcourse,.syntaxplugin,.syntaxembeddedplugin,.json"
+          accept=".syntaxcourse,.syntaxplugin,.syntaxembeddedplugin,.syntaxtheme,.json"
           style={{ display: 'none' }}
           onChange={e => {
             const file = e.target.files?.[0]
@@ -156,6 +194,61 @@ export function PluginsPage({
         />
         {importError && <p className="sx-field-error">{importError}</p>}
       </header>
+
+      <section id="plugins-themes" className="sx-plugins-section">
+        <div className="sx-plugins-section-head">
+          <h2 className="sx-inline-icon-label">
+            <Palette size={17} aria-hidden="true" />
+            <span>Theme Packs</span>
+          </h2>
+          <span>{allThemes.length}</span>
+        </div>
+        <div className="sx-theme-pack-grid">
+          {allThemes.map(pack => {
+            const palette = currentMode === 'dark' ? pack.dark : pack.light
+            const active = activeThemeId === pack.id
+            return (
+              <div
+                key={pack.id}
+                className={`sx-theme-pack-card${active ? ' is-active' : ''}`}
+              >
+                <button
+                  type="button"
+                  className="sx-theme-pack-hit"
+                  aria-pressed={active}
+                  onClick={() => setActiveThemeId(pack.id)}
+                >
+                  <span className="sx-theme-swatches" aria-hidden="true">
+                    <span style={{ background: palette.canvas }} />
+                    <span style={{ background: palette.surface }} />
+                    <span style={{ background: palette.accent }} />
+                    <span style={{ background: palette.ink }} />
+                  </span>
+                  <span className="sx-theme-pack-meta">
+                    <strong>{pack.name}</strong>
+                    <small>{getThemeContrastSummary(pack, currentMode)}</small>
+                  </span>
+                  {active && (
+                    <span className="sx-theme-active-check" aria-hidden="true">
+                      <Check size={14} strokeWidth={2.5} />
+                    </span>
+                  )}
+                </button>
+                {!pack.builtIn && (
+                  <button
+                    type="button"
+                    className="sx-theme-remove-btn"
+                    aria-label={`Remove ${pack.name} theme`}
+                    onClick={() => removeCustomTheme(pack.id)}
+                  >
+                    <Trash2 size={13} aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </section>
 
       {appPlugins.length > 0 && (
         <section id="plugins-app-plugins" className="sx-plugins-section">

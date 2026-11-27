@@ -1,16 +1,62 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { ClerkProvider, useAuth, useClerk, useUser } from '@clerk/react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
+import { ClerkProvider, useAuth, useClerk, useSessionList, useUser } from '@clerk/react'
 import { dark } from '@clerk/themes'
 import { isClerkConfigured, sanitizeHandle, useAccountStore } from './account'
+import {
+  collectLocalCloudSnapshot,
+  extractRemoteCloudPayload,
+  fingerprintCloudPayload,
+  mergeCloudIntoLocal,
+  pushCloudSnapshotToClerk,
+  useCloudSyncStore,
+} from './clerkSync'
 import { syntaxLog } from './logger'
+import { useRegistryStore } from './registry'
+import { CS_PROGRESS_EVENT } from '../services/progress'
 
-interface AuthActions {
+export interface SwitchableSession {
+  id: string
+  isCurrent: boolean
+  displayName: string
+  handle: string
+  email?: string
+  avatarUrl?: string
+}
+
+export interface ClerkSecuritySnapshot {
+  passkeyCount: number
+  twoFactorEnabled: boolean
+  connectedProviders: string[]
+}
+
+export interface AuthActions {
   isClerkActive: boolean
   isLoaded: boolean
   isSignedIn: boolean
   openSignIn: () => void
+  addAccount: () => void
   openAccount: () => void
+  openSecurity: () => void
   signOut: () => Promise<void>
+  sessions: SwitchableSession[]
+  switchSession: (sessionId: string) => Promise<void>
+  security: ClerkSecuritySnapshot
+  syncNow: () => Promise<void>
+}
+
+const EMPTY_SECURITY: ClerkSecuritySnapshot = {
+  passkeyCount: 0,
+  twoFactorEnabled: false,
+  connectedProviders: [],
 }
 
 const AuthActionsContext = createContext<AuthActions>({
@@ -18,8 +64,14 @@ const AuthActionsContext = createContext<AuthActions>({
   isLoaded: true,
   isSignedIn: false,
   openSignIn: () => {},
+  addAccount: () => {},
   openAccount: () => {},
+  openSecurity: () => {},
   signOut: async () => {},
+  sessions: [],
+  switchSession: async () => {},
+  security: EMPTY_SECURITY,
+  syncNow: async () => {},
 })
 
 const BASE_ALLOWED_REDIRECT_ORIGINS = [
@@ -74,16 +126,31 @@ function resolveBaseRedirectUrl(): string {
   }
 }
 
+function formatProviderName(raw: string): string {
+  const clean = raw.replace(/^oauth_/i, '').toLowerCase()
+  if (clean === 'github') return 'GitHub'
+  if (clean === 'google') return 'Google'
+  if (clean === 'apple') return 'Apple'
+  return clean.charAt(0).toUpperCase() + clean.slice(1)
+}
+
 function ClerkAccountBridge({ children }: { children: ReactNode }) {
   const { user, isLoaded: userLoaded } = useUser()
-  const { isLoaded: authLoaded, isSignedIn } = useAuth()
+  const { isLoaded: authLoaded, isSignedIn, sessionId: activeSessionId } = useAuth()
+  const { sessions: clerkSessions, setActive } = useSessionList()
   const clerk = useClerk()
   const syncClerkUser = useAccountStore(s => s.syncClerkUser)
   const setSessionStatus = useAccountStore(s => s.setSessionStatus)
+  const setSyncState = useCloudSyncStore(s => s.setSyncState)
+
   const signOutTimerRef = useRef<number>(0)
+  const syncTimerRef = useRef<number>(0)
   const explicitSignOutRef = useRef(false)
+  const hydratedUserIdRef = useRef<string | null>(null)
+  const lastPushedFingerprintRef = useRef<string>('')
   const isLoaded = Boolean(userLoaded && authLoaded)
 
+  // 1. Sync Clerk identity into Syntax account store
   useEffect(() => {
     window.clearTimeout(signOutTimerRef.current)
 
@@ -114,14 +181,15 @@ function ClerkAccountBridge({ children }: { children: ReactNode }) {
       return
     }
 
-    // If user explicitly clicked Sign out, clear immediately.
+    hydratedUserIdRef.current = null
+    lastPushedFingerprintRef.current = ''
+    setSyncState({ status: 'local-only', lastSyncedAt: null, lastError: null })
+
     if (explicitSignOutRef.current) {
       syncClerkUser(null)
       return
     }
 
-    // Guard against Clerk dev-instance transient null ticks during __clerk_db_jwt
-    // cookie refreshes or URL handshakes so users are never falsely flashed as signed out.
     const cachedAccount = useAccountStore.getState().account
     if (cachedAccount?.provider === 'clerk') {
       const waitMs = hasPendingClerkHandshake() ? 1800 : 500
@@ -136,7 +204,130 @@ function ClerkAccountBridge({ children }: { children: ReactNode }) {
 
     syncClerkUser(null)
     return () => window.clearTimeout(signOutTimerRef.current)
-  }, [user, isLoaded, isSignedIn, clerk, syncClerkUser, setSessionStatus])
+  }, [user, isLoaded, isSignedIn, clerk, syncClerkUser, setSessionStatus, setSyncState])
+
+  // 2. Push helper (deduplicated via content fingerprint)
+  const runCloudPush = useCallback(
+    async (force = false) => {
+      if (!user) return
+      const snapshot = collectLocalCloudSnapshot()
+      const fp = fingerprintCloudPayload(snapshot)
+      if (!force && fp === lastPushedFingerprintRef.current) return
+
+      setSyncState({ status: 'syncing', lastError: null })
+      try {
+        await pushCloudSnapshotToClerk(user, snapshot)
+        lastPushedFingerprintRef.current = fp
+        setSyncState({
+          status: 'synced',
+          lastSyncedAt: snapshot.updatedAt,
+          lastError: null,
+          syncedSummary: {
+            mpm2dLessons: Object.keys(snapshot.mpm2dCompleted ?? {}).length,
+            csLessons: (snapshot.csCompletedSlugs ?? []).length,
+            pinnedCourses: (snapshot.pinnedCourses ?? []).length,
+          },
+        })
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        syntaxLog.warn('clerk-sync', 'Cloud sync push failed', { error: msg })
+        setSyncState({ status: 'error', lastError: msg })
+      }
+    },
+    [user, setSyncState],
+  )
+
+  // 3. Initial hydration & monotonic merge when Clerk user signs in
+  useEffect(() => {
+    if (!isLoaded || !user) return
+    if (hydratedUserIdRef.current === user.id) return
+    hydratedUserIdRef.current = user.id
+
+    const remote = extractRemoteCloudPayload(user.unsafeMetadata)
+    if (remote) {
+      const merged = mergeCloudIntoLocal(remote)
+      const remoteFp = fingerprintCloudPayload(remote)
+      const mergedFp = fingerprintCloudPayload(merged)
+      setSyncState({
+        status: 'synced',
+        lastSyncedAt: remote.updatedAt,
+        lastError: null,
+        syncedSummary: {
+          mpm2dLessons: Object.keys(merged.mpm2dCompleted ?? {}).length,
+          csLessons: (merged.csCompletedSlugs ?? []).length,
+          pinnedCourses: (merged.pinnedCourses ?? []).length,
+        },
+      })
+      if (mergedFp !== remoteFp) {
+        void runCloudPush(true)
+      } else {
+        lastPushedFingerprintRef.current = remoteFp
+      }
+    } else {
+      void runCloudPush(true)
+    }
+  }, [isLoaded, user, runCloudPush, setSyncState])
+
+  // 4. Debounced live auto-sync whenever progress, preferences, theme, or packages change
+  useEffect(() => {
+    if (!user) return
+    const scheduleSync = () => {
+      window.clearTimeout(syncTimerRef.current)
+      syncTimerRef.current = window.setTimeout(() => {
+        void runCloudPush(false)
+      }, 2200)
+    }
+
+    const events = [
+      'syntax:prefs-changed',
+      'syntax:mpm2d-progress-changed',
+      'syntax:custom-progress-changed',
+      'syntax:theme-pack-changed',
+      'syntax:library-pins-changed',
+      CS_PROGRESS_EVENT,
+    ]
+    for (const ev of events) window.addEventListener(ev, scheduleSync)
+    const unsubRegistry = useRegistryStore.subscribe(scheduleSync)
+
+    return () => {
+      window.clearTimeout(syncTimerRef.current)
+      for (const ev of events) window.removeEventListener(ev, scheduleSync)
+      unsubRegistry()
+    }
+  }, [user, runCloudPush])
+
+  const sessions = useMemo<SwitchableSession[]>(() => {
+    if (!clerkSessions || clerkSessions.length === 0) return []
+    return clerkSessions
+      .filter(s => s.status === 'active' && s.user)
+      .map(s => {
+        const u = s.user!
+        const email = u.primaryEmailAddress?.emailAddress
+        const handle = sanitizeHandle(
+          u.username || (email ? email.split('@')[0] : '') || u.firstName || 'learner',
+        )
+        return {
+          id: s.id,
+          isCurrent: s.id === activeSessionId,
+          displayName: u.fullName || u.firstName || u.username || handle || 'Learner',
+          handle: handle || 'learner',
+          email,
+          avatarUrl: u.imageUrl || undefined,
+        }
+      })
+  }, [clerkSessions, activeSessionId])
+
+  const security = useMemo<ClerkSecuritySnapshot>(() => {
+    if (!user) return EMPTY_SECURITY
+    const providers = (user.externalAccounts ?? [])
+      .filter(acc => acc.verification?.status === 'verified' || Boolean(acc.provider))
+      .map(acc => formatProviderName(String(acc.provider)))
+    return {
+      passkeyCount: user.passkeys?.length ?? 0,
+      twoFactorEnabled: Boolean(user.twoFactorEnabled),
+      connectedProviders: [...new Set(providers)],
+    }
+  }, [user])
 
   const actions = useMemo<AuthActions>(
     () => ({
@@ -144,6 +335,14 @@ function ClerkAccountBridge({ children }: { children: ReactNode }) {
       isLoaded,
       isSignedIn: Boolean(isSignedIn || user),
       openSignIn: () => {
+        if (!clerk.loaded) return
+        const redirectUrl = resolveBaseRedirectUrl()
+        clerk.openSignIn({
+          fallbackRedirectUrl: redirectUrl,
+          signUpFallbackRedirectUrl: redirectUrl,
+        })
+      },
+      addAccount: () => {
         if (!clerk.loaded) return
         const redirectUrl = resolveBaseRedirectUrl()
         clerk.openSignIn({
@@ -163,9 +362,22 @@ function ClerkAccountBridge({ children }: { children: ReactNode }) {
           })
         }
       },
+      openSecurity: () => {
+        if (!clerk.loaded) return
+        if (user || clerk.user) {
+          clerk.openUserProfile()
+        } else {
+          const redirectUrl = resolveBaseRedirectUrl()
+          clerk.openSignIn({
+            fallbackRedirectUrl: redirectUrl,
+            signUpFallbackRedirectUrl: redirectUrl,
+          })
+        }
+      },
       signOut: async () => {
         explicitSignOutRef.current = true
         window.clearTimeout(signOutTimerRef.current)
+        window.clearTimeout(syncTimerRef.current)
         syncClerkUser(null)
         try {
           if (clerk.loaded) {
@@ -177,8 +389,36 @@ function ClerkAccountBridge({ children }: { children: ReactNode }) {
           })
         }
       },
+      sessions,
+      switchSession: async (sessionId: string) => {
+        if (!setActive || !sessionId || sessionId === activeSessionId) return
+        try {
+          hydratedUserIdRef.current = null
+          lastPushedFingerprintRef.current = ''
+          await setActive({ session: sessionId })
+        } catch (err) {
+          syntaxLog.warn('account', 'Failed to switch Clerk session', {
+            error: err instanceof Error ? err.message : String(err),
+          })
+        }
+      },
+      security,
+      syncNow: async () => {
+        await runCloudPush(true)
+      },
     }),
-    [clerk, isLoaded, isSignedIn, user, syncClerkUser],
+    [
+      clerk,
+      isLoaded,
+      isSignedIn,
+      user,
+      syncClerkUser,
+      sessions,
+      setActive,
+      activeSessionId,
+      security,
+      runCloudPush,
+    ],
   )
 
   return <AuthActionsContext.Provider value={actions}>{children}</AuthActionsContext.Provider>
@@ -205,10 +445,16 @@ export function SyntaxAuthProvider({
       isLoaded: true,
       isSignedIn: Boolean(localAccount),
       openSignIn: onOpenLocalSignIn,
+      addAccount: onOpenLocalSignIn,
       openAccount: onOpenLocalSignIn,
+      openSecurity: onOpenLocalSignIn,
       signOut: async () => {
         signOutLocal()
       },
+      sessions: [],
+      switchSession: async () => {},
+      security: EMPTY_SECURITY,
+      syncNow: async () => {},
     }),
     [localAccount, onOpenLocalSignIn, signOutLocal],
   )
@@ -227,8 +473,8 @@ export function SyntaxAuthProvider({
       },
       elements: {
         modalBackdrop: {
-          backgroundColor: 'rgba(0, 0, 0, 0.54)',
-          backdropFilter: 'blur(6px)',
+          backgroundColor: 'rgba(0, 0, 0, 0.56)',
+          backdropFilter: 'blur(8px)',
         },
         cardBox: {
           boxShadow: isDark
@@ -242,6 +488,10 @@ export function SyntaxAuthProvider({
           borderRadius: '999px',
           fontWeight: 600,
           boxShadow: 'none',
+        },
+        socialButtonsBlockButton: {
+          borderRadius: '12px',
+          border: isDark ? '1px solid rgba(255, 255, 255, 0.14)' : '1px solid rgba(0, 0, 0, 0.12)',
         },
         footer: {
           background: isDark ? '#151515' : '#fafafa',

@@ -2,15 +2,22 @@ import { useEffect, useRef, useState } from 'react'
 import { Popover } from '@base-ui/react/popover'
 import {
   BookOpen,
+  Check,
+  Cloud,
+  CloudOff,
   Compass,
   LogOut,
   Puzzle,
+  RefreshCw,
   Settings,
+  ShieldCheck,
   User,
   UserCog,
+  UserPlus,
 } from 'lucide-react'
 import { useAccount, useSessionStatus } from '../core/account'
 import { useAuthActions } from '../core/clerkAuth'
+import { useCloudSyncStore } from '../core/clerkSync'
 
 interface ProfilePopoverProps {
   onNavigate: (path: string) => void
@@ -20,6 +27,7 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
   const account = useAccount()
   const sessionStatus = useSessionStatus()
   const auth = useAuthActions()
+  const cloudStatus = useCloudSyncStore(s => s.status)
   const [open, setOpen] = useState(false)
   const [imgFailed, setImgFailed] = useState(false)
   const manageTimerRef = useRef<number>(0)
@@ -54,6 +62,7 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
 
   const initials = account.displayName.trim().slice(0, 1).toUpperCase() || 'S'
   const showAvatarImg = Boolean(account.avatarUrl && !imgFailed)
+  const otherSessions = auth.sessions.filter(s => !s.isCurrent)
 
   function go(path: string) {
     setOpen(false)
@@ -68,10 +77,29 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
     }, 40)
   }
 
+  function handleAddAccount() {
+    setOpen(false)
+    window.clearTimeout(manageTimerRef.current)
+    manageTimerRef.current = window.setTimeout(() => {
+      auth.addAccount()
+    }, 40)
+  }
+
   function handleSignOut() {
     setOpen(false)
     void auth.signOut()
   }
+
+  const syncLabel =
+    !auth.isClerkActive || account.provider !== 'clerk'
+      ? 'Local only'
+      : cloudStatus === 'syncing'
+        ? 'Syncing...'
+        : cloudStatus === 'synced'
+          ? 'Cloud synced'
+          : cloudStatus === 'error'
+            ? 'Sync paused'
+            : 'Ready to sync'
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
@@ -122,6 +150,61 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
               </div>
             </div>
 
+            <div className="sx-cloud-sync-strip">
+              <span className={`sx-cloud-pill is-${cloudStatus}`}>
+                {cloudStatus === 'local-only' || cloudStatus === 'error' ? (
+                  <CloudOff size={13} aria-hidden="true" />
+                ) : (
+                  <Cloud size={13} aria-hidden="true" />
+                )}
+                <span>{syncLabel}</span>
+              </span>
+              {auth.isClerkActive && account.provider === 'clerk' && (
+                <button
+                  type="button"
+                  className="sx-cloud-sync-btn"
+                  disabled={cloudStatus === 'syncing'}
+                  onClick={() => void auth.syncNow()}
+                >
+                  <RefreshCw
+                    size={12}
+                    className={cloudStatus === 'syncing' ? 'sx-spin' : undefined}
+                    aria-hidden="true"
+                  />
+                  <span>Sync</span>
+                </button>
+              )}
+            </div>
+
+            {otherSessions.length > 0 && (
+              <>
+                <div className="sx-profile-pop-sep" role="separator" />
+                <div className="sx-profile-pop-group">
+                  <span className="sx-profile-pop-label">Switch account</span>
+                  {otherSessions.map(sess => (
+                    <button
+                      key={sess.id}
+                      type="button"
+                      className="sx-profile-pop-item"
+                      onClick={() => {
+                        setOpen(false)
+                        void auth.switchSession(sess.id)
+                      }}
+                    >
+                      <span className="sx-mini-avatar" aria-hidden="true">
+                        {sess.displayName.slice(0, 1).toUpperCase()}
+                      </span>
+                      <span className="sx-switch-copy">
+                        <span>{sess.displayName}</span>
+                        <small>@{sess.handle}</small>
+                      </span>
+                      {sess.isCurrent && <Check size={14} aria-hidden="true" />}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
             <div className="sx-profile-pop-sep" role="separator" />
 
             <div className="sx-profile-pop-group">
@@ -135,7 +218,7 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
               </button>
               <button type="button" className="sx-profile-pop-item" onClick={() => go('/plugins')}>
                 <Puzzle size={16} strokeWidth={1.9} aria-hidden="true" />
-                <span>Plugins</span>
+                <span>Plugins &amp; Themes</span>
               </button>
               <button
                 type="button"
@@ -159,9 +242,23 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
                 className="sx-profile-pop-item"
                 onClick={handleManageAccount}
               >
-                <UserCog size={16} strokeWidth={1.9} aria-hidden="true" />
-                <span>Manage account</span>
+                {auth.security.passkeyCount > 0 || auth.security.twoFactorEnabled ? (
+                  <ShieldCheck size={16} strokeWidth={1.9} aria-hidden="true" />
+                ) : (
+                  <UserCog size={16} strokeWidth={1.9} aria-hidden="true" />
+                )}
+                <span>Manage account &amp; security</span>
               </button>
+              {auth.isClerkActive && (
+                <button
+                  type="button"
+                  className="sx-profile-pop-item"
+                  onClick={handleAddAccount}
+                >
+                  <UserPlus size={16} strokeWidth={1.9} aria-hidden="true" />
+                  <span>Add another account</span>
+                </button>
+              )}
               <button
                 type="button"
                 className="sx-profile-pop-item is-danger"

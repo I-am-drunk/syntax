@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Cloud, CloudOff, KeyRound, RefreshCw, ShieldCheck } from 'lucide-react'
 import { useAccount } from '../core/account'
 import { useAuthActions } from '../core/clerkAuth'
+import { useCloudSyncStore } from '../core/clerkSync'
 import { useInstalledPackages } from '../core/registry'
 import { Sema } from '../mpm2d/mascot/Sema'
 import type { SyntaxPrefs } from '../mpm2d/storage'
@@ -22,6 +24,15 @@ export interface ProfilePageProps {
   onOpenSettings: () => void
 }
 
+function formatSyncTime(iso: string | null): string {
+  if (!iso) return 'Not synced yet'
+  try {
+    return `Last synced ${new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
+  } catch {
+    return 'Synced'
+  }
+}
+
 export function ProfilePage({
   prefs,
   mpm2dSummary,
@@ -34,6 +45,7 @@ export function ProfilePage({
 }: ProfilePageProps) {
   const account = useAccount()
   const auth = useAuthActions()
+  const cloudSync = useCloudSyncStore()
   const records = useInstalledPackages()
   const [avatarFailed, setAvatarFailed] = useState(false)
 
@@ -57,6 +69,7 @@ export function ProfilePage({
   const totalCompleted = mpm2dSummary.completedCount + csSummary.completedCount
   const totalLessons = mpm2dSummary.totalLessons + csSummary.totalLessons
   const overallPct = totalLessons > 0 ? Math.round((totalCompleted / totalLessons) * 100) : 0
+  const isClerkUser = Boolean(account && account.provider === 'clerk' && auth.isClerkActive)
 
   return (
     <main className="sx-profile-page" aria-label="Profile">
@@ -95,7 +108,7 @@ export function ProfilePage({
             <p className="sx-profile-handle">
               {account
                 ? `@${account.handle}`
-                : 'Sign in to sync your account and install community packages'}
+                : 'Sign in with Passkey, Google, GitHub, or Apple to cloud-sync your progress'}
               {account?.email ? ` · ${account.email}` : ''}
             </p>
           </div>
@@ -151,6 +164,94 @@ export function ProfilePage({
           <span className="sx-profile-stat-label">
             Installed {installedCourses.length === 1 ? 'course' : 'courses'}
           </span>
+        </div>
+      </section>
+
+      <section className="sx-profile-section" aria-label="Cloud Sync and Security">
+        <div className="sx-profile-section-head">
+          <h2>Account &amp; Cloud Sync</h2>
+        </div>
+        <div className="preference-rows">
+          <div className="preference-row">
+            <div className="syntax-pref-copy">
+              <p className="sx-inline-icon-label">
+                {isClerkUser && cloudSync.status !== 'error' ? (
+                  <Cloud size={15} aria-hidden="true" />
+                ) : (
+                  <CloudOff size={15} aria-hidden="true" />
+                )}
+                <span>
+                  {isClerkUser
+                    ? cloudSync.status === 'syncing'
+                      ? 'Syncing to your Clerk account...'
+                      : cloudSync.status === 'error'
+                        ? 'Cloud sync paused (changes saved locally)'
+                        : 'Clerk Cloud Sync active'
+                    : 'Local device storage'}
+                </span>
+              </p>
+              <span>
+                {isClerkUser
+                  ? `${formatSyncTime(cloudSync.lastSyncedAt)} · Syncs MPM2D & CS progress, Sema style, theme pack, and workspace settings across devices`
+                  : 'Sign in to automatically back up and merge your progress across devices'}
+              </span>
+            </div>
+            {isClerkUser ? (
+              <button
+                type="button"
+                className="sx-btn-secondary sx-btn-sm"
+                disabled={cloudSync.status === 'syncing'}
+                onClick={() => void auth.syncNow()}
+              >
+                <RefreshCw
+                  size={13}
+                  className={cloudSync.status === 'syncing' ? 'sx-spin' : undefined}
+                  aria-hidden="true"
+                />
+                <span>Sync now</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="sx-btn-primary sx-btn-sm"
+                onClick={() => auth.openSignIn()}
+              >
+                Sign in
+              </button>
+            )}
+          </div>
+
+          {isClerkUser && (
+            <div className="preference-row">
+              <div className="syntax-pref-copy">
+                <p className="sx-inline-icon-label">
+                  {auth.security.passkeyCount > 0 || auth.security.twoFactorEnabled ? (
+                    <ShieldCheck size={15} aria-hidden="true" />
+                  ) : (
+                    <KeyRound size={15} aria-hidden="true" />
+                  )}
+                  <span>Sign-in &amp; Security</span>
+                </p>
+                <span>
+                  {auth.security.passkeyCount > 0
+                    ? `${auth.security.passkeyCount} ${auth.security.passkeyCount === 1 ? 'Passkey' : 'Passkeys'}`
+                    : 'No passkey yet'}
+                  {' · '}
+                  {auth.security.twoFactorEnabled ? '2FA enabled' : '2FA optional'}
+                  {auth.security.connectedProviders.length > 0
+                    ? ` · Connected: ${auth.security.connectedProviders.join(', ')}`
+                    : ''}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="sx-btn-secondary sx-btn-sm"
+                onClick={() => auth.openSecurity()}
+              >
+                Passkeys &amp; 2FA
+              </button>
+            </div>
+          )}
         </div>
       </section>
 
@@ -242,8 +343,8 @@ export function ProfilePage({
           </div>
           <div className="preference-row">
             <div className="syntax-pref-copy">
-              <p>Preferences &amp; Sema</p>
-              <span>Theme, navigation, Pen Studio, and companion style</span>
+              <p>Preferences, Themes &amp; Sema</p>
+              <span>Color themes, core workspace tools, Pen Studio, and companion style</span>
             </div>
             <button type="button" className="sx-btn-secondary sx-btn-sm" onClick={onOpenSettings}>
               Settings

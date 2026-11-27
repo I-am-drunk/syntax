@@ -2764,3 +2764,300 @@
   gap: 8px;
   flex-wrap: wrap;
 }
+
+/* ==========================================================================
+   Clerk Cloud Sync, Multi-Session Switcher, Theme Packs & Declarative Course
+   ========================================================================== */
+
+.sx-inline-icon-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.sx-cloud-sync-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px 10px;
+}
+
+.sx-cloud-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--secondary);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.sx-cloud-pill.is-synced {
+  color: #15803d;
+  border-color: color-mix(in srgb, #22c55e 32%, var(--border));
+  background: color-mix(in srgb, #22c55e 10%, var(--surface));
+}
+
+:root[data-theme='dark'] .sx-cloud-pill.is-synced {
+  color: #4ade80;
+}
+
+.sx-cloud-pill.is-syncing {
+  color: var(--accent-blue, #456dff);
+  border-color: color-mix(in srgb, var(--accent-blue, #456dff) 36%, var(--border));
+}
+
+.sx-cloud-pill.is-error {
+  color: #b45309;
+  border-color: color-mix(in srgb, #f59e0b 38%, var(--border));
+}
+
+.sx-cloud-sync-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.sx-cloud-sync-btn:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.sx-cloud-sync-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+@keyframes sxSpin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.sx-spin {
+  animation: sxSpin 0.9s linear infinite;
+}
+
+.sx-profile-pop-label {
+  display: block;
+  padding: 4px 12px 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--tertiary);
+}
+
+.sx-mini-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.sx-switch-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.25;
+  flex: 1;
+  min-width: 0;
+}
+
+.sx-switch-copy small {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.sx-theme-packs-block {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 6px;
+}
+
+.sx-theme-packs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sx-theme-pack-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.sx-theme-pack-card {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  border-radius: 14px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.sx-theme-pack-card.is-active {
+  border-color: var(--accent-blue, #456dff);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent-blue, #456dff) 18%, transparent);
+}
+
+.sx-theme-pack-hit {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 12px;
+  background: transparent;
+  text-align: left;
+  border-radius: 12px;
+  min-width: 0;
+}
+
+.sx-theme-swatches {
+  display: grid;
+  grid-template-columns: repeat(2, 14px);
+  grid-template-rows: repeat(2, 14px);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.sx-theme-pack-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.sx-theme-pack-meta strong {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sx-theme-pack-meta small {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.sx-theme-active-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--accent-blue, #456dff);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sx-theme-remove-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  background: transparent;
+  color: var(--muted);
+  border-left: 1px solid var(--border);
+  border-radius: 0 12px 12px 0;
+}
+
+.sx-theme-remove-btn:hover {
+  color: #dc2626;
+  background: color-mix(in srgb, #ef4444 10%, var(--surface));
+}
+
+.sx-custom-course-bar {
+  margin-top: 8px;
+  width: 100%;
+  max-width: 300px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--secondary);
+  overflow: hidden;
+}
+
+.sx-custom-course-bar-fill {
+  height: 100%;
+  background: var(--accent-blue, #456dff);
+  border-radius: 999px;
+  transition: width 240ms ease;
+}
+
+.sx-custom-lesson-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sx-custom-math-input-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sx-custom-math-input {
+  width: 100%;
+  max-width: 360px;
+  padding: 10px 13px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 15px;
+}
+
+.sx-custom-math-input:focus {
+  outline: none;
+  border-color: var(--accent-blue, #456dff);
+}
+
+.sx-custom-math-preview {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.sx-custom-lesson-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sx-custom-hint-box {
+  margin: 0;
+  padding: 10px 13px;
+  border-radius: 12px;
+  background: var(--secondary);
+  border: 1px solid var(--border);
+  font-size: 13.5px;
+  color: var(--text);
+}

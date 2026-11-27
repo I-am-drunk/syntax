@@ -10,122 +10,100 @@
   </a>
 </p>
 
+<h3 align="center">Visual, interactive math and computer science learning built for real understanding.</h3>
+
 <p align="center">
-  <a href="https://syntax-platform.github.io/syntax/"><img src="https://img.shields.io/badge/Launch-Syntax_Live-456dff?style=for-the-badge&logo=vercel&logoColor=white" alt="Open Syntax" /></a>
-  <a href="https://syntax-platform.github.io/syntax-dev/"><img src="https://img.shields.io/badge/Channel-Syntax_Dev-22c55e?style=for-the-badge&logo=githubactions&logoColor=white" alt="Open Syntax Dev" /></a>
-  <a href="https://syntax-platform.github.io/syntax-community/"><img src="https://img.shields.io/badge/Directory-Community_Hub-8b5cf6?style=for-the-badge&logo=bookstack&logoColor=white" alt="Community Hub" /></a>
-  <a href="https://github.com/syntax-platform/syntax/releases"><img src="https://img.shields.io/github/v/tag/syntax-platform/syntax?style=for-the-badge&label=Release&color=111827" alt="Latest Release" /></a>
+  <a href="https://syntax-platform.github.io/syntax/"><img src="https://img.shields.io/badge/Launch-Syntax-456dff?style=for-the-badge&logo=sparkles&logoColor=white" alt="Launch Syntax" /></a>
+  <a href="https://syntax-platform.github.io/syntax-community/"><img src="https://img.shields.io/badge/Explore-Community_Hub-8b5cf6?style=for-the-badge&logo=bookstack&logoColor=white" alt="Community Hub" /></a>
+  <a href="https://github.com/syntax-platform/syntax/stargazers"><img src="https://img.shields.io/github/stars/syntax-platform/syntax?style=for-the-badge&color=111827" alt="GitHub Stars" /></a>
 </p>
 
 <p align="center">
-  <strong>
-    <a href="#live-channels">Live Channels</a>
-    &nbsp;&bull;&nbsp;
-    <a href="#learning-modules">Modules</a>
-    &nbsp;&bull;&nbsp;
-    <a href="#architecture">Architecture</a>
-    &nbsp;&bull;&nbsp;
-    <a href="#security-model">Zero-Trust Model</a>
-    &nbsp;&bull;&nbsp;
-    <a href="#mcp-authoring">MCP Authoring</a>
-    &nbsp;&bull;&nbsp;
-    <a href="#local-development">Quick Start</a>
-    &nbsp;&bull;&nbsp;
-    <a href="#roadmap">Roadmap</a>
-  </strong>
+  <a href="#what-you-can-learn">Courses</a>
+  &nbsp;&middot;&nbsp;
+  <a href="#interactive-workspace">Workspace</a>
+  &nbsp;&middot;&nbsp;
+  <a href="#mathematical-exactness">Math Engine</a>
+  &nbsp;&middot;&nbsp;
+  <a href="#extensibility">Extensibility</a>
+  &nbsp;&middot;&nbsp;
+  <a href="#mcp-authoring">MCP Authoring</a>
+  &nbsp;&middot;&nbsp;
+  <a href="#quick-start">Quick Start</a>
 </p>
 
 ---
 
 > [!TIP]
-> **Built for visual intuition, mathematical exactness, and $0/month static hosting.** Every coordinate graph, algebraic grader, grid interpreter, and guided walkthrough runs client-side with zero paywalls, zero `eval()`, and deterministic verification across 335+ scenes.
+> **Free, open, and 100% client-side.** Interactive coordinate planes, algebraic grading without `eval()`, Pen Studio handwriting, guided Manim walkthroughs, WCAG-verified Theme Packs, and Clerk Cloud Sync all run straight in the browser.
 
-<a id="live-channels"></a>
-## Live Channels
+<a id="what-you-can-learn"></a>
+## What You Can Learn
 
-Everything deploys automatically via [GitHub Actions](.github/workflows) at **$0/month**:
-
-| Channel | URL | Trigger | Purpose |
-| :--- | :--- | :--- | :--- |
-| **Syntax Stable** | [syntax-platform.github.io/syntax](https://syntax-platform.github.io/syntax/) | Promoted `vX.Y.Z` release ([release.yml](.github/workflows/release.yml)) | Production learner workspace |
-| **Syntax Dev** | [syntax-platform.github.io/syntax-dev](https://syntax-platform.github.io/syntax-dev/) | Automated Nightly `vX.Y.Z-nightly.*` ([release.yml](.github/workflows/release.yml)) | Diagnostics, new engines, nightly builds (hosted via [`syntax-dev`](https://github.com/syntax-platform/syntax-dev)) |
-| **Community Hub** | [syntax-platform.github.io/syntax-community](https://syntax-platform.github.io/syntax-community/) | Catalog manifest sync | Verified community courses and extensions |
-
----
-
-<a id="learning-modules"></a>
-## Learning Modules & Core Systems
-
-| Module | Core Runtime | Key Capabilities |
+| Course | Inside the Curriculum | Runtime |
 | :--- | :--- | :--- |
-| **Analytic Geometry (MPM2D)** | [`GeoLessonPlayer.tsx`](src/mpm2d/GeoLessonPlayer.tsx) | 23 lessons, 335 verified `GeoScene` diagrams, 7 Catch-Up rescue paths, interactive coordinate planes, zero-`eval` algebraic grading ([`mathParser.ts`](src/mpm2d/mathParser.ts)) |
-| **Thinking in Code (CS)** | [`LessonSession.tsx`](src/lessons/LessonSession.tsx) | Writing Programs, Sequencing Commands, Repeating Patterns, Debugging Programs, live robot/delivery grid execution, animated `Why?` explanations |
-| **Pen Studio** | [`src/mpm2d/pen/`](src/mpm2d/pen) | Split-screen and fullscreen `tldraw` math scratchpad with per-question ink history sync and 3D drawer HUD |
-| **Guided Walkthroughs** | [`src/mpm2d/walkthrough/`](src/mpm2d/walkthrough) | Manim Community Edition scenes (`en-US-AndrewNeural`), single seekable per-lens MP4s, WebVTT chapters, Video.js 10 (`@videojs/react`), WinBox windows |
-| **Sema Companion** | [`Sema.tsx`](src/mpm2d/mascot/Sema.tsx) | Parametric 3D spherical-eye semicolon companion with 16 expressions, 8 morph shapes, elastic drag physics, and synchronized video choreography |
+| **Analytic Geometry (MPM2D)** | 23 lessons, 335 mathematically verified `GeoScene` figures, 7 Catch-Up rescue paths, interactive slope/midpoint/circle checks | [`GeoLessonPlayer.tsx`](src/mpm2d/GeoLessonPlayer.tsx) |
+| **Thinking in Code (CS)** | Writing Programs, Sequencing Commands, Repeating Patterns, Debugging Programs, live robot grid execution with visual `Why?` replays | [`LessonSession.tsx`](src/lessons/LessonSession.tsx) |
+| **Community Courses** | Declarative `syntax.course.v1` JSON courses with multiple-choice, zero-`eval` algebraic inputs, hints, and isolated embedded widgets | [`CustomCourseStage.tsx`](src/stages/CustomCourseStage.tsx) |
 
-### Mathematical Exactness Built Into the Engine
+<a id="interactive-workspace"></a>
+## Interactive Study Workspace
 
-Syntax treats geometry as computable truth rather than hand-typed coordinates[^1]:
+- **Pen Studio** ([`src/mpm2d/pen/`](src/mpm2d/pen)): Split-screen and fullscreen `tldraw` math scratchpad beside every problem, with graph, dot, and lined paper styles.
+- **Guided Video Walkthroughs** ([`src/mpm2d/walkthrough/`](src/mpm2d/walkthrough)): Manim Community Edition scenes rendered as seekable MP4s with chapter markers, WebVTT captions, Video.js 10 (`@videojs/react`), and draggable WinBox study windows.
+- **Sema Companion** ([`Sema.tsx`](src/mpm2d/mascot/Sema.tsx)): Parametric 3D spherical-eye semicolon mascot with 16 expressions, 8 morph shapes, elastic drag physics, and synchronized walkthrough choreography.
+- **WCAG Theme Packs** ([`themePacks.ts`](src/core/themePacks.ts)): Pure JSON `syntax.theme.v1` color palettes validated automatically for >= 4.5:1 text contrast before applying.
+- **Clerk Auth & Cloud Sync** ([`clerkAuth.tsx`](src/core/clerkAuth.tsx), [`clerkSync.ts`](src/core/clerkSync.ts)): Passkeys, Google/GitHub/Apple OAuth, optional 2FA, multi-session account switching, and automatic cross-device sync of progress, Sema style, theme pack, and workspace tools.
+
+<a id="mathematical-exactness"></a>
+## Mathematical Exactness
+
+Geometry diagrams in Syntax are computed from exact equations rather than hand-placed guesses[^1]:
 
 $$m_\perp = -\frac{1}{m}, \qquad M = \left(\frac{x_1 + x_2}{2},\; \frac{y_1 + y_2}{2}\right), \qquad d = \sqrt{(x_2 - x_1)^2 + (y_2 - y_1)^2}$$
 
-- Every coordinate plane enforces an **isotropic 1:1 aspect ratio** so perpendicular lines visually meet at an exact $90^\circ$ angle rather than looking skewed.
-- [`mathParser.ts`](src/mpm2d/mathParser.ts) parses fractions, radicals (`6√2`, `sqrt(72)`), unary powers (`-3^2 = -9`, `(-3)^2 = 9`), linear equations, and circle equations via a **zero-`eval` recursive-descent parser** safe under strict CSP.
-- Keyboard shortcuts stay fast everywhere: press <kbd>/</kbd> to focus search, <kbd>Enter</kbd> to submit or step, and <kbd>Esc</kbd> to dismiss active drawers or dialogs.
+- Every coordinate plane enforces an **isotropic 1:1 aspect ratio** so perpendicular lines visually intersect at an exact $90^\circ$ angle.
+- [`mathParser.ts`](src/mpm2d/mathParser.ts) evaluates fractions, radicals (`6√2`, `sqrt(72)`), unary powers (`-3^2 = -9`, `(-3)^2 = 9`), linear equations, and circle equations using a **zero-`eval` recursive-descent parser**.
+- Fast keyboard navigation everywhere: press <kbd>/</kbd> to search, <kbd>F</kbd> for the Formula Playbook, <kbd>Enter</kbd> to check, and <kbd>Esc</kbd> to close dialogs.
 
----
-
-<a id="architecture"></a>
-## Architecture & Extensibility v2
-
-Syntax follows an inward-separated single-runtime design inspired by **Khan Academy Perseus**, **Chrome MV3**, **VS Code**, **Figma**, and **MCP Apps (SEP-1865)**:
+<a id="extensibility"></a>
+## Extensibility & Zero-Trust Model
 
 ```mermaid
 flowchart LR
-  subgraph Author["AI & Human Authoring"]
-    MCP["tools/syntax-mcp (Zod v4 + Builders + Conformance)"]
-  end
-  subgraph Verify["Zero-Trust Verification Gate"]
-    Schema["Strict Schema + Contrast + Math Audit"]
-    Crypto["Ed25519 DSSE Attestation (Verify-Then-Parse)"]
+  subgraph Author["Authoring & Validation"]
+    MCP["tools/syntax-mcp (Zod v4 + Builders)"]
+    Gate["Schema + WCAG Contrast + Math Audit"]
   end
   subgraph Runtime["Syntax Single Learner Runtime"]
-    Courses["Declarative Courses (Zero JS: GeoLessonPlayer & LessonSession)"]
-    Themes["Token Theme Packs (Hex/OKLCH JSON + WCAG >= 4.5:1)"]
-    Widgets["Sandboxed Widgets (MCP Apps Separate-Origin Iframe)"]
+    Courses["Declarative Courses (syntax.course.v1)"]
+    Themes["WCAG Theme Packs (syntax.theme.v1)"]
+    Widgets["Sandboxed Widgets (syntax.widget.v1)"]
   end
-  MCP --> Schema --> Crypto
-  Crypto --> Courses
-  Crypto --> Themes
-  Crypto --> Widgets
+  MCP --> Gate
+  Gate --> Courses
+  Gate --> Themes
+  Gate --> Widgets
 ```
 
-<a id="security-model"></a>
-## Zero-Trust Security Model
-
 > [!IMPORTANT]
-> **Untrusted manifests can never declare their own trust.** Badges (`Official`, `Verified`), scan results, and capability disclosures are computed strictly by host code and verified cryptographic signatures, never from author-supplied JSON fields or prose.
+> **Untrusted manifests never decide their own trust.** Badges, reserved official IDs, contrast checks, and capability disclosures are computed strictly by host code in [`src/contracts/`](src/contracts/index.ts), [`src/core/registry.ts`](src/core/registry.ts), and [`src/core/sandbox.tsx`](src/core/sandbox.tsx).
 
 <details>
-<summary><strong>Deep Dive: Why Syntax Separates Data, Themes, and Sandboxed Code</strong></summary>
+<summary><strong>Security boundaries under the hood</strong></summary>
 
-1. **Courses are pure declarative data (zero untrusted JS)**: Modeled after Khan Academy Perseus (`perseus-core` + `perseus-score`), lessons declare structured scenes, steps, and rubrics validated by Zod v4 (`z.toJSONSchema()`) and rendered natively on Syntax's single lesson runtime.
-2. **Host-derived immutable disclosures (Chrome MV3 rule)**: Extensions request machine-readable capability tokens only. The Syntax host maps each token to compiled host-owned warning copy and auto-disables extensions on update privilege escalation.
-3. **Strict sandbox isolation (Figma + MCP Apps rule)**: Interactive code widgets execute inside an opaque `sandbox="allow-scripts"` iframe (no `allow-same-origin`, no `allow-forms`, no `allow-modals`, explicit `form-action 'none'` and `base-uri 'none'`, strict `event.origin === 'null'` + navigation kill switch, moving to a separate-origin Cloudflare Pages `sandbox.html` proxy with real HTTP CSP headers).
-4. **Audited libraries over hand-rolled plumbing**: Built on `zod`, `zustand`, `react-error-boundary`, `@base-ui/react`, `@clerk/react`, `@videojs/react`, `@rive-app/webgl2`, and `tldraw`, with `@modelcontextprotocol/ext-apps`, `@noble/ed25519`, `culori`, and `@cortex-js/compute-engine` planned for Extensibility v2[^2].
+1. **Zero untrusted JS in courses**: Community courses are declarative JSON validated by Zod v4 and rendered natively by Syntax's runtime.
+2. **Zero CSS injection in themes**: Theme packs supply hex color tokens only, checked against WCAG 2.1 luminance ratios (>= 4.5:1 body and accent contrast).
+3. **Opaque widget sandboxing**: Interactive widgets run inside `sandbox="allow-scripts"` iframes with `default-src 'none'`, `form-action 'none'`, `base-uri 'none'`, strict `event.origin === 'null'` and `e.source === window.parent` checks, navigation termination, and bounded error reporting.
 
 </details>
-
----
 
 <a id="mcp-authoring"></a>
 ## MCP Authoring Toolkit (`tools/syntax-mcp`)
 
-[`tools/syntax-mcp/`](tools/syntax-mcp/src/server.ts) exposes Syntax's live math/geometry runtime to AI authoring agents over Model Context Protocol so courses are **constructed by correctness** instead of guessed:
+[`tools/syntax-mcp/`](tools/syntax-mcp/src/server.ts) connects AI coding agents directly to Syntax's geometry engine over Model Context Protocol so scenes are constructed deterministically:
 
 ```ts
-// Example: deterministic geometric scene construction via syntax_author_scene
 const ops = [
   { op: 'line_through', id: 'base', a: [-2, 1], b: [4, 4] },
   { op: 'midpoint', a: [-2, 1], b: [4, 4], label: 'M' },
@@ -134,19 +112,7 @@ const ops = [
 ]
 ```
 
-<details>
-<summary><strong>Available MCP & Verification Commands</strong></summary>
-
-| Command | Script / Entrypoint | What It Verifies |
-| :--- | :--- | :--- |
-| `npm run verify:graphs` | [`scripts/verify-graphs.mjs`](scripts/verify-graphs.mjs) | Mathematical bounds, orthogonality, grader round-trips, and label collision checks across all 335 GeoScenes |
-| `npm run build` | `tsc -b && vite build` | Strict TypeScript project build and production Vite bundle |
-| `npm --prefix tools/syntax-mcp run build` | [`tools/syntax-mcp/src/server.ts`](tools/syntax-mcp/src/server.ts) | Compiles the `syntax-mcp` server and `syntax-cli` authoring binary |
-| `npm run verify:walkthroughs` | `manim-pipeline/render.py --verify-only` | Manim `SyntaxVerifier` isotropic lock-on and no-slop gates |
-
-</details>
-
-<a id="local-development"></a>
+<a id="quick-start"></a>
 ## Quick Start
 
 ```bash
@@ -156,22 +122,21 @@ npm install
 npm run dev
 ```
 
-> [!NOTE]
-> **Optional Clerk Auth**: Copy `.env.example` to `.env.local` and set `VITE_CLERK_PUBLISHABLE_KEY`. For GitHub Pages channels, configure `VITE_CLERK_PUBLISHABLE_KEY` as a GitHub Actions Repository Variable. Automated PR reviews are configured in [`.coderabbit.yaml`](.coderabbit.yaml).
+<details>
+<summary><strong>Development & Verification Scripts</strong></summary>
 
-<a id="roadmap"></a>
-## Extensibility v2 Roadmap
+| Command | Purpose |
+| :--- | :--- |
+| `npm run dev` | Start the local Vite development server |
+| `npm run build` | Type-check (`tsc -b`) and build the production bundle |
+| `npm run verify:graphs` | Verify bounds, orthogonality, grader round-trips, and label spacing across all 335 GeoScenes |
+| `npm --prefix tools/syntax-mcp run build` | Build the `syntax-mcp` server and authoring CLI |
+| `npm run verify:walkthroughs` | Run Manim `SyntaxVerifier` isotropic lock-on and visual checks |
 
-- [x] Revert unverified hand-rolled plugin plumbing and add assertive [`.coderabbit.yaml`](.coderabbit.yaml) reviews ([#1](https://github.com/syntax-platform/syntax/pull/1))
-- [x] Quarantine untrusted pre-install previews, trust-field spoofing, dead files, and `Function()` eval in [`mathParser.ts`](src/mpm2d/mathParser.ts) ([#2](https://github.com/syntax-platform/syntax/pull/2))
-- [ ] Move built-in tools (`Pen Studio`, `Walkthroughs`, `Floating Windows`, `Formula Playbook`) into Workspace Preferences and ship shared Zod v4 `src/contracts/`
-- [ ] Converge all courses onto one declarative `syntax.course.v1` runtime with `@cortex-js/compute-engine` symbolic grading and dedicated `/courses` navigation
-- [ ] Ship `/extensions` with WCAG-verified `syntax.theme.v1` JSON palettes and `@modelcontextprotocol/ext-apps` separate-origin sandboxed widgets
-- [ ] Upgrade [`tools/syntax-mcp`](tools/syntax-mcp/src/server.ts) with `McpServer` structured outputs, MCP Resources/Prompts, Playwright conformance gates, and Ed25519 DSSE CI signing
+</details>
 
 ---
 
-[^1]: All 335 Grade 10 `GeoScene` figures are checked automatically by `npm run verify:graphs` before release.
-[^2]: Cryptography runs through Cure53-audited `@noble/ed25519` rather than WebCrypto Ed25519 alone so managed school Chromebooks (Chrome 126 to 136 LTS) verify attestations identically.
+[^1]: Every `GeoScene` diagram is checked mathematically by [`scripts/verify-graphs.mjs`](scripts/verify-graphs.mjs) on every build.
 
 <p align="right"><a href="#top">Back to top &uarr;</a></p>

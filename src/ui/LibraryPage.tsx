@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Compass } from 'lucide-react'
+import { CLOUD_SYNC_APPLIED_EVENT } from '../core/clerkSync'
 import { assetUrl } from '../mpm2d/assetUrl'
 import { MPM2D_TOTAL_LESSONS, THINKING_IN_CODE_META } from '../packages/courseMeta'
 import type { SyntaxPackageManifest } from '../core/packages'
@@ -157,10 +158,17 @@ export function LibraryPage({
   useEffect(() => {
     try {
       localStorage.setItem(PINNED_KEY, JSON.stringify(pinnedIds))
+      window.dispatchEvent(new CustomEvent('syntax:library-pins-changed'))
     } catch {
       // ignore
     }
   }, [pinnedIds])
+
+  useEffect(() => {
+    const onCloudSync = () => setPinnedIds(loadPinned())
+    window.addEventListener(CLOUD_SYNC_APPLIED_EVENT, onCloudSync)
+    return () => window.removeEventListener(CLOUD_SYNC_APPLIED_EVENT, onCloudSync)
+  }, [])
 
   const courses = useMemo<LibraryCourseCardData[]>(() => {
     return records
