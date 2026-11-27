@@ -2,7 +2,7 @@ import { describe, it, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 import { useContributionStore, qualifyContributionKey } from '../../src/extensions/contributions.ts'
 import { ExtensionServiceRegistry, findServiceCycle } from '../../src/extensions/services.ts'
-import { createMemoryDocumentStore } from '../../src/extensions/documents.ts'
+import { createMemoryDocumentStore, MAX_DOCUMENT_BYTES } from '../../src/extensions/documents.ts'
 import { validateExtensionManifest } from '../../src/extensions/manifest.ts'
 import { isSafeMode, useExtensionStore } from '../../src/extensions/store.ts'
 import { extensionDiagnostics } from '../../src/extensions/diagnostics.ts'
@@ -195,6 +195,66 @@ describe('DocumentStore optimistic concurrency and Safe Mode detection', () => {
 
     const reloaded = await store.get(created.id)
     assert.deepEqual(reloaded?.data, { scenes: ['Intro', 'Middle'] })
+  })
+
+  it('enforces per-extension document ownership, payload size cap, and host restore', async () => {
+    const store = createMemoryDocumentStore()
+    const docA = await store.create({
+      type: 'note',
+      title: 'Private Note A',
+      createdByExtensionId: 'ext.a',
+      data: { text: 'secret' },
+    })
+    const docB = await store.create({
+      type: 'note',
+      title: 'Private Note B',
+      createdByExtensionId: 'ext.b',
+      data: { text: 'other' },
+    })
+
+    // Host list (no owner filter) sees both; scoped list sees only own docs
+    assert.equal((await store.list()).length, 2)
+    assert.deepEqual(
+      (await store.list(undefined, 'ext.a')).map(d => d.id),
+      [docA.id],
+    )
+    assert.deepEqual(
+      (await store.list('note', 'ext.b')).map(d => d.id),
+      [docB.id],
+    )
+
+    // Cross-extension get and save are denied
+    await assert.rejects(() => store.get(docA.id, 'ext.b'), /cannot access a document owned by/)
+    await assert.rejects(
+      () =>
+        store.save({
+          id: docA.id,
+          expectedRevision: 1,
+          ownerExtensionId: 'ext.b',
+          data: { text: 'tampered' },
+        }),
+      /cannot access a document owned by/,
+    )
+
+    // Oversized payload rejected cleanly
+    await assert.rejects(
+      () =>
+        store.create({
+          type: 'note',
+          title: 'Too Big',
+          createdByExtensionId: 'ext.a',
+          data: { blob: 'x'.repeat(MAX_DOCUMENT_BYTES + 100) },
+        }),
+      /exceeds maximum size/,
+    )
+
+    // Delete + Undo restore preserves exact envelope and revision
+    await store.delete(docA.id)
+    assert.equal(await store.get(docA.id), null)
+    await store.restore(docA)
+    const restored = await store.get(docA.id, 'ext.a')
+    assert.equal(restored?.title, 'Private Note A')
+    assert.equal(restored?.revision, 1)
   })
 
   it('detects safeMode from search or hash query params', () => {

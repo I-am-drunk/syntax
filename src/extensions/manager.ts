@@ -165,12 +165,15 @@ export class ExtensionManager {
         if (typeof id !== 'string' || !id.trim()) {
           throw new ExtensionError('SYSCALL_DENIED', 'documents.get requires a document id.')
         }
-        return await documentStore.get(id)
+        return await documentStore.get(id, inst.extensionId)
       }
 
       case 'documents.list': {
         const [type] = args as [string | undefined]
-        return await documentStore.list(typeof type === 'string' && type.trim() ? type : undefined)
+        return await documentStore.list(
+          typeof type === 'string' && type.trim() ? type : undefined,
+          inst.extensionId,
+        )
       }
 
       case 'documents.create': {
@@ -220,6 +223,7 @@ export class ExtensionManager {
         const saved = await documentStore.save({
           id: raw.id,
           expectedRevision: raw.expectedRevision,
+          ownerExtensionId: inst.extensionId,
           title: typeof raw.title === 'string' ? raw.title.trim().slice(0, 160) : undefined,
           schemaVersion:
             typeof raw.schemaVersion === 'number' &&
@@ -624,6 +628,18 @@ export class ExtensionManager {
     opts?: { enableImmediately?: boolean; bootTimeoutMs?: number },
   ): Promise<ExtensionRecord> {
     const { manifest, assets } = await fetchExtensionManifest(manifestUrl)
+    return await this.installFromManifest(manifest, assets, opts)
+  }
+
+  /**
+   * Install an already fetched & user-reviewed manifest and resolved assets without
+   * re-fetching the manifest (prevents swap between review and activation).
+   */
+  async installFromManifest(
+    manifest: ExtensionManifest,
+    assets: ResolvedExtensionAssets,
+    opts?: { enableImmediately?: boolean; bootTimeoutMs?: number },
+  ): Promise<ExtensionRecord> {
     return await this.withLock(manifest.id, async () => {
       const store = useExtensionStore.getState()
       const existing = store.records.find(r => r.id === manifest.id)

@@ -29,6 +29,8 @@ async function installViaUi(page, url) {
   await page.waitForSelector('input[aria-label="Extension manifest URL"]')
   await page.fill('input[aria-label="Extension manifest URL"]', url)
   await page.click('button[type="submit"]:has-text("Install")')
+  await page.waitForSelector('[data-testid="extension-install-modal"]')
+  await page.click('[data-testid="confirm-install-extension"]')
 }
 
 describe('Syntax Extensions v1 end-to-end acceptance suite (real Chromium)', () => {
@@ -137,11 +139,28 @@ describe('Syntax Extensions v1 end-to-end acceptance suite (real Chromium)', () 
         const ext = window.__SYNTAX_EXTENSIONS__
         const res = await ext.manager.runCommand('tj.exporter:export', ['deck.md'])
         const rt = ext.store.getState().runtime['tj.exporter']
-        return { res, optionalIssues: rt.unavailableOptionalServices }
+        const allHostDocs = await ext.documents.list()
+        const exporterDocs = await ext.manager.invokeWorker('tj.exporter', 'listOwnDocs')
+        let crossReadDenied = false
+        try {
+          await ext.manager.invokeWorker('tj.exporter', 'tryReadDoc', [allHostDocs[0].id])
+        } catch (err) {
+          crossReadDenied = /cannot access a document owned by/.test(err.message)
+        }
+        return {
+          res,
+          optionalIssues: rt.unavailableOptionalServices,
+          hostDocCount: allHostDocs.length,
+          exporterDocCount: exporterDocs.length,
+          crossReadDenied,
+        }
       })
       assert.equal(exportResult.res.hasAnalytics, false)
       assert.match(exportResult.res.output, /deck\.md: Storyboard, Record voiceover, Edit rough cut/)
       assert.ok('tj.missing/analytics' in exportResult.optionalIssues)
+      assert.equal(exportResult.hostDocCount, 1)
+      assert.equal(exportResult.exporterDocCount, 0)
+      assert.equal(exportResult.crossReadDenied, true)
 
       // 3. Ordinary error attribution
       const errResult = await page.evaluate(async () => {
@@ -192,8 +211,15 @@ describe('Syntax Extensions v1 end-to-end acceptance suite (real Chromium)', () 
       )
       assert.match(recovered.output, /^after-reload\.md: Storyboard/)
 
-      // 13. Uninstall tj.storyboard preserves user documents and shows recovery panel!
+      // 13. Uninstall tj.storyboard requires inline confirmation, preserves user documents, and shows recovery panel!
       await page.click('[data-extension-id="tj.storyboard"] button:has-text("Uninstall")')
+      await page.waitForSelector('[data-extension-id="tj.storyboard"] button:has-text("Confirm uninstall")')
+      // Clicking Cancel keeps extension installed
+      await page.click('[data-extension-id="tj.storyboard"] button:has-text("Cancel")')
+      assert.equal(await page.locator('[data-extension-id="tj.storyboard"]').count(), 1)
+      // Clicking Uninstall -> Confirm uninstall removes it cleanly
+      await page.click('[data-extension-id="tj.storyboard"] button:has-text("Uninstall")')
+      await page.click('[data-extension-id="tj.storyboard"] button:has-text("Confirm uninstall")')
       await page.waitForFunction(
         () => !window.__SYNTAX_EXTENSIONS__.store.getState().records.some(r => r.id === 'tj.storyboard'),
       )
@@ -601,12 +627,28 @@ describe('Syntax Extensions v1 end-to-end acceptance suite (real Chromium)', () 
       await page.click('[data-extension-id="tj.storyboard"][data-view-id="scratchpad"] button:has-text("Reload")')
       await page.waitForSelector('[data-extension-id="tj.storyboard"][data-view-id="scratchpad"][data-view-ready="true"]')
 
-      // Explicit user document delete on LibraryPage removes the view-only document
+      // Explicit user document delete + Undo toast restore, then permanent delete
+      await page.waitForSelector('.sx-ext-doc-row:has-text("View Only Note")')
+      await page.click('button[aria-label="Delete View Only Note"]')
+      await page.waitForFunction(() => document.querySelectorAll('.sx-ext-doc-row').length === 0)
+      await page.click('button:has-text("Undo")')
       await page.waitForSelector('.sx-ext-doc-row:has-text("View Only Note")')
       await page.click('button[aria-label="Delete View Only Note"]')
       await page.waitForFunction(() => document.querySelectorAll('.sx-ext-doc-row').length === 0)
       const remainingDocs = await page.evaluate(() => window.__SYNTAX_EXTENSIONS__.documents.list())
       assert.equal(remainingDocs.length, 0)
+
+      // Cancelling the Install Review modal must leave zero records and zero workers for that URL
+      await page.goto(`${harness.appOrigin}/#/extensions`)
+      await page.fill('input[aria-label="Extension manifest URL"]', harness.extUrl('demo-course/extension.json'))
+      await page.click('button[type="submit"]:has-text("Install")')
+      await page.waitForSelector('[data-testid="extension-install-modal"]')
+      await page.click('[data-testid="extension-install-modal"] button:has-text("Cancel")')
+      assert.equal(await page.locator('[data-testid="extension-install-modal"]').count(), 0)
+      const cancelledCheck = await page.evaluate(() =>
+        window.__SYNTAX_EXTENSIONS__.store.getState().records.some(r => r.id === 'tj.demo-course'),
+      )
+      assert.equal(cancelledCheck, false)
 
       // Reverse-order localStorage boot: store tj.exporter BEFORE tj.storyboard, reload page, verify both boot active!
       await page.evaluate(() => {

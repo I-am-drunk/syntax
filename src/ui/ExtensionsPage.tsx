@@ -21,8 +21,16 @@ import { toast } from 'sonner'
 import { useContributionStore } from '../extensions/contributions.ts'
 import { extensionDiagnostics, type ExtensionLogEntry } from '../extensions/diagnostics.ts'
 import { extensionManager } from '../extensions/manager.ts'
+import {
+  fetchExtensionManifest,
+  resolveExtensionAssets,
+  type ExtensionManifest,
+  type ResolvedExtensionAssets,
+} from '../extensions/manifest.ts'
 import { useExtensionStore, type ExtensionRecord } from '../extensions/store.ts'
 import { Segmented } from './Controls'
+import { ExtensionIcon } from './ExtensionIcon'
+import { ExtensionInstallModal } from './ExtensionInstallModal'
 
 export interface ExtensionsPageProps {
   onOpenCommunityHub: () => void
@@ -58,8 +66,15 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
 
   const [viewMode, setViewMode] = useState<ExtensionsViewMode>('extensions')
   const [manifestUrl, setManifestUrl] = useState('')
+  const [fetchingManifest, setFetchingManifest] = useState(false)
+  const [pendingInstall, setPendingInstall] = useState<{
+    manifest: ExtensionManifest
+    assets: ResolvedExtensionAssets
+  } | null>(null)
   const [installing, setInstalling] = useState(false)
   const [installError, setInstallError] = useState<string | null>(null)
+  const [modalError, setModalError] = useState<string | null>(null)
+  const [confirmUninstallId, setConfirmUninstallId] = useState<string | null>(null)
   const [busyById, setBusyById] = useState<Record<string, boolean>>({})
   const [openLogsId, setOpenLogsId] = useState<string | null>(null)
   const [openSettingsId, setOpenSettingsId] = useState<string | null>(null)
@@ -78,16 +93,35 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
     setBusyById(prev => ({ ...prev, [id]: busy }))
   }
 
-  async function handleInstall(e: React.FormEvent) {
+  async function handleInspectInstall(e: React.FormEvent) {
     e.preventDefault()
     const trimmed = manifestUrl.trim()
     if (!trimmed) return
-    setInstalling(true)
+    setFetchingManifest(true)
     setInstallError(null)
+    setModalError(null)
     try {
-      const rec = await extensionManager.installFromUrl(trimmed, {
-        enableImmediately: !safeMode,
-      })
+      const inspected = await fetchExtensionManifest(trimmed)
+      setPendingInstall(inspected)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to read extension manifest.'
+      setInstallError(msg)
+    } finally {
+      setFetchingManifest(false)
+    }
+  }
+
+  async function handleConfirmInstall() {
+    if (!pendingInstall) return
+    setInstalling(true)
+    setModalError(null)
+    try {
+      const rec = await extensionManager.installFromManifest(
+        pendingInstall.manifest,
+        pendingInstall.assets,
+        { enableImmediately: !safeMode },
+      )
+      setPendingInstall(null)
       setManifestUrl('')
       setViewMode(rec.manifest.kind === 'course' ? 'courses' : 'extensions')
       toast.success(
@@ -97,7 +131,7 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
       )
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to install extension.'
-      setInstallError(msg)
+      setModalError(msg)
     } finally {
       setInstalling(false)
     }
@@ -149,6 +183,7 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
     setBusy(rec.id, true)
     try {
       await extensionManager.uninstall(rec.id)
+      setConfirmUninstallId(prev => (prev === rec.id ? null : prev))
       toast(`Uninstalled ${rec.manifest.name}. Your saved documents were preserved.`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : `Failed to uninstall ${rec.manifest.name}`)
@@ -246,7 +281,7 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
         <div className="sx-plugins-section-head">
           <h2>Install from URL</h2>
         </div>
-        <form className="sx-ext-install-form" onSubmit={e => void handleInstall(e)}>
+        <form className="sx-ext-install-form" onSubmit={e => void handleInspectInstall(e)}>
           <input
             type="url"
             className="sx-ext-url-input"
@@ -254,12 +289,16 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
             aria-label="Extension manifest URL"
             value={manifestUrl}
             onChange={e => setManifestUrl(e.target.value)}
-            disabled={installing}
+            disabled={fetchingManifest || installing}
             required
           />
-          <button type="submit" className="sx-btn-primary" disabled={installing || !manifestUrl.trim()}>
+          <button
+            type="submit"
+            className="sx-btn-primary"
+            disabled={fetchingManifest || installing || !manifestUrl.trim()}
+          >
             <Plus size={15} strokeWidth={2.2} aria-hidden="true" />
-            <span>{installing ? 'Installing...' : 'Install'}</span>
+            <span>{fetchingManifest ? 'Checking...' : 'Install'}</span>
           </button>
         </form>
         {installError && (
@@ -318,6 +357,13 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
               const isSettingsOpen = openSettingsId === rec.id
               const declaredSettings = rec.manifest.settings
               const savedSettings = settingsById[rec.id] ?? {}
+              const isConfirmingUninstall = confirmUninstallId === rec.id
+              let iconUrl: string | null = null
+              try {
+                iconUrl = resolveExtensionAssets(rec.manifestUrl, rec.manifest).iconUrl
+              } catch {
+                iconUrl = null
+              }
 
               return (
                 <article
@@ -327,23 +373,31 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
                   data-extension-status={status}
                 >
                   <div className="sx-ext-card-top">
-                    <div className="sx-ext-card-id">
-                      <div className="sx-ext-card-title-row">
-                        <h3>{rec.manifest.name}</h3>
-                        <span className={`sx-ext-status-badge is-${status}`}>
-                          {statusLabel(rt?.status, rec.enabled)}
-                        </span>
-                        <span className="sx-ext-version-tag">v{rec.manifest.version}</span>
+                    <div className="sx-ext-card-id sx-ext-card-id-with-icon">
+                      <ExtensionIcon
+                        src={iconUrl}
+                        name={rec.manifest.name}
+                        kind={rec.manifest.kind}
+                        size={38}
+                      />
+                      <div className="sx-ext-card-id-copy">
+                        <div className="sx-ext-card-title-row">
+                          <h3>{rec.manifest.name}</h3>
+                          <span className={`sx-ext-status-badge is-${status}`}>
+                            {statusLabel(rt?.status, rec.enabled)}
+                          </span>
+                          <span className="sx-ext-version-tag">v{rec.manifest.version}</span>
+                        </div>
+                        <p className="sx-ext-meta-line">
+                          <code>{rec.id}</code>
+                          {' · '}
+                          <span>{safeOrigin(rec.manifestUrl)}</span>
+                          {rec.manifest.author ? ` · ${rec.manifest.author}` : ''}
+                        </p>
+                        {rec.manifest.description && (
+                          <p className="sx-ext-description">{rec.manifest.description}</p>
+                        )}
                       </div>
-                      <p className="sx-ext-meta-line">
-                        <code>{rec.id}</code>
-                        {' · '}
-                        <span>{safeOrigin(rec.manifestUrl)}</span>
-                        {rec.manifest.author ? ` · ${rec.manifest.author}` : ''}
-                      </p>
-                      {rec.manifest.description && (
-                        <p className="sx-ext-description">{rec.manifest.description}</p>
-                      )}
                     </div>
 
                     <div className="sx-ext-card-actions">
@@ -437,16 +491,38 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
                         <span>{isLogsOpen ? 'Hide logs' : 'Logs'}</span>
                       </button>
 
-                      <button
-                        type="button"
-                        className="sx-btn-danger-ghost sx-btn-sm"
-                        disabled={busy}
-                        title="Uninstall extension (your documents are kept)"
-                        onClick={() => void handleUninstall(rec)}
-                      >
-                        <Trash2 size={13} aria-hidden="true" />
-                        <span>Uninstall</span>
-                      </button>
+                      {isConfirmingUninstall ? (
+                        <span className="sx-ext-confirm-group">
+                          <button
+                            type="button"
+                            className="sx-btn-danger-ghost sx-btn-sm is-confirming"
+                            disabled={busy}
+                            onClick={() => void handleUninstall(rec)}
+                          >
+                            <Trash2 size={13} aria-hidden="true" />
+                            <span>Confirm uninstall</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="sx-btn-ghost sx-btn-sm"
+                            disabled={busy}
+                            onClick={() => setConfirmUninstallId(null)}
+                          >
+                            Cancel
+                          </button>
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="sx-btn-danger-ghost sx-btn-sm"
+                          disabled={busy}
+                          title="Uninstall extension (your documents are kept)"
+                          onClick={() => setConfirmUninstallId(rec.id)}
+                        >
+                          <Trash2 size={13} aria-hidden="true" />
+                          <span>Uninstall</span>
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -605,6 +681,23 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
           <span>{copiedId === '__all__' ? 'Copied' : 'Copy runtime report'}</span>
         </button>
       </footer>
+
+      <ExtensionInstallModal
+        open={Boolean(pendingInstall)}
+        manifest={pendingInstall?.manifest ?? null}
+        assets={pendingInstall?.assets ?? null}
+        existingRecord={
+          pendingInstall ? records.find(r => r.id === pendingInstall.manifest.id) ?? null : null
+        }
+        safeMode={safeMode}
+        installing={installing}
+        error={modalError}
+        onCancel={() => {
+          setPendingInstall(null)
+          setModalError(null)
+        }}
+        onConfirm={() => void handleConfirmInstall()}
+      />
     </main>
   )
 }

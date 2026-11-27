@@ -6,7 +6,9 @@ import { useContributionStore } from './contributions.ts'
 import { documentStore, type DocumentEnvelope } from './documents.ts'
 import { ExtensionViewFrame } from './ExtensionViewFrame.tsx'
 import { extensionManager } from './manager.ts'
+import { resolveExtensionAssets } from './manifest.ts'
 import { useExtensionStore } from './store.ts'
+import { ExtensionIcon } from '../ui/ExtensionIcon'
 
 export interface ExtensionPageProps {
   extensionId: string
@@ -108,6 +110,14 @@ export function ExtensionPage({
   }
 
   const extName = record?.manifest.name ?? extensionId
+  const extIconUrl = useMemo(() => {
+    if (!record) return null
+    try {
+      return resolveExtensionAssets(record.manifestUrl, record.manifest).iconUrl
+    } catch {
+      return null
+    }
+  }, [record])
 
   if (!view || runtime?.status !== 'active' || !runtime.activationId) {
     const missingViewOnActive = Boolean(!view && runtime?.status === 'active' && runtime.activationId)
@@ -225,6 +235,12 @@ export function ExtensionPage({
             <ArrowLeft size={14} aria-hidden="true" />
             <span>Library</span>
           </button>
+          <ExtensionIcon
+            src={extIconUrl}
+            name={extName}
+            kind={record?.manifest.kind ?? 'extension'}
+            size={28}
+          />
           <span className="sx-ext-page-title">
             <strong>{view.title}</strong>
             <small>

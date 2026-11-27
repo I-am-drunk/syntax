@@ -4,6 +4,9 @@ const DB_NAME = 'syntax-extensions-v1'
 const DB_VERSION = 1
 const STORE_NAME = 'documents'
 
+export const MAX_DOCUMENT_BYTES = 2 * 1024 * 1024
+export const MAX_DOCUMENTS_PER_EXTENSION = 250
+
 /**
  * Syntax-owned document envelope persisted in IndexedDB.
  * Survives extension disable, uninstall, reinstall, and failed updates.
@@ -32,18 +35,22 @@ export interface CreateDocumentInput<T = unknown> {
 export interface SaveDocumentInput<T = unknown> {
   id: string
   expectedRevision: number
+  /** When set (all extension syscalls), enforces that caller owns the document. */
+  ownerExtensionId?: string
   title?: string
   schemaVersion?: number
   data: T
 }
 
 export interface DocumentStore {
-  get<T = unknown>(id: string): Promise<DocumentEnvelope<T> | null>
-  list(type?: string): Promise<DocumentEnvelope[]>
+  get<T = unknown>(id: string, ownerExtensionId?: string): Promise<DocumentEnvelope<T> | null>
+  list(type?: string, ownerExtensionId?: string): Promise<DocumentEnvelope[]>
   create<T = unknown>(input: CreateDocumentInput<T>): Promise<DocumentEnvelope<T>>
   save<T = unknown>(input: SaveDocumentInput<T>): Promise<DocumentEnvelope<T>>
   /** Explicit user-initiated delete only; never called on extension disable or uninstall. */
   delete(id: string): Promise<void>
+  /** Host-only restore for Undo after an explicit user delete. Never exposed to extensions. */
+  restore<T = unknown>(envelope: DocumentEnvelope<T>): Promise<DocumentEnvelope<T>>
 }
 
 function generateDocId(): string {
@@ -60,6 +67,35 @@ function cloneData<T>(value: T): T {
     : (JSON.parse(JSON.stringify(value)) as T)
 }
 
+function assertDocumentPayloadWithinLimit(data: unknown): void {
+  if (data === undefined || data === null) return
+  let serialized: string | undefined
+  try {
+    serialized = JSON.stringify(data)
+  } catch (err) {
+    throw new ExtensionError(
+      'DATA_CLONE_ERROR',
+      `Document data could not be serialized: ${err instanceof Error ? err.message : String(err)}`,
+    )
+  }
+  if (serialized && serialized.length > MAX_DOCUMENT_BYTES) {
+    throw new ExtensionError(
+      'SYSCALL_DENIED',
+      `Document exceeds maximum size (${Math.round(MAX_DOCUMENT_BYTES / (1024 * 1024))} MB).`,
+    )
+  }
+}
+
+function assertDocumentOwner(doc: DocumentEnvelope, ownerExtensionId?: string): void {
+  if (ownerExtensionId && doc.createdByExtensionId !== ownerExtensionId) {
+    throw new ExtensionError(
+      'SYSCALL_DENIED',
+      `Extension "${ownerExtensionId}" cannot access a document owned by "${doc.createdByExtensionId}".`,
+      { extensionId: ownerExtensionId },
+    )
+  }
+}
+
 /**
  * In-memory DocumentStore for Node unit tests (identical revision conflict semantics).
  */
@@ -67,18 +103,35 @@ export function createMemoryDocumentStore(): DocumentStore {
   const docs = new Map<string, DocumentEnvelope>()
 
   return {
-    async get<T = unknown>(id: string) {
+    async get<T = unknown>(id: string, ownerExtensionId?: string) {
       const found = docs.get(id)
-      return found ? (cloneData(found) as DocumentEnvelope<T>) : null
+      if (!found) return null
+      assertDocumentOwner(found, ownerExtensionId)
+      return cloneData(found) as DocumentEnvelope<T>
     },
-    async list(type?: string) {
-      const all = [...docs.values()]
+    async list(type?: string, ownerExtensionId?: string) {
+      let all = [...docs.values()]
+      if (ownerExtensionId) {
+        all = all.filter(d => d.createdByExtensionId === ownerExtensionId)
+      }
       const filtered = type ? all.filter(d => d.type === type) : all
       return filtered.sort((a, b) => b.updatedAt - a.updatedAt).map(d => cloneData(d))
     },
     async create<T = unknown>(input: CreateDocumentInput<T>) {
       if (!input.type || !input.type.trim()) {
         throw new ExtensionError('SYSCALL_DENIED', 'Document type is required.')
+      }
+      assertDocumentPayloadWithinLimit(input.data)
+      let ownedCount = 0
+      for (const existing of docs.values()) {
+        if (existing.createdByExtensionId === input.createdByExtensionId) ownedCount += 1
+      }
+      if (ownedCount >= MAX_DOCUMENTS_PER_EXTENSION) {
+        throw new ExtensionError(
+          'SYSCALL_DENIED',
+          `Document limit reached (${MAX_DOCUMENTS_PER_EXTENSION} documents per extension).`,
+          { extensionId: input.createdByExtensionId },
+        )
       }
       const id = input.id?.trim() || generateDocId()
       if (docs.has(id)) {
@@ -100,10 +153,12 @@ export function createMemoryDocumentStore(): DocumentStore {
       return cloneData(env)
     },
     async save<T = unknown>(input: SaveDocumentInput<T>) {
+      assertDocumentPayloadWithinLimit(input.data)
       const existing = docs.get(input.id)
       if (!existing) {
         throw new ExtensionError('REVISION_CONFLICT', `Document "${input.id}" does not exist.`)
       }
+      assertDocumentOwner(existing, input.ownerExtensionId)
       if (existing.revision !== input.expectedRevision) {
         throw new ExtensionError(
           'REVISION_CONFLICT',
@@ -123,6 +178,11 @@ export function createMemoryDocumentStore(): DocumentStore {
     },
     async delete(id: string) {
       docs.delete(id)
+    },
+    async restore<T = unknown>(envelope: DocumentEnvelope<T>) {
+      const cloned = cloneData(envelope)
+      docs.set(cloned.id, cloned)
+      return cloneData(cloned)
     },
   }
 }
@@ -171,24 +231,30 @@ export function createIndexedDbDocumentStore(): DocumentStore {
   }
 
   return {
-    async get<T = unknown>(id: string) {
+    async get<T = unknown>(id: string, ownerExtensionId?: string) {
       const db = await getDb()
-      return await new Promise<DocumentEnvelope<T> | null>((resolve, reject) => {
+      const found = await new Promise<DocumentEnvelope<T> | null>((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, 'readonly')
         const req = tx.objectStore(STORE_NAME).get(id)
         req.onsuccess = () => resolve((req.result as DocumentEnvelope<T> | undefined) ?? null)
         req.onerror = () => reject(req.error ?? new Error('Read failed'))
       })
+      if (!found) return null
+      assertDocumentOwner(found, ownerExtensionId)
+      return found
     },
 
-    async list(type?: string) {
+    async list(type?: string, ownerExtensionId?: string) {
       const db = await getDb()
       return await new Promise<DocumentEnvelope[]>((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, 'readonly')
         const store = tx.objectStore(STORE_NAME)
         const req = type ? store.index('type').getAll(type) : store.getAll()
         req.onsuccess = () => {
-          const rows = (req.result as DocumentEnvelope[] | undefined) ?? []
+          let rows = (req.result as DocumentEnvelope[] | undefined) ?? []
+          if (ownerExtensionId) {
+            rows = rows.filter(d => d.createdByExtensionId === ownerExtensionId)
+          }
           resolve(rows.sort((a, b) => b.updatedAt - a.updatedAt))
         }
         req.onerror = () => reject(req.error ?? new Error('List failed'))
@@ -199,6 +265,7 @@ export function createIndexedDbDocumentStore(): DocumentStore {
       if (!input.type || !input.type.trim()) {
         throw new ExtensionError('SYSCALL_DENIED', 'Document type is required.')
       }
+      assertDocumentPayloadWithinLimit(input.data)
       const db = await getDb()
       const id = input.id?.trim() || generateDocId()
       const now = Date.now()
@@ -228,12 +295,32 @@ export function createIndexedDbDocumentStore(): DocumentStore {
           settled = true
           resolve(val)
         }
-        const req = store.add(env)
-        req.onerror = () => {
-          reqErr =
-            req.error?.name === 'ConstraintError'
-              ? new ExtensionError('REVISION_CONFLICT', `Document "${id}" already exists.`)
-              : (req.error ?? new Error('Create failed'))
+        const allReq = store.getAll()
+        allReq.onsuccess = () => {
+          const rows = (allReq.result as DocumentEnvelope[] | undefined) ?? []
+          const ownedCount = rows.filter(
+            r => r.createdByExtensionId === input.createdByExtensionId,
+          ).length
+          if (ownedCount >= MAX_DOCUMENTS_PER_EXTENSION) {
+            reqErr = new ExtensionError(
+              'SYSCALL_DENIED',
+              `Document limit reached (${MAX_DOCUMENTS_PER_EXTENSION} documents per extension).`,
+              { extensionId: input.createdByExtensionId },
+            )
+            tx.abort()
+            return
+          }
+          const req = store.add(env)
+          req.onerror = () => {
+            reqErr =
+              req.error?.name === 'ConstraintError'
+                ? new ExtensionError('REVISION_CONFLICT', `Document "${id}" already exists.`)
+                : (req.error ?? new Error('Create failed'))
+            fail(reqErr)
+          }
+        }
+        allReq.onerror = () => {
+          reqErr = allReq.error ?? new Error('Quota check failed')
           fail(reqErr)
         }
         tx.onabort = () => fail(reqErr ?? tx.error ?? new Error('Create aborted'))
@@ -243,6 +330,7 @@ export function createIndexedDbDocumentStore(): DocumentStore {
     },
 
     async save<T = unknown>(input: SaveDocumentInput<T>) {
+      assertDocumentPayloadWithinLimit(input.data)
       const db = await getDb()
       return await new Promise<DocumentEnvelope<T>>((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, 'readwrite')
@@ -268,6 +356,18 @@ export function createIndexedDbDocumentStore(): DocumentStore {
             conflictErr = new ExtensionError(
               'REVISION_CONFLICT',
               `Document "${input.id}" does not exist.`,
+            )
+            tx.abort()
+            return
+          }
+          if (
+            input.ownerExtensionId &&
+            existing.createdByExtensionId !== input.ownerExtensionId
+          ) {
+            conflictErr = new ExtensionError(
+              'SYSCALL_DENIED',
+              `Extension "${input.ownerExtensionId}" cannot access a document owned by "${existing.createdByExtensionId}".`,
+              { extensionId: input.ownerExtensionId },
             )
             tx.abort()
             return
@@ -325,6 +425,28 @@ export function createIndexedDbDocumentStore(): DocumentStore {
         }
         tx.onabort = () => fail(tx.error ?? new Error('Delete aborted'))
         tx.onerror = () => fail(tx.error ?? new Error('Delete failed'))
+      })
+    },
+
+    async restore<T = unknown>(envelope: DocumentEnvelope<T>) {
+      const db = await getDb()
+      const cloned = cloneData(envelope)
+      return await new Promise<DocumentEnvelope<T>>((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite')
+        let settled = false
+        const fail = (err: Error) => {
+          if (settled) return
+          settled = true
+          reject(err)
+        }
+        tx.objectStore(STORE_NAME).put(cloned)
+        tx.oncomplete = () => {
+          if (settled) return
+          settled = true
+          resolve(cloneData(cloned))
+        }
+        tx.onabort = () => fail(tx.error ?? new Error('Restore aborted'))
+        tx.onerror = () => fail(tx.error ?? new Error('Restore failed'))
       })
     },
   }

@@ -3560,3 +3560,150 @@
   font-size: 12px;
   color: var(--muted);
 }
+
+.sx-ext-icon-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--secondary);
+  color: var(--muted);
+  overflow: hidden;
+}
+
+.sx-ext-icon-box.is-course {
+  color: var(--accent-blue, #456dff);
+}
+
+.sx-ext-icon-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.sx-ext-card-id-with-icon {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.sx-ext-card-id-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.sx-ext-launch-head {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+}
+
+.sx-ext-launch-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+  text-align: left;
+}
+
+.sx-ext-confirm-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sx-btn-danger-ghost.is-confirming {
+  border-color: color-mix(in srgb, #ef4444 45%, var(--border));
+  background: color-mix(in srgb, #ef4444 12%, transparent);
+}
+
+.sx-ext-install-modal {
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sx-install-summary-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--secondary);
+}
+
+.sx-install-summary-copy {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.sx-install-origin-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--muted);
+  word-break: break-all;
+}
+
+.sx-install-origin-row strong {
+  color: var(--text);
+}
+
+.sx-install-caps h3 {
+  margin: 0 0 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.sx-install-cap-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.sx-install-cap-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.sx-install-cap-list li svg {
+  flex-shrink: 0;
+  margin-top: 3px;
+  color: var(--muted);
+}
+
+.sx-install-trust-note {
+  margin: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.sx-install-trust-note svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
