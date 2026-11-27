@@ -78,12 +78,28 @@ export function AppHeader({
       next.add(commandKey)
       return next
     })
+    const owner = ownerNames.get(ownerId) ?? ownerId
+    let slowToastId: string | number | undefined
+    const slowTimer = window.setTimeout(() => {
+      slowToastId = toast.warning(`${owner} is taking a while...`, {
+        duration: 15000,
+        action: {
+          label: 'Stop worker',
+          onClick: () => {
+            extensionManager.stopWorker(ownerId)
+            toast(`Stopped ${owner} worker`)
+          },
+        },
+      })
+    }, 4000)
+
     try {
       await extensionManager.runCommand(commandKey)
     } catch (err) {
-      const owner = ownerNames.get(ownerId) ?? ownerId
       toast.error(`${owner}: ${err instanceof Error ? err.message : String(err)}`)
     } finally {
+      window.clearTimeout(slowTimer)
+      if (slowToastId !== undefined) toast.dismiss(slowToastId)
       setRunningCommands(prev => {
         if (!prev.has(commandKey)) return prev
         const next = new Set(prev)
