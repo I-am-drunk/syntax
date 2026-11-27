@@ -1,15 +1,19 @@
-import { Suspense, lazy, useCallback, useEffect, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import { Route, Router, Switch, useLocation } from 'wouter'
 import { useHashLocation } from 'wouter/use-hash-location'
 import { Toaster } from 'sonner'
-import { CLOUD_SYNC_APPLIED_EVENT } from '../core/clerkSync'
+import {
+  CLOUD_SYNC_APPLIED_EVENT,
+  CLOUD_SYNC_DIRTY_EVENT,
+  type SyntaxCloudPayload,
+} from '../core/clerkSync'
 import { isDevEnvironment } from '../core/devEnv'
 import { SyntaxErrorBoundary } from '../core/ErrorBoundary'
 import { HostSlotsProvider, useHostSlots } from '../core/hostSlots'
 import { loadPrefs, savePrefs, type SyntaxPrefs } from '../core/prefs'
 import { ExtensionPage } from '../extensions/ExtensionPage.tsx'
 import { extensionManager } from '../extensions/manager.ts'
-import { isSafeMode } from '../extensions/store.ts'
+import { isSafeMode, useExtensionStore } from '../extensions/store.ts'
 import { playLessonSound, type LessonSound } from '../services/lessonSounds'
 import { CommunityHubPage } from '../ui/CommunityHubPage'
 import { ExtensionsPage } from '../ui/ExtensionsPage'
@@ -108,6 +112,8 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
   const [theme, setTheme] = useState<'light' | 'dark'>(loadTheme)
   const [soundOn, setSoundOn] = useState<boolean>(loadSound)
   const [prefs, setPrefs] = useState<SyntaxPrefs>(loadPrefs)
+  const themeMountedRef = useRef(false)
+  const soundMountedRef = useRef(false)
   const routeInfo = parseRouteInfo(location)
 
   const emitSound = useCallback(
@@ -148,10 +154,15 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
   }, [])
 
   useEffect(() => {
-    const onCloudApplied = () => {
+    const onCloudApplied = (ev: Event) => {
       setTheme(loadTheme())
       setSoundOn(loadSound())
       setPrefs(loadPrefs())
+      useExtensionStore.getState().reloadSettingsFromStorage()
+      const remote = (ev as CustomEvent<SyntaxCloudPayload | undefined>).detail
+      if (remote?.extensions && remote.extensions.length > 0) {
+        void extensionManager.syncFromCloud(remote.extensions)
+      }
     }
     window.addEventListener(CLOUD_SYNC_APPLIED_EVENT, onCloudApplied)
     return () => window.removeEventListener(CLOUD_SYNC_APPLIED_EVENT, onCloudApplied)
@@ -173,6 +184,11 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
     } catch {
       // ignore
     }
+    if (themeMountedRef.current) {
+      window.dispatchEvent(new CustomEvent(CLOUD_SYNC_DIRTY_EVENT))
+    } else {
+      themeMountedRef.current = true
+    }
   }, [theme])
 
   useEffect(() => {
@@ -180,6 +196,11 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
       localStorage.setItem(SOUND_KEY, String(soundOn))
     } catch {
       // ignore
+    }
+    if (soundMountedRef.current) {
+      window.dispatchEvent(new CustomEvent(CLOUD_SYNC_DIRTY_EVENT))
+    } else {
+      soundMountedRef.current = true
     }
   }, [soundOn])
 
@@ -338,9 +359,14 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
         </Route>
 
         <Route path="/community/:id">
-          <SyntaxErrorBoundary scope="workspace:community" onExitScope={() => navigate('/library')}>
-            <CommunityHubPage onOpenExtensions={() => navigate('/extensions')} />
-          </SyntaxErrorBoundary>
+          {params => (
+            <SyntaxErrorBoundary scope="workspace:community" onExitScope={() => navigate('/library')}>
+              <CommunityHubPage
+                highlightedId={params.id}
+                onOpenExtensions={() => navigate('/extensions')}
+              />
+            </SyntaxErrorBoundary>
+          )}
         </Route>
 
         <Route>

@@ -94,6 +94,9 @@ function writePersistedRecords(records: ExtensionRecord[]) {
   } catch {
     // ignore quota errors
   }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('syntax:cloud-dirty'))
+  }
 }
 
 function readPersistedSettings(): Record<string, Record<string, ExtensionSettingValue>> {
@@ -115,6 +118,9 @@ function writePersistedSettings(settings: Record<string, Record<string, Extensio
     localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings))
   } catch {
     // ignore quota errors
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('syntax:cloud-dirty'))
   }
 }
 
@@ -156,6 +162,7 @@ interface ExtensionStoreState {
     manifestOverride?: ExtensionManifest,
   ) => Record<string, ExtensionSettingValue>
   clearSettings: (extId: string) => void
+  reloadSettingsFromStorage: () => void
   reloadFromStorage: () => void
 }
 
@@ -283,6 +290,10 @@ export const useExtensionStore = create<ExtensionStoreState>((set, get) => ({
       writePersistedSettings(next)
       return { settings: next }
     })
+  },
+
+  reloadSettingsFromStorage() {
+    set({ settings: readPersistedSettings() })
   },
 
   reloadFromStorage() {

@@ -15,6 +15,11 @@ const catalogEntrySchema = z.object({
   version: z.string().min(1),
   description: z.string().optional(),
   author: z.string().optional(),
+  icon: z
+    .string()
+    .url()
+    .refine(u => u.startsWith('https://') || u.startsWith('http://'))
+    .optional(),
   manifestUrl: z.string().url().refine(u => u.startsWith('https://') || u.startsWith('http://')),
   tested: z.boolean().optional(),
   tags: z.array(z.string()).default([]),

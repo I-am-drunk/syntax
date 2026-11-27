@@ -683,6 +683,32 @@ describe('Syntax Extensions v1 end-to-end acceptance suite (real Chromium)', () 
       assert.equal(await page.locator('text=Theme Packs').count(), 0)
       assert.equal(await page.locator('text=.syntaxtheme').count(), 0)
 
+      // Verify toggling theme/sound emits syntax:cloud-dirty and syncFromCloud installs missing extensions safely
+      const cloudCheck = await page.evaluate(async ([courseUrl, badUrl]) => {
+        let dirtyCount = 0
+        const onDirty = () => {
+          dirtyCount += 1
+        }
+        window.addEventListener('syntax:cloud-dirty', onDirty)
+        document.querySelector('button[aria-label*="Switch to"]')?.click()
+        document.querySelector('button[aria-label*="sound effects"]')?.click()
+        await new Promise(r => setTimeout(r, 80))
+        window.removeEventListener('syntax:cloud-dirty', onDirty)
+
+        const m = window.__SYNTAX_EXTENSIONS__.manager
+        await m.uninstall('tj.demo-course')
+        await m.syncFromCloud([
+          { id: 'tj.demo-course', manifestUrl: courseUrl, enabled: true },
+          { id: 'tj.offline-pkg', manifestUrl: badUrl, enabled: true },
+        ])
+        const synced = window.__SYNTAX_EXTENSIONS__.store
+          .getState()
+          .records.some(r => r.id === 'tj.demo-course')
+        return { dirtyCount, synced }
+      }, [harness.extUrl('demo-course/extension.json'), harness.extUrl('does-not-exist/extension.json')])
+      assert.ok(cloudCheck.dirtyCount >= 2, `Expected theme & sound toggles to emit syntax:cloud-dirty, got ${cloudCheck.dirtyCount}`)
+      assert.equal(cloudCheck.synced, true)
+
       assert.equal(pageErrors.length, 0, `Unexpected page errors: ${pageErrors.map(e => e.message).join('; ')}`)
     } finally {
       await context.close()

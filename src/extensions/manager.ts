@@ -915,6 +915,45 @@ export class ExtensionManager {
       this.deactivateNow(id, 'disabled')
     }
   }
+
+  /**
+   * Reconciles cloud-synced extension entries onto this device without blocking UI
+   * or failing the app if any individual extension host is temporarily unreachable.
+   */
+  async syncFromCloud(
+    entries: ReadonlyArray<{ id: string; manifestUrl: string; enabled: boolean }> | undefined,
+  ): Promise<void> {
+    if (!entries || entries.length === 0) return
+    const safeMode = useExtensionStore.getState().safeMode
+    for (const entry of entries) {
+      if (!entry.manifestUrl.startsWith('https://') && !entry.manifestUrl.startsWith('http://')) {
+        continue
+      }
+      const existing = useExtensionStore.getState().records.find(r => r.id === entry.id)
+      if (!existing) {
+        try {
+          await this.installFromUrl(entry.manifestUrl, {
+            enableImmediately: entry.enabled && !safeMode,
+          })
+        } catch (err) {
+          extensionDiagnostics.push({
+            extensionId: entry.id,
+            activationId: null,
+            source: 'host',
+            level: 'warn',
+            message: `Cloud sync skipped installing ${entry.id}: ${err instanceof Error ? err.message : String(err)}`,
+          })
+        }
+      } else if (!safeMode && existing.enabled !== entry.enabled) {
+        try {
+          if (entry.enabled) await this.enable(entry.id)
+          else await this.disable(entry.id)
+        } catch {
+          // Recorded per-extension; continue syncing others
+        }
+      }
+    }
+  }
 }
 
 export const extensionManager = new ExtensionManager()
