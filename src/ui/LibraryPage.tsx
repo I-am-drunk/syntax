@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Compass, ExternalLink, FileText, Puzzle, RefreshCw } from 'lucide-react'
+import { AlertTriangle, Compass, ExternalLink, FileText, Puzzle, RefreshCw, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useContributionStore } from '../extensions/contributions.ts'
 import { documentStore, type DocumentEnvelope } from '../extensions/documents.ts'
@@ -53,6 +53,16 @@ export function LibraryPage({
     onNavigate(
       `/ext/${encodeURIComponent(ownerId)}/${encodeURIComponent(viewId)}/${encodeURIComponent(doc.id)}`,
     )
+  }
+
+  async function handleDeleteDocument(doc: DocumentEnvelope) {
+    try {
+      await documentStore.delete(doc.id)
+      setDocuments(prev => prev.filter(d => d.id !== doc.id))
+      toast(`Deleted "${doc.title}"`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete document')
+    }
   }
 
   return (
@@ -145,25 +155,34 @@ export function LibraryPage({
               </div>
               <div className="sx-ext-doc-list">
                 {documents.map(doc => (
-                  <button
-                    key={doc.id}
-                    type="button"
-                    className="sx-ext-doc-row"
-                    data-doc-id={doc.id}
-                    onClick={() => openDocument(doc)}
-                  >
-                    <span className="sx-ext-doc-main">
-                      <FileText size={16} aria-hidden="true" />
-                      <span>
-                        <strong>{doc.title}</strong>
-                        <small>
-                          {doc.type} · rev {doc.revision} ·{' '}
-                          {nameById.get(doc.createdByExtensionId) ?? doc.createdByExtensionId}
-                        </small>
+                  <div key={doc.id} className="sx-ext-doc-item" data-doc-id={doc.id}>
+                    <button
+                      type="button"
+                      className="sx-ext-doc-row"
+                      onClick={() => openDocument(doc)}
+                    >
+                      <span className="sx-ext-doc-main">
+                        <FileText size={16} aria-hidden="true" />
+                        <span>
+                          <strong>{doc.title}</strong>
+                          <small>
+                            {doc.type} · rev {doc.revision} ·{' '}
+                            {nameById.get(doc.createdByExtensionId) ?? doc.createdByExtensionId}
+                          </small>
+                        </span>
                       </span>
-                    </span>
-                    <span className="sx-ext-doc-open">Open</span>
-                  </button>
+                      <span className="sx-ext-doc-open">Open</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="sx-btn-ghost sx-btn-sm sx-ext-doc-delete"
+                      aria-label={`Delete ${doc.title}`}
+                      title={`Delete ${doc.title}`}
+                      onClick={() => void handleDeleteDocument(doc)}
+                    >
+                      <Trash2 size={14} aria-hidden="true" />
+                    </button>
+                  </div>
                 ))}
               </div>
             </section>

@@ -11,7 +11,9 @@ import {
   Plus,
   Power,
   RefreshCw,
+  RotateCcw,
   ShieldAlert,
+  SlidersHorizontal,
   Square,
   Trash2,
 } from 'lucide-react'
@@ -45,6 +47,9 @@ function safeOrigin(url: string): string {
 export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPageProps) {
   const records = useExtensionStore(s => s.records)
   const runtimeById = useExtensionStore(s => s.runtime)
+  const settingsById = useExtensionStore(s => s.settings)
+  const setSetting = useExtensionStore(s => s.setSetting)
+  const clearSettings = useExtensionStore(s => s.clearSettings)
   const safeMode = useExtensionStore(s => s.safeMode)
   const views = useContributionStore(s => s.views)
 
@@ -53,6 +58,7 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
   const [installError, setInstallError] = useState<string | null>(null)
   const [busyById, setBusyById] = useState<Record<string, boolean>>({})
   const [openLogsId, setOpenLogsId] = useState<string | null>(null)
+  const [openSettingsId, setOpenSettingsId] = useState<string | null>(null)
   const [logsVersion, setLogsVersion] = useState(0)
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
@@ -266,6 +272,9 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
               const extViews = views.filter(v => v.ownerId === rec.id)
               const optionalIssues = Object.entries(rt?.unavailableOptionalServices ?? {})
               const isLogsOpen = openLogsId === rec.id
+              const isSettingsOpen = openSettingsId === rec.id
+              const declaredSettings = rec.manifest.settings
+              const savedSettings = settingsById[rec.id] ?? {}
 
               return (
                 <article
@@ -365,6 +374,17 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
                         <span>Update</span>
                       </button>
 
+                      {declaredSettings.length > 0 && (
+                        <button
+                          type="button"
+                          className="sx-btn-ghost sx-btn-sm"
+                          onClick={() => setOpenSettingsId(isSettingsOpen ? null : rec.id)}
+                        >
+                          <SlidersHorizontal size={13} aria-hidden="true" />
+                          <span>{isSettingsOpen ? 'Hide settings' : 'Settings'}</span>
+                        </button>
+                      )}
+
                       <button
                         type="button"
                         className="sx-btn-ghost sx-btn-sm"
@@ -403,6 +423,81 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
                           Optional integration unavailable (<code>{svc}</code>): {reason}
                         </p>
                       ))}
+                    </div>
+                  )}
+
+                  {isSettingsOpen && declaredSettings.length > 0 && (
+                    <div
+                      className="sx-ext-settings-panel"
+                      data-extension-settings-panel={rec.id}
+                    >
+                      <div className="sx-ext-logs-head">
+                        <strong>Extension Settings</strong>
+                        <button
+                          type="button"
+                          className="sx-btn-ghost sx-btn-sm"
+                          onClick={() => {
+                            clearSettings(rec.id)
+                            toast(`Reset ${rec.manifest.name} settings to defaults`)
+                          }}
+                        >
+                          <RotateCcw size={13} aria-hidden="true" />
+                          <span>Reset defaults</span>
+                        </button>
+                      </div>
+                      <div className="sx-ext-settings-list">
+                        {declaredSettings.map(def => {
+                          const rawSaved = savedSettings[def.id]
+                          const currentVal =
+                            rawSaved !== undefined &&
+                            typeof rawSaved === def.type &&
+                            (def.type !== 'number' || Number.isFinite(rawSaved))
+                              ? rawSaved
+                              : def.default
+                          const inputId = `ext-setting-${rec.id}-${def.id}`
+                          return (
+                            <label key={def.id} htmlFor={inputId} className="sx-ext-setting-row">
+                              <span className="sx-ext-setting-copy">
+                                <span>{def.label}</span>
+                                <small>{def.id}</small>
+                              </span>
+                              {def.type === 'boolean' ? (
+                                <input
+                                  id={inputId}
+                                  type="checkbox"
+                                  className="sx-ext-setting-checkbox"
+                                  data-setting-id={def.id}
+                                  checked={Boolean(currentVal)}
+                                  onChange={e => setSetting(rec.id, def.id, e.target.checked)}
+                                />
+                              ) : def.type === 'number' ? (
+                                <input
+                                  id={inputId}
+                                  type="number"
+                                  className="sx-ext-setting-input"
+                                  data-setting-id={def.id}
+                                  value={String(currentVal)}
+                                  onChange={e => {
+                                    const num = Number(e.target.value)
+                                    if (e.target.value.trim() !== '' && Number.isFinite(num)) {
+                                      setSetting(rec.id, def.id, num)
+                                    }
+                                  }}
+                                />
+                              ) : (
+                                <input
+                                  id={inputId}
+                                  type="text"
+                                  className="sx-ext-setting-input"
+                                  data-setting-id={def.id}
+                                  value={String(currentVal)}
+                                  onChange={e => setSetting(rec.id, def.id, e.target.value)}
+                                />
+                              )}
+                            </label>
+                          )
+                        })}
+                      </div>
                     </div>
                   )}
 

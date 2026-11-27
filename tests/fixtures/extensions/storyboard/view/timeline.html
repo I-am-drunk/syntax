@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8" /><title>Storyboard Timeline</title></head>
+<body>
+  <div id="timeline-status">booting</div>
+  <script type="module">
+    const CHANNEL = 'syntax-view-v1'
+    window.addEventListener('message', event => {
+      const msg = event.data
+      if (msg?.channel === CHANNEL && msg.type === 'syntax:view-init') {
+        document.getElementById('timeline-status').textContent = `timeline-ready:${msg.viewId}`
+      }
+    })
+    window.parent.postMessage({ channel: CHANNEL, type: 'syntax:view-ready' }, '*')
+  </script>
+</body>
+</html>
