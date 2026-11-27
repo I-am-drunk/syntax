@@ -3530,3 +3530,12 @@
   border: 0;
   background: transparent;
 }
+
+.sx-ext-embed-recovery {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 16px;
+  font-size: 13.5px;
+  color: var(--muted);
+}

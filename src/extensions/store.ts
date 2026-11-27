@@ -235,12 +235,19 @@ export const useExtensionStore = create<ExtensionStoreState>((set, get) => ({
 
   getSetting(extId, key, manifestOverride) {
     const manifest = manifestOverride ?? get().records.find(r => r.id === extId)?.manifest
+    const def = manifest?.settings.find(s => s.id === key)
+    if (!def) return undefined
     const saved = get().settings[extId]?.[key]
-    if (saved !== undefined) return saved
-    return manifest?.settings.find(s => s.id === key)?.default
+    if (saved !== undefined && typeof saved === def.type) {
+      if (def.type !== 'number' || Number.isFinite(saved)) {
+        return saved
+      }
+    }
+    return def.default
   },
 
   setSetting(extId, key, value) {
+    if (typeof value === 'number' && !Number.isFinite(value)) return
     set(state => {
       const nextSettings = {
         ...state.settings,
@@ -257,14 +264,14 @@ export const useExtensionStore = create<ExtensionStoreState>((set, get) => ({
   getAllSettings(extId, manifestOverride) {
     const manifest = manifestOverride ?? get().records.find(r => r.id === extId)?.manifest
     const out: Record<string, ExtensionSettingValue> = {}
-    for (const def of manifest?.settings ?? []) {
-      out[def.id] = def.default
-    }
     const saved = get().settings[extId]
-    if (saved) {
-      for (const [k, v] of Object.entries(saved)) {
-        out[k] = v
-      }
+    for (const def of manifest?.settings ?? []) {
+      const candidate = saved?.[def.id]
+      const validSaved =
+        candidate !== undefined &&
+        typeof candidate === def.type &&
+        (def.type !== 'number' || Number.isFinite(candidate))
+      out[def.id] = validSaved ? candidate : def.default
     }
     return out
   },

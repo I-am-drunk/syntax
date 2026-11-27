@@ -117,6 +117,8 @@ export function ExtensionViewFrame({
     readyRef.current = false
 
     let disposed = false
+    let inFlightCalls = 0
+    const MAX_IN_FLIGHT_CALLS = 64
     setReady(false)
     setFault(null)
 
@@ -235,10 +237,29 @@ export function ExtensionViewFrame({
         const callId = raw.callId
         const args = Array.isArray(raw.args) ? raw.args : []
 
+        if (inFlightCalls >= MAX_IN_FLIGHT_CALLS) {
+          postToView(win, {
+            channel: VIEW_BRIDGE_CHANNEL,
+            type: 'syntax:view-result',
+            instanceId,
+            activationId,
+            callId,
+            ok: false,
+            error: {
+              name: 'ExtensionError',
+              code: 'SYSCALL_DENIED',
+              message: `Too many concurrent view requests (limit ${MAX_IN_FLIGHT_CALLS}).`,
+            },
+          })
+          return
+        }
+
+        inFlightCalls += 1
         void extensionManager
           .handleViewCall(extensionId, activationId, raw.target, raw.method, args)
           .then(
             result => {
+              inFlightCalls = Math.max(0, inFlightCalls - 1)
               if (
                 disposed ||
                 terminatedRef.current ||
@@ -258,6 +279,7 @@ export function ExtensionViewFrame({
               })
             },
             err => {
+              inFlightCalls = Math.max(0, inFlightCalls - 1)
               if (
                 disposed ||
                 terminatedRef.current ||
