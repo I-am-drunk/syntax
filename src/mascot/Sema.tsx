@@ -481,9 +481,8 @@ export function Sema({
 
   // Zero-React-Re-render 60fps imperative SVG loop. useLayoutEffect paints the
   // first frame before the browser presents a newly mounted Sema, preventing a
-  // blank flash when the roaming copy docks again.
+  // blank flash when the roaming copy docks again or when mounted paused.
   useLayoutEffect(() => {
-    if (animationPaused) return
     let raf = 0
     let lastTs = performance.now()
     let lookUpdateTimer = 0
@@ -500,8 +499,10 @@ export function Sema({
     }
 
     const tick = (nowMs: number) => {
-      raf = requestAnimationFrame(tick)
-      if (document.hidden) {
+      if (!animationPaused) {
+        raf = requestAnimationFrame(tick)
+      }
+      if (document.hidden && !animationPaused) {
         lastTs = nowMs
         return
       }
@@ -789,13 +790,26 @@ export function Sema({
       }
     }
 
+    isDarkRef.current = detectDark()
     tick(lastTs)
+    let pausedThemeObs: MutationObserver | null = null
+    if (animationPaused) {
+      pausedThemeObs = new MutationObserver(() => {
+        isDarkRef.current = detectDark()
+        tick(performance.now())
+      })
+      pausedThemeObs.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['data-theme'],
+      })
+    }
     return () => {
       cancelAnimationFrame(raf)
+      pausedThemeObs?.disconnect()
       for (const node of gradNodes.values()) node.remove()
       gradNodes.clear()
     }
-  }, [uid, animationPaused])
+  }, [uid, animationPaused, shape, tail, expression, state])
 
   const handlePointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
     if (!interactive) return

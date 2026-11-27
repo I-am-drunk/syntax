@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { AnimatePresence, motion } from 'framer-motion'
+import { motion } from 'framer-motion'
 import { Menu } from '@base-ui/react/menu'
 import {
   ArrowLeft,
@@ -154,116 +154,112 @@ export function AppHeader({
         />
       </div>
 
-      {/* Mode-switched Top Navigation with crisp GPU-only cross-slide */}
+      {/* Mode-switched Top Navigation with instant, zero-blank transition */}
       <div className="sx-nav-stage">
-        <AnimatePresence mode="wait" initial={false}>
-          {isWorkspace ? (
-            <motion.nav
-              key="nav-workspace"
-              className="primary-nav sx-workspace-nav"
-              aria-label="Workspace navigation"
-              initial={{ opacity: 0, x: -6 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -6 }}
-              transition={NAV_TRANSITION}
+        {isWorkspace ? (
+          <motion.nav
+            key="nav-workspace"
+            className="primary-nav sx-workspace-nav"
+            aria-label="Workspace navigation"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={NAV_TRANSITION}
+          >
+            <button
+              type="button"
+              className="sx-nav-back-btn"
+              aria-label="Back to Library"
+              onClick={() => onNavigate('/library')}
             >
-              <button
-                type="button"
-                className="sx-nav-back-btn"
-                aria-label="Back to Library"
-                onClick={() => onNavigate('/library')}
+              <ArrowLeft size={16} strokeWidth={2.1} aria-hidden="true" />
+              <span className="sx-nav-back-label">Library</span>
+            </button>
+
+            <span className="sx-nav-divider" aria-hidden="true" />
+
+            <div className="sx-workspace-tabs">
+              {(
+                [
+                  { id: 'settings', label: 'Settings', path: '/settings', Icon: Settings },
+                  { id: 'extensions', label: 'Extensions', path: '/extensions', Icon: Puzzle },
+                  { id: 'community', label: 'Community Hub', path: '/community', Icon: Compass },
+                ] as const
+              ).map(({ id, label, path, Icon }) => {
+                const active = workspaceActiveTab === id
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    className="primary-nav-btn"
+                    aria-current={active ? 'page' : undefined}
+                    onClick={() => onNavigate(path)}
+                  >
+                    <Icon size={16} strokeWidth={1.9} className="nav-svg-icon" aria-hidden="true" />
+                    <span className="primary-nav-label">{label}</span>
+                    {active && (
+                      <motion.span
+                        layoutId="workspace-nav-indicator"
+                        className="primary-nav-indicator"
+                        transition={{ type: 'spring', stiffness: 520, damping: 38 }}
+                      />
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </motion.nav>
+        ) : (
+          <motion.nav
+            key="nav-main"
+            className="primary-nav sx-main-nav"
+            aria-label="Main navigation"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={NAV_TRANSITION}
+          >
+            <div className="sx-main-nav-tabs">
+              <a
+                href="#/"
+                aria-label="Home"
+                aria-current={mainActiveTab === 'home' ? 'page' : undefined}
+                onClick={e => {
+                  e.preventDefault()
+                  onNavigate('/')
+                }}
               >
-                <ArrowLeft size={16} strokeWidth={2.1} aria-hidden="true" />
-                <span className="sx-nav-back-label">Library</span>
-              </button>
+                <Home size={16} strokeWidth={1.9} className="nav-svg-icon" aria-hidden="true" />
+                <span className="primary-nav-label">Home</span>
+                {mainActiveTab === 'home' && (
+                  <motion.span
+                    layoutId="primary-nav-indicator"
+                    className="primary-nav-indicator"
+                    transition={{ type: 'spring', stiffness: 520, damping: 38 }}
+                  />
+                )}
+              </a>
 
-              <span className="sx-nav-divider" aria-hidden="true" />
-
-              <div className="sx-workspace-tabs">
-                {(
-                  [
-                    { id: 'settings', label: 'Settings', path: '/settings', Icon: Settings },
-                    { id: 'extensions', label: 'Extensions', path: '/extensions', Icon: Puzzle },
-                    { id: 'community', label: 'Community Hub', path: '/community', Icon: Compass },
-                  ] as const
-                ).map(({ id, label, path, Icon }) => {
-                  const active = workspaceActiveTab === id
-                  return (
-                    <button
-                      key={id}
-                      type="button"
-                      className="primary-nav-btn"
-                      aria-current={active ? 'page' : undefined}
-                      onClick={() => onNavigate(path)}
-                    >
-                      <Icon size={16} strokeWidth={1.9} className="nav-svg-icon" aria-hidden="true" />
-                      <span className="primary-nav-label">{label}</span>
-                      {active && (
-                        <motion.span
-                          layoutId="workspace-nav-indicator"
-                          className="primary-nav-indicator"
-                          transition={{ type: 'spring', stiffness: 520, damping: 38 }}
-                        />
-                      )}
-                    </button>
-                  )
-                })}
-              </div>
-            </motion.nav>
-          ) : (
-            <motion.nav
-              key="nav-main"
-              className="primary-nav sx-main-nav"
-              aria-label="Main navigation"
-              initial={{ opacity: 0, x: 6 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 6 }}
-              transition={NAV_TRANSITION}
-            >
-              <div className="sx-main-nav-tabs">
-                <a
-                  href="#/"
-                  aria-label="Home"
-                  aria-current={mainActiveTab === 'home' ? 'page' : undefined}
-                  onClick={e => {
-                    e.preventDefault()
-                    onNavigate('/')
-                  }}
-                >
-                  <Home size={16} strokeWidth={1.9} className="nav-svg-icon" aria-hidden="true" />
-                  <span className="primary-nav-label">Home</span>
-                  {mainActiveTab === 'home' && (
-                    <motion.span
-                      layoutId="primary-nav-indicator"
-                      className="primary-nav-indicator"
-                      transition={{ type: 'spring', stiffness: 520, damping: 38 }}
-                    />
-                  )}
-                </a>
-
-                <a
-                  href="#/library"
-                  aria-label="Library"
-                  aria-current={mainActiveTab === 'library' ? 'page' : undefined}
-                  onClick={e => {
-                    e.preventDefault()
-                    onNavigate('/library')
-                  }}
-                >
-                  <Library size={16} strokeWidth={1.9} className="nav-svg-icon" aria-hidden="true" />
-                  <span className="primary-nav-label">Library</span>
-                  {mainActiveTab === 'library' && (
-                    <motion.span
-                      layoutId="primary-nav-indicator"
-                      className="primary-nav-indicator"
-                      transition={{ type: 'spring', stiffness: 520, damping: 38 }}
-                    />
-                  )}
-                </a>
-              </div>
-            </motion.nav>
-          )}
-        </AnimatePresence>
+              <a
+                href="#/library"
+                aria-label="Library"
+                aria-current={mainActiveTab === 'library' ? 'page' : undefined}
+                onClick={e => {
+                  e.preventDefault()
+                  onNavigate('/library')
+                }}
+              >
+                <Library size={16} strokeWidth={1.9} className="nav-svg-icon" aria-hidden="true" />
+                <span className="primary-nav-label">Library</span>
+                {mainActiveTab === 'library' && (
+                  <motion.span
+                    layoutId="primary-nav-indicator"
+                    className="primary-nav-indicator"
+                    transition={{ type: 'spring', stiffness: 520, damping: 38 }}
+                  />
+                )}
+              </a>
+            </div>
+          </motion.nav>
+        )}
       </div>
 
       <div className="header-actions">
