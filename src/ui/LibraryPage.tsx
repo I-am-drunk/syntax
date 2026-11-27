@@ -203,7 +203,7 @@ export function LibraryPage({
           />
           <button
             type="button"
-            className="sx-btn-ghost sx-btn-sm"
+            className="sx-btn-secondary"
             onClick={() => importInputRef.current?.click()}
           >
             <Upload size={14} strokeWidth={2} aria-hidden="true" />

@@ -386,7 +386,7 @@ export function SettingsPage({
               </div>
               <button
                 type="button"
-                className="plain-button syntax-pref-btn"
+                className="sx-btn-secondary sx-btn-sm"
                 onClick={() => {
                   onClose()
                   onReplayWelcome()
