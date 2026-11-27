@@ -19,10 +19,17 @@ export default function CustomCourseStage({ course, theme }: CustomCourseStagePr
 
   const requiredSandboxes = useMemo(() => {
     const byId = new Map(installed.map(r => [r.manifest.id, r]))
-    return (course.requires ?? [])
-      .map(dep => byId.get(dep.id))
-      .filter((r): r is NonNullable<typeof r> => Boolean(r && r.enabled && r.manifest.sandboxHtml))
-      .map(r => r.manifest)
+    const seen = new Set<string>()
+    const result: SyntaxPackageManifest[] = []
+    for (const dep of course.requires ?? []) {
+      if (seen.has(dep.id)) continue
+      seen.add(dep.id)
+      const rec = byId.get(dep.id)
+      if (rec && rec.enabled && rec.manifest.sandboxHtml) {
+        result.push(rec.manifest)
+      }
+    }
+    return result
   }, [installed, course.requires])
 
   return (

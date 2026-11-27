@@ -80,6 +80,13 @@ export const useRegistryStore = create<RegistryStoreState>()(
           return { ok: false, error: check.errors.join(' ') }
         }
 
+        if (RETIRED_OFFICIAL_IDS.has(check.manifest.id)) {
+          return {
+            ok: false,
+            error: `Package ID "${check.manifest.id}" is retired and cannot be installed.`,
+          }
+        }
+
         const isOfficial = OFFICIAL_ID_SET.has(check.manifest.id)
         const manifest = isOfficial
           ? OFFICIAL_BY_ID.get(check.manifest.id)!
@@ -89,6 +96,7 @@ export const useRegistryStore = create<RegistryStoreState>()(
         const pool = new Map<string, SyntaxPackageManifest>()
         for (const item of OFFICIAL_CATALOG) pool.set(item.id, item)
         for (const item of options?.catalogPool ?? []) {
+          if (RETIRED_OFFICIAL_IDS.has(item.id)) continue
           pool.set(
             item.id,
             OFFICIAL_ID_SET.has(item.id)
@@ -98,24 +106,59 @@ export const useRegistryStore = create<RegistryStoreState>()(
         }
         pool.set(manifest.id, manifest)
 
-        // Transitive BFS dependency resolution with strict minVersion tracking & cycle guard
+        // Transitive BFS dependency resolution with strict kind + minVersion tracking & cycle guard
         const toInstall = new Map<string, SyntaxPackageManifest>()
         const missingById = new Map<string, PackageDependency>()
-        const requiredMinVersionById = new Map<string, string>()
+        const requiredById = new Map<
+          string,
+          { kind: PackageDependency['kind']; minVersion: string }
+        >()
+        const conflictedIds = new Set<string>()
         const expandedIds = new Set<string>([manifest.id])
         const queue: PackageDependency[] = [...(manifest.requires ?? [])]
 
         while (queue.length > 0) {
           const dep = queue.shift()!
-          if (dep.id === manifest.id) continue
 
-          const prevMin = requiredMinVersionById.get(dep.id)
-          if (prevMin && compareSemver(dep.minVersion, prevMin) <= 0) {
+          if (RETIRED_OFFICIAL_IDS.has(dep.id)) {
+            missingById.set(dep.id, dep)
+            toInstall.delete(dep.id)
             continue
           }
-          requiredMinVersionById.set(dep.id, dep.minVersion)
+
+          const prevReq = requiredById.get(dep.id)
+          if (prevReq) {
+            if (prevReq.kind !== dep.kind) {
+              conflictedIds.add(dep.id)
+              missingById.set(dep.id, dep)
+              toInstall.delete(dep.id)
+              continue
+            }
+            if (compareSemver(dep.minVersion, prevReq.minVersion) <= 0) {
+              continue
+            }
+          }
+          if (conflictedIds.has(dep.id)) continue
+          requiredById.set(dep.id, { kind: dep.kind, minVersion: dep.minVersion })
+
+          if (dep.id === manifest.id) {
+            if (
+              manifest.kind !== dep.kind ||
+              compareSemver(manifest.version, dep.minVersion) < 0
+            ) {
+              missingById.set(dep.id, dep)
+            }
+            continue
+          }
 
           const existing = currentRecords.find(r => r.manifest.id === dep.id)
+          if (existing && existing.manifest.kind !== dep.kind) {
+            conflictedIds.add(dep.id)
+            missingById.set(dep.id, dep)
+            toInstall.delete(dep.id)
+            continue
+          }
+
           const poolCandidate = pool.get(dep.id)
 
           const validPool =
@@ -151,9 +194,9 @@ export const useRegistryStore = create<RegistryStoreState>()(
           missingById.delete(dep.id)
 
           const needsInstallOrEnable =
-            !existing ||
-            !existing.enabled ||
-            compareSemver(bestAvailable.version, existing.manifest.version) > 0
+            !validExisting ||
+            !existing!.enabled ||
+            compareSemver(bestAvailable.version, validExisting.version) > 0
 
           if (needsInstallOrEnable) {
             toInstall.set(bestAvailable.id, bestAvailable)
@@ -346,18 +389,37 @@ export function computeCourseDependencyStatus(
 
   const missingById = new Map<string, PackageDependency>()
   const disabledById = new Map<string, SyntaxPackageManifest>()
-  const requiredMinVersionById = new Map<string, string>()
+  const requiredById = new Map<string, { kind: PackageDependency['kind']; minVersion: string }>()
+  const conflictedIds = new Set<string>()
   const expandedIds = new Set<string>([manifest.id])
   const queue: PackageDependency[] = [...manifest.requires]
 
   while (queue.length > 0) {
     const dep = queue.shift()!
-    if (dep.id === manifest.id) continue
-    const prevMin = requiredMinVersionById.get(dep.id)
-    if (prevMin && compareSemver(dep.minVersion, prevMin) <= 0) {
+    const prevReq = requiredById.get(dep.id)
+    if (prevReq) {
+      if (prevReq.kind !== dep.kind) {
+        conflictedIds.add(dep.id)
+        missingById.set(dep.id, dep)
+        disabledById.delete(dep.id)
+        continue
+      }
+      if (compareSemver(dep.minVersion, prevReq.minVersion) <= 0) {
+        continue
+      }
+    }
+    if (conflictedIds.has(dep.id)) continue
+    requiredById.set(dep.id, { kind: dep.kind, minVersion: dep.minVersion })
+
+    if (dep.id === manifest.id) {
+      if (
+        manifest.kind !== dep.kind ||
+        compareSemver(manifest.version, dep.minVersion) < 0
+      ) {
+        missingById.set(dep.id, dep)
+      }
       continue
     }
-    requiredMinVersionById.set(dep.id, dep.minVersion)
 
     const installed = records.find(r => r.manifest.id === dep.id)
     if (

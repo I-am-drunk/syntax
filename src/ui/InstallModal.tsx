@@ -45,6 +45,14 @@ export function InstallModal({
   const entry = manifest ? records.find(r => r.manifest.id === manifest.id) : undefined
   const isInstalled = Boolean(entry)
   const isEnabled = Boolean(entry?.enabled)
+  const isUpdateAvailable = Boolean(
+    isInstalled &&
+      entry &&
+      manifest &&
+      source === 'local-file' &&
+      manifest.kind === entry.manifest.kind &&
+      compareSemver(manifest.version, entry.manifest.version) > 0,
+  )
   const requires = manifest?.requires ?? []
   const hasMissingOrDisabledDeps = requires.some(dep => {
     const rec = records.find(r => r.manifest.id === dep.id)
@@ -207,7 +215,7 @@ export function InstallModal({
             {installError && <p className="sx-field-error">{installError}</p>}
 
             <div className="sx-modal-actions">
-              {isInstalled && !manifest.builtIn && (
+              {isInstalled && !entry?.manifest.builtIn && !manifest.builtIn && (
                 <button
                   type="button"
                   className="sx-btn-danger"
@@ -220,7 +228,11 @@ export function InstallModal({
                 </button>
               )}
               <div className="sx-modal-actions-right">
-                {isInstalled && !hasMissingOrDisabledDeps ? (
+                {isUpdateAvailable ? (
+                  <button type="button" className="sx-btn-primary" onClick={handleAddOrRepair}>
+                    {account ? `Update to v${manifest.version}` : 'Sign in to update'}
+                  </button>
+                ) : isInstalled && !hasMissingOrDisabledDeps ? (
                   manifest.kind === 'course' && onOpenCourse ? (
                     <button
                       type="button"

@@ -6,9 +6,9 @@ import {
   type SyntaxPackageManifest,
 } from './packages'
 
-export const COMMUNITY_HUB_WEB_URL = 'https://i-am-drunk.github.io/syntax-community/'
+export const COMMUNITY_HUB_WEB_URL = 'https://syntax-platform.github.io/syntax-community/'
 export const COMMUNITY_CATALOG_URL =
-  'https://i-am-drunk.github.io/syntax-community/catalog/catalog.json'
+  'https://syntax-platform.github.io/syntax-community/catalog/catalog.json'
 
 const CACHE_KEY = 'syntax-community-catalog-cache-v2'
 const OFFICIAL_ID_SET = new Set(OFFICIAL_BY_ID.keys())

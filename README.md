@@ -1,7 +1,7 @@
 <a id="top"></a>
 
 <p align="center">
-  <a href="https://i-am-drunk.github.io/syntax/">
+  <a href="https://syntax-platform.github.io/syntax/">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="public/assets/syntax-pixel-banner-dark.png" />
       <source media="(prefers-color-scheme: light)" srcset="public/assets/syntax-pixel-banner-light.png" />
@@ -11,10 +11,10 @@
 </p>
 
 <p align="center">
-  <a href="https://i-am-drunk.github.io/syntax/"><img src="https://img.shields.io/badge/Launch-Syntax_Live-456dff?style=for-the-badge&logo=vercel&logoColor=white" alt="Open Syntax" /></a>
-  <a href="https://i-am-drunk.github.io/syntax/dev/"><img src="https://img.shields.io/badge/Channel-Syntax_Dev-22c55e?style=for-the-badge&logo=githubactions&logoColor=white" alt="Open Syntax Dev" /></a>
-  <a href="https://i-am-drunk.github.io/syntax-community/"><img src="https://img.shields.io/badge/Directory-Community_Hub-8b5cf6?style=for-the-badge&logo=bookstack&logoColor=white" alt="Community Hub" /></a>
-  <a href="https://github.com/I-am-drunk/syntax/releases"><img src="https://img.shields.io/github/v/tag/I-am-drunk/syntax?style=for-the-badge&label=Release&color=111827" alt="Latest Release" /></a>
+  <a href="https://syntax-platform.github.io/syntax/"><img src="https://img.shields.io/badge/Launch-Syntax_Live-456dff?style=for-the-badge&logo=vercel&logoColor=white" alt="Open Syntax" /></a>
+  <a href="https://syntax-platform.github.io/syntax/dev/"><img src="https://img.shields.io/badge/Channel-Syntax_Dev-22c55e?style=for-the-badge&logo=githubactions&logoColor=white" alt="Open Syntax Dev" /></a>
+  <a href="https://syntax-platform.github.io/syntax-community/"><img src="https://img.shields.io/badge/Directory-Community_Hub-8b5cf6?style=for-the-badge&logo=bookstack&logoColor=white" alt="Community Hub" /></a>
+  <a href="https://github.com/syntax-platform/syntax/releases"><img src="https://img.shields.io/github/v/tag/syntax-platform/syntax?style=for-the-badge&label=Release&color=111827" alt="Latest Release" /></a>
 </p>
 
 <p align="center">
@@ -47,9 +47,9 @@ Everything deploys automatically via [GitHub Actions](.github/workflows) at **$0
 
 | Channel | URL | Trigger | Purpose |
 | :--- | :--- | :--- | :--- |
-| **Syntax Stable** | [i-am-drunk.github.io/syntax](https://i-am-drunk.github.io/syntax/) | Tagged `vX.Y.Z` ([release-main.yml](.github/workflows/release-main.yml)) | Production learner workspace |
-| **Syntax Dev** | [i-am-drunk.github.io/syntax/dev](https://i-am-drunk.github.io/syntax/dev/) | Pre-release `vX.Y.Z-alpha.N` ([release-dev.yml](.github/workflows/release-dev.yml)) | Diagnostics, new engines, preview builds |
-| **Community Hub** | [i-am-drunk.github.io/syntax-community](https://i-am-drunk.github.io/syntax-community/) | Catalog manifest sync | Verified community courses and extensions |
+| **Syntax Stable** | [syntax-platform.github.io/syntax](https://syntax-platform.github.io/syntax/) | Tagged `vX.Y.Z` ([release-main.yml](.github/workflows/release-main.yml)) | Production learner workspace |
+| **Syntax Dev** | [syntax-platform.github.io/syntax/dev](https://syntax-platform.github.io/syntax/dev/) | Pre-release `vX.Y.Z-alpha.N` ([release-dev.yml](.github/workflows/release-dev.yml)) | Diagnostics, new engines, preview builds |
+| **Community Hub** | [syntax-platform.github.io/syntax-community](https://syntax-platform.github.io/syntax-community/) | Catalog manifest sync | Verified community courses and extensions |
 
 ---
 
@@ -150,7 +150,7 @@ const ops = [
 ## Quick Start
 
 ```bash
-git clone https://github.com/I-am-drunk/syntax.git
+git clone https://github.com/syntax-platform/syntax.git
 cd syntax
 npm install
 npm run dev
@@ -162,8 +162,8 @@ npm run dev
 <a id="roadmap"></a>
 ## Extensibility v2 Roadmap
 
-- [x] Revert unverified hand-rolled plugin plumbing and add assertive [`.coderabbit.yaml`](.coderabbit.yaml) reviews ([#1](https://github.com/I-am-drunk/syntax/pull/1))
-- [x] Quarantine untrusted pre-install previews, trust-field spoofing, dead files, and `Function()` eval in [`mathParser.ts`](src/mpm2d/mathParser.ts) ([#2](https://github.com/I-am-drunk/syntax/pull/2))
+- [x] Revert unverified hand-rolled plugin plumbing and add assertive [`.coderabbit.yaml`](.coderabbit.yaml) reviews ([#1](https://github.com/syntax-platform/syntax/pull/1))
+- [x] Quarantine untrusted pre-install previews, trust-field spoofing, dead files, and `Function()` eval in [`mathParser.ts`](src/mpm2d/mathParser.ts) ([#2](https://github.com/syntax-platform/syntax/pull/2))
 - [ ] Move built-in tools (`Pen Studio`, `Walkthroughs`, `Floating Windows`, `Formula Playbook`) into Workspace Preferences and ship shared Zod v4 `src/contracts/`
 - [ ] Converge all courses onto one declarative `syntax.course.v1` runtime with `@cortex-js/compute-engine` symbolic grading and dedicated `/courses` navigation
 - [ ] Ship `/extensions` with WCAG-verified `syntax.theme.v1` JSON palettes and `@modelcontextprotocol/ext-apps` separate-origin sandboxed widgets
