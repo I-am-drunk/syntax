@@ -178,11 +178,20 @@ export class ExtensionManager {
         if (!raw || typeof raw !== 'object') {
           throw new ExtensionError('SYSCALL_DENIED', 'documents.create requires an input object.')
         }
+        const docType = typeof raw.type === 'string' ? raw.type.trim().slice(0, 64) : ''
+        const docTitle =
+          typeof raw.title === 'string' ? raw.title.trim().slice(0, 160) || 'Untitled' : 'Untitled'
+        const schemaVersion =
+          typeof raw.schemaVersion === 'number' &&
+          Number.isInteger(raw.schemaVersion) &&
+          raw.schemaVersion >= 1
+            ? raw.schemaVersion
+            : 1
         const created = await documentStore.create({
-          id: typeof raw.id === 'string' ? raw.id : undefined,
-          type: typeof raw.type === 'string' ? raw.type : '',
-          title: typeof raw.title === 'string' ? raw.title : 'Untitled',
-          schemaVersion: typeof raw.schemaVersion === 'number' ? raw.schemaVersion : 1,
+          id: typeof raw.id === 'string' ? raw.id.trim().slice(0, 128) : undefined,
+          type: docType,
+          title: docTitle,
+          schemaVersion,
           // Always stamped by host identity, never trusted from extension payload
           createdByExtensionId: inst.extensionId,
           data: raw.data,
@@ -211,8 +220,13 @@ export class ExtensionManager {
         const saved = await documentStore.save({
           id: raw.id,
           expectedRevision: raw.expectedRevision,
-          title: typeof raw.title === 'string' ? raw.title : undefined,
-          schemaVersion: typeof raw.schemaVersion === 'number' ? raw.schemaVersion : undefined,
+          title: typeof raw.title === 'string' ? raw.title.trim().slice(0, 160) : undefined,
+          schemaVersion:
+            typeof raw.schemaVersion === 'number' &&
+            Number.isInteger(raw.schemaVersion) &&
+            raw.schemaVersion >= 1
+              ? raw.schemaVersion
+              : undefined,
           data: raw.data,
         })
         if (typeof window !== 'undefined') {
@@ -643,9 +657,16 @@ export class ExtensionManager {
         }
       }
 
+      if (!enableImmediately && this.active.has(manifest.id)) {
+        this.deactivateNow(manifest.id, store.safeMode ? 'safe-mode' : 'disabled')
+      }
       store.upsertRecord(record)
       if (!enableImmediately) {
-        store.setRuntime(record.id, { status: 'disabled', activationId: null, hasLiveWorker: false })
+        store.setRuntime(record.id, {
+          status: store.safeMode ? 'safe-mode' : 'disabled',
+          activationId: null,
+          hasLiveWorker: false,
+        })
       }
       return record
     })
@@ -735,6 +756,7 @@ export class ExtensionManager {
   }
 
   async reload(extId: string): Promise<void> {
+    this.stopStagingWorkers(extId)
     await this.withLock(extId, async () => {
       const store = useExtensionStore.getState()
       const rec = store.records.find(r => r.id === extId)
@@ -766,7 +788,7 @@ export class ExtensionManager {
         )
       }
 
-      if (rec.enabled) {
+      if (rec.enabled && !store.safeMode) {
         await this.stageAndActivate(manifest, assets, { preserveLiveOnFailure: true })
       }
 

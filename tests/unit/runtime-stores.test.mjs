@@ -128,6 +128,45 @@ describe('ExtensionServiceRegistry versioning and cycles', () => {
     const cycle = findServiceCycle(a, [a, b])
     assert.deepEqual(cycle, ['ext.a', 'ext.b', 'ext.a'])
   })
+
+  it('breaks infinite runtime ping-pong recursion across mutually optional services', async () => {
+    const reg = new ExtensionServiceRegistry()
+    const a = validateExtensionManifest({
+      formatVersion: 1,
+      id: 'ext.a',
+      name: 'A',
+      version: '1.0.0',
+      worker: './a.js',
+      services: { provides: { 'svc.a': '1.0.0' }, optional: { 'svc.b': '^1.0.0' } },
+    })
+    const b = validateExtensionManifest({
+      formatVersion: 1,
+      id: 'ext.b',
+      name: 'B',
+      version: '1.0.0',
+      worker: './b.js',
+      services: { provides: { 'svc.b': '1.0.0' }, optional: { 'svc.a': '^1.0.0' } },
+    })
+    reg.commitByOwner('ext.a', [
+      {
+        name: 'svc.a',
+        version: '1.0.0',
+        ownerId: 'ext.a',
+        activationId: 'a1',
+        invoke: async () => reg.call(a, 'svc.b', 'ping', []),
+      },
+    ])
+    reg.commitByOwner('ext.b', [
+      {
+        name: 'svc.b',
+        version: '1.0.0',
+        ownerId: 'ext.b',
+        activationId: 'b1',
+        invoke: async () => reg.call(b, 'svc.a', 'ping', []),
+      },
+    ])
+    await assert.rejects(() => reg.call(a, 'svc.b', 'ping', []), /Service call depth limit/)
+  })
 })
 
 describe('DocumentStore optimistic concurrency and Safe Mode detection', () => {

@@ -79,8 +79,11 @@ export function findServiceCycle(
   return dfs(target.id)
 }
 
+const MAX_ACTIVE_SERVICE_CALLS = 32
+
 export class ExtensionServiceRegistry {
   private readonly registrations = new Map<string, ServiceRegistration>()
+  private activeCalls = 0
 
   checkDependencies(manifest: ExtensionManifest): DependencyCheckResult {
     const requiredFailures: DependencyIssue[] = []
@@ -225,7 +228,20 @@ export class ExtensionServiceRegistry {
       )
     }
 
-    return await reg.invoke(method, args)
+    if (this.activeCalls >= MAX_ACTIVE_SERVICE_CALLS) {
+      throw new ExtensionError(
+        'SERVICE_CYCLE',
+        `Service call depth limit (${MAX_ACTIVE_SERVICE_CALLS}) exceeded while calling "${serviceName}.${method}" (possible recursive loop).`,
+        { extensionId: callerManifest.id },
+      )
+    }
+
+    this.activeCalls += 1
+    try {
+      return await reg.invoke(method, args)
+    } finally {
+      this.activeCalls = Math.max(0, this.activeCalls - 1)
+    }
   }
 }
 
