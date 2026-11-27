@@ -350,7 +350,7 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
             </div>
             <button
               type="button"
-              className="sx-browse-hub-btn"
+              className="sx-btn-secondary"
               onClick={onOpenCommunityHub}
             >
               <Compass size={15} strokeWidth={2} aria-hidden="true" />
