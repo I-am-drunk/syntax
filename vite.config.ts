@@ -30,6 +30,7 @@ export default defineConfig(() => {
       port: 5189,
       strictPort: true,
       allowedHosts: true,
+      cors: true,
     },
   }
 })

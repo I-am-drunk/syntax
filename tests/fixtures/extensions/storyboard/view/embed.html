@@ -6,12 +6,30 @@
 </head>
 <body>
   <div id="embed-status">booting</div>
+  <div id="embed-prefix">none</div>
   <script type="module">
     const CHANNEL = 'syntax-view-v1'
+    let session = null
     window.addEventListener('message', event => {
       const msg = event.data
-      if (msg?.channel === CHANNEL && msg.type === 'syntax:view-init') {
+      if (msg?.channel !== CHANNEL) return
+      if (msg.type === 'syntax:view-init') {
+        session = msg
         document.getElementById('embed-status').textContent = `embed-ready:${msg.viewId}:${msg.theme.mode}`
+        document.getElementById('embed-prefix').textContent = String(msg.settings?.defaultPrefix ?? '')
+        window.parent.postMessage(
+          {
+            channel: CHANNEL,
+            type: 'syntax:view-resize',
+            instanceId: msg.instanceId,
+            activationId: msg.activationId,
+            height: 196,
+          },
+          '*',
+        )
+      }
+      if (msg.type === 'syntax:view-settings' && session) {
+        document.getElementById('embed-prefix').textContent = String(msg.settings?.defaultPrefix ?? '')
       }
     })
     window.parent.postMessage({ channel: CHANNEL, type: 'syntax:view-ready' }, '*')

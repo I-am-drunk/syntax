@@ -75,6 +75,7 @@ export type HostToWorkerMessage =
     }
   | { type: 'inv'; id: number; name: string; args: unknown[] }
   | { type: 'sysr'; id: number; result?: unknown; error?: SerializedError }
+  | { type: 'settings-changed'; settings: Record<string, boolean | string | number> }
 
 /** Channel identifier for sandboxed extension view iframe postMessage frames. */
 export const VIEW_BRIDGE_CHANNEL = 'syntax-view-v1' as const
@@ -98,6 +99,13 @@ export type ViewToHostMessage =
     }
   | {
       channel: typeof VIEW_BRIDGE_CHANNEL
+      type: 'syntax:view-resize'
+      instanceId: string
+      activationId: string
+      height: number
+    }
+  | {
+      channel: typeof VIEW_BRIDGE_CHANNEL
       type: 'syntax:view-error'
       instanceId: string
       activationId: string
@@ -115,6 +123,7 @@ export type HostToViewMessage =
       viewId: string
       docId: string | null
       theme: ViewThemePayload
+      settings: Record<string, boolean | string | number>
     }
   | {
       channel: typeof VIEW_BRIDGE_CHANNEL
@@ -122,6 +131,13 @@ export type HostToViewMessage =
       instanceId: string
       activationId: string
       theme: ViewThemePayload
+    }
+  | {
+      channel: typeof VIEW_BRIDGE_CHANNEL
+      type: 'syntax:view-settings'
+      instanceId: string
+      activationId: string
+      settings: Record<string, boolean | string | number>
     }
   | {
       channel: typeof VIEW_BRIDGE_CHANNEL

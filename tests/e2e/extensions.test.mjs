@@ -106,12 +106,35 @@ describe('Syntax Extensions v1 end-to-end acceptance suite (real Chromium)', () 
       await frame.locator('#stale-save-btn').click()
       await frame.locator('#doc-status:has-text("CONFLICT:")').waitFor()
 
-      // Verify embedded view mounts cleanly on Library page alongside saved document
+      // Verify embedded view mounts cleanly on Library page alongside saved document, auto-resizes, and receives live settings
       await page.goto(`${harness.appOrigin}/#/library`)
       await page.waitForSelector('[data-extension-id="tj.storyboard"][data-view-id="scratchpad"][data-view-ready="true"]')
       const embedFrame = page.frameLocator('[data-view-id="scratchpad"] iframe.sx-ext-iframe')
       const embedStatus = await embedFrame.locator('#embed-status').textContent()
       assert.match(embedStatus || '', /^embed-ready:scratchpad:/)
+      await page.waitForFunction(() => {
+        const el = document.querySelector('[data-view-id="scratchpad"] iframe.sx-ext-iframe')
+        return el && el.style.height === '196px'
+      })
+      assert.equal(await embedFrame.locator('#embed-prefix').textContent(), 'Act')
+      // Update setting live while embed is mounted -> view & worker both update without reload
+      await page.evaluate(() => {
+        window.__SYNTAX_EXTENSIONS__.store.getState().setSetting('tj.storyboard', 'defaultPrefix', 'LiveScene')
+      })
+      await embedFrame.locator('#embed-prefix:text-is("LiveScene")').waitFor()
+      const workerLivePrefix = await page.evaluate(() =>
+        window.__SYNTAX_EXTENSIONS__.manager.invokeWorker('tj.storyboard', 'getLivePrefix'),
+      )
+      assert.equal(workerLivePrefix, 'LiveScene')
+
+      // Verify official View SDK is served with CORS headers
+      const sdkCheck = await page.evaluate(async () => {
+        const res = await fetch('/sdk/syntax-view-v1.js')
+        const text = await res.text()
+        return { ok: res.ok, hasConnect: text.includes('export function connectSyntaxView') }
+      })
+      assert.equal(sdkCheck.ok, true)
+      assert.equal(sdkCheck.hasConnect, true)
 
       // 2. Install Storyboard Exporter (requires tj.storyboard/boards@^1.0.0, optional missing service, shared "Export" command name)
       await installViaUi(page, harness.extUrl('storyboard-exporter/extension.json'))

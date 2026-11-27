@@ -124,6 +124,14 @@ function writePersistedSettings(settings: Record<string, Record<string, Extensio
   }
 }
 
+function emitSettingsChanged(extensionId: string | null) {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('syntax:extension-settings-changed', { detail: { extensionId } }),
+    )
+  }
+}
+
 export function createInitialRuntime(
   record: ExtensionRecord,
   safeMode: boolean,
@@ -266,6 +274,7 @@ export const useExtensionStore = create<ExtensionStoreState>((set, get) => ({
       writePersistedSettings(nextSettings)
       return { settings: nextSettings }
     })
+    emitSettingsChanged(extId)
   },
 
   getAllSettings(extId, manifestOverride) {
@@ -290,10 +299,12 @@ export const useExtensionStore = create<ExtensionStoreState>((set, get) => ({
       writePersistedSettings(next)
       return { settings: next }
     })
+    emitSettingsChanged(extId)
   },
 
   reloadSettingsFromStorage() {
     set({ settings: readPersistedSettings() })
+    emitSettingsChanged(null)
   },
 
   reloadFromStorage() {
@@ -316,6 +327,7 @@ if (typeof window !== 'undefined') {
   window.addEventListener('storage', event => {
     if (event.key === SETTINGS_STORAGE_KEY) {
       useExtensionStore.setState({ settings: readPersistedSettings() })
+      emitSettingsChanged(null)
     }
   })
 }
