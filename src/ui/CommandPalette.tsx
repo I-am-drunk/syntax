@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Dialog } from '@base-ui/react/dialog'
 import {
   BookOpen,
@@ -57,6 +57,7 @@ export function CommandPalette({
   const [query, setQuery] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
   const [documents, setDocuments] = useState<DocumentEnvelope[]>([])
+  const listRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -112,7 +113,7 @@ export function CommandPalette({
       })
     }
 
-    for (const doc of documents.slice(0, 20)) {
+    for (const doc of documents) {
       const ownerName = nameById.get(doc.createdByExtensionId) ?? doc.createdByExtensionId
       const ownerViews = nonEmbedViews.filter(v => v.ownerId === doc.createdByExtensionId)
       const matchingView =
@@ -211,16 +212,67 @@ export function CommandPalette({
   }, [records, commands, views, documents, theme, soundOn, onNavigate, onToggleTheme, onToggleSound])
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return items
-    return items.filter(item => item.keywords.toLowerCase().includes(q))
+    const joined = query.trim().toLowerCase()
+    const tokens = joined.split(/\s+/).filter(Boolean)
+    if (tokens.length === 0) {
+      let docCount = 0
+      return items.filter(item => {
+        if (item.group !== 'Saved Documents') return true
+        docCount += 1
+        return docCount <= 10
+      })
+    }
+    const scored: Array<{ item: PaletteItem; score: number }> = []
+    for (const item of items) {
+      const titleLower = item.title.toLowerCase()
+      const hay = `${titleLower} ${(item.subtitle ?? '').toLowerCase()} ${item.keywords.toLowerCase()}`
+      if (!tokens.every(tok => hay.includes(tok))) continue
+      let score = 1
+      if (titleLower.includes(joined)) score = 3
+      else if (tokens.every(tok => titleLower.includes(tok))) score = 2
+      scored.push({ item, score })
+    }
+    scored.sort((a, b) => b.score - a.score)
+    return scored.map(entry => entry.item)
   }, [items, query])
+
+  const grouped = useMemo(() => {
+    const order: PaletteItem['group'][] = [
+      'Commands',
+      'Courses & Extensions',
+      'Saved Documents',
+      'Workspace',
+    ]
+    const sections = order
+      .map(group => ({
+        group,
+        entries: filtered.filter(i => i.group === group),
+      }))
+      .filter(section => section.entries.length > 0)
+
+    if (query.trim()) {
+      const firstIndex = new Map<PaletteItem['group'], number>()
+      filtered.forEach((item, idx) => {
+        if (!firstIndex.has(item.group)) firstIndex.set(item.group, idx)
+      })
+      sections.sort((a, b) => (firstIndex.get(a.group) ?? 999) - (firstIndex.get(b.group) ?? 999))
+    }
+    return sections
+  }, [filtered, query])
+
+  const flatItems = useMemo(() => grouped.flatMap(section => section.entries), [grouped])
 
   useEffect(() => {
     setActiveIndex(0)
   }, [query])
 
-  const safeIndex = filtered.length > 0 ? Math.min(activeIndex, filtered.length - 1) : 0
+  const safeIndex = flatItems.length > 0 ? Math.min(activeIndex, flatItems.length - 1) : 0
+
+  useEffect(() => {
+    if (!open) return
+    const selectedEl = listRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')
+    selectedEl?.scrollIntoView({ block: 'nearest' })
+  }, [open, safeIndex, query])
 
   function executeItem(item: PaletteItem) {
     onOpenChange(false)
@@ -254,21 +306,6 @@ export function CommandPalette({
     }
   }
 
-  const grouped = useMemo(() => {
-    const order: PaletteItem['group'][] = [
-      'Commands',
-      'Courses & Extensions',
-      'Saved Documents',
-      'Workspace',
-    ]
-    return order
-      .map(group => ({
-        group,
-        entries: filtered.filter(i => i.group === group),
-      }))
-      .filter(section => section.entries.length > 0)
-  }, [filtered])
-
   let flatIdx = -1
 
   return (
@@ -284,6 +321,10 @@ export function CommandPalette({
             <Search size={16} className="sx-cmd-search-icon" aria-hidden="true" />
             <input
               type="text"
+              role="combobox"
+              aria-expanded={open}
+              aria-controls="sx-cmd-listbox"
+              aria-activedescendant={flatItems[safeIndex] ? `sx-cmd-opt-${safeIndex}` : undefined}
               className="sx-cmd-input"
               placeholder="Search commands, courses, extensions, documents..."
               aria-label="Search commands and workspace"
@@ -292,15 +333,21 @@ export function CommandPalette({
               onKeyDown={e => {
                 if (e.key === 'ArrowDown') {
                   e.preventDefault()
-                  if (filtered.length > 0) setActiveIndex(i => (i + 1) % filtered.length)
+                  if (flatItems.length > 0) setActiveIndex(i => (i + 1) % flatItems.length)
                 } else if (e.key === 'ArrowUp') {
                   e.preventDefault()
-                  if (filtered.length > 0) {
-                    setActiveIndex(i => (i - 1 + filtered.length) % filtered.length)
+                  if (flatItems.length > 0) {
+                    setActiveIndex(i => (i - 1 + flatItems.length) % flatItems.length)
                   }
+                } else if (e.key === 'Home') {
+                  e.preventDefault()
+                  setActiveIndex(0)
+                } else if (e.key === 'End') {
+                  e.preventDefault()
+                  if (flatItems.length > 0) setActiveIndex(flatItems.length - 1)
                 } else if (e.key === 'Enter') {
                   e.preventDefault()
-                  const picked = filtered[safeIndex]
+                  const picked = flatItems[safeIndex]
                   if (picked) executeItem(picked)
                 }
               }}
@@ -309,7 +356,13 @@ export function CommandPalette({
             <kbd className="sx-kbd">Esc</kbd>
           </div>
 
-          <div className="sx-cmd-results" role="listbox" aria-label="Results">
+          <div
+            id="sx-cmd-listbox"
+            ref={listRef}
+            className="sx-cmd-results"
+            role="listbox"
+            aria-label="Results"
+          >
             {grouped.length === 0 ? (
               <div className="sx-cmd-empty">No matching commands, views, or documents.</div>
             ) : (
@@ -323,6 +376,7 @@ export function CommandPalette({
                     return (
                       <button
                         key={item.id}
+                        id={`sx-cmd-opt-${idx}`}
                         type="button"
                         role="option"
                         aria-selected={selected}
@@ -341,6 +395,12 @@ export function CommandPalette({
                 </div>
               ))
             )}
+          </div>
+
+          <div className="sx-cmd-footer" aria-hidden="true">
+            <span><kbd className="sx-kbd">↑</kbd><kbd className="sx-kbd">↓</kbd> Navigate</span>
+            <span><kbd className="sx-kbd">↵</kbd> Open</span>
+            <span><kbd className="sx-kbd">Esc</kbd> Close</span>
           </div>
         </Dialog.Popup>
       </Dialog.Portal>

@@ -23,7 +23,7 @@ import {
 import { ExtensionViewFrame } from './ExtensionViewFrame.tsx'
 import { extensionManager } from './manager.ts'
 import { resolveExtensionAssets } from './manifest.ts'
-import { useExtensionStore } from './store.ts'
+import { exitSafeModeAndReload, useExtensionStore } from './store.ts'
 import { ExtensionIcon } from '../ui/ExtensionIcon'
 
 export interface ExtensionPageProps {
@@ -198,10 +198,12 @@ export function ExtensionPage({
           <p className="sx-error-summary">
             {doc
               ? `Your document "${doc.title}" (type: ${doc.type}, revision ${doc.revision}) is safely stored in Syntax.`
-              : missingViewOnActive
-                ? `${extName} is active, but it does not declare a view with id "${viewId}".`
-                : (runtime?.lastError?.message ??
-                  'Enable, reload, or install this extension to open its view.')}
+              : safeMode
+                ? 'Safe Mode paused all extensions. Exit Safe Mode to resume running extensions and open this view.'
+                : missingViewOnActive
+                  ? `${extName} is active, but it does not declare a view with id "${viewId}".`
+                  : (runtime?.lastError?.message ??
+                    'Enable, reload, or install this extension to open its view.')}
           </p>
 
           {runtime?.lastError && !missingViewOnActive && (
@@ -211,6 +213,16 @@ export function ExtensionPage({
           )}
 
           <div className="sx-error-actions">
+            {safeMode && (
+              <button
+                type="button"
+                className="sx-btn-primary"
+                onClick={() => exitSafeModeAndReload()}
+              >
+                <Play size={14} aria-hidden="true" />
+                <span>Exit Safe Mode</span>
+              </button>
+            )}
             {missingViewOnActive && siblingViews[0] && (
               <button
                 type="button"

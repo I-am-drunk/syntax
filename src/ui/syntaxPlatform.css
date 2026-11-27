@@ -1022,6 +1022,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .sx-hub-empty {
@@ -1625,6 +1626,22 @@
   display: flex;
   align-items: flex-start;
   gap: 12px;
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.sx-ext-safemode-copy svg,
+.sx-ext-inline-error svg,
+.sx-ext-doc-main svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.sx-ext-safemode-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .sx-ext-safemode-copy p {
@@ -2210,6 +2227,12 @@
   width: fit-content;
   min-width: 0;
   max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.sx-ext-mode-toggle .segmented::-webkit-scrollbar {
+  display: none;
 }
 
 .sx-ext-runtime-footer {
@@ -2573,8 +2596,42 @@
   color: var(--muted);
 }
 
+.sx-cmd-footer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 9px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--secondary);
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.sx-cmd-footer span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+:root[data-theme='dark'] .sx-ext-card,
+:root[data-theme='dark'] .sx-ext-launch-card,
+:root[data-theme='dark'] .sx-ext-doc-row,
+:root[data-theme='dark'] .sx-error-card,
+:root[data-theme='dark'] .sx-hub-empty,
+:root[data-theme='dark'] .sx-library-empty,
+:root[data-theme='dark'] .sx-ext-view-frame {
+  background: #181818;
+  border-color: #2c2c2c;
+}
+
+:root[data-theme='dark'] .sx-ext-launch-card:hover,
+:root[data-theme='dark'] .sx-ext-doc-row:hover {
+  border-color: var(--accent-blue, #456dff);
+}
+
 @media (max-width: 640px) {
-  .sx-workspace-page {
+  .sx-workspace-page,
+  .sx-hub-page {
     margin: 24px auto 72px;
     padding: 0 16px;
     gap: 22px;
@@ -2588,6 +2645,15 @@
   .sx-ext-doc-item {
     flex-direction: column;
     gap: 6px;
+  }
+
+  .sx-ext-doc-rename-form {
+    flex-wrap: wrap;
+  }
+
+  .sx-ext-doc-rename-form .sx-ext-url-input {
+    flex: 1 1 200px;
+    min-width: 0;
   }
 
   .sx-ext-doc-actions {
@@ -2609,5 +2675,25 @@
   .sx-ext-page-actions .sx-btn-sm {
     padding: 0 10px;
     font-size: 12.5px;
+  }
+}
+
+@media (max-width: 480px) {
+  .sx-profile-hero {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sx-profile-identity {
+    flex: 0 1 auto;
+  }
+
+  .segment {
+    padding: 0 10px;
+    font-size: 13.5px;
+  }
+
+  .sx-cmd-footer {
+    display: none;
   }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Dialog } from '@base-ui/react/dialog'
 import { Sema, type SemaShapeName, type SemaTailName } from '../mascot/Sema'
@@ -20,6 +20,7 @@ export function OnboardingModal({
   onFinish: () => void
 }) {
   const [beat, setBeat] = useState<0 | 1>(0)
+  const continueBtnRef = useRef<HTMLButtonElement | null>(null)
 
   useEffect(() => {
     if (open) {
@@ -36,7 +37,7 @@ export function OnboardingModal({
     >
       <Dialog.Portal>
         <Dialog.Backdrop className="ob-backdrop" />
-        <Dialog.Popup className="ob-popup">
+        <Dialog.Popup className="ob-popup" initialFocus={continueBtnRef}>
           <div className="ob-dots" aria-hidden="true">
             {[0, 1].map(i => (
               <span key={i} className={`ob-dot${beat === i ? ' is-active' : ''}`} />
@@ -74,7 +75,12 @@ export function OnboardingModal({
                 <button type="button" className="ob-skip" onClick={onFinish}>
                   Skip
                 </button>
-                <button type="button" className="ob-primary" onClick={() => setBeat(1)}>
+                <button
+                  ref={continueBtnRef}
+                  type="button"
+                  className="ob-primary"
+                  onClick={() => setBeat(1)}
+                >
                   Continue
                 </button>
               </div>

@@ -65,6 +65,21 @@ export function isSafeMode(
   return false
 }
 
+export function exitSafeModeAndReload(): void {
+  if (typeof window === 'undefined') return
+  const url = new URL(window.location.href)
+  url.searchParams.delete('safeMode')
+  if (url.hash.includes('safeMode=')) {
+    const [hashPath, hashQuery] = url.hash.split('?')
+    const params = new URLSearchParams(hashQuery ?? '')
+    params.delete('safeMode')
+    const qs = params.toString()
+    url.hash = qs ? `${hashPath}?${qs}` : hashPath || '#/extensions'
+  }
+  window.history.replaceState(null, '', url.toString())
+  window.location.reload()
+}
+
 function readPersistedRecords(): ExtensionRecord[] {
   if (typeof localStorage === 'undefined') return []
   try {

@@ -19,7 +19,7 @@ import {
   type DocumentEnvelope,
 } from '../extensions/documents.ts'
 import { resolveExtensionAssets } from '../extensions/manifest.ts'
-import { useExtensionStore } from '../extensions/store.ts'
+import { exitSafeModeAndReload, useExtensionStore } from '../extensions/store.ts'
 import { Sema } from '../mascot/Sema'
 import { ExtensionIcon } from './ExtensionIcon'
 
@@ -168,9 +168,18 @@ export function HomePage({
               <p>All extensions are paused. Open Extensions to manage them or exit Safe Mode.</p>
             </div>
           </div>
-          <button type="button" className="sx-btn-primary sx-btn-sm" onClick={onOpenExtensions}>
-            Open Extensions
-          </button>
+          <div className="sx-ext-safemode-actions">
+            <button
+              type="button"
+              className="sx-btn-primary sx-btn-sm"
+              onClick={() => exitSafeModeAndReload()}
+            >
+              Exit Safe Mode
+            </button>
+            <button type="button" className="sx-btn-secondary sx-btn-sm" onClick={onOpenExtensions}>
+              Open Extensions
+            </button>
+          </div>
         </section>
       )}
 
