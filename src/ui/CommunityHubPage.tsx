@@ -214,7 +214,7 @@ export function CommunityHubPage({ highlightedId: rawHighlightedId, onOpenExtens
             <Search size={15} className="sx-search-icon" aria-hidden="true" />
             <input
               type="search"
-              placeholder="Search extensions, courses, authors, or tags..."
+              placeholder="Search packages, authors, or tags..."
               aria-label="Search community catalog"
               value={query}
               onChange={e => setQuery(e.target.value)}

@@ -2062,6 +2062,16 @@
   color: var(--accent-blue, #456dff);
 }
 
+:root[data-theme='dark'] .sx-ext-doc-open {
+  color: #7491ff;
+}
+
+:root[data-theme='dark'] [data-sonner-toast] {
+  background: #1b1b1b !important;
+  border-color: #2f2f2f !important;
+  color: #f5f5f5 !important;
+}
+
 .sx-ext-embed-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
