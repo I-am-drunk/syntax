@@ -13,10 +13,12 @@ import {
   Power,
   RefreshCw,
   RotateCcw,
+  Search,
   ShieldAlert,
   SlidersHorizontal,
   Square,
   Trash2,
+  X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useContributionStore } from '../extensions/contributions.ts'
@@ -66,6 +68,7 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
   const views = useContributionStore(s => s.views)
 
   const [viewMode, setViewMode] = useState<ExtensionsViewMode>('extensions')
+  const [filterQuery, setFilterQuery] = useState('')
   const [manifestUrl, setManifestUrl] = useState('')
   const [fetchingManifest, setFetchingManifest] = useState(false)
   const [pendingInstall, setPendingInstall] = useState<{
@@ -86,6 +89,15 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
   const extensionRecords = records.filter(r => r.manifest.kind !== 'course')
   const courseRecords = records.filter(r => r.manifest.kind === 'course')
   const visibleRecords = viewMode === 'courses' ? courseRecords : extensionRecords
+  const trimmedFilter = filterQuery.trim().toLowerCase()
+  const filteredVisibleRecords = trimmedFilter
+    ? visibleRecords.filter(rec => {
+        const status = runtimeById[rec.id]?.status ?? (rec.enabled ? 'loading' : 'disabled')
+        return `${rec.manifest.name} ${rec.id} ${rec.manifest.author ?? ''} ${rec.manifest.description ?? ''} ${status}`
+          .toLowerCase()
+          .includes(trimmedFilter)
+      })
+    : visibleRecords
 
   useEffect(() => {
     return extensionDiagnostics.subscribe(() => setLogsVersion(v => v + 1))
@@ -457,8 +469,35 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
             </p>
           </div>
         ) : (
-          <div className="sx-ext-list">
-            {visibleRecords.map(rec => {
+          <>
+            {visibleRecords.length > 3 && (
+              <div className="sx-search-field">
+                <Search size={15} className="sx-search-icon" aria-hidden="true" />
+                <input
+                  type="search"
+                  placeholder={
+                    viewMode === 'courses'
+                      ? 'Filter installed courses...'
+                      : 'Filter installed extensions...'
+                  }
+                  aria-label="Filter installed packages"
+                  value={filterQuery}
+                  onChange={e => setFilterQuery(e.target.value)}
+                />
+                {filterQuery && (
+                  <button
+                    type="button"
+                    className="sx-search-clear"
+                    aria-label="Clear filter"
+                    onClick={() => setFilterQuery('')}
+                  >
+                    <X size={14} aria-hidden="true" />
+                  </button>
+                )}
+              </div>
+            )}
+            <div className="sx-ext-list">
+              {filteredVisibleRecords.map(rec => {
               const rt = runtimeById[rec.id]
               const status = rt?.status ?? (rec.enabled ? 'loading' : 'disabled')
               const busy = Boolean(busyById[rec.id])
@@ -788,7 +827,8 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
                 </article>
               )
             })}
-          </div>
+            </div>
+          </>
         )}
       </section>
 

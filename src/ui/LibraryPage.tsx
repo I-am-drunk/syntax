@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
+  Check,
   Compass,
   Download,
   ExternalLink,
   FileText,
+  Pencil,
   Puzzle,
   RefreshCw,
   Search,
@@ -44,6 +46,8 @@ export function LibraryPage({
   const views = useContributionStore(s => s.views)
   const [documents, setDocuments] = useState<DocumentEnvelope[]>([])
   const [docQuery, setDocQuery] = useState('')
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameDraft, setRenameDraft] = useState('')
   const importInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
@@ -129,6 +133,23 @@ export function LibraryPage({
     onNavigate(
       `/ext/${encodeURIComponent(ownerId)}/${encodeURIComponent(viewId)}/${encodeURIComponent(doc.id)}`,
     )
+  }
+
+  async function handleRenameSubmit(doc: DocumentEnvelope) {
+    const trimmed = renameDraft.trim()
+    if (!trimmed || trimmed === doc.title) {
+      setRenamingId(null)
+      return
+    }
+    try {
+      const updated = await documentStore.rename(doc.id, trimmed)
+      setDocuments(prev => prev.map(d => (d.id === doc.id ? updated : d)))
+      setRenamingId(null)
+      notifyDocumentsChanged()
+      toast.success(`Renamed to "${updated.title}"`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to rename document')
+    }
   }
 
   async function handleDeleteDocument(doc: DocumentEnvelope) {
@@ -340,45 +361,103 @@ export function LibraryPage({
                 </div>
               )}
               <div className="sx-ext-doc-list">
-                {filteredDocuments.map(doc => (
-                  <div key={doc.id} className="sx-ext-doc-item" data-doc-id={doc.id}>
-                    <button
-                      type="button"
-                      className="sx-ext-doc-row"
-                      onClick={() => openDocument(doc)}
-                    >
-                      <span className="sx-ext-doc-main">
-                        <FileText size={16} aria-hidden="true" />
-                        <span>
-                          <strong>{doc.title}</strong>
-                          <small>
-                            {doc.type} · rev {doc.revision} ·{' '}
-                            {nameById.get(doc.createdByExtensionId) ?? doc.createdByExtensionId}
-                          </small>
-                        </span>
-                      </span>
-                      <span className="sx-ext-doc-open">Open</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="sx-btn-ghost sx-btn-sm sx-ext-doc-delete"
-                      aria-label={`Export ${doc.title}`}
-                      title={`Export ${doc.title} backup`}
-                      onClick={() => handleExportDocument(doc)}
-                    >
-                      <Download size={14} aria-hidden="true" />
-                    </button>
-                    <button
-                      type="button"
-                      className="sx-btn-ghost sx-btn-sm sx-ext-doc-delete"
-                      aria-label={`Delete ${doc.title}`}
-                      title={`Delete ${doc.title}`}
-                      onClick={() => void handleDeleteDocument(doc)}
-                    >
-                      <Trash2 size={14} aria-hidden="true" />
-                    </button>
-                  </div>
-                ))}
+                {filteredDocuments.map(doc => {
+                  const isRenaming = renamingId === doc.id
+                  return (
+                    <div key={doc.id} className="sx-ext-doc-item" data-doc-id={doc.id}>
+                      {isRenaming ? (
+                        <form
+                          className="sx-ext-doc-row sx-ext-doc-rename-form"
+                          onSubmit={e => {
+                            e.preventDefault()
+                            void handleRenameSubmit(doc)
+                          }}
+                        >
+                          <FileText size={16} aria-hidden="true" />
+                          <input
+                            type="text"
+                            className="sx-ext-url-input"
+                            aria-label={`Rename ${doc.title}`}
+                            value={renameDraft}
+                            maxLength={160}
+                            onChange={e => setRenameDraft(e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Escape') setRenamingId(null)
+                            }}
+                            autoFocus
+                          />
+                          <button
+                            type="submit"
+                            className="sx-btn-primary sx-btn-sm"
+                            aria-label="Save document name"
+                          >
+                            <Check size={14} aria-hidden="true" />
+                            <span>Save</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="sx-btn-ghost sx-btn-sm"
+                            aria-label="Cancel rename"
+                            onClick={() => setRenamingId(null)}
+                          >
+                            <X size={14} aria-hidden="true" />
+                          </button>
+                        </form>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            className="sx-ext-doc-row"
+                            onClick={() => openDocument(doc)}
+                          >
+                            <span className="sx-ext-doc-main">
+                              <FileText size={16} aria-hidden="true" />
+                              <span>
+                                <strong>{doc.title}</strong>
+                                <small>
+                                  {doc.type} · rev {doc.revision} ·{' '}
+                                  {nameById.get(doc.createdByExtensionId) ??
+                                    doc.createdByExtensionId}
+                                </small>
+                              </span>
+                            </span>
+                            <span className="sx-ext-doc-open">Open</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="sx-btn-ghost sx-btn-sm sx-ext-doc-delete"
+                            aria-label={`Rename ${doc.title}`}
+                            title={`Rename ${doc.title}`}
+                            onClick={() => {
+                              setRenamingId(doc.id)
+                              setRenameDraft(doc.title)
+                            }}
+                          >
+                            <Pencil size={14} aria-hidden="true" />
+                          </button>
+                          <button
+                            type="button"
+                            className="sx-btn-ghost sx-btn-sm sx-ext-doc-delete"
+                            aria-label={`Export ${doc.title}`}
+                            title={`Export ${doc.title} backup`}
+                            onClick={() => handleExportDocument(doc)}
+                          >
+                            <Download size={14} aria-hidden="true" />
+                          </button>
+                          <button
+                            type="button"
+                            className="sx-btn-ghost sx-btn-sm sx-ext-doc-delete"
+                            aria-label={`Delete ${doc.title}`}
+                            title={`Delete ${doc.title}`}
+                            onClick={() => void handleDeleteDocument(doc)}
+                          >
+                            <Trash2 size={14} aria-hidden="true" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             </section>
           )}

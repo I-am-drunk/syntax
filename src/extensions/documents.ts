@@ -50,6 +50,8 @@ export interface DocumentStore {
   save<T = unknown>(input: SaveDocumentInput<T>): Promise<DocumentEnvelope<T>>
   /** Explicit user-initiated delete only; never called on extension disable or uninstall. */
   delete(id: string): Promise<void>
+  /** Host-only rename for user Library organization; increments revision safely. */
+  rename(id: string, title: string): Promise<DocumentEnvelope>
   /** Host-only restore for Undo after an explicit user delete. Never exposed to extensions. */
   restore<T = unknown>(envelope: DocumentEnvelope<T>): Promise<DocumentEnvelope<T>>
 }
@@ -180,6 +182,25 @@ export function createMemoryDocumentStore(): DocumentStore {
     async delete(id: string) {
       docs.delete(id)
     },
+    async rename(id: string, rawTitle: string) {
+      const existing = docs.get(id)
+      if (!existing) {
+        throw new ExtensionError('REVISION_CONFLICT', `Document "${id}" does not exist.`)
+      }
+      const cleanTitle = rawTitle.trim().slice(0, 160)
+      if (!cleanTitle) {
+        throw new ExtensionError('SYSCALL_DENIED', 'Document title cannot be empty.')
+      }
+      const next: DocumentEnvelope = {
+        ...existing,
+        title: cleanTitle,
+        revision: existing.revision + 1,
+        updatedAt: Date.now(),
+      }
+      docs.set(id, next)
+      return cloneData(next)
+    },
+
     async restore<T = unknown>(envelope: DocumentEnvelope<T>) {
       const cloned = cloneData(envelope)
       docs.set(cloned.id, cloned)
@@ -426,6 +447,54 @@ export function createIndexedDbDocumentStore(): DocumentStore {
         }
         tx.onabort = () => fail(tx.error ?? new Error('Delete aborted'))
         tx.onerror = () => fail(tx.error ?? new Error('Delete failed'))
+      })
+    },
+
+    async rename(id: string, rawTitle: string) {
+      const cleanTitle = rawTitle.trim().slice(0, 160)
+      if (!cleanTitle) {
+        throw new ExtensionError('SYSCALL_DENIED', 'Document title cannot be empty.')
+      }
+      const db = await getDb()
+      return await new Promise<DocumentEnvelope>((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite')
+        const store = tx.objectStore(STORE_NAME)
+        const getReq = store.get(id)
+        let renamed: DocumentEnvelope | null = null
+        let reqErr: Error | null = null
+        let settled = false
+        const fail = (err: Error) => {
+          if (settled) return
+          settled = true
+          reject(err)
+        }
+        const ok = (val: DocumentEnvelope) => {
+          if (settled) return
+          settled = true
+          resolve(val)
+        }
+        getReq.onsuccess = () => {
+          const existing = getReq.result as DocumentEnvelope | undefined
+          if (!existing) {
+            reqErr = new ExtensionError('REVISION_CONFLICT', `Document "${id}" does not exist.`)
+            tx.abort()
+            return
+          }
+          renamed = {
+            ...existing,
+            title: cleanTitle,
+            revision: existing.revision + 1,
+            updatedAt: Date.now(),
+          }
+          store.put(renamed)
+        }
+        getReq.onerror = () => fail(getReq.error ?? new Error('Read before rename failed'))
+        tx.onabort = () => fail(reqErr ?? tx.error ?? new Error('Rename aborted'))
+        tx.onerror = () => fail(reqErr ?? tx.error ?? new Error('Rename failed'))
+        tx.oncomplete = () => {
+          if (renamed) ok(cloneData(renamed))
+          else fail(new Error('Rename completed without result'))
+        }
       })
     },
 
