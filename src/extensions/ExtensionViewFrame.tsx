@@ -496,18 +496,26 @@ export function ExtensionViewFrame({
           </div>
         </div>
       ) : (
-        <iframe
-          key={iframeKey}
-          ref={iframeRef}
-          src={entryUrl}
-          title={`${extensionName}: ${title}`}
-          className="sx-ext-iframe"
-          style={placement === 'embed' && embedHeight ? { height: `${embedHeight}px` } : undefined}
-          sandbox="allow-scripts allow-forms"
-          allow="camera 'none'; microphone 'none'; geolocation 'none'; payment 'none'; usb 'none'"
-          referrerPolicy="no-referrer"
-          onLoad={handleIframeLoad}
-        />
+        <div className="sx-ext-iframe-wrap">
+          {!ready && !fault && (
+            <div className="sx-ext-view-loading" role="status" aria-live="polite">
+              <span className="spinner" aria-hidden="true" />
+              <span>Loading {title}...</span>
+            </div>
+          )}
+          <iframe
+            key={iframeKey}
+            ref={iframeRef}
+            src={entryUrl}
+            title={`${extensionName}: ${title}`}
+            className="sx-ext-iframe"
+            style={placement === 'embed' && embedHeight ? { height: `${embedHeight}px` } : undefined}
+            sandbox="allow-scripts allow-forms"
+            allow="camera 'none'; microphone 'none'; geolocation 'none'; payment 'none'; usb 'none'"
+            referrerPolicy="no-referrer"
+            onLoad={handleIframeLoad}
+          />
+        </div>
       )}
     </div>
   )

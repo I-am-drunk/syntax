@@ -9,6 +9,7 @@ import {
   Menu as MenuIcon,
   Moon,
   Puzzle,
+  Search,
   Settings,
   Sparkles,
   Sun,
@@ -36,6 +37,7 @@ interface AppHeaderProps {
   soundOn: boolean
   prefs: SyntaxPrefs
   onNavigate: (path: string) => void
+  onOpenCommandPalette: () => void
   onToggleTheme: () => void
   onToggleSound: () => void
   onOpenWelcome: () => void
@@ -55,6 +57,7 @@ export function AppHeader({
   soundOn,
   prefs,
   onNavigate,
+  onOpenCommandPalette,
   onToggleTheme,
   onToggleSound,
   onOpenWelcome,
@@ -277,6 +280,16 @@ export function AppHeader({
             })}
           </div>
         )}
+
+        <button
+          type="button"
+          className="header-icon-btn"
+          aria-label="Quick search and commands (Ctrl+K)"
+          title="Quick search (Ctrl+K)"
+          onClick={onOpenCommandPalette}
+        >
+          <Search size={18} aria-hidden="true" />
+        </button>
 
         <button
           type="button"
