@@ -17,7 +17,9 @@ import { useContributionStore } from '../extensions/contributions.ts'
 import {
   documentStore,
   exportDocumentFilename,
+  notifyDocumentsChanged,
   parseImportedDocumentJson,
+  subscribeDocumentsChanged,
   type DocumentEnvelope,
 } from '../extensions/documents.ts'
 import { ExtensionViewFrame } from '../extensions/ExtensionViewFrame.tsx'
@@ -52,10 +54,10 @@ export function LibraryPage({
       })
     }
     refresh()
-    window.addEventListener('syntax:documents-changed', refresh)
+    const unsubscribe = subscribeDocumentsChanged(refresh)
     return () => {
       cancelled = true
-      window.removeEventListener('syntax:documents-changed', refresh)
+      unsubscribe()
     }
   }, [records.length, views.length])
 
@@ -110,7 +112,7 @@ export function LibraryPage({
       const parsed = parseImportedDocumentJson(text)
       const created = await documentStore.create(parsed)
       setDocuments(prev => [created, ...prev])
-      window.dispatchEvent(new CustomEvent('syntax:documents-changed'))
+      notifyDocumentsChanged()
       toast.success(`Imported "${created.title}"`)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not import document file.')
@@ -133,7 +135,7 @@ export function LibraryPage({
     try {
       await documentStore.delete(doc.id)
       setDocuments(prev => prev.filter(d => d.id !== doc.id))
-      window.dispatchEvent(new CustomEvent('syntax:documents-changed'))
+      notifyDocumentsChanged()
       toast(`Deleted "${doc.title}"`, {
         duration: 6000,
         action: {
@@ -142,7 +144,7 @@ export function LibraryPage({
             void documentStore
               .restore(doc)
               .then(() => {
-                window.dispatchEvent(new CustomEvent('syntax:documents-changed'))
+                notifyDocumentsChanged()
                 toast.success(`Restored "${doc.title}"`)
               })
               .catch(() => {

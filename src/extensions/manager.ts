@@ -5,7 +5,12 @@ import {
   type StagedContributions,
 } from './contributions.ts'
 import { extensionDiagnostics } from './diagnostics.ts'
-import { documentStore, type CreateDocumentInput, type SaveDocumentInput } from './documents.ts'
+import {
+  documentStore,
+  notifyDocumentsChanged,
+  type CreateDocumentInput,
+  type SaveDocumentInput,
+} from './documents.ts'
 import {
   fetchExtensionManifest,
   resolveExtensionAssets,
@@ -232,9 +237,7 @@ export class ExtensionManager {
           createdByExtensionId: inst.extensionId,
           data: raw.data,
         })
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('syntax:documents-changed'))
-        }
+        notifyDocumentsChanged()
         return created
       }
 
@@ -266,9 +269,7 @@ export class ExtensionManager {
               : undefined,
           data: raw.data,
         })
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('syntax:documents-changed'))
-        }
+        notifyDocumentsChanged()
         return saved
       }
 

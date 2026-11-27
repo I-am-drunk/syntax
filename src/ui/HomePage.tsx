@@ -13,7 +13,11 @@ import {
 import { useAccount } from '../core/account'
 import type { SyntaxPrefs } from '../core/prefs'
 import { useContributionStore } from '../extensions/contributions.ts'
-import { documentStore, type DocumentEnvelope } from '../extensions/documents.ts'
+import {
+  documentStore,
+  subscribeDocumentsChanged,
+  type DocumentEnvelope,
+} from '../extensions/documents.ts'
 import { resolveExtensionAssets } from '../extensions/manifest.ts'
 import { useExtensionStore } from '../extensions/store.ts'
 import { Sema } from '../mascot/Sema'
@@ -53,10 +57,10 @@ export function HomePage({
       })
     }
     refresh()
-    window.addEventListener('syntax:documents-changed', refresh)
+    const unsubscribe = subscribeDocumentsChanged(refresh)
     return () => {
       cancelled = true
-      window.removeEventListener('syntax:documents-changed', refresh)
+      unsubscribe()
     }
   }, [records.length, views.length])
 

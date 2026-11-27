@@ -498,3 +498,45 @@ export function exportDocumentFilename(doc: Pick<DocumentEnvelope, 'id' | 'title
   const slug = doc.title.replace(/[^a-z0-9-_]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase()
   return `${slug || doc.id}.syntaxdoc.json`
 }
+
+const DOCUMENTS_CHANNEL_NAME = 'syntax-documents-v1'
+let docsChannel: BroadcastChannel | null = null
+
+function getDocumentsChannel(): BroadcastChannel | null {
+  if (typeof BroadcastChannel === 'undefined') return null
+  if (!docsChannel) {
+    try {
+      docsChannel = new BroadcastChannel(DOCUMENTS_CHANNEL_NAME)
+    } catch {
+      return null
+    }
+  }
+  return docsChannel
+}
+
+/** Notifies both the current tab and any other open Syntax tabs that documents changed. */
+export function notifyDocumentsChanged() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('syntax:documents-changed'))
+  }
+  try {
+    getDocumentsChannel()?.postMessage({ type: 'changed', ts: Date.now() })
+  } catch {
+    // ignore BroadcastChannel failures
+  }
+}
+
+export function subscribeDocumentsChanged(callback: () => void): () => void {
+  if (typeof window !== 'undefined') {
+    window.addEventListener('syntax:documents-changed', callback)
+  }
+  const channel = getDocumentsChannel()
+  const onMessage = () => callback()
+  channel?.addEventListener('message', onMessage)
+  return () => {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('syntax:documents-changed', callback)
+    }
+    channel?.removeEventListener('message', onMessage)
+  }
+}

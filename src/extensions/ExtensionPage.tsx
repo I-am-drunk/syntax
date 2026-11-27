@@ -13,7 +13,12 @@ import {
 import { toast } from 'sonner'
 import { SyntaxErrorBoundary } from '../core/ErrorBoundary.tsx'
 import { useContributionStore } from './contributions.ts'
-import { documentStore, type DocumentEnvelope } from './documents.ts'
+import {
+  documentStore,
+  exportDocumentFilename,
+  subscribeDocumentsChanged,
+  type DocumentEnvelope,
+} from './documents.ts'
 import { ExtensionViewFrame } from './ExtensionViewFrame.tsx'
 import { extensionManager } from './manager.ts'
 import { resolveExtensionAssets } from './manifest.ts'
@@ -81,11 +86,16 @@ export function ExtensionPage({
       setDoc(null)
       return
     }
-    void documentStore.get(docId).then(found => {
-      if (!cancelled) setDoc(found)
-    })
+    const loadDoc = () => {
+      void documentStore.get(docId).then(found => {
+        if (!cancelled) setDoc(found)
+      })
+    }
+    loadDoc()
+    const unsubscribe = subscribeDocumentsChanged(loadDoc)
     return () => {
       cancelled = true
+      unsubscribe()
     }
   }, [docId, runtime?.status])
 
@@ -124,7 +134,7 @@ export function ExtensionPage({
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${doc.title.replace(/[^a-z0-9-_]+/gi, '-').toLowerCase() || doc.id}.syntaxdoc.json`
+    a.download = exportDocumentFilename(doc)
     a.click()
     window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
@@ -274,6 +284,17 @@ export function ExtensionPage({
         </div>
 
         <div className="sx-ext-page-actions">
+          {doc && (
+            <button
+              type="button"
+              className="sx-btn-ghost sx-btn-sm"
+              title="Export document backup (.syntaxdoc.json)"
+              onClick={handleExportDocument}
+            >
+              <Download size={13} aria-hidden="true" />
+              <span>Export</span>
+            </button>
+          )}
           <button
             type="button"
             className="sx-btn-ghost sx-btn-sm"

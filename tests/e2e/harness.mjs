@@ -192,6 +192,13 @@ export async function startE2EHarness() {
       return
     }
 
+    if (pathname === '/sdk/syntax-view-v1.js') {
+      const sdkPath = path.resolve(REPO_ROOT, 'public/sdk/syntax-view-v1.js')
+      res.writeHead(200, { 'Content-Type': MIME_TYPES['.js'] })
+      fs.createReadStream(sdkPath).pipe(res)
+      return
+    }
+
     if (pathname.startsWith('/mutable-ext/')) {
       const payload = mutablePayload(mutableMode)
       if (pathname === '/mutable-ext/extension.json') {
