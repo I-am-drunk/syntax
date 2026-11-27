@@ -98,7 +98,10 @@ export function SettingsPage({
           <h2 id="pref-appearance-h">Appearance &amp; Navigation</h2>
           <div className="preference-rows">
             <div className="preference-row preference-choices">
-              <p>Choose your preferred color mode</p>
+              <div className="syntax-pref-copy">
+                <p>Color mode</p>
+                <span>Choose between Light and Dark appearance</span>
+              </div>
               <Segmented
                 label="Color mode"
                 value={theme}

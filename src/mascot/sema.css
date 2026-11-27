@@ -145,6 +145,7 @@
   .sema-topbar-dock .sema-speech-bubble {
     left: 0;
     transform: none;
+    animation-name: sema-bubble-pop-mobile;
   }
 
   .sema-topbar-dock .sema-speech-bubble::before {
@@ -160,6 +161,17 @@
   to {
     opacity: 1;
     transform: translateX(-50%) scale(1) translateY(0);
+  }
+}
+
+@keyframes sema-bubble-pop-mobile {
+  from {
+    opacity: 0;
+    transform: scale(0.88) translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
   }
 }
 
@@ -598,4 +610,29 @@
   outline: 3px solid #456dff;
   outline-offset: 4px;
   border-radius: 16px;
+}
+
+/* Mobile header: keep Sema visible and compact when the Syntax wordmark is hidden */
+@media (max-width: 768px) {
+  .sema-topbar-dock,
+  .sema-topbar-dock[data-logo-phase='merging'] {
+    width: 30px;
+  }
+
+  .sema-topbar-dock[data-logo-phase='merging'] .sema-pixar-body,
+  .sema-topbar-dock[data-logo-phase='unmerging'] .sema-pixar-body {
+    pointer-events: auto;
+    animation: none;
+    opacity: 1;
+    transform: scale(0.86);
+  }
+
+  .sema-topbar-dock .sema-pixar-body {
+    transform: scale(0.86);
+  }
+
+  .sema-topbar-dock[data-logo-phase='merging'] .sema-frozen-semicolon,
+  .sema-topbar-dock[data-logo-phase='unmerging'] .sema-frozen-semicolon {
+    display: none;
+  }
 }

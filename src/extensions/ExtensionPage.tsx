@@ -252,7 +252,7 @@ export function ExtensionPage({
             {record && record.enabled && !safeMode && (
               <button
                 type="button"
-                className="sx-btn-primary"
+                className={missingViewOnActive && siblingViews[0] ? 'sx-btn-secondary' : 'sx-btn-primary'}
                 disabled={busy}
                 onClick={() => void handleReload()}
               >

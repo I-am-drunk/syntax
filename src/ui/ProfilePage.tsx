@@ -1,5 +1,15 @@
 import { useEffect, useState } from 'react'
-import { Cloud, CloudOff, KeyRound, RefreshCw, ShieldCheck } from 'lucide-react'
+import {
+  Cloud,
+  CloudOff,
+  Compass,
+  KeyRound,
+  Library,
+  Puzzle,
+  RefreshCw,
+  Settings,
+  ShieldCheck,
+} from 'lucide-react'
 import { useAccount } from '../core/account'
 import { useAuthActions } from '../core/clerkAuth'
 import { useCloudSyncStore } from '../core/clerkSync'
@@ -70,7 +80,7 @@ export function ProfilePage({
                 shape={prefs.semaShape}
                 tail={prefs.semaTail}
                 expression={prefs.semaExpression}
-                size={28}
+                size={22}
                 followCursor={false}
                 ariaLabel="Sema companion preview"
               />
@@ -164,7 +174,7 @@ export function ProfilePage({
             ) : (
               <button
                 type="button"
-                className="sx-btn-primary sx-btn-sm"
+                className="sx-btn-secondary sx-btn-sm"
                 onClick={() => auth.openSignIn()}
               >
                 Sign in
@@ -217,7 +227,8 @@ export function ProfilePage({
               <span>Browse extension views and saved documents</span>
             </div>
             <button type="button" className="sx-btn-secondary sx-btn-sm" onClick={onOpenLibrary}>
-              Library
+              <Library size={14} aria-hidden="true" />
+              <span>Library</span>
             </button>
           </div>
           <div className="preference-row">
@@ -226,7 +237,8 @@ export function ProfilePage({
               <span>Manage installed standalone and embedded Syntax extensions</span>
             </div>
             <button type="button" className="sx-btn-secondary sx-btn-sm" onClick={onOpenExtensions}>
-              Extensions
+              <Puzzle size={14} aria-hidden="true" />
+              <span>Extensions</span>
             </button>
           </div>
           <div className="preference-row">
@@ -239,7 +251,8 @@ export function ProfilePage({
               className="sx-btn-secondary sx-btn-sm"
               onClick={onOpenCommunityHub}
             >
-              Browse
+              <Compass size={14} aria-hidden="true" />
+              <span>Browse</span>
             </button>
           </div>
           <div className="preference-row">
@@ -248,7 +261,8 @@ export function ProfilePage({
               <span>Light or dark mode, audio cues, and Sema companion style</span>
             </div>
             <button type="button" className="sx-btn-secondary sx-btn-sm" onClick={onOpenSettings}>
-              Settings
+              <Settings size={14} aria-hidden="true" />
+              <span>Settings</span>
             </button>
           </div>
         </div>

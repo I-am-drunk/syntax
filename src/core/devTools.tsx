@@ -164,7 +164,7 @@ export function DevToolsSuite() {
       // Park Eruda button cleanly at bottom-left so it never overlaps Agentation (bottom-right)
       const parkEruda = () => {
         try {
-          eruda.position({ x: 16, y: Math.max(84, window.innerHeight - 64) })
+          eruda.position({ x: 12, y: Math.max(84, window.innerHeight - 54) })
         } catch {
           // ignore
         }

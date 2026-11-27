@@ -22,6 +22,13 @@ export function applySyntaxTheme(theme) {
       }
     }
   }
+  if (!document.getElementById('syntax-view-base-theme') && document.head) {
+    const style = document.createElement('style')
+    style.id = 'syntax-view-base-theme'
+    style.textContent =
+      ':where(html, body) { background-color: var(--surface, transparent); color: var(--text, inherit); font-family: var(--font-sans, system-ui, sans-serif); }'
+    document.head.prepend(style)
+  }
 }
 
 export function connectSyntaxView(options = {}) {

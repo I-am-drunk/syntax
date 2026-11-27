@@ -563,20 +563,6 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
                           </button>
                         ))}
 
-                      {rt?.hasLiveWorker && (
-                        <button
-                          type="button"
-                          className="sx-btn-ghost sx-btn-sm"
-                          onClick={() => {
-                            extensionManager.stopWorker(rec.id)
-                            toast.warning(`Stopped ${rec.manifest.name} worker`)
-                          }}
-                        >
-                          <Square size={13} aria-hidden="true" />
-                          <span>Stop worker</span>
-                        </button>
-                      )}
-
                       {!safeMode && (
                         <button
                           type="button"
@@ -590,6 +576,24 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
                             <Play size={13} aria-hidden="true" />
                           )}
                           <span>{rec.enabled ? 'Disable' : 'Enable'}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="sx-ext-card-footer">
+                    <div className="sx-ext-card-footer-tools">
+                      {rt?.hasLiveWorker && (
+                        <button
+                          type="button"
+                          className="sx-btn-ghost sx-btn-sm"
+                          onClick={() => {
+                            extensionManager.stopWorker(rec.id)
+                            toast.warning(`Stopped ${rec.manifest.name} worker`)
+                          }}
+                        >
+                          <Square size={13} aria-hidden="true" />
+                          <span>Stop worker</span>
                         </button>
                       )}
 
@@ -644,7 +648,9 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
                         <FileText size={13} aria-hidden="true" />
                         <span>{isLogsOpen ? 'Hide logs' : 'Logs'}</span>
                       </button>
+                    </div>
 
+                    <div className="sx-ext-card-footer-danger">
                       {isConfirmingUninstall ? (
                         <span className="sx-ext-confirm-group">
                           <button
