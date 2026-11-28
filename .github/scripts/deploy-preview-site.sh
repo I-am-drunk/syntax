@@ -19,6 +19,15 @@ if [[ -z "${DEPLOY_KEY:-}" ]]; then
   exit 1
 fi
 
+guard_pr_state() {
+  local current
+  current=$(gh api "repos/${GITHUB_REPOSITORY:?}/pulls/$pr_number" --jq '[.state, .head.sha] | @tsv')
+  if [[ "$action" == deploy && "$current" == "open"$'\t'"${DEPLOY_COMMIT}" ]]; then return; fi
+  if [[ "$action" == remove && "$current" == "closed"$'\t'* ]]; then return; fi
+  echo 'The pull request changed since this run started. Leave the preview for the current run.'
+  exit 0
+}
+
 source_path=""
 if [[ "$action" == "deploy" ]]; then
   source_path=$(realpath "${2:-}")
@@ -29,6 +38,7 @@ if [[ "$action" == "deploy" ]]; then
     exit 1
   fi
 fi
+guard_pr_state
 
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
@@ -92,6 +102,7 @@ EOF
   if git -C "$checkout" diff --cached --quiet; then break; fi
   git -C "$checkout" -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com \
     commit --quiet -m "$commit_msg"
+  guard_pr_state
   if git -C "$checkout" push origin HEAD:refs/heads/gh-pages; then break; fi
   if [[ "$attempt" == 5 ]]; then
     echo 'Could not update the Infra Pages branch after five attempts.' >&2
@@ -100,12 +111,16 @@ EOF
   sleep "$attempt"
 done
 
-if [[ "$action" == "deploy" ]]; then
-  for attempt in {1..24}; do
+for attempt in {1..24}; do
+  guard_pr_state
+  if [[ "$action" == deploy ]]; then
     actual=$(curl --silent --fail --max-time 10 "${deploy_url%/}/${preview_dir}/preview-commit.txt?run=${GITHUB_RUN_ID:-0}" || true)
     if [[ "$actual" == "$DEPLOY_COMMIT" ]]; then exit 0; fi
-    sleep 10
-  done
-  echo "The Infra preview route did not serve the expected commit." >&2
-  exit 1
-fi
+  else
+    status=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 10 "${deploy_url%/}/${preview_dir}/?run=${GITHUB_RUN_ID:-0}" || true)
+    if [[ "$status" == 404 ]]; then exit 0; fi
+  fi
+  sleep 10
+done
+echo 'The public Infra preview did not reach the expected state.' >&2
+exit 1

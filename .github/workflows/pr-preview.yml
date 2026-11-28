@@ -19,6 +19,8 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      artifact_id: ${{ steps.bundle.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -52,6 +54,7 @@ jobs:
         env:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       - uses: actions/upload-artifact@v4
+        id: bundle
         with:
           name: infra-preview
           path: dist/
@@ -75,6 +78,7 @@ jobs:
       PR_NUMBER: ${{ github.event.pull_request.number }}
       HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       CLOSED: ${{ github.event.action == 'closed' }}
+      ARTIFACT_ID: ${{ needs.build.outputs.artifact_id }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -121,9 +125,10 @@ jobs:
             const base = process.env.INFRA_URL.replace(/\/+$/, '');
             const previewUrl = `${base}/pr-${number}/`;
             const commitUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/commit/${process.env.HEAD_SHA}`;
+            const artifactUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}/artifacts/${process.env.ARTIFACT_ID}`;
             const body = closing
               ? `${marker}\n### Syntax preview\n\nThe PR is closed. This preview has been removed.`
-              : `${marker}\n### Syntax preview\n\n[Open the PR preview](${previewUrl}) · [Commit \`${process.env.HEAD_SHA.slice(0, 7)}\`](${commitUrl})`;
+              : `${marker}\n### Syntax preview\n\n[Open the PR preview](${previewUrl}) · [Commit \`${process.env.HEAD_SHA.slice(0, 7)}\`](${commitUrl}) · [Download this build](${artifactUrl})`;
             if (previous) {
               await github.rest.issues.updateComment({ ...context.repo, comment_id: previous.id, body });
             } else if (!closing) {

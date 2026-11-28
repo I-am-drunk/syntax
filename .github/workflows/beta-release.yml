@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '23 15 * * *'
   workflow_dispatch:
+    inputs:
+      rehearse_recovery:
+        description: Fail after deployment and restore the previous Beta release.
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -24,6 +29,7 @@ jobs:
       sha: ${{ steps.candidate.outputs.sha }}
       tag: ${{ steps.candidate.outputs.tag }}
       previous: ${{ steps.candidate.outputs.previous }}
+      previous_sha: ${{ steps.candidate.outputs.previous_sha }}
       version: ${{ steps.candidate.outputs.version }}
       beta_url: ${{ steps.candidate.outputs.beta_url }}
     steps:
@@ -42,6 +48,7 @@ jobs:
           BETA_URL: ${{ vars.SYNTAX_BETA_ORIGIN || 'https://syntax-platform.github.io/syntax-beta' }}
           INFRA_URL: ${{ vars.SYNTAX_INFRA_ORIGIN || 'https://syntax-platform.github.io/syntax-infra' }}
           APPROVED_SHA: ${{ vars.SYNTAX_BETA_APPROVED_SHA }}
+          REHEARSE_RECOVERY: ${{ inputs.rehearse_recovery }}
         run: |
           if [[ "$GITHUB_EVENT_NAME" == schedule && $(( $(date -u +%s) / 86400 % 2 )) != 0 ]]; then
             echo 'The next Beta slot is tomorrow.'
@@ -68,6 +75,11 @@ jobs:
             exit 1
           fi
           previous=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | select(.draft == false and .prerelease == false and (.tag_name | startswith("beta-v"))) | .tag_name' | sed -n '1p')
+          previous_sha=
+          if [[ "$REHEARSE_RECOVERY" == true && -z "$previous" ]]; then
+            echo 'Publish a working Beta before rehearsing recovery.' >&2
+            exit 1
+          fi
           if [[ -n "$previous" ]]; then
             previous_sha=$(git rev-parse "$previous^{commit}")
             if [[ "$previous_sha" == "$APPROVED_SHA" ]]; then
@@ -87,6 +99,7 @@ jobs:
             echo "sha=$APPROVED_SHA"
             echo "tag=beta-v$version.$GITHUB_RUN_NUMBER"
             echo "previous=$previous"
+            echo "previous_sha=$previous_sha"
             echo "version=$version"
             echo "beta_base=$beta_base"
             echo "beta_url=$beta_url"
@@ -167,6 +180,11 @@ jobs:
         with:
           name: syntax-beta
           path: incoming
+      - name: Stop before publishing during a recovery rehearsal
+        if: inputs.rehearse_recovery
+        run: |
+          echo 'The candidate reached Beta. Stop before creating its release so recovery can restore the previous Beta.' >&2
+          exit 1
       - name: Publish a regular Beta release in Syntax
         env:
           GH_TOKEN: ${{ github.token }}
@@ -176,6 +194,7 @@ jobs:
           VERSION: ${{ needs.build.outputs.version }}
           APPROVED_SHA: ${{ needs.build.outputs.sha }}
         run: |
+          set -euo pipefail
           printf '[Open Syntax Beta](%s/)\n\n' "$BETA_URL" > notes.md
           if node scripts/generate-release-notes.mjs --repository "$GITHUB_REPOSITORY" \
             --tag "$TAG" --ref "$APPROVED_SHA" --previous-tag "$PREVIOUS_TAG" \
@@ -185,5 +204,57 @@ jobs:
             printf 'Built from commit `%s`.\n' "$APPROVED_SHA" >> notes.md
           fi
           tar -czf syntax-beta.tar.gz -C incoming .
-          gh release create "$TAG" syntax-beta.tar.gz --target "$APPROVED_SHA" \
+          refs=$(git ls-remote origin "refs/tags/$TAG" "refs/tags/$TAG^{}")
+          if [[ -z "$refs" ]]; then
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f "ref=refs/tags/$TAG" -f "sha=$APPROVED_SHA" --silent
+          fi
+          refs=$(git ls-remote origin "refs/tags/$TAG" "refs/tags/$TAG^{}")
+          tagged_sha=$(awk '/\^\{\}$/ { peeled = $1 } !/\^\{\}$/ { direct = $1 } END { print (peeled ? peeled : direct) }' <<< "$refs")
+          if [[ "$tagged_sha" != "$APPROVED_SHA" ]]; then
+            echo "Beta tag $TAG does not point to the approved commit." >&2
+            exit 1
+          fi
+          gh release create "$TAG" syntax-beta.tar.gz --verify-tag --target "$APPROVED_SHA" \
             --title "Syntax Beta $VERSION · $GITHUB_RUN_NUMBER" --notes-file notes.md --latest=false
+
+  recover:
+    needs: [build, deploy, release]
+    if: >-
+      always() && needs.build.outputs.previous != '' &&
+      (needs.deploy.result == 'failure' || needs.release.result == 'failure')
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment:
+      name: syntax-beta
+      url: ${{ needs.build.outputs.beta_url }}/
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Restore the previous published Beta
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FAILED_TAG: ${{ needs.build.outputs.tag }}
+          PREVIOUS_TAG: ${{ needs.build.outputs.previous }}
+          DEPLOY_COMMIT: ${{ needs.build.outputs.previous_sha }}
+          DEPLOY_KEY: ${{ secrets.SYNTAX_BETA_DEPLOY_KEY }}
+          DEPLOY_REPO: syntax-platform/syntax-beta
+          DEPLOY_URL: ${{ needs.build.outputs.beta_url }}
+          DEPLOY_LABEL: Beta recovery
+        run: |
+          set -euo pipefail
+          tags=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq '.[] | select(.draft == false) | .tag_name')
+          if grep -Fxq -- "$FAILED_TAG" <<< "$tags"; then
+            echo 'The candidate already has a public release. Keep its deployed build.' >&2
+            exit 1
+          fi
+          [[ "$(git rev-parse "$PREVIOUS_TAG^{commit}")" == "$DEPLOY_COMMIT" ]]
+          mkdir recovery
+          gh release download "$PREVIOUS_TAG" --pattern syntax-beta.tar.gz --dir recovery
+          mkdir recovery/site
+          tar -xzf recovery/syntax-beta.tar.gz --no-same-owner --no-same-permissions -C recovery/site
+          node .github/scripts/verify-static-artifact.mjs recovery/site release-commit.txt "$DEPLOY_COMMIT"
+          bash .github/scripts/deploy-static-site.sh recovery/site
