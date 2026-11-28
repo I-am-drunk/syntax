@@ -178,6 +178,12 @@ export class NativeRuntime {
     return this.active.get(ownerId)?.revision
   }
 
+  retireStaleActivations(revisions: ReadonlyMap<string, string>): void {
+    for (const [id, active] of this.active) {
+      if (!revisions.has(id) || revisions.get(id) !== active.revision) this.disable(id)
+    }
+  }
+
   isActive(ownerId: string): boolean {
     return this.active.has(ownerId)
   }

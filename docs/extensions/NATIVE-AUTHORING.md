@@ -64,7 +64,7 @@ The [foundation API types](../../src/extensions/native/api.ts) describe the Comm
 
 Activation can read saved data. Write data only once the extension is active, such as from a screen interaction or command. The context signal aborts when the extension is disabled or replaced. Stop ongoing work on abort and release resources with `onDispose`. The raw runtime observes cleanup failures and prevents a failed candidate from replacing the working version.
 
-The browser host keeps verified entry bytes and saved data in channel-scoped IndexedDB. A failed replacement leaves the installed revision available, including after reload. Saves include the active revision so an older tab cannot overwrite data once another tab disables or replaces its extension.
+The browser host keeps verified entry bytes and saved data in a separate IndexedDB database for each channel. A failed replacement leaves the previous version available after reload. If you disable or replace a package in one tab, other Dev tabs retire the older version. Reload a tab to start the replacement there. Saves check the current version so an older tab cannot overwrite the newer version's data.
 
 The startup journal records an activation in the current browser tab. After a reload, Syntax quarantines the matching saved revision and starts the remaining extensions. If the journal cannot identify a suspect, Syntax skips native startup until the host explicitly acknowledges the recovery state.
 

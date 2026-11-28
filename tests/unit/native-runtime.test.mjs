@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { test } from 'node:test'
+import { NativeHost } from '../../src/extensions/native/host.ts'
 import { NativeRuntime } from '../../src/extensions/native/runtime.ts'
 
 function pkg(id, entry, version = '1.0.0') {
@@ -66,6 +68,40 @@ test('a replacement cannot publish its contributions if writing the new install 
     throw new Error('storage rejected the new install')
   }), /storage rejected/)
   assert.equal(runtime.getScreen('example.one', 'main').title, 'Working')
+})
+
+test('a journal cleanup failure after commit preserves the persisted and active replacement', async () => {
+  const records = new Map()
+  const diagnostics = []
+  let failRemoval = false
+  const host = new NativeHost({
+    get: async id => records.get(id),
+    replace: async (id, expected, record) => {
+      assert.equal(records.get(id)?.revision, expected)
+      records.set(id, record)
+    },
+  }, {
+    setItem() {},
+    removeItem() {
+      if (failRemoval) throw new Error('startup journal unavailable')
+    },
+  }, (id, error) => diagnostics.push([id, error.message]), {
+    checkSource() {},
+    checkPackage() {},
+  })
+  const id = 'example.one'
+  const checkedPackage = (entry, version) => {
+    const result = pkg(id, entry, version)
+    result.manifest.sha256 = createHash('sha256').update(entry).digest('hex')
+    return result
+  }
+  await host.installInspected(checkedPackage(working, '1.0.0'))
+  failRemoval = true
+  const replacement = await host.installInspected(checkedPackage(working.replace('Working', 'Replacement'), '2.0.0'))
+  assert.equal(records.get(id)?.revision, replacement.revision)
+  assert.equal(host.runtime.getActiveRevision(id), replacement.revision)
+  assert.equal(host.runtime.getScreen(id, 'main')?.title, 'Replacement')
+  assert.deepEqual(diagnostics, [[id, 'startup journal unavailable']])
 })
 
 test('disable retires an activation that finishes late', async () => {

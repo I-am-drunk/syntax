@@ -50,8 +50,9 @@ test('an external checkout builds, checks, hosts, and activates a native fixture
 
   const harness = await startE2EHarness({ nativeStarterDirectory: dist })
   t.after(() => harness.close())
-  const page = await harness.browser.newPage()
-  await page.addInitScript(() => {
+  const localContext = await harness.browser.newContext()
+  const page = await localContext.newPage()
+  await localContext.addInitScript(() => {
     for (const prefix of ['', 'syntax-dev-']) {
       localStorage.setItem(`${prefix}syntax.prefs.v1`, JSON.stringify({ onboarded: true }))
     }
@@ -77,12 +78,19 @@ test('an external checkout builds, checks, hosts, and activates a native fixture
   })
   await page.reload()
   await page.getByText('Extension built outside Syntax', { exact: true }).waitFor()
+  const secondTab = await localContext.newPage()
+  await secondTab.goto(page.url())
+  await secondTab.getByText('Extension built outside Syntax', { exact: true }).waitFor()
   await page.getByRole('button', { name: 'Back to Extensions' }).click()
   await native.getByRole('button', { name: 'Disable', exact: true }).click()
   await native.getByRole('button', { name: 'Enable', exact: true }).waitFor()
+  await secondTab.getByText('This extension screen is unavailable.').waitFor()
   assert.equal(await native.getByRole('button', { name: 'Open Native fixture' }).count(), 0)
   await native.getByRole('button', { name: 'Enable', exact: true }).click()
   await native.getByRole('button', { name: 'Open Native fixture' }).waitFor()
+  await secondTab.reload()
+  await secondTab.getByText('Extension built outside Syntax', { exact: true }).waitFor()
+  await secondTab.close()
 
   const failingSource = harness.extUrl('native-failure/manifest.json')
   const failingEntry = `

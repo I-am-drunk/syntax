@@ -30,6 +30,7 @@ export class NativeHost {
   private readonly repository: NativeRepository
   private readonly journal: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
   private readonly authorization: NativeAuthorization
+  private readonly reportCleanupError: (id: string, error: unknown) => void
   private tail: Promise<unknown> = Promise.resolve()
 
   constructor(
@@ -41,11 +42,18 @@ export class NativeHost {
     this.repository = repository
     this.journal = journal
     this.authorization = authorization
+    this.reportCleanupError = reportCleanupError
     this.runtime = new NativeRuntime(repository, reportCleanupError)
   }
 
-  list(): Promise<NativeInstall[]> {
-    return this.repository.list()
+  reconcile(): Promise<NativeInstall[]> {
+    return this.enqueue(async () => {
+      const records = await this.repository.list()
+      const revisions = new Map(records.filter(record => record.enabled)
+        .map(record => [record.package.manifest.id, record.revision]))
+      this.runtime.retireStaleActivations(revisions)
+      return records
+    })
   }
 
   install(source: string): Promise<NativeInstall> {
@@ -116,7 +124,7 @@ export class NativeHost {
           failed.push(suspect.package.manifest.id)
           recovery = 'quarantined'
         }
-        this.journal.removeItem(startupKey)
+        this.clearStartupMarker(suspect.package.manifest.id)
       }
       for (const record of records) {
         const id = record.package.manifest.id
@@ -132,7 +140,6 @@ export class NativeHost {
           if (await this.quarantine(record, error)) failed.push(id)
         }
       }
-      this.journal.removeItem(startupKey)
       return { recovery, failed }
     })
   }
@@ -157,10 +164,11 @@ export class NativeHost {
     }
   }
 
-  reportFailure(id: string, revision: string, error: unknown): Promise<void> {
+  reportFailure(id: string, revision: string, error: unknown): Promise<boolean> {
     return this.enqueue(async () => {
       const record = await this.repository.get(id)
-      if (record?.revision === revision && record.enabled) await this.quarantine(record, error)
+      if (record?.revision !== revision || !record.enabled) return false
+      return this.quarantine(record, error)
     })
   }
 
@@ -179,13 +187,27 @@ export class NativeHost {
     this.authorization.checkPackage(record.package)
     const marker = { id: record.package.manifest.id, revision: record.revision }
     this.journal.setItem(startupKey, JSON.stringify(marker))
+    let committed = false
     try {
       await this.runtime.activate(record.package, async () => {
         await commit?.()
-        this.journal.removeItem(startupKey)
+        committed = true
+        this.clearStartupMarker(marker.id)
       }, revision)
     } finally {
+      if (!committed) this.clearStartupMarker(marker.id)
+    }
+  }
+
+  private clearStartupMarker(id: string): void {
+    try {
       this.journal.removeItem(startupKey)
+    } catch (error) {
+      try {
+        this.reportCleanupError(id, error)
+      } catch {
+        // Diagnostics cannot undo a committed activation.
+      }
     }
   }
 

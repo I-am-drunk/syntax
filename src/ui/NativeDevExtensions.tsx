@@ -85,7 +85,8 @@ export function NativeDevExtensions({ onNavigate }: { onNavigate: (path: string)
       {actionError && <p role="alert">{actionError}</p>}
       {installedName && <p role="status">Installed {installedName}.</p>}
       {installs.map(({ package: { manifest }, enabled, failure }) => {
-        const screens = phase === 'ready' ? getNativeDevHost().runtime.listScreens(manifest.id) : []
+        const runtime = phase === 'ready' ? getNativeDevHost().runtime : undefined
+        const screens = runtime?.listScreens(manifest.id) ?? []
         return (
           <div key={manifest.id}>
             <h3>{manifest.name}</h3>
@@ -96,6 +97,9 @@ export function NativeDevExtensions({ onNavigate }: { onNavigate: (path: string)
                 Open
               </button>
             ))}
+            {enabled && runtime && !runtime.isActive(manifest.id) && (
+              <button className="sx-btn-secondary" onClick={() => window.location.reload()}>Reload to use this version</button>
+            )}
             <button className="sx-btn-secondary" disabled={pending || (!enabled && phase !== 'ready')}
               onClick={() => void perform(async () => {
                 try {
@@ -132,8 +136,10 @@ export function NativeDevScreen({ id, screen, onNavigate }: {
         <SyntaxErrorBoundary key={install.revision} scope={id} extensionName={install.package.manifest.name}
           onExitScope={exit} exitLabel="Back to Extensions" onError={error => {
             void getNativeDevHost().reportFailure(id, install.revision, error)
-              .then(refreshNativeDevInstalls)
-              .then(() => toast.error(`${install.package.manifest.name} stopped after an error.`))
+              .then(async quarantined => {
+                await refreshNativeDevInstalls()
+                if (quarantined) toast.error(`${install.package.manifest.name} stopped after an error.`)
+              })
               .catch(failure => toast.error(formatError(failure)))
           }}>
           <Content />

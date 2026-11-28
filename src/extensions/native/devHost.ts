@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { channelStateKey } from '../../core/channelState.ts'
 import { syntaxLog } from '../../core/logger'
 import { createNativeDevAuthorization, nativeMode } from './devPolicy.ts'
 import { NativeHost } from './host.ts'
@@ -14,6 +15,7 @@ export const useNativeDevStore = create<{
 
 let host: NativeHost | undefined
 let boot: Promise<void> | undefined
+let changes: BroadcastChannel | undefined
 
 export function getNativeDevHost(): NativeHost {
   if (nativeDevMode === 'disabled') throw new Error('Native extensions are unavailable in this build.')
@@ -24,8 +26,23 @@ export function getNativeDevHost(): NativeHost {
   )
 }
 
-export async function refreshNativeDevInstalls() {
-  useNativeDevStore.setState({ installs: await getNativeDevHost().list() })
+export async function refreshNativeDevInstalls(broadcast = true) {
+  useNativeDevStore.setState({ installs: await getNativeDevHost().reconcile() })
+  if (broadcast) changes?.postMessage('installs-changed')
+}
+
+function observeNativeDevChanges() {
+  const reconcile = () => {
+    void refreshNativeDevInstalls(false).catch(error =>
+      syntaxLog.error('native', 'Could not refresh installed extensions.', error))
+  }
+  window.addEventListener('focus', reconcile)
+  try {
+    changes = new BroadcastChannel(channelStateKey('syntax.native-installs.v2'))
+    changes.addEventListener('message', reconcile)
+  } catch {
+    // Focus refresh still catches up when messaging is unavailable.
+  }
 }
 
 export function bootNativeDev(safeMode: boolean): Promise<void> {
@@ -33,7 +50,8 @@ export function bootNativeDev(safeMode: boolean): Promise<void> {
   return boot ??= (async () => {
     try {
       const result = safeMode ? undefined : await getNativeDevHost().boot()
-      await refreshNativeDevInstalls()
+      observeNativeDevChanges()
+      await refreshNativeDevInstalls(Boolean(result?.failed.length))
       useNativeDevStore.setState({ phase: !result || result.recovery === 'skipped' ? 'recovery' : 'ready' })
     } catch (error) {
       useNativeDevStore.setState({ phase: 'failed', error: error instanceof Error ? error.message : String(error) })
