@@ -114,14 +114,17 @@ export class NativeHost {
     return pkg
   }
 
-  installInspected(pkg: NativePackage): Promise<NativeInstall> {
+  installInspected(pkg: NativePackage, expectedRevision?: string): Promise<NativeInstall> {
     const snapshot = structuredClone(pkg)
-    return this.enqueue(() => this.installPackage(snapshot))
+    return this.enqueue(() => this.installPackage(snapshot, expectedRevision))
   }
 
-  private async installPackage(pkg: NativePackage): Promise<NativeInstall> {
+  private async installPackage(pkg: NativePackage, expectedRevision?: string): Promise<NativeInstall> {
     const id = pkg.manifest.id
     const existing = await this.repository.get(id)
+    if (expectedRevision !== undefined && (!existing?.enabled || existing.revision !== expectedRevision)) {
+      throw new NativePackageError('INSTALL_CHANGED', 'The installed extension changed while checking for an update.')
+    }
     const allowSourceChange = Boolean(
       existing &&
       existing.package.sourceUrl !== pkg.sourceUrl &&

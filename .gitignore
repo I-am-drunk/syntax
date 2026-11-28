@@ -10,5 +10,12 @@ playwright-report/
 *.local
 .data/
 *.tsbuildinfo
+storybook-static/
+docs-site/.next/
+docs-site/.source/
+docs-site/out/
+docs-site/content/docs/
+docs-site/src/lib/buildMeta.ts
+docs-site/next-env.d.ts
 **/__pycache__/
 *.pyc

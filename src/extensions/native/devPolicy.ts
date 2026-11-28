@@ -111,7 +111,60 @@ const devPins: readonly NativePin[] = [
       sha256: '1eb5d9c33aad740295fef153e82651734fb3197e9c132997c77d06f275268601',
     },
   },
+  {
+    // syntax-platform/syntax-official-extensions#8
+    sourceUrl: 'https://raw.githubusercontent.com/syntax-platform/syntax-official-extensions/1ed1a144af4980f676174be6da41baa85f6c404d/fixtures/authoring-examples/course/v1.0.0/manifest.json',
+    manifest: {
+      manifestVersion: 2,
+      id: 'syntax.authoring-course',
+      name: 'Growing Patterns',
+      version: '1.0.0',
+      syntaxApi: '^2.0.0',
+      main: 'main.js',
+      sha256: '1250b8b1460bc2e29c2c56e054f1254da3f9a9eed81e68137033868ed7c18a31',
+    },
+  },
+  {
+    // syntax-platform/syntax-official-extensions#8
+    sourceUrl: 'https://raw.githubusercontent.com/syntax-platform/syntax-official-extensions/1ed1a144af4980f676174be6da41baa85f6c404d/fixtures/authoring-examples/course/v1.1.0/manifest.json',
+    manifest: {
+      manifestVersion: 2,
+      id: 'syntax.authoring-course',
+      name: 'Growing Patterns',
+      version: '1.1.0',
+      syntaxApi: '^2.0.0',
+      main: 'main.js',
+      sha256: '08082a6450bd370ab85ea9ed7fb850392815af58cc37820402495326ad2a48ef',
+    },
+  },
+  {
+    // syntax-platform/syntax-official-extensions#8
+    sourceUrl: 'https://raw.githubusercontent.com/syntax-platform/syntax-official-extensions/1ed1a144af4980f676174be6da41baa85f6c404d/fixtures/authoring-examples/tool/v1.0.0/manifest.json',
+    manifest: {
+      manifestVersion: 2,
+      id: 'syntax.authoring-tool',
+      name: 'Starter Tool',
+      version: '1.0.0',
+      syntaxApi: '^2.0.0',
+      main: 'main.js',
+      sha256: 'b9710bcf205b5a500c12cbf0b0fd1365abc5fd87c210abfdb4b47973031edfda',
+    },
+  },
+  {
+    // syntax-platform/syntax-official-extensions#8
+    sourceUrl: 'https://raw.githubusercontent.com/syntax-platform/syntax-official-extensions/1ed1a144af4980f676174be6da41baa85f6c404d/fixtures/authoring-examples/tool/v1.1.0/manifest.json',
+    manifest: {
+      manifestVersion: 2,
+      id: 'syntax.authoring-tool',
+      name: 'Starter Tool',
+      version: '1.1.0',
+      syntaxApi: '^2.0.0',
+      main: 'main.js',
+      sha256: 'c00ae3152b46c596ff323909aa986f94cd112745acfe29f8532d245ed652d0d6',
+    },
+  },
 ]
+export const approvedNativeDevPins: readonly NativePin[] = devPins
 export const hasHostedNativePackages = devPins.length > 0
 
 export function nativeMode(channel: string | undefined, development: boolean, location: URL): NativeMode {
