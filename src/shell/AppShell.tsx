@@ -14,6 +14,7 @@ import { SyntaxErrorBoundary } from '../core/ErrorBoundary'
 import { loadPrefs, savePrefs, type SyntaxPrefs } from '../core/prefs'
 import { ExtensionPage } from '../extensions/ExtensionPage.tsx'
 import { extensionManager } from '../extensions/manager.ts'
+import { bootNativeDev, nativeDevMode } from '../extensions/native/devHost.ts'
 import { isSafeMode, useExtensionStore } from '../extensions/store.ts'
 import { playUiSound, type UiSound } from '../services/uiSounds'
 import { HomePage } from '../ui/HomePage'
@@ -25,6 +26,9 @@ const SettingsPage = lazy(() =>
 )
 const ExtensionsPage = lazy(() =>
   import('../ui/ExtensionsPage').then(m => ({ default: m.ExtensionsPage })),
+)
+const NativeDevScreen = lazy(() =>
+  import('../ui/NativeDevExtensions').then(m => ({ default: m.NativeDevScreen })),
 )
 const CommunityHubPage = lazy(() =>
   import('../ui/CommunityHubPage').then(m => ({ default: m.CommunityHubPage })),
@@ -81,7 +85,9 @@ function parseRouteInfo(location: string): {
   if (clean === '/community' || clean.startsWith('/community/')) {
     return { clean, activeRoute: 'community' }
   }
-  if (clean.startsWith('/ext/')) return { clean, activeRoute: null }
+  if (clean.startsWith('/ext/') || nativeDevMode !== 'disabled' && clean.startsWith('/native-extension/')) {
+    return { clean, activeRoute: null }
+  }
   if (clean === '/' || clean === '' || clean === '/home') return { clean: '/', activeRoute: 'home' }
   if (clean === '/profile') return { clean, activeRoute: 'profile' }
   return { clean, activeRoute: 'library' }
@@ -166,6 +172,7 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
     recordActivity('visit', 1)
     const safeMode = isSafeMode()
     void extensionManager.boot({ safeMode })
+    void bootNativeDev(safeMode)
     const cleanLoc = location.split('?')[0] || '/'
     if (safeMode && cleanLoc === '/') {
       setLocation('/extensions', { replace: true })
@@ -237,7 +244,7 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
           ? 'Extensions · Syntax'
           : routeInfo.activeRoute === 'community'
             ? 'Community Hub · Syntax'
-            : routeInfo.clean.startsWith('/ext/')
+            : routeInfo.activeRoute === null
               ? 'Extension · Syntax'
               : routeInfo.activeRoute === 'library'
                 ? 'Library · Syntax'
@@ -384,6 +391,16 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
             />
           )}
         </Route>
+
+        {nativeDevMode !== 'disabled' && (
+          <Route path="/native-extension/:extensionId/:screenId">
+            {params => (
+              <Suspense fallback={<RouteLoadingFallback label="Loading extension" />}>
+                <NativeDevScreen id={params.extensionId} screen={params.screenId} onNavigate={navigate} />
+              </Suspense>
+            )}
+          </Route>
+        )}
 
         <Route path="/community">
           <SyntaxErrorBoundary scope="workspace:community" onExitScope={() => navigate('/library')}>

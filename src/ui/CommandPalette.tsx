@@ -20,6 +20,7 @@ import { toast } from 'sonner'
 import { useContributionStore } from '../extensions/contributions.ts'
 import { documentStore, type DocumentEnvelope } from '../extensions/documents.ts'
 import { extensionManager } from '../extensions/manager.ts'
+import { getNativeDevHost, refreshNativeDevInstalls, useNativeDevStore } from '../extensions/native/devHost.ts'
 import { useExtensionStore } from '../extensions/store.ts'
 
 export interface CommandPaletteProps {
@@ -45,6 +46,11 @@ export function CommandPalette({
   const runtimeById = useExtensionStore(s => s.runtime)
   const commands = useContributionStore(s => s.commands)
   const views = useContributionStore(s => s.views)
+  const nativeInstalls = useNativeDevStore(state => state.installs)
+  const nativeReady = useNativeDevStore(state => state.phase === 'ready')
+  const nativeCommands = nativeReady ? nativeInstalls.flatMap(({ package: { manifest } }) =>
+    getNativeDevHost().runtime.listCommands(manifest.id).map(command => ({ manifest, command })),
+  ) : []
   const [documents, setDocuments] = useState<DocumentEnvelope[]>([])
 
   useEffect(() => {
@@ -101,7 +107,7 @@ export function CommandPalette({
           No matching commands, views, or documents.
         </Command.Empty>
 
-        {activeCommands.length > 0 && (
+        {(activeCommands.length > 0 || nativeCommands.length > 0) && (
           <Command.Group heading="Commands" className="sx-cmd-group">
             {activeCommands.map(cmd => {
               const ownerName = nameById.get(cmd.ownerId) ?? cmd.ownerId
@@ -126,6 +132,25 @@ export function CommandPalette({
                 </Command.Item>
               )
             })}
+            {nativeCommands.map(({ manifest, command }) => (
+              <Command.Item
+                key={`native:${manifest.id}:${command.id}`}
+                value={`${command.title} ${manifest.name} ${command.id} command`}
+                className="sx-cmd-item"
+                onSelect={() => run(() => {
+                  void getNativeDevHost().runCommand(manifest.id, command.id).catch(async error => {
+                    toast.error(`${manifest.name}: ${error instanceof Error ? error.message : String(error)}`)
+                    await refreshNativeDevInstalls()
+                  }).catch(error => toast.error(error instanceof Error ? error.message : String(error)))
+                })}
+              >
+                <Terminal size={15} className="sx-cmd-row-icon" aria-hidden="true" />
+                <span className="sx-cmd-item-copy">
+                  <strong>{command.title}</strong>
+                  <small>{manifest.name}</small>
+                </span>
+              </Command.Item>
+            ))}
           </Command.Group>
         )}
 

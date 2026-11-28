@@ -1,0 +1,19 @@
+{
+  "name": "syntax-native-fixture",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit && node build.mjs"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.24",
+    "esbuild": "0.25.12",
+    "typescript": "5.9.2"
+  },
+  "syntaxExtension": {
+    "id": "example.native-fixture",
+    "name": "Native fixture",
+    "syntaxApi": "^2.0.0"
+  }
+}

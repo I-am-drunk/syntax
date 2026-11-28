@@ -32,8 +32,10 @@ import {
   type ResolvedExtensionAssets,
 } from '../extensions/manifest.ts'
 import { exitSafeModeAndReload, useExtensionStore, type ExtensionRecord } from '../extensions/store.ts'
+import { nativeDevMode } from '../extensions/native/devHost.ts'
 import { ExtensionIcon } from './ExtensionIcon'
 import { ExtensionInstallModal } from './ExtensionInstallModal'
+import { NativeDevExtensions } from './NativeDevExtensions'
 
 export interface ExtensionsPageProps {
   onOpenCommunityHub: () => void
@@ -415,6 +417,8 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
           </button>
         </section>
       )}
+
+      {nativeDevMode !== 'disabled' && <NativeDevExtensions onNavigate={onNavigate} />}
 
       <section className="sx-plugins-section" aria-label="Install extension from URL">
         <div className="sx-plugins-section-head">
