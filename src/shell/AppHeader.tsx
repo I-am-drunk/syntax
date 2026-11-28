@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Menu } from '@base-ui/react/menu'
 import {
-  ArrowLeft,
+  Check,
   Compass,
   Home,
   Library,
@@ -26,13 +26,17 @@ import { TopBarSema } from '../mascot/TopBarSema'
 import type { SyntaxPrefs } from '../core/prefs'
 import { ProfilePopover } from '../ui/ProfilePopover'
 
-export type ShellMode = 'main' | 'workspace'
-export type WorkspaceTab = 'settings' | 'extensions' | 'community'
+export type ActiveNavRoute =
+  | 'home'
+  | 'library'
+  | 'extensions'
+  | 'community'
+  | 'settings'
+  | 'profile'
+  | null
 
 interface AppHeaderProps {
-  mode: ShellMode
-  mainActiveTab: 'home' | 'library' | null
-  workspaceActiveTab: WorkspaceTab | null
+  activeRoute: ActiveNavRoute
   theme: 'light' | 'dark'
   soundOn: boolean
   prefs: SyntaxPrefs
@@ -44,15 +48,36 @@ interface AppHeaderProps {
   onPokeSema: () => void
 }
 
-const NAV_TRANSITION = {
-  duration: 0.14,
-  ease: [0.22, 1, 0.36, 1] as const,
-}
+const PRIMARY_TABS = [
+  { id: 'home', label: 'Home', mobileLabel: 'Home', path: '/', Icon: Home },
+  { id: 'library', label: 'Library', mobileLabel: 'Library', path: '/library', Icon: Library },
+  {
+    id: 'extensions',
+    label: 'Extensions',
+    mobileLabel: 'Extensions',
+    path: '/extensions',
+    Icon: Puzzle,
+  },
+  {
+    id: 'community',
+    label: 'Community',
+    mobileLabel: 'Hub',
+    fullLabel: 'Community Hub',
+    path: '/community',
+    Icon: Compass,
+  },
+] as const
+
+const MENU_NAV_ITEMS = [
+  { id: 'home', label: 'Home', path: '/', Icon: Home },
+  { id: 'library', label: 'Library', path: '/library', Icon: Library },
+  { id: 'extensions', label: 'Extensions', path: '/extensions', Icon: Puzzle },
+  { id: 'community', label: 'Community Hub', path: '/community', Icon: Compass },
+  { id: 'settings', label: 'Settings & Sema', path: '/settings', Icon: Settings },
+] as const
 
 export function AppHeader({
-  mode,
-  mainActiveTab,
-  workspaceActiveTab,
+  activeRoute,
   theme,
   soundOn,
   prefs,
@@ -68,9 +93,12 @@ export function AppHeader({
   const extensionCommands = useContributionStore(s => s.commands)
   const extensionRecords = useExtensionStore(s => s.records)
   const [runningCommands, setRunningCommands] = useState<ReadonlySet<string>>(() => new Set())
-  const isWorkspace = mode === 'workspace'
 
   const ownerNames = new Map(extensionRecords.map(r => [r.id, r.manifest.name]))
+  const isMac =
+    typeof navigator !== 'undefined' &&
+    /Mac|iPhone|iPad|iPod/i.test(navigator.platform || navigator.userAgent)
+  const shortcutLabel = isMac ? '⌘K' : 'Ctrl K'
 
   async function handleRunCommand(commandKey: string, ownerId: string) {
     setRunningCommands(prev => {
@@ -114,310 +142,305 @@ export function AppHeader({
     onNavigate(prefs.logoClickTarget === 'home' ? '/' : '/library')
   }
 
+  const toolbarViewItems = extensionToolbar.filter(item => item.viewId && !item.commandKey)
+  const hasExtensionMenuActions = extensionCommands.length > 0 || toolbarViewItems.length > 0
+
   return (
-    <header className="app-header sx-app-header" data-workspace={isWorkspace || undefined}>
-      <div
-        className={`brand-lockup${isDev ? ' is-dev-brand' : ''}`}
-        data-workspace={isWorkspace || undefined}
-      >
-        <a
-          className="wordmark"
-          href={prefs.logoClickTarget === 'home' ? '#/' : '#/library'}
-          aria-label={
-            prefs.logoClickTarget === 'home'
-              ? isDev
-                ? 'Syntax Dev Home'
-                : 'Syntax Home'
-              : isDev
-                ? 'Syntax Dev Library'
-                : 'Syntax Library'
-          }
-          onClick={e => {
-            e.preventDefault()
-            handleLogoClick()
-          }}
-        >
-          <span>Syntax</span>
-          {isDev && <span className="dev-rainbow-text">Dev</span>}
-        </a>
-
-        <TopBarSema
-          enableRoaming={prefs.onboarded && !isWorkspace}
-          dockedIntoLogo={isWorkspace}
-          isDev={isDev}
-          shape={prefs.semaShape}
-          tail={prefs.semaTail}
-          expression={prefs.semaExpression}
-          hasNotification={false}
-          onPoke={onPokeSema}
-          onLogoClick={handleLogoClick}
-        />
-      </div>
-
-      {/* Mode-switched Top Navigation with instant, zero-blank transition */}
-      <div className="sx-nav-stage">
-        {isWorkspace ? (
-          <motion.nav
-            key="nav-workspace"
-            className="primary-nav sx-workspace-nav"
-            aria-label="Workspace navigation"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={NAV_TRANSITION}
-          >
-            <button
-              type="button"
-              className="sx-nav-back-btn"
-              aria-label="Back to Library"
-              onClick={() => onNavigate('/library')}
+    <>
+      <header className="app-header sx-app-header">
+        <div className="sx-header-left">
+          <div className={`brand-lockup${isDev ? ' is-dev-brand' : ''}`}>
+            <a
+              className="wordmark"
+              href={prefs.logoClickTarget === 'home' ? '#/' : '#/library'}
+              aria-label={
+                prefs.logoClickTarget === 'home'
+                  ? isDev
+                    ? 'Syntax Dev Home'
+                    : 'Syntax Home'
+                  : isDev
+                    ? 'Syntax Dev Library'
+                    : 'Syntax Library'
+              }
+              onClick={e => {
+                e.preventDefault()
+                handleLogoClick()
+              }}
             >
-              <ArrowLeft size={16} strokeWidth={2.1} aria-hidden="true" />
-              <span className="sx-nav-back-label">Library</span>
-            </button>
+              <span>Syntax</span>
+              {isDev && <span className="dev-rainbow-text">Dev</span>}
+            </a>
 
-            <span className="sx-nav-divider" aria-hidden="true" />
+            <TopBarSema
+              enableRoaming={prefs.onboarded}
+              dockedIntoLogo={false}
+              isDev={isDev}
+              shape={prefs.semaShape}
+              tail={prefs.semaTail}
+              expression={prefs.semaExpression}
+              hasNotification={false}
+              onPoke={onPokeSema}
+              onLogoClick={handleLogoClick}
+            />
+          </div>
 
-            <div className="sx-workspace-tabs">
-              {(
-                [
-                  { id: 'settings', label: 'Settings', path: '/settings', Icon: Settings },
-                  { id: 'extensions', label: 'Extensions', path: '/extensions', Icon: Puzzle },
-                  { id: 'community', label: 'Community Hub', path: '/community', Icon: Compass },
-                ] as const
-              ).map(({ id, label, path, Icon }) => {
-                const active = workspaceActiveTab === id
+          <nav className="sx-nav-pills" aria-label="Main navigation">
+            {PRIMARY_TABS.map(tab => {
+              const active = activeRoute === tab.id
+              const Icon = tab.Icon
+              const ariaLabel = 'fullLabel' in tab ? tab.fullLabel : tab.label
+              return (
+                <a
+                  key={tab.id}
+                  href={`#${tab.path}`}
+                  className={`sx-nav-tab${active ? ' is-active' : ''}`}
+                  aria-label={ariaLabel}
+                  aria-current={active ? 'page' : undefined}
+                  onClick={e => {
+                    e.preventDefault()
+                    onNavigate(tab.path)
+                  }}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="sx-nav-pill"
+                      className="sx-nav-tab-bg"
+                      transition={{ type: 'spring', stiffness: 520, damping: 38 }}
+                    />
+                  )}
+                  <Icon size={15} strokeWidth={2} className="sx-nav-tab-icon" aria-hidden="true" />
+                  <span className="sx-nav-tab-label">{tab.label}</span>
+                </a>
+              )
+            })}
+          </nav>
+        </div>
+
+        <div className="header-actions">
+          {extensionToolbar.length > 0 && (
+            <div className="sx-ext-header-toolbar" role="toolbar" aria-label="Extension actions">
+              {extensionToolbar.map(item => {
+                const busy = Boolean(item.commandKey && runningCommands.has(item.commandKey))
                 return (
                   <button
-                    key={id}
+                    key={item.key}
                     type="button"
-                    className="primary-nav-btn"
-                    aria-current={active ? 'page' : undefined}
-                    onClick={() => onNavigate(path)}
+                    className="sx-ext-toolbar-btn"
+                    data-extension-toolbar-key={item.key}
+                    disabled={busy}
+                    aria-busy={busy || undefined}
+                    title={`${item.label} (${ownerNames.get(item.ownerId) ?? item.ownerId})`}
+                    onClick={() => {
+                      if (item.commandKey) {
+                        void handleRunCommand(item.commandKey, item.ownerId)
+                      } else if (item.viewId) {
+                        onNavigate(
+                          `/ext/${encodeURIComponent(item.ownerId)}/${encodeURIComponent(item.viewId)}`,
+                        )
+                      }
+                    }}
                   >
-                    <Icon size={16} strokeWidth={1.9} className="nav-svg-icon" aria-hidden="true" />
-                    <span className="primary-nav-label">{label}</span>
-                    {active && (
-                      <motion.span
-                        layoutId="workspace-nav-indicator"
-                        className="primary-nav-indicator"
-                        transition={{ type: 'spring', stiffness: 520, damping: 38 }}
-                      />
-                    )}
+                    <span>{item.label}</span>
                   </button>
                 )
               })}
             </div>
-          </motion.nav>
-        ) : (
-          <motion.nav
-            key="nav-main"
-            className="primary-nav sx-main-nav"
-            aria-label="Main navigation"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={NAV_TRANSITION}
+          )}
+
+          <button
+            type="button"
+            className="sx-header-search-btn"
+            aria-label={`Quick search and commands (${shortcutLabel})`}
+            title={`Quick search (${shortcutLabel})`}
+            onClick={onOpenCommandPalette}
           >
-            <div className="sx-main-nav-tabs">
-              <a
-                href="#/"
-                aria-label="Home"
-                aria-current={mainActiveTab === 'home' ? 'page' : undefined}
-                onClick={e => {
-                  e.preventDefault()
-                  onNavigate('/')
-                }}
-              >
-                <Home size={16} strokeWidth={1.9} className="nav-svg-icon" aria-hidden="true" />
-                <span className="primary-nav-label">Home</span>
-                {mainActiveTab === 'home' && (
-                  <motion.span
-                    layoutId="primary-nav-indicator"
-                    className="primary-nav-indicator"
-                    transition={{ type: 'spring', stiffness: 520, damping: 38 }}
-                  />
-                )}
-              </a>
+            <Search size={15} strokeWidth={2} aria-hidden="true" />
+            <span className="sx-header-search-text">Search</span>
+            <kbd className="sx-header-search-kbd">{shortcutLabel}</kbd>
+          </button>
 
-              <a
-                href="#/library"
-                aria-label="Library"
-                aria-current={mainActiveTab === 'library' ? 'page' : undefined}
-                onClick={e => {
-                  e.preventDefault()
-                  onNavigate('/library')
-                }}
-              >
-                <Library size={16} strokeWidth={1.9} className="nav-svg-icon" aria-hidden="true" />
-                <span className="primary-nav-label">Library</span>
-                {mainActiveTab === 'library' && (
-                  <motion.span
-                    layoutId="primary-nav-indicator"
-                    className="primary-nav-indicator"
-                    transition={{ type: 'spring', stiffness: 520, damping: 38 }}
-                  />
-                )}
-              </a>
-            </div>
-          </motion.nav>
-        )}
-      </div>
+          <button
+            type="button"
+            className="header-icon-btn sx-header-sound-btn"
+            aria-label={soundOn ? 'Mute sound effects' : 'Enable sound effects'}
+            title={soundOn ? 'Sound on' : 'Sound off'}
+            onClick={onToggleSound}
+          >
+            {soundOn ? (
+              <Volume2 size={17} strokeWidth={1.9} aria-hidden="true" />
+            ) : (
+              <VolumeX size={17} strokeWidth={1.9} aria-hidden="true" />
+            )}
+          </button>
 
-      <div className="header-actions">
-        {extensionToolbar.length > 0 && (
-          <div className="sx-ext-header-toolbar" role="toolbar" aria-label="Extension actions">
-            {extensionToolbar.map(item => {
-              const busy = Boolean(item.commandKey && runningCommands.has(item.commandKey))
-              return (
-                <button
-                  key={item.key}
-                  type="button"
-                  className="sx-ext-toolbar-btn"
-                  data-extension-toolbar-key={item.key}
-                  disabled={busy}
-                  aria-busy={busy || undefined}
-                  title={`${item.label} (${ownerNames.get(item.ownerId) ?? item.ownerId})`}
-                  onClick={() => {
-                    if (item.commandKey) {
-                      void handleRunCommand(item.commandKey, item.ownerId)
-                    } else if (item.viewId) {
-                      onNavigate(
-                        `/ext/${encodeURIComponent(item.ownerId)}/${encodeURIComponent(item.viewId)}`,
+          <button
+            type="button"
+            className="header-icon-btn sx-header-theme-btn"
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            onClick={onToggleTheme}
+          >
+            {theme === 'dark' ? (
+              <Sun size={17} strokeWidth={1.9} aria-hidden="true" />
+            ) : (
+              <Moon size={17} strokeWidth={1.9} aria-hidden="true" />
+            )}
+          </button>
+
+          <span className="sx-header-sep" aria-hidden="true" />
+
+          <ProfilePopover onNavigate={onNavigate} />
+
+          <Menu.Root>
+            <Menu.Trigger aria-label="Menu" className="menu-trigger">
+              <MenuIcon size={18} strokeWidth={2} aria-hidden="true" />
+            </Menu.Trigger>
+            <Menu.Portal>
+              <Menu.Positioner sideOffset={8} align="end" collisionPadding={10} className="menu-positioner">
+                <Menu.Popup className="sx-menu-popup">
+                  <div className="sx-menu-group">
+                    <Menu.Item className="sx-menu-item" onClick={onOpenCommandPalette}>
+                      <span className="sx-menu-icon">
+                        <Search size={14} strokeWidth={2} aria-hidden="true" />
+                      </span>
+                      <span className="sx-menu-label">Quick Search</span>
+                      <kbd className="sx-menu-kbd">{shortcutLabel}</kbd>
+                    </Menu.Item>
+                  </div>
+
+                  <Menu.Separator className="sx-menu-sep" />
+
+                  <Menu.Group className="sx-menu-group">
+                    <div className="sx-menu-section-label">Workspace</div>
+                    {MENU_NAV_ITEMS.map(({ id, label, path, Icon }) => {
+                      const active = activeRoute === id
+                      return (
+                        <Menu.Item
+                          key={id}
+                          className={`sx-menu-item${active ? ' is-current' : ''}`}
+                          onClick={() => onNavigate(path)}
+                        >
+                          <span className="sx-menu-icon">
+                            <Icon size={14} strokeWidth={2} aria-hidden="true" />
+                          </span>
+                          <span className="sx-menu-label">{label}</span>
+                          {active && (
+                            <Check size={14} strokeWidth={2.4} className="sx-menu-check" aria-hidden="true" />
+                          )}
+                        </Menu.Item>
                       )
-                    }
-                  }}
-                >
-                  <span>{item.label}</span>
-                </button>
-              )
-            })}
-          </div>
-        )}
+                    })}
+                  </Menu.Group>
 
-        <button
-          type="button"
-          className="header-icon-btn"
-          aria-label="Quick search and commands (Ctrl+K)"
-          title="Quick search (Ctrl+K)"
-          onClick={onOpenCommandPalette}
-        >
-          <Search size={18} aria-hidden="true" />
-        </button>
-
-        <button
-          type="button"
-          className="header-icon-btn"
-          aria-label={soundOn ? 'Mute sound effects' : 'Enable sound effects'}
-          title={soundOn ? 'Sound on' : 'Sound off'}
-          onClick={onToggleSound}
-        >
-          {soundOn ? (
-            <Volume2 size={18} aria-hidden="true" />
-          ) : (
-            <VolumeX size={18} aria-hidden="true" />
-          )}
-        </button>
-
-        <button
-          type="button"
-          className="header-icon-btn"
-          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          title={theme === 'dark' ? 'Light mode' : 'Dark mode'}
-          onClick={onToggleTheme}
-        >
-          {theme === 'dark' ? (
-            <Sun size={18} aria-hidden="true" />
-          ) : (
-            <Moon size={18} aria-hidden="true" />
-          )}
-        </button>
-
-        <ProfilePopover onNavigate={onNavigate} />
-
-        <Menu.Root>
-          <Menu.Trigger aria-label="Menu" className="menu-trigger">
-            <MenuIcon size={20} aria-hidden="true" />
-          </Menu.Trigger>
-          <Menu.Portal>
-            <Menu.Positioner sideOffset={12} align="end" className="menu-positioner">
-              <Menu.Popup className="menu-popup sx-menu-popup">
-                <Menu.Group className="menu-group">
-                  <Menu.Item
-                    className="menu-item sx-menu-item"
-                    onClick={() => onNavigate('/settings')}
-                  >
-                    <Settings size={16} strokeWidth={1.9} aria-hidden="true" />
-                    <span>Settings</span>
-                  </Menu.Item>
-                  <Menu.Item
-                    className="menu-item sx-menu-item"
-                    onClick={() => onNavigate('/extensions')}
-                  >
-                    <Puzzle size={16} strokeWidth={1.9} aria-hidden="true" />
-                    <span>Extensions</span>
-                  </Menu.Item>
-                  <Menu.Item
-                    className="menu-item sx-menu-item"
-                    onClick={() => onNavigate('/community')}
-                  >
-                    <Compass size={16} strokeWidth={1.9} aria-hidden="true" />
-                    <span>Community Hub</span>
-                  </Menu.Item>
-                </Menu.Group>
-
-                {(extensionCommands.length > 0 || extensionToolbar.some(t => t.viewId && !t.commandKey)) && (
-                  <>
-                    <Menu.Separator className="menu-separator" />
-                    <Menu.Group className="menu-group">
-                      {extensionToolbar
-                        .filter(item => item.viewId && !item.commandKey)
-                        .map(item => (
+                  {hasExtensionMenuActions && (
+                    <>
+                      <Menu.Separator className="sx-menu-sep" />
+                      <Menu.Group className="sx-menu-group">
+                        <div className="sx-menu-section-label">Extension Actions</div>
+                        {toolbarViewItems.map(item => (
                           <Menu.Item
                             key={`tb:${item.key}`}
-                            className="menu-item sx-menu-item sx-ext-cmd-item"
+                            className="sx-menu-item sx-ext-cmd-item"
                             onClick={() =>
                               onNavigate(
                                 `/ext/${encodeURIComponent(item.ownerId)}/${encodeURIComponent(item.viewId!)}`,
                               )
                             }
                           >
-                            <Puzzle size={15} strokeWidth={1.9} aria-hidden="true" />
+                            <span className="sx-menu-icon">
+                              <Puzzle size={14} strokeWidth={2} aria-hidden="true" />
+                            </span>
                             <span className="sx-ext-cmd-copy">
                               <span>{item.label}</span>
                               <small>{ownerNames.get(item.ownerId) ?? item.ownerId}</small>
                             </span>
                           </Menu.Item>
                         ))}
-                      {extensionCommands.map(cmd => (
-                        <Menu.Item
-                          key={cmd.key}
-                          className="menu-item sx-menu-item sx-ext-cmd-item"
-                          data-extension-command-key={cmd.key}
-                          onClick={() => void handleRunCommand(cmd.key, cmd.ownerId)}
-                        >
-                          <Terminal size={15} strokeWidth={1.9} aria-hidden="true" />
-                          <span className="sx-ext-cmd-copy">
-                            <span>{cmd.title}</span>
-                            <small>{ownerNames.get(cmd.ownerId) ?? cmd.ownerId}</small>
-                          </span>
-                        </Menu.Item>
-                      ))}
-                    </Menu.Group>
-                  </>
-                )}
+                        {extensionCommands.map(cmd => (
+                          <Menu.Item
+                            key={cmd.key}
+                            className="sx-menu-item sx-ext-cmd-item"
+                            data-extension-command-key={cmd.key}
+                            onClick={() => void handleRunCommand(cmd.key, cmd.ownerId)}
+                          >
+                            <span className="sx-menu-icon">
+                              <Terminal size={14} strokeWidth={2} aria-hidden="true" />
+                            </span>
+                            <span className="sx-ext-cmd-copy">
+                              <span>{cmd.title}</span>
+                              <small>{ownerNames.get(cmd.ownerId) ?? cmd.ownerId}</small>
+                            </span>
+                          </Menu.Item>
+                        ))}
+                      </Menu.Group>
+                    </>
+                  )}
 
-                <Menu.Separator className="menu-separator" />
+                  <Menu.Separator className="sx-menu-sep" />
 
-                <Menu.Group className="menu-group">
-                  <Menu.Item className="menu-item sx-menu-item" onClick={onOpenWelcome}>
-                    <Sparkles size={16} strokeWidth={1.9} aria-hidden="true" />
-                    <span>Welcome tour</span>
-                  </Menu.Item>
-                </Menu.Group>
-              </Menu.Popup>
-            </Menu.Positioner>
-          </Menu.Portal>
-        </Menu.Root>
-      </div>
-    </header>
+                  <Menu.Group className="sx-menu-group">
+                    <div className="sx-menu-section-label">Preferences</div>
+                    <Menu.Item className="sx-menu-item" onClick={onToggleTheme}>
+                      <span className="sx-menu-icon">
+                        {theme === 'dark' ? (
+                          <Sun size={14} strokeWidth={2} aria-hidden="true" />
+                        ) : (
+                          <Moon size={14} strokeWidth={2} aria-hidden="true" />
+                        )}
+                      </span>
+                      <span className="sx-menu-label">Appearance</span>
+                      <span className="sx-menu-pill">{theme === 'dark' ? 'Dark' : 'Light'}</span>
+                    </Menu.Item>
+                    <Menu.Item className="sx-menu-item" onClick={onToggleSound}>
+                      <span className="sx-menu-icon">
+                        {soundOn ? (
+                          <Volume2 size={14} strokeWidth={2} aria-hidden="true" />
+                        ) : (
+                          <VolumeX size={14} strokeWidth={2} aria-hidden="true" />
+                        )}
+                      </span>
+                      <span className="sx-menu-label">Sound effects</span>
+                      <span className="sx-menu-pill">{soundOn ? 'On' : 'Off'}</span>
+                    </Menu.Item>
+                    <Menu.Item className="sx-menu-item" onClick={onOpenWelcome}>
+                      <span className="sx-menu-icon">
+                        <Sparkles size={14} strokeWidth={2} aria-hidden="true" />
+                      </span>
+                      <span className="sx-menu-label">Welcome tour</span>
+                    </Menu.Item>
+                  </Menu.Group>
+                </Menu.Popup>
+              </Menu.Positioner>
+            </Menu.Portal>
+          </Menu.Root>
+        </div>
+      </header>
+
+      <nav className="sx-mobile-tabbar" aria-label="Mobile navigation">
+        {PRIMARY_TABS.map(tab => {
+          const active = activeRoute === tab.id
+          const Icon = tab.Icon
+          const ariaLabel = 'fullLabel' in tab ? tab.fullLabel : tab.label
+          return (
+            <a
+              key={tab.id}
+              href={`#${tab.path}`}
+              className={`sx-mobile-tab${active ? ' is-active' : ''}`}
+              aria-label={ariaLabel}
+              aria-current={active ? 'page' : undefined}
+              onClick={e => {
+                e.preventDefault()
+                onNavigate(tab.path)
+              }}
+            >
+              <span className="sx-mobile-tab-icon-wrap">
+                <Icon size={18} strokeWidth={active ? 2.2 : 1.9} aria-hidden="true" />
+              </span>
+              <span>{tab.mobileLabel}</span>
+            </a>
+          )
+        })}
+      </nav>
+    </>
   )
 }

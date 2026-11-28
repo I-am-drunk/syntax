@@ -16,7 +16,7 @@ import { isSafeMode, useExtensionStore } from '../extensions/store.ts'
 import { playUiSound, type UiSound } from '../services/uiSounds'
 import { HomePage } from '../ui/HomePage'
 import { LibraryPage } from '../ui/LibraryPage'
-import { AppHeader, type ShellMode, type WorkspaceTab } from './AppHeader'
+import { AppHeader, type ActiveNavRoute } from './AppHeader'
 
 const SettingsPage = lazy(() =>
   import('../ui/SettingsPage').then(m => ({ default: m.SettingsPage })),
@@ -71,30 +71,18 @@ export interface AppShellProps {
 
 function parseRouteInfo(location: string): {
   clean: string
-  mode: ShellMode
-  mainActiveTab: 'home' | 'library' | null
-  workspaceActiveTab: WorkspaceTab | null
+  activeRoute: ActiveNavRoute
 } {
   const clean = location.split('?')[0] || '/'
-  if (clean === '/settings') {
-    return { clean, mode: 'workspace', mainActiveTab: null, workspaceActiveTab: 'settings' }
-  }
-  if (clean === '/extensions' || clean === '/plugins') {
-    return { clean, mode: 'workspace', mainActiveTab: null, workspaceActiveTab: 'extensions' }
-  }
+  if (clean === '/settings') return { clean, activeRoute: 'settings' }
+  if (clean === '/extensions' || clean === '/plugins') return { clean, activeRoute: 'extensions' }
   if (clean === '/community' || clean.startsWith('/community/')) {
-    return { clean, mode: 'workspace', mainActiveTab: null, workspaceActiveTab: 'community' }
+    return { clean, activeRoute: 'community' }
   }
-  if (clean.startsWith('/ext/')) {
-    return { clean, mode: 'main', mainActiveTab: null, workspaceActiveTab: null }
-  }
-  if (clean === '/' || clean === '') {
-    return { clean: '/', mode: 'main', mainActiveTab: 'home', workspaceActiveTab: null }
-  }
-  if (clean === '/profile') {
-    return { clean, mode: 'main', mainActiveTab: null, workspaceActiveTab: null }
-  }
-  return { clean, mode: 'main', mainActiveTab: 'library', workspaceActiveTab: null }
+  if (clean.startsWith('/ext/')) return { clean, activeRoute: null }
+  if (clean === '/' || clean === '') return { clean: '/', activeRoute: 'home' }
+  if (clean === '/profile') return { clean, activeRoute: 'profile' }
+  return { clean, activeRoute: 'library' }
 }
 
 function RouteLoadingFallback({ label }: { label: string }) {
@@ -240,19 +228,19 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
 
   useEffect(() => {
     const baseTitle =
-      routeInfo.workspaceActiveTab === 'settings'
+      routeInfo.activeRoute === 'settings'
         ? 'Settings · Syntax'
-        : routeInfo.workspaceActiveTab === 'extensions'
+        : routeInfo.activeRoute === 'extensions'
           ? 'Extensions · Syntax'
-          : routeInfo.workspaceActiveTab === 'community'
+          : routeInfo.activeRoute === 'community'
             ? 'Community Hub · Syntax'
             : routeInfo.clean.startsWith('/ext/')
               ? 'Extension · Syntax'
-              : routeInfo.clean === '/library'
+              : routeInfo.activeRoute === 'library'
                 ? 'Library · Syntax'
-                : routeInfo.clean === '/profile'
+                : routeInfo.activeRoute === 'profile'
                   ? 'Profile · Syntax'
-                  : routeInfo.clean === '/'
+                  : routeInfo.activeRoute === 'home'
                     ? 'Syntax'
                     : 'Library · Syntax'
     document.title = isDev ? `${baseTitle} (Dev)` : baseTitle
@@ -280,9 +268,7 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
       {!hideToaster && <Toaster position="bottom-center" theme={theme} />}
 
       <AppHeader
-        mode={routeInfo.mode}
-        mainActiveTab={routeInfo.mainActiveTab}
-        workspaceActiveTab={routeInfo.workspaceActiveTab}
+        activeRoute={routeInfo.activeRoute}
         theme={theme}
         soundOn={soundOn}
         prefs={prefs}

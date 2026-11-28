@@ -1,13 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Popover } from '@base-ui/react/popover'
 import {
-  BookOpen,
   Check,
-  Cloud,
-  CloudOff,
-  Compass,
+  ChevronRight,
   LogOut,
-  Puzzle,
   RefreshCw,
   Settings,
   ShieldCheck,
@@ -63,6 +59,7 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
   const initials = account.displayName.trim().slice(0, 1).toUpperCase() || 'S'
   const showAvatarImg = Boolean(account.avatarUrl && !imgFailed)
   const otherSessions = auth.sessions.filter(s => !s.isCurrent)
+  const isClerkAccount = auth.isClerkActive && account.provider === 'clerk'
 
   function go(path: string) {
     setOpen(false)
@@ -90,16 +87,25 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
     void auth.signOut()
   }
 
-  const syncLabel =
-    !auth.isClerkActive || account.provider !== 'clerk'
-      ? 'Local only'
+  const syncDotClass = !isClerkAccount
+    ? 'is-local'
+    : cloudStatus === 'synced'
+      ? 'is-synced'
       : cloudStatus === 'syncing'
-        ? 'Syncing...'
-        : cloudStatus === 'synced'
-          ? 'Cloud synced'
-          : cloudStatus === 'error'
-            ? 'Sync paused'
-            : 'Ready to sync'
+        ? 'is-syncing'
+        : cloudStatus === 'error'
+          ? 'is-error'
+          : 'is-local'
+
+  const syncLabel = !isClerkAccount
+    ? 'Local device storage'
+    : cloudStatus === 'syncing'
+      ? 'Syncing to cloud...'
+      : cloudStatus === 'synced'
+        ? 'Cloud synced'
+        : cloudStatus === 'error'
+          ? 'Cloud sync paused'
+          : 'Cloud sync ready'
 
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
@@ -113,8 +119,8 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
           <img
             src={account.avatarUrl}
             alt={account.displayName}
-            width={34}
-            height={34}
+            width={32}
+            height={32}
             className="sx-avatar-img"
             onError={() => setImgFailed(true)}
           />
@@ -126,61 +132,58 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
       </Popover.Trigger>
 
       <Popover.Portal>
-        <Popover.Positioner sideOffset={12} align="end" className="sx-popover-positioner">
-          <Popover.Popup className="sx-profile-popover" aria-label="Account and workspace">
-            <div className="sx-profile-pop-head">
-              {showAvatarImg ? (
-                <img
-                  src={account.avatarUrl}
-                  alt=""
-                  width={40}
-                  height={40}
-                  className="sx-profile-pop-avatar"
-                  onError={() => setImgFailed(true)}
-                />
-              ) : (
-                <div className="sx-profile-pop-avatar is-mono" aria-hidden="true">
-                  {initials}
-                </div>
-              )}
-              <div className="sx-profile-pop-id">
-                <strong>{account.displayName}</strong>
-                <span>@{account.handle}</span>
-                {account.email && <small>{account.email}</small>}
-              </div>
-            </div>
-
-            <div className="sx-cloud-sync-strip">
-              <span className={`sx-cloud-pill is-${cloudStatus}`}>
-                {cloudStatus === 'local-only' || cloudStatus === 'error' ? (
-                  <CloudOff size={13} aria-hidden="true" />
-                ) : (
-                  <Cloud size={13} aria-hidden="true" />
-                )}
-                <span>{syncLabel}</span>
-              </span>
-              {auth.isClerkActive && account.provider === 'clerk' && (
-                <button
-                  type="button"
-                  className="sx-cloud-sync-btn"
-                  disabled={cloudStatus === 'syncing'}
-                  onClick={() => void auth.syncNow()}
-                >
-                  <RefreshCw
-                    size={12}
-                    className={cloudStatus === 'syncing' ? 'sx-spin' : undefined}
-                    aria-hidden="true"
+        <Popover.Positioner sideOffset={8} align="end" collisionPadding={10} className="sx-popover-positioner">
+          <Popover.Popup className="sx-profile-popover" aria-label="Account menu">
+            <div className="sx-profile-pop-card">
+              <div className="sx-profile-pop-head">
+                {showAvatarImg ? (
+                  <img
+                    src={account.avatarUrl}
+                    alt=""
+                    width={40}
+                    height={40}
+                    className="sx-profile-pop-avatar"
+                    onError={() => setImgFailed(true)}
                   />
-                  <span>Sync</span>
-                </button>
-              )}
+                ) : (
+                  <div className="sx-profile-pop-avatar is-mono" aria-hidden="true">
+                    {initials}
+                  </div>
+                )}
+                <div className="sx-profile-pop-id">
+                  <strong>{account.displayName}</strong>
+                  <span>{account.email || `@${account.handle}`}</span>
+                </div>
+              </div>
+
+              <div className="sx-profile-sync-row">
+                <span className="sx-profile-sync-status">
+                  <span className={`sx-sync-dot ${syncDotClass}`} aria-hidden="true" />
+                  <span>{syncLabel}</span>
+                </span>
+                {isClerkAccount && (
+                  <button
+                    type="button"
+                    className="sx-cloud-sync-btn"
+                    disabled={cloudStatus === 'syncing'}
+                    onClick={() => void auth.syncNow()}
+                  >
+                    <RefreshCw
+                      size={12}
+                      className={cloudStatus === 'syncing' ? 'sx-spin' : undefined}
+                      aria-hidden="true"
+                    />
+                    <span>Sync</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {otherSessions.length > 0 && (
               <>
                 <div className="sx-profile-pop-sep" role="separator" />
                 <div className="sx-profile-pop-group">
-                  <span className="sx-profile-pop-label">Switch account</span>
+                  <span className="sx-menu-section-label">Switch account</span>
                   {otherSessions.map(sess => (
                     <button
                       key={sess.id}
@@ -205,49 +208,34 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
               </>
             )}
 
-            <div className="sx-profile-pop-sep" role="separator" />
-
-            <div className="sx-profile-pop-group">
+            <div className="sx-profile-pop-group sx-profile-pop-actions">
               <button type="button" className="sx-profile-pop-item" onClick={() => go('/profile')}>
-                <User size={16} strokeWidth={1.9} aria-hidden="true" />
-                <span>Profile</span>
-              </button>
-              <button type="button" className="sx-profile-pop-item" onClick={() => go('/library')}>
-                <BookOpen size={16} strokeWidth={1.9} aria-hidden="true" />
-                <span>Library</span>
-              </button>
-              <button type="button" className="sx-profile-pop-item" onClick={() => go('/extensions')}>
-                <Puzzle size={16} strokeWidth={1.9} aria-hidden="true" />
-                <span>Extensions</span>
-              </button>
-              <button
-                type="button"
-                className="sx-profile-pop-item"
-                onClick={() => go('/community')}
-              >
-                <Compass size={16} strokeWidth={1.9} aria-hidden="true" />
-                <span>Community Hub</span>
+                <span className="sx-menu-icon">
+                  <User size={14} strokeWidth={2} aria-hidden="true" />
+                </span>
+                <span className="sx-profile-pop-item-label">View Profile</span>
+                <ChevronRight size={14} className="sx-profile-pop-chevron" aria-hidden="true" />
               </button>
               <button type="button" className="sx-profile-pop-item" onClick={() => go('/settings')}>
-                <Settings size={16} strokeWidth={1.9} aria-hidden="true" />
-                <span>Settings</span>
+                <span className="sx-menu-icon">
+                  <Settings size={14} strokeWidth={2} aria-hidden="true" />
+                </span>
+                <span className="sx-profile-pop-item-label">Settings &amp; Sema</span>
+                <ChevronRight size={14} className="sx-profile-pop-chevron" aria-hidden="true" />
               </button>
-            </div>
-
-            <div className="sx-profile-pop-sep" role="separator" />
-
-            <div className="sx-profile-pop-group">
               <button
                 type="button"
                 className="sx-profile-pop-item"
                 onClick={handleManageAccount}
               >
-                {auth.security.passkeyCount > 0 || auth.security.twoFactorEnabled ? (
-                  <ShieldCheck size={16} strokeWidth={1.9} aria-hidden="true" />
-                ) : (
-                  <UserCog size={16} strokeWidth={1.9} aria-hidden="true" />
-                )}
-                <span>Manage account &amp; security</span>
+                <span className="sx-menu-icon">
+                  {auth.security.passkeyCount > 0 || auth.security.twoFactorEnabled ? (
+                    <ShieldCheck size={14} strokeWidth={2} aria-hidden="true" />
+                  ) : (
+                    <UserCog size={14} strokeWidth={2} aria-hidden="true" />
+                  )}
+                </span>
+                <span className="sx-profile-pop-item-label">Account &amp; security</span>
               </button>
               {auth.isClerkActive && (
                 <button
@@ -255,17 +243,26 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
                   className="sx-profile-pop-item"
                   onClick={handleAddAccount}
                 >
-                  <UserPlus size={16} strokeWidth={1.9} aria-hidden="true" />
-                  <span>Add another account</span>
+                  <span className="sx-menu-icon">
+                    <UserPlus size={14} strokeWidth={2} aria-hidden="true" />
+                  </span>
+                  <span className="sx-profile-pop-item-label">Add another account</span>
                 </button>
               )}
+            </div>
+
+            <div className="sx-profile-pop-sep" role="separator" />
+
+            <div className="sx-profile-pop-group">
               <button
                 type="button"
                 className="sx-profile-pop-item is-danger"
                 onClick={handleSignOut}
               >
-                <LogOut size={16} strokeWidth={1.9} aria-hidden="true" />
-                <span>Sign out</span>
+                <span className="sx-menu-icon is-danger">
+                  <LogOut size={14} strokeWidth={2} aria-hidden="true" />
+                </span>
+                <span className="sx-profile-pop-item-label">Sign out</span>
               </button>
             </div>
           </Popover.Popup>
