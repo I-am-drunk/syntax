@@ -7,7 +7,9 @@ import {
   KeyRound,
   RefreshCw,
   ShieldCheck,
+  Trash2,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { useAccount } from '../core/account'
 import {
   computeActivityStats,
@@ -23,6 +25,7 @@ import type { SyntaxPrefs } from '../core/prefs'
 import { useContributionStore } from '../extensions/contributions.ts'
 import { documentStore, subscribeDocumentsChanged } from '../extensions/documents.ts'
 import { resolveExtensionAssets } from '../extensions/manifest.ts'
+import { clearNativeCourseData, nativeDevMode, refreshNativeDevProgress, useNativeDevStore } from '../extensions/native/devHost.ts'
 import { useExtensionStore } from '../extensions/store.ts'
 import { Sema } from '../mascot/Sema'
 import { ExtensionIcon } from './ExtensionIcon'
@@ -87,6 +90,11 @@ export function ProfilePage({
   const cloudSync = useCloudSyncStore()
   const records = useExtensionStore(s => s.records)
   const views = useContributionStore(s => s.views)
+  const nativeInstalls = useNativeDevStore(s => s.installs)
+  const nativeProgress = useNativeDevStore(s => s.progressById)
+  const nativeDataOwners = useNativeDevStore(s => s.dataOwnerIds)
+  const [confirmClearCourseId, setConfirmClearCourseId] = useState<string | null>(null)
+  const [clearingCourseId, setClearingCourseId] = useState<string | null>(null)
 
   const [avatarFailed, setAvatarFailed] = useState(false)
   const [activityMap, setActivityMap] = useState<ActivityHistoryMap>(() => loadActivityHistory())
@@ -100,6 +108,12 @@ export function ProfilePage({
   useEffect(() => {
     setAvatarFailed(false)
   }, [account?.avatarUrl])
+
+  useEffect(() => {
+    if (nativeDevMode !== 'disabled') {
+      void refreshNativeDevProgress(false).catch(() => undefined)
+    }
+  }, [])
 
   useEffect(() => {
     const syncAct = () => setActivityMap(loadActivityHistory())
@@ -688,6 +702,92 @@ export function ProfilePage({
           )}
         </div>
       </section>
+
+      {nativeDevMode !== 'disabled' && (
+        <section className="sx-profile-section" aria-label="Saved Course Data">
+          <div className="sx-profile-section-head">
+            <h2>Saved Course &amp; Tool Data</h2>
+            <span>{nativeDataOwners.length}</span>
+          </div>
+          {nativeDataOwners.length === 0 ? (
+            <div className="preference-rows">
+              <div className="preference-row">
+                <div className="syntax-pref-copy">
+                  <p>No local course or tool data saved yet.</p>
+                  <span>
+                    Progress and notes stay on this device and can be deleted one course at a time without affecting your account.
+                  </span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="preference-rows">
+              {nativeDataOwners.map(ownerId => {
+                const install = nativeInstalls.find(item => item.package.manifest.id === ownerId)
+                const title = install?.package.manifest.name ?? ownerId
+                const progress = nativeProgress[ownerId]
+                const progressText = progress
+                  ? (progress.label ?? `${progress.completed} / ${progress.total} complete`)
+                  : 'Saved local data'
+                const isConfirming = confirmClearCourseId === ownerId
+                const isBusy = clearingCourseId === ownerId
+                return (
+                  <div key={ownerId} className="preference-row" data-saved-course-row={ownerId}>
+                    <div className="syntax-pref-copy">
+                      <p><strong>{title}</strong></p>
+                      <span>
+                        <code>{ownerId}</code> · {progressText}
+                      </span>
+                    </div>
+                    {isConfirming ? (
+                      <div className="sx-native-review-actions">
+                        <button
+                          type="button"
+                          className="sx-btn-danger-ghost sx-btn-sm is-confirming"
+                          disabled={isBusy}
+                          onClick={async () => {
+                            setClearingCourseId(ownerId)
+                            try {
+                              await clearNativeCourseData(ownerId)
+                              setConfirmClearCourseId(null)
+                              toast.success(`Deleted saved data for ${title}.`)
+                            } catch (err) {
+                              toast.error(err instanceof Error ? err.message : `Could not delete data for ${title}.`)
+                            } finally {
+                              setClearingCourseId(null)
+                            }
+                          }}
+                        >
+                          <Trash2 size={13} aria-hidden="true" />
+                          <span>Confirm delete</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="sx-btn-ghost sx-btn-sm"
+                          disabled={isBusy}
+                          onClick={() => setConfirmClearCourseId(null)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="sx-btn-danger-ghost sx-btn-sm"
+                        aria-label={`Delete saved data for ${title}`}
+                        onClick={() => setConfirmClearCourseId(ownerId)}
+                      >
+                        <Trash2 size={13} aria-hidden="true" />
+                        <span>Delete data</span>
+                      </button>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </section>
+      )}
     </main>
   )
 }

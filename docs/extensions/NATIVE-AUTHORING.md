@@ -64,7 +64,9 @@ The host download code expects a direct HTTPS manifest URL. Use HTTP on localhos
 
 The [foundation API types](../../src/extensions/native/api.ts) describe the CommonJS export and the context Syntax provides. Export an `activate(context)` function. Register screens, commands, and cleanup callbacks during activation using lowercase alphanumeric/hyphen IDs (`^[a-z][a-z0-9-]{0,63}$`). Use the host's `react` and `react/jsx-runtime` imports so the screen uses the same React instance as Syntax. Call `context.openScreen(screenId)` from a command to open one of the extension's registered screens.
 
-For light and dark theme consistency, extension screens can reference Syntax's core CSS custom properties (`--surface`, `--secondary`, `--text`, `--muted`, `--border`, `--font-sans`).
+For light and dark theme consistency, extension screens can reference Syntax's core CSS custom properties (`--surface`, `--secondary`, `--text`, `--muted`, `--border`, `--font-sans`) or import live host modules from `@syntax/api` (`useSyntaxTheme`, `playSyntaxSound`) and `@syntax/ui` (`Button`, `Card`, `Badge`, `ProgressBar`, `Segmented`, `Toggle`, `Sema`, `LessonShell`, `LessonHeader`, `ChoiceGroup`, `WorkedSteps`, `CheckBar`, `CompletionCard`). The starter build marks `@syntax/api` and `@syntax/ui` as externals so installed courses automatically receive live host UI improvements without rebuilding.
+
+For courses, pass `kind: 'course'` and an optional `subtitle` when calling `context.registerScreen(...)`, and call `context.reportProgress({ completed, total, label })` so Library displays the course card and progress count. Course progress and saved data stay local on the device, survive uninstall and reinstall, and can be deleted per course from the bottom of Profile.
 
 Activation can read saved data. Write data only once the extension is active, such as from a screen interaction or command. The context signal aborts when the extension is disabled or replaced. Stop ongoing work on abort and release resources with `onDispose`. The raw runtime observes cleanup failures and prevents a failed candidate from replacing the working version.
 

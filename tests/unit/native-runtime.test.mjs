@@ -274,3 +274,93 @@ test('uninstall preserves saved data, same-build retry sets caution, and replace
   assert.equal(afterReplace.failedSha256, undefined)
   assert.deepEqual(data.get(id), { text: 'keep me' })
 })
+
+test('hostModules expose live @syntax/ui and @syntax/api, and course progress survives reinstall until per-course delete', async () => {
+  const records = new Map()
+  const data = new Map()
+  const progress = new Map()
+  let progressEvents = 0
+  let sharedControlLabel = 'v1-host-button'
+
+  const host = new NativeHost({
+    list: async () => [...records.values()],
+    get: async id => records.get(id),
+    replace: async (id, expected, record) => {
+      assert.equal(records.get(id)?.revision, expected)
+      records.set(id, record)
+    },
+    remove: async id => { records.delete(id) },
+    load: async id => data.get(id),
+    save: async (id, value) => { data.set(id, value) },
+    loadProgress: async id => progress.get(id),
+    saveProgress: async (id, val) => {
+      if (val === null) progress.delete(id)
+      else progress.set(id, val)
+    },
+    listProgress: async () => Object.fromEntries(progress.entries()),
+    listDataOwners: async () => [...new Set([...data.keys(), ...progress.keys()])].sort(),
+    clearOwnerData: async id => {
+      data.delete(id)
+      progress.delete(id)
+    },
+  }, {
+    getItem() { return null },
+    setItem() {},
+    removeItem() {},
+  }, () => {}, {
+    checkSource() {},
+    checkPackage() {},
+  }, {
+    hostModules: {
+      '@syntax/api': { useSyntaxTheme: () => 'light' },
+      '@syntax/ui': { Button: () => sharedControlLabel },
+    },
+    onProgressChanged: () => { progressEvents += 1 },
+  })
+
+  const makeCoursePkg = (id, entry) => {
+    const result = pkg(id, entry, '1.0.0')
+    result.manifest.sha256 = createHash('sha256').update(entry).digest('hex')
+    return result
+  }
+
+  const courseEntry = `
+    const ui = require('@syntax/ui');
+    exports.activate = ctx => {
+      ctx.registerScreen({ id: 'lesson', title: 'Lesson 1', kind: 'course', component: () => ui.Button() });
+      ctx.registerCommand({
+        id: 'complete',
+        title: 'Complete lesson',
+        run: async () => {
+          await ctx.saveData({ done: true });
+          await ctx.reportProgress({ completed: 1, total: 2, label: '1 / 2 lessons' });
+        },
+      });
+    };
+  `
+  await host.installInspected(makeCoursePkg('syntax.course-a', courseEntry))
+  await host.installInspected(makeCoursePkg('syntax.course-b', courseEntry))
+  await host.runCommand('syntax.course-a', 'complete')
+  await host.runCommand('syntax.course-b', 'complete')
+
+  assert.equal(progressEvents, 2)
+  assert.deepEqual((await host.listProgress())['syntax.course-a'], { completed: 1, total: 2, label: '1 / 2 lessons' })
+
+  // Live host UI change propagates without rebuilding the installed extension!
+  assert.equal(host.runtime.getScreen('syntax.course-a', 'lesson').component(), 'v1-host-button')
+  sharedControlLabel = 'v2-updated-host-button'
+  assert.equal(host.runtime.getScreen('syntax.course-a', 'lesson').component(), 'v2-updated-host-button')
+
+  // Uninstall + reinstall preserves progress and data
+  await host.uninstall('syntax.course-a')
+  assert.deepEqual((await host.listProgress())['syntax.course-a'], { completed: 1, total: 2, label: '1 / 2 lessons' })
+  await host.installInspected(makeCoursePkg('syntax.course-a', courseEntry))
+  assert.deepEqual(data.get('syntax.course-a'), { done: true })
+
+  // Deleting course-a saved data leaves course-b untouched!
+  await host.clearCourseData('syntax.course-a')
+  assert.equal((await host.listProgress())['syntax.course-a'], undefined)
+  assert.equal(data.get('syntax.course-a'), undefined)
+  assert.deepEqual((await host.listProgress())['syntax.course-b'], { completed: 1, total: 2, label: '1 / 2 lessons' })
+  assert.deepEqual(data.get('syntax.course-b'), { done: true })
+})

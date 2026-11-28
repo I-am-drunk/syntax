@@ -27,6 +27,7 @@ import {
 import { ExtensionViewFrame } from '../extensions/ExtensionViewFrame.tsx'
 import { extensionManager } from '../extensions/manager.ts'
 import { resolveExtensionAssets } from '../extensions/manifest.ts'
+import { getNativeDevHost, nativeDevMode, useNativeDevStore } from '../extensions/native/devHost.ts'
 import { useExtensionStore } from '../extensions/store.ts'
 import { ExtensionIcon } from './ExtensionIcon'
 
@@ -45,6 +46,9 @@ export function LibraryPage({
   const runtimeById = useExtensionStore(s => s.runtime)
   const safeMode = useExtensionStore(s => s.safeMode)
   const views = useContributionStore(s => s.views)
+  const nativeInstalls = useNativeDevStore(s => s.installs)
+  const nativePhase = useNativeDevStore(s => s.phase)
+  const nativeProgress = useNativeDevStore(s => s.progressById)
   const [documents, setDocuments] = useState<DocumentEnvelope[]>([])
   const [docQuery, setDocQuery] = useState('')
   const [renamingId, setRenamingId] = useState<string | null>(null)
@@ -86,6 +90,20 @@ export function LibraryPage({
   )
   const courseViews = pageViews.filter(v => kindById.get(v.ownerId) === 'course')
   const extensionViews = pageViews.filter(v => kindById.get(v.ownerId) !== 'course')
+  const nativeScreens = nativeDevMode !== 'disabled' && nativePhase === 'ready'
+    ? nativeInstalls.flatMap(install => {
+        if (!install.enabled) return []
+        const screens = getNativeDevHost().runtime.listScreens(install.package.manifest.id)
+        return screens.map(screen => ({
+          ownerId: install.package.manifest.id,
+          ownerName: install.package.manifest.name,
+          screen,
+          progress: nativeProgress[install.package.manifest.id],
+        }))
+      })
+    : []
+  const nativeCourseScreens = nativeScreens.filter(item => item.screen.kind === 'course')
+  const nativeToolScreens = nativeScreens.filter(item => item.screen.kind !== 'course')
   const embedViews = views.filter(v => v.placement === 'embed')
   const nameById = new Map(records.map(r => [r.id, r.manifest.name]))
 
@@ -180,7 +198,8 @@ export function LibraryPage({
     }
   }
 
-  const isEmptyState = pageViews.length === 0 && embedViews.length === 0 && documents.length === 0
+  const totalAppsCount = pageViews.length + nativeScreens.length
+  const isEmptyState = totalAppsCount === 0 && embedViews.length === 0 && documents.length === 0
 
   return (
     <main className="sx-workspace-page sx-library-page" aria-label="Library">
@@ -188,7 +207,7 @@ export function LibraryPage({
         <div className="sx-library-head-copy">
           <h1>Library</h1>
           <span className="sx-library-count">
-            {pageViews.length} {pageViews.length === 1 ? 'app' : 'apps'}
+            {totalAppsCount} {totalAppsCount === 1 ? 'app' : 'apps'}
             {documents.length > 0
               ? ` · ${documents.length} ${documents.length === 1 ? 'document' : 'documents'}`
               : ''}
@@ -310,13 +329,59 @@ export function LibraryPage({
         </div>
       ) : (
         <>
-          {courseViews.length > 0 && (
+          {(courseViews.length > 0 || nativeCourseScreens.length > 0) && (
             <section className="sx-plugins-section" aria-label="Course views">
               <div className="sx-plugins-section-head">
                 <h2>Courses</h2>
-                <span>{courseViews.length}</span>
+                <span>{courseViews.length + nativeCourseScreens.length}</span>
               </div>
               <div className="sx-ext-card-grid">
+                {nativeCourseScreens.map(({ ownerId, ownerName, screen, progress }) => {
+                  const pct = progress ? Math.round((progress.completed / Math.max(1, progress.total)) * 100) : 0
+                  const progressLabel = progress
+                    ? (progress.label ?? `${progress.completed} / ${progress.total} complete`)
+                    : null
+                  return (
+                    <button
+                      key={`native:${ownerId}:${screen.id}`}
+                      type="button"
+                      className="sx-ext-launch-card"
+                      data-native-course-id={ownerId}
+                      onClick={() =>
+                        onNavigate(
+                          `/native-extension/${encodeURIComponent(ownerId)}/${encodeURIComponent(screen.id)}`,
+                        )
+                      }
+                    >
+                      <span className="sx-ext-launch-head">
+                        <ExtensionIcon
+                          src={null}
+                          name={ownerName}
+                          kind="course"
+                          size={32}
+                        />
+                        <span className="sx-ext-launch-copy">
+                          <span className="sx-ext-launch-title">
+                            <strong>{screen.title}</strong>
+                            <ExternalLink size={14} aria-hidden="true" />
+                          </span>
+                          <small>{screen.subtitle ?? ownerName}</small>
+                        </span>
+                      </span>
+                      {progress && (
+                        <span className="sx-ui-progress-wrap" data-course-progress={ownerId} style={{ marginTop: '10px' }}>
+                          <span className="sx-ui-progress-meta">
+                            <span>{progressLabel}</span>
+                            <span>{pct}%</span>
+                          </span>
+                          <span className="sx-ui-progress-track">
+                            <span className="sx-ui-progress-fill" style={{ width: `${pct}%`, display: 'block' }} />
+                          </span>
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
                 {courseViews.map(v => {
                   const extName = nameById.get(v.ownerId) ?? v.ownerId
                   return (
@@ -352,13 +417,42 @@ export function LibraryPage({
             </section>
           )}
 
-          {extensionViews.length > 0 && (
+          {(extensionViews.length > 0 || nativeToolScreens.length > 0) && (
             <section className="sx-plugins-section" aria-label="Extension views">
               <div className="sx-plugins-section-head">
                 <h2>Extensions</h2>
-                <span>{extensionViews.length}</span>
+                <span>{extensionViews.length + nativeToolScreens.length}</span>
               </div>
               <div className="sx-ext-card-grid">
+                {nativeToolScreens.map(({ ownerId, ownerName, screen }) => (
+                  <button
+                    key={`native:${ownerId}:${screen.id}`}
+                    type="button"
+                    className="sx-ext-launch-card"
+                    data-native-tool-id={ownerId}
+                    onClick={() =>
+                      onNavigate(
+                        `/native-extension/${encodeURIComponent(ownerId)}/${encodeURIComponent(screen.id)}`,
+                      )
+                    }
+                  >
+                    <span className="sx-ext-launch-head">
+                      <ExtensionIcon
+                        src={null}
+                        name={ownerName}
+                        kind="extension"
+                        size={32}
+                      />
+                      <span className="sx-ext-launch-copy">
+                        <span className="sx-ext-launch-title">
+                          <strong>{screen.title}</strong>
+                          <ExternalLink size={14} aria-hidden="true" />
+                        </span>
+                        <small>{screen.subtitle ?? ownerName}</small>
+                      </span>
+                    </span>
+                  </button>
+                ))}
                 {extensionViews.map(v => {
                   const extName = nameById.get(v.ownerId) ?? v.ownerId
                   return (

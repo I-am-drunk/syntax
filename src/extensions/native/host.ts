@@ -1,8 +1,9 @@
 import { channelStateKey } from '../../core/channelState.ts'
+import type { NativeCourseProgress } from './api.ts'
 import { downloadNativePackage, parseNativeSourceUrl, verifyStoredNativePackage, type NativePackage } from './package.ts'
 import { NativePackageError } from './manifest.ts'
 import type { NativeInstall, NativeRepository } from './repository.ts'
-import { NativeRuntime } from './runtime.ts'
+import { NativeRuntime, type NativeRuntimeOptions } from './runtime.ts'
 
 const startupKey = channelStateKey('syntax.native-startup.v2')
 
@@ -39,12 +40,13 @@ export class NativeHost {
     journal: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>,
     reportCleanupError: (id: string, error: unknown) => void,
     authorization: NativeAuthorization,
+    runtimeOptions: NativeRuntimeOptions = {},
   ) {
     this.repository = repository
     this.journal = journal
     this.authorization = authorization
     this.reportCleanupError = reportCleanupError
-    this.runtime = new NativeRuntime(repository, reportCleanupError)
+    this.runtime = new NativeRuntime(repository, reportCleanupError, runtimeOptions)
   }
 
   setNavigator(navigator: ((path: string) => void) | null): void {
@@ -56,6 +58,18 @@ export class NativeHost {
       this.runtime.disable(id)
       await this.repository.remove(id)
     })
+  }
+
+  listProgress(): Promise<Record<string, NativeCourseProgress>> {
+    return this.enqueue(() => this.repository.listProgress())
+  }
+
+  listDataOwners(): Promise<string[]> {
+    return this.enqueue(() => this.repository.listDataOwners())
+  }
+
+  clearCourseData(id: string): Promise<void> {
+    return this.enqueue(() => this.repository.clearOwnerData(id))
   }
 
   reconcile(): Promise<NativeInstall[]> {

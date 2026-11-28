@@ -2,18 +2,23 @@ import { toast } from 'sonner'
 import { create } from 'zustand'
 import { channelStateKey } from '../../core/channelState.ts'
 import { syntaxLog } from '../../core/logger'
+import { syntaxUiHostModule } from '../../ui/sdk/SyntaxUI'
+import type { NativeCourseProgress } from './api.ts'
 import { createNativeDevAuthorization, nativeMode } from './devPolicy.ts'
 import { NativeHost } from './host.ts'
 import { createNativeRepository, type NativeInstall } from './repository.ts'
+import { playSyntaxSound, syntaxApiHostModule } from './sdkApi.ts'
 
 export const nativeDevMode = nativeMode(import.meta.env.VITE_CHANNEL, import.meta.env.DEV, new URL(window.location.href))
 
 export const useNativeDevStore = create<{
   installs: NativeInstall[]
+  progressById: Record<string, NativeCourseProgress>
+  dataOwnerIds: string[]
   phase: 'loading' | 'ready' | 'recovery' | 'failed'
   error?: string
   inspectedId?: string
-}>(() => ({ installs: [], phase: 'loading' }))
+}>(() => ({ installs: [], progressById: {}, dataOwnerIds: [], phase: 'loading' }))
 
 let host: NativeHost | undefined
 let boot: Promise<void> | undefined
@@ -62,15 +67,51 @@ export function getNativeDevHost(): NativeHost {
       sessionStorage,
       (id, error) => syntaxLog.error(`native:${id}`, 'Extension cleanup failed.', error),
       createNativeDevAuthorization(nativeDevMode),
+      {
+        hostModules: Object.freeze({
+          '@syntax/api': Object.freeze({ ...syntaxApiHostModule }),
+          '@syntax/ui': Object.freeze({ ...syntaxUiHostModule }),
+        }),
+        playSound: playSyntaxSound,
+        onDataChanged: () => {
+          void refreshNativeDevProgress(true).catch(error =>
+            syntaxLog.error('native', 'Could not refresh saved extension data.', error))
+        },
+        onProgressChanged: () => {
+          void refreshNativeDevProgress(true).catch(error =>
+            syntaxLog.error('native', 'Could not refresh course progress.', error))
+        },
+      },
     )
     host.setNavigator(navigatorFn)
   }
   return host
 }
 
-export async function refreshNativeDevInstalls(broadcast = true) {
-  useNativeDevStore.setState({ installs: await getNativeDevHost().reconcile() })
+export async function refreshNativeDevProgress(broadcast = false) {
+  const currentHost = getNativeDevHost()
+  const [progressById, dataOwnerIds] = await Promise.all([
+    currentHost.listProgress(),
+    currentHost.listDataOwners(),
+  ])
+  useNativeDevStore.setState({ progressById, dataOwnerIds })
   if (broadcast) changes?.postMessage('installs-changed')
+}
+
+export async function refreshNativeDevInstalls(broadcast = true) {
+  const currentHost = getNativeDevHost()
+  const installs = await currentHost.reconcile()
+  const [progressById, dataOwnerIds] = await Promise.all([
+    currentHost.listProgress(),
+    currentHost.listDataOwners(),
+  ])
+  useNativeDevStore.setState({ installs, progressById, dataOwnerIds })
+  if (broadcast) changes?.postMessage('installs-changed')
+}
+
+export async function clearNativeCourseData(id: string) {
+  await getNativeDevHost().clearCourseData(id)
+  await refreshNativeDevProgress(true)
 }
 
 function observeNativeDevChanges() {

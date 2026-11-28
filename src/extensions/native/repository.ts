@@ -1,5 +1,5 @@
 import { channelStateKey } from '../../core/channelState.ts'
-import type { NativeData } from './api.ts'
+import type { NativeCourseProgress, NativeData } from './api.ts'
 import { NativePackageError } from './manifest.ts'
 import type { NativePackage } from './package.ts'
 import type { NativeDataStore } from './runtime.ts'
@@ -19,6 +19,9 @@ export interface NativeRepository extends NativeDataStore {
   get(id: string): Promise<NativeInstall | undefined>
   replace(id: string, expected: string | undefined, next: NativeInstall): Promise<void>
   remove(id: string): Promise<void>
+  listProgress(): Promise<Record<string, NativeCourseProgress>>
+  listDataOwners(): Promise<string[]>
+  clearOwnerData(ownerId: string): Promise<void>
 }
 
 export function createNativeRepository(factory: IDBFactory = indexedDB): NativeRepository {
@@ -30,12 +33,19 @@ export function createNativeRepository(factory: IDBFactory = indexedDB): NativeR
     run: (transaction: IDBTransaction, setResult: (value: T) => void) => void,
   ): Promise<T> {
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = factory.open(name, 1)
+      const request = factory.open(name, 2)
       request.onupgradeneeded = () => {
-        request.result.createObjectStore('installs')
-        request.result.createObjectStore('data')
+        const database = request.result
+        if (!database.objectStoreNames.contains('installs')) database.createObjectStore('installs')
+        if (!database.objectStoreNames.contains('data')) database.createObjectStore('data')
+        if (!database.objectStoreNames.contains('progress')) database.createObjectStore('progress')
       }
-      request.onsuccess = () => resolve(request.result)
+      request.onsuccess = () => {
+        const database = request.result
+        database.onversionchange = () => database.close()
+        resolve(database)
+      }
+      request.onblocked = () => reject(new Error('Another Syntax tab is holding an older storage connection. Close or reload other tabs and try again.'))
       request.onerror = () => reject(request.error)
     })
     try {
@@ -89,6 +99,61 @@ export function createNativeRepository(factory: IDBFactory = indexedDB): NativeR
         }
         tx.objectStore('data').put(value, id)
       }
+    }),
+    loadProgress: id => transaction<NativeCourseProgress | undefined>('progress', 'readonly', (tx, result) => {
+      const request = tx.objectStore('progress').get(id)
+      request.onsuccess = () => result(request.result)
+    }),
+    saveProgress: (id, progress, revision) => transaction<void>(['installs', 'progress'], 'readwrite', tx => {
+      const request = tx.objectStore('installs').get(id)
+      request.onsuccess = () => {
+        const current = request.result as NativeInstall | undefined
+        if (!current?.enabled || current.revision !== revision) {
+          tx.abort()
+          return
+        }
+        const store = tx.objectStore('progress')
+        if (progress === null) store.delete(id)
+        else store.put(progress, id)
+      }
+    }),
+    listProgress: () => transaction<Record<string, NativeCourseProgress>>('progress', 'readonly', (tx, result) => {
+      const store = tx.objectStore('progress')
+      const out: Record<string, NativeCourseProgress> = {}
+      const cursorReq = store.openCursor()
+      cursorReq.onsuccess = () => {
+        const cursor = cursorReq.result
+        if (!cursor) {
+          result(out)
+          return
+        }
+        if (typeof cursor.key === 'string') {
+          out[cursor.key] = cursor.value as NativeCourseProgress
+        }
+        cursor.continue()
+      }
+    }),
+    listDataOwners: () => transaction<string[]>(['data', 'progress'], 'readonly', (tx, result) => {
+      const owners = new Set<string>()
+      let pending = 2
+      const done = () => {
+        pending -= 1
+        if (pending === 0) result([...owners].sort())
+      }
+      const dataKeys = tx.objectStore('data').getAllKeys()
+      dataKeys.onsuccess = () => {
+        for (const k of dataKeys.result) if (typeof k === 'string') owners.add(k)
+        done()
+      }
+      const progressKeys = tx.objectStore('progress').getAllKeys()
+      progressKeys.onsuccess = () => {
+        for (const k of progressKeys.result) if (typeof k === 'string') owners.add(k)
+        done()
+      }
+    }),
+    clearOwnerData: id => transaction<void>(['data', 'progress'], 'readwrite', tx => {
+      tx.objectStore('data').delete(id)
+      tx.objectStore('progress').delete(id)
     }),
   }
 }
