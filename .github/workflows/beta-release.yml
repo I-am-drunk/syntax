@@ -108,10 +108,18 @@ jobs:
       name: syntax-beta
       url: ${{ vars.SYNTAX_BETA_ORIGIN }}/
     steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
       - uses: actions/download-artifact@v4
         with:
           name: syntax-beta
           path: incoming
+      - name: Check the static Beta bundle
+        env:
+          APPROVED_SHA: ${{ needs.build.outputs.sha }}
+        run: node .github/scripts/verify-static-artifact.mjs incoming release-commit.txt "$APPROVED_SHA"
       - name: Publish the Beta build to Cloudflare
         uses: cloudflare/wrangler-action@v4
         with:

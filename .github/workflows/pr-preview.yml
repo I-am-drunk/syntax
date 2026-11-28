@@ -62,6 +62,12 @@ jobs:
       HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       CLOSED: ${{ github.event.action == 'closed' }}
     steps:
+      - uses: actions/checkout@v4
+        if: github.event.action != 'closed'
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+          sparse-checkout: .github/scripts
       - uses: actions/download-artifact@v4
         if: github.event.action != 'closed'
         with:
@@ -69,11 +75,7 @@ jobs:
           path: incoming
       - name: Check the static preview bundle
         if: github.event.action != 'closed'
-        run: |
-          test -f incoming/index.html
-          test "$(cat incoming/preview-commit.txt)" = "$HEAD_SHA"
-          test -z "$(find incoming ! -type f ! -type d -print -quit)"
-          test ! -e incoming/_worker.js
+        run: node .github/scripts/verify-static-artifact.mjs incoming preview-commit.txt "$HEAD_SHA"
       - name: Publish this PR's Cloudflare preview
         if: github.event.action != 'closed'
         id: deployment
