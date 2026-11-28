@@ -86,17 +86,47 @@
 }
 
 /* Clean Brilliant-Style Top Navigation (Bottom bar OR Sliding pill, selectable in Settings) */
-.sx-nav-bar {
-  position: relative;
+.sx-nav-cluster {
   display: inline-flex;
   align-items: center;
   min-width: 0;
   flex-shrink: 0;
 }
 
+.sx-nav-back-slot {
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.sx-nav-bar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.sx-nav-bar.is-animated {
+  transition: width 340ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.sx-nav-row {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  height: 100%;
+}
+
 .sx-nav-bar.is-underline {
-  gap: 6px;
   height: 60px;
+}
+
+.sx-nav-bar.is-underline .sx-nav-row {
+  gap: 6px;
 }
 
 .sx-nav-bar.is-underline .sx-nav-link {
@@ -106,11 +136,14 @@
   justify-content: center;
   height: 100%;
   padding: 0 12px;
+  border: 0;
+  background: transparent;
   color: var(--muted);
   font-size: 14.5px;
   font-weight: 500;
   letter-spacing: -0.01em;
   white-space: nowrap;
+  cursor: pointer;
   transition: color 140ms ease;
 }
 
@@ -130,8 +163,8 @@
   pointer-events: none;
   will-change: transform, width;
   transition:
-    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
-    width 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    width 260ms cubic-bezier(0.22, 1, 0.36, 1),
     opacity 150ms ease;
 }
 
@@ -141,12 +174,15 @@
 
 /* Sliding Pill Capsule Variant (Single Cohesive Slider, Zero Splitting) */
 .sx-nav-bar.is-pill {
-  gap: 2px;
   height: 36px;
   padding: 3px;
   border-radius: 11px;
   border: 1px solid var(--border);
   background: var(--secondary);
+}
+
+.sx-nav-bar.is-pill .sx-nav-row {
+  gap: 2px;
 }
 
 :root[data-theme='dark'] .sx-nav-bar.is-pill {
@@ -162,12 +198,15 @@
   justify-content: center;
   height: 28px;
   padding: 0 14px;
+  border: 0;
   border-radius: 8px;
+  background: transparent;
   color: var(--muted);
   font-size: 13.5px;
   font-weight: 500;
   letter-spacing: -0.01em;
   white-space: nowrap;
+  cursor: pointer;
   transition: color 150ms ease;
 }
 
@@ -178,7 +217,7 @@
 
 .sx-nav-pill-slider {
   position: absolute;
-  top: 3px;
+  top: 0;
   left: 0;
   height: 28px;
   border-radius: 8px;
@@ -205,15 +244,12 @@
   opacity: 1;
 }
 
-/* Isolated Contextual "Back to Library" Bubble (Placed before Home | Library with a tight 8px gap) */
-.sx-nav-cluster {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  flex-shrink: 0;
+.sx-nav-pill-slider.is-instant,
+.sx-nav-underline.is-instant {
+  transition: opacity 150ms ease;
 }
 
+/* Isolated Contextual "Back to Library" Bubble (Placed before nav with 8px gap) */
 .sx-nav-back-bubble {
   display: inline-flex;
   align-items: center;
@@ -604,6 +640,7 @@
   .sx-app-header .brand-lockup .wordmark {
     font-size: 22px;
   }
+  .sx-nav-cluster,
   .sx-nav-bar,
   .sx-nav-back-bubble,
   .sx-app-header .sx-header-theme-btn,
