@@ -20,12 +20,19 @@ const manifest = {
   sha256: createHash('sha256').update(entry).digest('hex'),
 }
 
-test('native runtime availability is scoped to hosted Dev and isolated loopback development', () => {
+test('native runtime availability is scoped to hosted Dev/Beta/Preview channels and isolated loopback development', () => {
   const dev = new URL('https://syntax-platform.github.io/syntax-dev/')
+  const beta = new URL('https://syntax-platform.github.io/syntax-beta/')
+  const preview = new URL('https://syntax-platform.github.io/syntax-infra/pr-42/')
   assert.equal(nativeMode('dev', false, dev), 'hosted-dev')
+  assert.equal(nativeMode('beta', false, beta), 'hosted-dev')
+  assert.equal(nativeMode('preview', false, preview), 'hosted-dev')
   for (const channel of ['stable', 'preview', 'beta', undefined]) {
     assert.equal(nativeMode(channel, true, dev), 'disabled')
   }
+  assert.equal(nativeMode('dev', false, beta), 'disabled')
+  assert.equal(nativeMode('stable', false, beta), 'disabled')
+  assert.equal(nativeMode('preview', false, new URL('https://syntax-platform.github.io/syntax-infra/')), 'disabled')
   assert.equal(nativeMode('dev', false, new URL('/syntax/', dev)), 'disabled')
   assert.equal(nativeMode('dev', false, new URL('https://example.com/syntax-dev/')), 'disabled')
   const loopback = new URL('http://localhost:5189/syntax-dev/')

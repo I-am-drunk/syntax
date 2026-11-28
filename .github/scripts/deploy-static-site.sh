@@ -23,7 +23,11 @@ curl --fail --silent --show-error https://api.github.com/meta |
   jq -er '.ssh_keys[] | "github.com " + .' > "$work/known_hosts"
 export GIT_SSH_COMMAND="ssh -i $work/key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$work/known_hosts"
 
-remote=git@github.com:syntax-platform/syntax-dev.git
+deploy_repo=${DEPLOY_REPO:-syntax-platform/syntax-dev}
+deploy_url=${DEPLOY_URL:-https://syntax-platform.github.io/syntax-dev}
+deploy_label=${DEPLOY_LABEL:-Dev}
+deploy_marker=${DEPLOY_MARKER:-release-commit.txt}
+remote="git@github.com:${deploy_repo}.git"
 for attempt in 1 2 3 4 5; do
   checkout="$work/checkout-$attempt"
   if git ls-remote --exit-code --heads "$remote" gh-pages >/dev/null; then
@@ -42,7 +46,7 @@ for attempt in 1 2 3 4 5; do
   git -C "$checkout" add --all
   if git -C "$checkout" diff --cached --quiet; then break; fi
   git -C "$checkout" -c user.name=github-actions -c user.email=github-actions@users.noreply.github.com \
-    commit --quiet -m "Deploy Dev from $DEPLOY_COMMIT"
+    commit --quiet -m "Deploy $deploy_label from $DEPLOY_COMMIT"
   if git -C "$checkout" push origin HEAD:refs/heads/gh-pages; then break; fi
   if [[ "$attempt" == 5 ]]; then
     echo 'Could not update the Pages branch after five attempts.' >&2
@@ -52,10 +56,10 @@ for attempt in 1 2 3 4 5; do
 done
 
 for attempt in {1..24}; do
-  actual=$(curl --silent --fail --max-time 10 "https://syntax-platform.github.io/syntax-dev/release-commit.txt?run=$GITHUB_RUN_ID" || true)
+  actual=$(curl --silent --fail --max-time 10 "${deploy_url%/}/${deploy_marker}?run=${GITHUB_RUN_ID:-0}" || true)
   if [[ "$actual" == "$DEPLOY_COMMIT" ]]; then exit 0; fi
   sleep 10
 done
 
-echo 'The public Dev route did not serve the expected commit.' >&2
+echo "The public $deploy_label route did not serve the expected commit." >&2
 exit 1

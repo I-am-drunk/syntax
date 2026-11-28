@@ -1,10 +1,18 @@
 const channel = import.meta.env?.VITE_CHANNEL
-const hostedDev = typeof window !== 'undefined' &&
-  /^\/syntax-dev(?:\/|$)/.test(window.location.pathname)
+const pathname = typeof window !== 'undefined' ? window.location.pathname : ''
+const pathChannel = /^\/syntax-dev(?:\/|$)/.test(pathname)
+  ? 'dev'
+  : /^\/syntax-beta(?:\/|$)/.test(pathname)
+    ? 'beta'
+    : /^\/syntax-infra(?:\/|$)/.test(pathname)
+      ? 'preview'
+      : null
 
 const isolatedChannel = channel === 'beta' || channel === 'preview'
   ? channel
-  : channel === 'dev' || (channel !== 'stable' && hostedDev) ? 'dev' : null
+  : channel === 'dev'
+    ? 'dev'
+    : channel !== 'stable' ? pathChannel : null
 
 export const channelStatePrefix = isolatedChannel ? `syntax-${isolatedChannel}-` : ''
 
