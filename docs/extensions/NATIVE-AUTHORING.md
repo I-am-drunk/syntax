@@ -12,7 +12,7 @@ npm --prefix ../syntax-fixture run build
 npm run extension:check -- ../syntax-fixture/dist/manifest.json
 ```
 
-Use a destination folder that does not exist yet. In that folder, edit `index.tsx` to change the screen and command. Edit `syntaxExtension` and the release version in `package.json` to identify your extension. The starter gets its TypeScript declarations from the host and computes the entry hash on each build.
+Use a destination folder that does not exist yet. In that folder, edit `index.tsx` to change the screen and command. Edit `syntaxExtension` and the release version in `package.json` to identify your extension (save `package.json` as UTF-8 without a BOM on Windows). The starter gets its TypeScript declarations from the host and computes the entry hash on each build. Note that npm 11.20+ may print a benign `allowScripts` warning for `esbuild`'s postinstall script during `npm ci`.
 
 Publish only the files in `dist` to a static HTTPS host. Keep `manifest.json` and `main.js` together. Allow cross-origin GET requests from Syntax. The direct manifest file URL identifies the install. Publish changed JavaScript with a new version.
 
@@ -26,7 +26,9 @@ For the local walkthrough, start Syntax from the checkout. Use a fresh browser p
 npm run dev -- --host localhost --base /syntax-dev/
 ```
 
-Open the server address printed by Vite with `/syntax-dev/#/extensions` as the path. Under **Native extensions**, paste the fixture's manifest URL and select **Review native package**. Check its name, version, and source URL, then select **Install native package**. Use **Open** to see the screen. Press Ctrl+K or Command+K and select **Save sample** to run the command.
+Open the server address printed by Vite with `/syntax-dev/#/extensions` as the path (or link directly using `/syntax-dev/#/extensions?native=<manifest-url>`). Under **Native extensions**, paste the fixture's manifest URL and select **Review native package**. Check its name, version, and source URL, then select **Install native package**. Use **Open** right from install success or from the extension card to see the screen. Press Ctrl+K or Command+K to run registered commands, including commands that call `context.openScreen(screenId)`.
+
+Installed native extensions stay visible in **Extensions** even when disabled or stopped after an error. Select **Inspect** to view package metadata and failure details, **Re-enable** to retry, **Check update** to install a fixed build from the same manifest URL, or **Uninstall** to remove the package while keeping its saved data. Retrying the same broken build shows a short caution, and installing a verified replacement build clears that caution automatically.
 
 The same walkthrough runs in Chromium with `node --test tests/e2e/native-starter.test.mjs`. Install Chromium or Microsoft Edge first. If the test cannot find the browser, set `SYNTAX_E2E_BROWSER` to the full path to its executable. The test serves the build on a separate loopback origin and follows the Extensions page, opening the screen and running the command.
 
@@ -49,7 +51,7 @@ The manifest describes one CommonJS entry. Put these fields in `manifest.json`.
 - `name` is the name students see in Syntax.
 - `version` is the extension's three-part release version, such as `1.0.0`.
 - `syntaxApi` is an exact or caret range. The foundation API version is `2.0.0`.
-- `main` is a relative path to the final JavaScript file, such as `dist/main.js`. Keep the entry in the package and between 1 byte and 2 MiB.
+- `main` is a relative path from `manifest.json` to the final JavaScript file, such as `main.js` when both files live in `dist/`. Keep the entry in the package and between 1 byte and 2 MiB.
 - `sha256` is the lowercase SHA-256 digest of the final entry bytes. Recompute it after rebuilding the entry.
 
 Use `--json` for a result another tool can read. A successful check reports the validated manifest. A failed check exits with status 1 and provides an error code and a message. For example, `ENTRY_MISSING` means the expected build file is absent, and `ENTRY_HASH_MISMATCH` means the file differs from the one described by the manifest.
@@ -60,7 +62,9 @@ The host download code expects a direct HTTPS manifest URL. Use HTTP on localhos
 
 ## Activation contract
 
-The [foundation API types](../../src/extensions/native/api.ts) describe the CommonJS export and the context Syntax provides. Export an `activate(context)` function. Register screens, commands, and cleanup callbacks during activation. Use the host's `react` and `react/jsx-runtime` imports so the screen uses the same React instance as Syntax.
+The [foundation API types](../../src/extensions/native/api.ts) describe the CommonJS export and the context Syntax provides. Export an `activate(context)` function. Register screens, commands, and cleanup callbacks during activation using lowercase alphanumeric/hyphen IDs (`^[a-z][a-z0-9-]{0,63}$`). Use the host's `react` and `react/jsx-runtime` imports so the screen uses the same React instance as Syntax. Call `context.openScreen(screenId)` from a command to open one of the extension's registered screens.
+
+For light and dark theme consistency, extension screens can reference Syntax's core CSS custom properties (`--surface`, `--secondary`, `--text`, `--muted`, `--border`, `--font-sans`).
 
 Activation can read saved data. Write data only once the extension is active, such as from a screen interaction or command. The context signal aborts when the extension is disabled or replaced. Stop ongoing work on abort and release resources with `onDispose`. The raw runtime observes cleanup failures and prevents a failed candidate from replacing the working version.
 

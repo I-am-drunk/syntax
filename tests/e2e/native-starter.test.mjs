@@ -163,7 +163,7 @@ test('an external checkout builds, checks, hosts, and activates a native fixture
   await native.getByText('Screen failed', { exact: true }).waitFor()
   await native.getByRole('button', { name: 'Open Native fixture' }).waitFor()
 
-  await native.getByRole('button', { name: 'Enable', exact: true }).click()
+  await native.getByRole('button', { name: 'Re-enable', exact: true }).click()
   await native.getByRole('button', { name: 'Open Failing screen' }).waitFor()
   await page.keyboard.press('Control+k')
   await page.getByRole('option', { name: /Failing command/ }).click()
@@ -269,7 +269,7 @@ test('an external checkout builds, checks, hosts, and activates a native fixture
       }
     }, manifest.id)
     await hostedPage.reload()
-    const enable = panel.getByRole('button', { name: 'Enable', exact: true })
+    const enable = panel.getByRole('button', { name: 'Re-enable', exact: true })
     await enable.waitFor()
     assert.equal(await panel.getByRole('button', { name: 'Open Native fixture' }).count(), 0)
     await enable.click()

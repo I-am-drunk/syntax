@@ -55,19 +55,29 @@ export class NativeRuntime {
   private readonly writes = new Map<string, Promise<void>>()
   private readonly reportCleanupError: (id: string, error: unknown) => void
   private readonly data: NativeDataStore
+  private navigator: ((path: string) => void) | null = null
 
   constructor(data: NativeDataStore, reportCleanupError: (id: string, error: unknown) => void) {
     this.data = data
     this.reportCleanupError = reportCleanupError
   }
 
-  async activate(pkg: NativePackage, commit?: () => Promise<void>, revision?: string): Promise<void> {
+  setNavigator(navigator: ((path: string) => void) | null): void {
+    this.navigator = navigator
+  }
+
+  async activate(
+    pkg: NativePackage,
+    commit?: () => Promise<void>,
+    revision?: string,
+    allowSourceChange = false,
+  ): Promise<void> {
     const id = pkg.manifest.id
     if (this.pending.has(id)) {
       throw new NativePackageError('ACTIVATION_BUSY', `${id} is already starting.`)
     }
     const previous = this.active.get(id)
-    if (previous && previous.package.sourceUrl !== pkg.sourceUrl) {
+    if (previous && previous.package.sourceUrl !== pkg.sourceUrl && !allowSourceChange) {
       throw new NativePackageError('SOURCE_CONFLICT', `${id} is already active from a different manifest URL.`)
     }
     const stage: Activation = {
@@ -102,6 +112,16 @@ export class NativeRuntime {
           throw new NativePackageError('CONTRIBUTION_INVALID', 'Supply a run function for the command.')
         }
         register(stage.commands, command)
+      },
+      openScreen: screenId => {
+        signal.throwIfAborted()
+        if (this.active.get(id) !== stage) {
+          throw new NativePackageError('ACTIVATION_PENDING', 'Open screens after activation succeeds.')
+        }
+        if (!stage.screens.has(screenId)) {
+          throw new NativePackageError('SCREEN_UNAVAILABLE', `Screen ${screenId} is unavailable in ${id}.`)
+        }
+        this.navigator?.(`/native-extension/${encodeURIComponent(id)}/${encodeURIComponent(screenId)}`)
       },
       onDispose: callback => {
         assertStaging()
@@ -145,6 +165,7 @@ export class NativeRuntime {
     ), 10_000)
     try {
       const start = new Promise<void>(resolve => resolve(createExtension(pkg.entry).activate(context)))
+      void start.catch(() => undefined)
       await Promise.race([start, cancelled])
       assertStaging()
       clearTimeout(timeout)

@@ -9,12 +9,16 @@ export interface NativeInstall {
   revision: string
   enabled: boolean
   failure?: string
+  failedSha256?: string
+  failureAt?: string
+  retryCaution?: boolean
 }
 
 export interface NativeRepository extends NativeDataStore {
   list(): Promise<NativeInstall[]>
   get(id: string): Promise<NativeInstall | undefined>
   replace(id: string, expected: string | undefined, next: NativeInstall): Promise<void>
+  remove(id: string): Promise<void>
 }
 
 export function createNativeRepository(factory: IDBFactory = indexedDB): NativeRepository {
@@ -67,6 +71,9 @@ export function createNativeRepository(factory: IDBFactory = indexedDB): NativeR
         }
         store.put(next, id)
       }
+    }),
+    remove: id => transaction<void>('installs', 'readwrite', tx => {
+      tx.objectStore('installs').delete(id)
     }),
     load: id => transaction<NativeData | undefined>('data', 'readonly', (tx, result) => {
       const request = tx.objectStore('data').get(id)
