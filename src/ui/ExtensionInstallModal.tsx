@@ -94,7 +94,7 @@ export function ExtensionInstallModal({
             </div>
           </div>
 
-          <div className="sx-install-origin-row">
+          <div className="sx-install-origin-row" title={assets.manifestUrl}>
             <Globe size={15} aria-hidden="true" />
             <span>
               Hosted by <strong>{assets.origin}</strong>
@@ -138,6 +138,9 @@ export function ExtensionInstallModal({
                     {manifest.toolbar.length > 0 && manifest.commands.length > 0 ? ' · ' : ''}
                     {manifest.commands.length > 0
                       ? `${manifest.commands.length} menu ${manifest.commands.length === 1 ? 'command' : 'commands'}`
+                      : ''}
+                    {manifest.settings.length > 0
+                      ? ` · ${manifest.settings.length} configurable ${manifest.settings.length === 1 ? 'setting' : 'settings'}`
                       : ''}
                   </span>
                 </li>

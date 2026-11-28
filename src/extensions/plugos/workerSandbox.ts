@@ -21,7 +21,7 @@ import {
   type WorkerToHostMessage,
 } from './protocol.ts'
 
-const DEFAULT_BOOT_TIMEOUT_MS = 5_000
+const DEFAULT_BOOT_TIMEOUT_MS = 10_000
 const MAX_WORKER_BYTES = 2 * 1024 * 1024
 const MAX_IN_FLIGHT_SYSCALLS = 64
 

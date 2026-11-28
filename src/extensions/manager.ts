@@ -800,7 +800,7 @@ export class ExtensionManager {
       if (activateNow) {
         try {
           await this.stageAndActivate(manifest, assets, {
-            preserveLiveOnFailure: Boolean(existing),
+            preserveLiveOnFailure: this.active.has(manifest.id),
             bootTimeoutMs: opts?.bootTimeoutMs,
           })
         } catch (err) {

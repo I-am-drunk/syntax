@@ -9,7 +9,7 @@ const EXT_ID_RE = /^[a-z0-9][a-z0-9.-]{1,62}[a-z0-9]$/
 const LOCAL_ID_RE = /^[a-z0-9][a-z0-9._-]{0,63}$/i
 const SEMVER_RE = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/
 const SEMVER_RANGE_RE =
-  /^(?:\^|~|>=|>|<=|<)?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\s+(?:>=|>|<=|<)\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)?$/
+  /^(?:\*|\d+\.[xX*]|\d+\.\d+\.[xX*]|(?:\^|~|>=|>|<=|<)?\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\s+(?:>=|>|<=|<)\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)?)$/
 
 function isSafeRelativeOrHttpUrl(raw: string): boolean {
   const trimmed = raw.trim()
@@ -260,6 +260,24 @@ export function satisfiesSemver(version: string, range: string): boolean {
   if (parts.length === 0) return false
 
   for (const token of parts) {
+    if (token === '*') {
+      continue
+    }
+    const majorWild = /^(\d+)\.[xX*]$/.exec(token)
+    if (majorWild) {
+      if (actual.major !== Number.parseInt(majorWild[1]!, 10)) return false
+      continue
+    }
+    const minorWild = /^(\d+)\.(\d+)\.[xX*]$/.exec(token)
+    if (minorWild) {
+      if (
+        actual.major !== Number.parseInt(minorWild[1]!, 10) ||
+        actual.minor !== Number.parseInt(minorWild[2]!, 10)
+      ) {
+        return false
+      }
+      continue
+    }
     if (token.startsWith('^')) {
       const target = parseSemver(token.slice(1))
       if (!target) return false
