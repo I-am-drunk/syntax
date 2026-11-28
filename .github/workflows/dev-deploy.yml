@@ -79,9 +79,4 @@ jobs:
         env:
           DEPLOY_KEY: ${{ secrets.SYNTAX_DEV_DEPLOY_KEY }}
           DEPLOY_COMMIT: ${{ needs.build.outputs.sha }}
-        run: bash .github/scripts/deploy-static-site.sh syntax-platform/syntax-dev-domain incoming
-      - name: Update the preserved public Dev URL
-        env:
-          DEPLOY_KEY: ${{ secrets.SYNTAX_DEV_ROUTE_DEPLOY_KEY }}
-          DEPLOY_COMMIT: ${{ needs.build.outputs.sha }}
-        run: bash .github/scripts/deploy-static-site.sh syntax-platform/syntax-platform.github.io incoming syntax-dev
+        run: bash .github/scripts/deploy-static-site.sh incoming

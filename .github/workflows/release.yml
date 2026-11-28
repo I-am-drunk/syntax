@@ -377,13 +377,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Check out deploy helper
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.workflow_sha }}
-          persist-credentials: false
-          sparse-checkout: .github/scripts
-
       - name: Download Dev bundle
         uses: actions/download-artifact@v4
         with:
@@ -397,7 +390,7 @@ jobs:
           name: release-notes
           path: release-notes
 
-      - name: Deploy and tag the Nightly in syntax-dev-domain
+      - name: Deploy and tag the Nightly in syntax-dev
         env:
           DEPLOY_KEY: ${{ secrets.SYNTAX_DEV_DEPLOY_KEY }}
           TAG: ${{ needs.resolve.outputs.tag }}
@@ -429,12 +422,6 @@ jobs:
           git commit -m "deploy(dev): ${TAG} (${SHORT_SHA})"
           git tag -f -a "${TAG}" -m "${RELEASE_NAME}"
           GIT_SSH_COMMAND="ssh -i $HOME/.ssh/syntax_dev_key -o IdentitiesOnly=yes" \
-            git push --force git@github.com:syntax-platform/syntax-dev-domain.git gh-pages:gh-pages
+            git push --force git@github.com:syntax-platform/syntax-dev.git gh-pages:gh-pages
           GIT_SSH_COMMAND="ssh -i $HOME/.ssh/syntax_dev_key -o IdentitiesOnly=yes" \
-            git push --force git@github.com:syntax-platform/syntax-dev-domain.git "refs/tags/${TAG}:refs/tags/${TAG}"
-
-      - name: Update the preserved public Dev URL
-        env:
-          DEPLOY_KEY: ${{ secrets.SYNTAX_DEV_ROUTE_DEPLOY_KEY }}
-          DEPLOY_COMMIT: ${{ needs.resolve.outputs.ref }}
-        run: bash .github/scripts/deploy-static-site.sh syntax-platform/syntax-platform.github.io deploy-site syntax-dev
+            git push --force git@github.com:syntax-platform/syntax-dev.git "refs/tags/${TAG}:refs/tags/${TAG}"
