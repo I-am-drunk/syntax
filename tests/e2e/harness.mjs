@@ -167,7 +167,7 @@ const MUTABLE_VIEW_HTML = `<!doctype html>
 </body>
 </html>`
 
-export async function startE2EHarness() {
+export async function startE2EHarness({ nativeStarterDirectory } = {}) {
   const vitePort = await getFreePort('127.0.0.1')
   const extPort = await getFreePort('127.0.0.1')
   const appOrigin = `http://localhost:${vitePort}`
@@ -189,6 +189,13 @@ export async function startE2EHarness() {
     if (req.method === 'OPTIONS') {
       res.writeHead(204)
       res.end()
+      return
+    }
+
+    if (nativeStarterDirectory && (pathname === '/native-starter/manifest.json' || pathname === '/native-starter/main.js')) {
+      const filename = path.basename(pathname)
+      res.writeHead(200, { 'Content-Type': MIME_TYPES[path.extname(filename)] })
+      fs.createReadStream(path.resolve(nativeStarterDirectory, filename)).pipe(res)
       return
     }
 

@@ -1,6 +1,26 @@
-# Native extension package checks
+# Build and check a native extension
 
-The V1.0 package check runs from the Syntax checkout with Node.js 24 or later and the repository dependencies installed.
+## Build the starter
+
+From the Syntax checkout, use Node.js 24 or later. These commands create a project next to Syntax, install its locked dependencies, and build and check its package.
+
+```sh
+npm ci
+npm run extension:init -- ../syntax-fixture
+npm --prefix ../syntax-fixture ci
+npm --prefix ../syntax-fixture run build
+npm run extension:check -- ../syntax-fixture/dist/manifest.json
+```
+
+Use a destination folder that does not exist yet. In that folder, edit `index.tsx` to change the screen and command. Edit `syntaxExtension` and the release version in `package.json` to identify your extension. The starter gets its TypeScript declarations from the host and computes the entry hash on each build.
+
+Publish only the files in `dist` to a static HTTPS host. Keep `manifest.json` and `main.js` together. Allow cross-origin GET requests from Syntax. The direct manifest file URL identifies the install. Publish changed JavaScript with a new version.
+
+Run the local browser walkthrough from the Syntax checkout with `node --test tests/e2e/native-starter.test.mjs`. Install Chromium or Microsoft Edge first. If the test cannot find the browser, set `SYNTAX_E2E_BROWSER` to the full path to its executable. The test hosts the build over HTTP on loopback and installs it through the native host. The normal Syntax Dev install control is still being integrated.
+
+## Package checks
+
+Run the package check from the Syntax checkout with the repository dependencies installed.
 
 ```sh
 npm ci
