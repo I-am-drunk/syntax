@@ -39,8 +39,8 @@ For each milestone, record its status, PRs, exact tested commit, relevant deploy
 | [V1.1](#v11-quick-notes-and-authoring-proof) | An independently authored notes tool with a screen, a command, and recovery | Complete |
 | [V1.2](#v12-course-ui-and-progress) | A real lesson and shared learning UI | Complete |
 | [V1.3](#v13-embedded-extensions-tools-and-themes) | A course with required embedded behavior and an optional tool | Complete |
-| [V1.4](#v14-publishing-discovery-and-docs) | A documented authoring, publishing, and install path | In progress |
-| [V1.5](#v15-release-rehearsal) | A complete release rehearsal on the actual sites | Planned |
+| [V1.4](#v14-publishing-discovery-and-docs) | A documented authoring, publishing, and install path | Complete |
+| [V1.5](#v15-release-rehearsal) | A complete release rehearsal on the actual sites | In progress |
 | [V2](#v2-release-gate) | The complete system after every gate passes | Planned |
 
 ### V1.0 Runtime and authoring foundation
@@ -144,17 +144,19 @@ Give authors and agents two complete paths. **Build a Course** starts with a sub
 
 **Release gate**
 
-- [ ] A new author or agent can follow either guide from a fresh checkout through a working install. Courses appear in Library and tools in their documented location after successful installs. Test Community Hub discovery and direct manifest links.
-- [ ] Publish a build with separate listing screenshots. The course download contains the images needed in lessons. The listing carries its preview images. Attach a screenshot from the running app or generate it from an example that runs in Storybook.
-- [ ] Verify compatible course and tool releases update automatically during alpha. A rejected build leaves the working install usable. Keep the full versioning and upgrade design for later.
-- [ ] Test both tutorials, links, and Storybook examples from the release commit. Verify the site shows the Dev build it describes, while the two authoring guides, runnable source, and deeper agent instructions have stable source links.
+- [x] A new author or agent can follow either guide from a fresh checkout through a working install. Courses appear in Library and tools in their documented location after successful installs. Test Community Hub discovery and direct manifest links.
+- [x] Publish a build with separate listing screenshots. The course download contains the images needed in lessons. The listing carries its preview images. Attach a screenshot from the running app or generate it from an example that runs in Storybook.
+- [x] Verify compatible course and tool releases update automatically during alpha. A rejected build leaves the working install usable. Keep the full versioning and upgrade design for later.
+- [x] Test both tutorials, links, and Storybook examples from the release commit. Verify the site shows the Dev build it describes, while the two authoring guides, runnable source, and deeper agent instructions have stable source links.
 
-**V1.4 evidence so far**
+**V1.4 evidence**
 
 - The docs build initially failed because it rewrote placeholders that were already inside inline code. The generated course also failed to compile because its saved state and screen metadata did not match the host contract. After correcting both, the production build and V1.4 browser walkthrough passed. An independent reviewer built both starters twice from a fresh Windows checkout and verified identical bundles and manifests. The docs built for `/syntax-dev/docs`, and the local pages and assets resolved under that path.
 - Independent reviews found that Community Hub needed the same Safe Mode guard as the direct installer, and that a pending update could undo a newer user action. Community Hub now checks the selected listing against the downloaded manifest. The update checks the installed revision again before activation. The focused unit suite passed all six tests, including disable, uninstall, and replacement during an update. Chromium passed the author walkthrough and both interactive Storybook examples.
-- [Community Hub PR #1](https://github.com/syntax-platform/syntax-community/pull/1) adds native listing validation and support for external preview images. Hosted Dev still requires an exact reviewed package. The production catalog, published examples, and Nightly docs remain to be verified together.
-- [Official extensions PR #8](https://github.com/syntax-platform/syntax-official-extensions/pull/8) published Growing Patterns and Starter Tool in versions 1.0.0 and 1.1.0. A reviewer rebuilt all four packages from the starters and compared the files served from `1ed1a144af4980f676174be6da41baa85f6c404d` byte for byte. All eight files returned HTTP 200 without redirects, and the four packages passed the checker. [Community Hub PR #2](https://github.com/syntax-platform/syntax-community/pull/2) holds a Storybook course screenshot and an installed tool screenshot alongside the listings. The cumulative local pass was 54 Node 24 unit tests and 15 Chromium scenarios. The exact live approval, catalog, and Nightly docs still need verification. [Core PR #48](https://github.com/syntax-platform/syntax/pull/48)
+- [Community Hub PR #1](https://github.com/syntax-platform/syntax-community/pull/1) adds native listing validation and external preview images. [Official extensions PR #8](https://github.com/syntax-platform/syntax-official-extensions/pull/8) published Growing Patterns and Starter Tool in versions 1.0.0 and 1.1.0. A reviewer rebuilt all four packages and matched the served files byte for byte at `1ed1a144af4980f676174be6da41baa85f6c404d`. All eight files returned HTTP 200 without redirects, and the four packages passed the checker.
+- [Core PR #48](https://github.com/syntax-platform/syntax/pull/48) passed [CI](https://github.com/syntax-platform/syntax/actions/runs/46177370226) with 54 unit tests and 15 Chromium scenarios and merged as `f92dc8071cbf9fa10628c10c920bd69b8ba02173`. [CI on the merge](https://github.com/syntax-platform/syntax/actions/runs/46177640069) passed. The exact [Infra deployment](https://github.com/syntax-platform/syntax/actions/runs/46177370210) at `255913b` installed both older releases, updated them on reload, and ran the tool command. In the same browser, installs on Infra and Dev used separate native databases and preserved the seeded Stable theme and session data.
+- [Nightly run 46177649509](https://github.com/syntax-platform/syntax/actions/runs/46177649509) published [`v0.3.0-nightly.20261128.19`](https://github.com/syntax-platform/syntax/releases/tag/v0.3.0-nightly.20261128.19) as a prerelease. Site artifact `15276581426` has SHA-256 `b35dd2fb9df84925dbd0e3276065bdab80924b7148c483363a4b3036b248fbd7`. The archive and live app, docs, and Storybook markers all matched the merge SHA. Chromium opened both live guides and both stories. [Docs](https://syntax-platform.github.io/syntax-dev/docs/) · [Storybook](https://syntax-platform.github.io/syntax-dev/storybook/)
+- [Community Hub PR #2](https://github.com/syntax-platform/syntax-community/pull/2) published both listings and two separate screenshots in [Pages run 46177868014](https://github.com/syntax-platform/syntax-community/actions/runs/46177868014), artifact `15275904727`. On the exact Nightly, Chromium decoded both images, installed Growing Patterns from the live catalog, and completed the lesson using its bundled diagram. In a fresh profile, the two direct links installed 1.0.0 and both updated to 1.1.0 on reload. The updated tool command ran. [Live catalog](https://syntax-platform.github.io/syntax-dev/#/community)
 
 ### V1.5 Release rehearsal
 
@@ -166,6 +168,15 @@ Run the real official course, the optional tool, and the small theme and command
 - [ ] Push two quick updates to a preview PR and close it. Verify the comment names the correct commit, links the exact build, and stops advertising the preview after close. Rehearse the fork or unauthorized case. Confirm the preview leaves Dev alone.
 - [ ] Manually deploy a merged commit to Dev without cutting a Nightly. Run a Nightly independently and verify its prerelease and docs point to the same source. Verify Beta publishes a regular release in Syntax and points to its separate student site. Test that an unapproved commit cannot reach Beta or Stable. Stable stays on its intended build throughout.
 - [ ] Walk through one student-facing Beta release and recovery. Record the exact commit, build and site links, review findings, and evidence for the previous gates. Resolve blockers before advancing.
+
+For the recovery rehearsal, first publish and verify a normal Beta release. Then approve a newer tested commit and dispatch the Beta workflow with `rehearse_recovery` enabled. That run should reach the Beta site, fail before it creates the candidate release, and restore the previous release archive. Verify the previous public commit marker, the absence of a release for the failed candidate, and the default Stable release. The deliberately failed run and its successful recovery are both required evidence.
+
+The recovery job uses a verified earlier release archive. Verify the first regular Beta archive before attempting the drill. If someone cancels the entire workflow, check the public marker and compare it with the latest published Beta before declaring the site healthy.
+
+**V1.5 evidence so far**
+
+- The build and workflow syntax checks passed for the release safeguards. A local run of the preview script exercised five cases, including rejecting a stale open commit, rejecting deployment after close, and leaving a reopened PR alone. The recovery-step test restored an archive with the expected marker, then rejected a wrong marker and a candidate that already had a public release.
+- An independent review confirmed the recovery needs a published baseline and a different approved descendant. It also checked the preview state checks and the exact build link. Both workflows still need the live rehearsals below before the gate closes.
 
 ### V2 release gate
 
