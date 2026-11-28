@@ -208,6 +208,7 @@ test('V1.1 Quick Notes link install, autosave durability, save error reporting, 
   await page.getByRole('status').filter({ hasText: /Saved/ }).waitFor()
   await page.reload()
   await textarea.waitFor()
+  await page.getByRole('status').filter({ hasText: /Saved/ }).waitFor()
   assert.equal(await textarea.inputValue(), 'Slope of a perpendicular line is the negative reciprocal.')
 
   // 4. Open from Extensions + Disable/Enable durability
@@ -218,6 +219,7 @@ test('V1.1 Quick Notes link install, autosave durability, save error reporting, 
   await qnCard.getByRole('button', { name: 'Enable', exact: true }).click()
   await qnCard.getByRole('button', { name: 'Open Quick Notes' }).click()
   await textarea.waitFor()
+  await page.getByRole('status').filter({ hasText: /Saved/ }).waitFor()
   assert.equal(await textarea.inputValue(), 'Slope of a perpendicular line is the negative reciprocal.')
 
   // 5. Uninstall + Reinstall durability
@@ -232,6 +234,7 @@ test('V1.1 Quick Notes link install, autosave durability, save error reporting, 
   await page.keyboard.press('Control+k')
   await page.getByRole('option', { name: /Open Quick Notes/ }).click()
   await textarea.waitFor()
+  await page.getByRole('status').filter({ hasText: /Saved/ }).waitFor()
   assert.equal(await textarea.inputValue(), 'Slope of a perpendicular line is the negative reciprocal.')
 
   // 7. Simulate a real save failure & verify clear error reporting + recovery on Retry save
