@@ -59,6 +59,53 @@ function safeOrigin(url: string): string {
   }
 }
 
+function ExtensionNumberInput({
+  id,
+  settingId,
+  value,
+  onCommit,
+}: {
+  id: string
+  settingId: string
+  value: number
+  onCommit: (next: number) => void
+}) {
+  const [draft, setDraft] = useState(String(value))
+
+  useEffect(() => {
+    const parsed = Number(draft)
+    if (draft.trim() === '' || !Number.isFinite(parsed) || parsed !== value) {
+      setDraft(String(value))
+    }
+    // Sync external updates (e.g. Reset defaults or worker settings.set)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value])
+
+  return (
+    <input
+      id={id}
+      type="number"
+      className="sx-ext-setting-input"
+      data-setting-id={settingId}
+      value={draft}
+      onChange={e => {
+        const nextRaw = e.target.value
+        setDraft(nextRaw)
+        const num = Number(nextRaw)
+        if (nextRaw.trim() !== '' && Number.isFinite(num)) {
+          onCommit(num)
+        }
+      }}
+      onBlur={() => {
+        const num = Number(draft)
+        if (draft.trim() === '' || !Number.isFinite(num)) {
+          setDraft(String(value))
+        }
+      }}
+    />
+  )
+}
+
 export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPageProps) {
   const records = useExtensionStore(s => s.records)
   const runtimeById = useExtensionStore(s => s.runtime)
@@ -66,9 +113,14 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
   const setSetting = useExtensionStore(s => s.setSetting)
   const clearSettings = useExtensionStore(s => s.clearSettings)
   const safeMode = useExtensionStore(s => s.safeMode)
+  const autoSafeMode = useExtensionStore(s => s.autoSafeMode)
   const views = useContributionStore(s => s.views)
 
-  const [viewMode, setViewMode] = useState<ExtensionsViewMode>('extensions')
+  const [viewMode, setViewMode] = useState<ExtensionsViewMode>(() => {
+    const hasExt = records.some(r => r.manifest.kind !== 'course')
+    const hasCourse = records.some(r => r.manifest.kind === 'course')
+    return !hasExt && hasCourse ? 'courses' : 'extensions'
+  })
   const [filterQuery, setFilterQuery] = useState('')
   const [manifestUrl, setManifestUrl] = useState('')
   const [fetchingManifest, setFetchingManifest] = useState(false)
@@ -253,8 +305,15 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
   async function handleUpdate(rec: ExtensionRecord) {
     setBusy(rec.id, true)
     try {
+      const prevVersion = rec.manifest.version
       const updated = await extensionManager.update(rec.id)
-      toast.success(`Updated ${updated.manifest.name} to v${updated.manifest.version}`)
+      if (updated.manifest.version === prevVersion) {
+        toast.success(`${updated.manifest.name} is up to date (v${updated.manifest.version})`)
+      } else {
+        toast.success(
+          `Updated ${updated.manifest.name} from v${prevVersion} to v${updated.manifest.version}`,
+        )
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Update failed'
       toast.error(`Update rejected (${rec.manifest.name} kept running): ${msg}`)
@@ -365,10 +424,13 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
           <div className="sx-ext-safemode-copy">
             <ShieldAlert size={18} aria-hidden="true" />
             <div>
-              <strong>Safe Mode is active</strong>
+              <strong>
+                {autoSafeMode ? 'Safe Mode activated automatically' : 'Safe Mode is active'}
+              </strong>
               <p>
-                No extensions were started on load. Disable or uninstall any misbehaving extension
-                below, then exit Safe Mode.
+                {autoSafeMode
+                  ? 'Syntax detected repeated startup interruptions and paused extensions automatically. Disable or uninstall any misbehaving extension below, then exit Safe Mode.'
+                  : 'No extensions were started on load. Disable or uninstall any misbehaving extension below, then exit Safe Mode.'}
               </p>
             </div>
           </div>
@@ -384,7 +446,10 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
         </div>
         <form className="sx-ext-install-form" onSubmit={e => void handleInspectInstall(e)}>
           <input
-            type="url"
+            type="text"
+            inputMode="url"
+            autoComplete="off"
+            spellCheck={false}
             className="sx-ext-url-input"
             placeholder="https://example.com/my-extension/extension.json"
             aria-label="Extension manifest URL"
@@ -750,18 +815,11 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
                                   onChange={e => setSetting(rec.id, def.id, e.target.checked)}
                                 />
                               ) : def.type === 'number' ? (
-                                <input
+                                <ExtensionNumberInput
                                   id={inputId}
-                                  type="number"
-                                  className="sx-ext-setting-input"
-                                  data-setting-id={def.id}
-                                  value={String(currentVal)}
-                                  onChange={e => {
-                                    const num = Number(e.target.value)
-                                    if (e.target.value.trim() !== '' && Number.isFinite(num)) {
-                                      setSetting(rec.id, def.id, num)
-                                    }
-                                  }}
+                                  settingId={def.id}
+                                  value={Number(currentVal)}
+                                  onCommit={num => setSetting(rec.id, def.id, num)}
                                 />
                               ) : (
                                 <input

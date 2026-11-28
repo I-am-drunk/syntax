@@ -8,8 +8,10 @@ import {
   type CatalogEntry,
   type CatalogState,
 } from '../extensions/catalog.ts'
+import { useContributionStore } from '../extensions/contributions.ts'
 import { extensionManager } from '../extensions/manager.ts'
 import {
+  compareSemver,
   fetchExtensionManifest,
   type ExtensionManifest,
   type ResolvedExtensionAssets,
@@ -22,6 +24,7 @@ import { ExtensionInstallModal } from './ExtensionInstallModal'
 export interface CommunityHubPageProps {
   highlightedId?: string
   onOpenExtensions: () => void
+  onNavigate?: (path: string) => void
 }
 
 type HubFilter = 'all' | 'extension' | 'course'
@@ -34,9 +37,14 @@ function safeDecode(value: string): string {
   }
 }
 
-export function CommunityHubPage({ highlightedId: rawHighlightedId, onOpenExtensions }: CommunityHubPageProps) {
+export function CommunityHubPage({
+  highlightedId: rawHighlightedId,
+  onOpenExtensions,
+  onNavigate,
+}: CommunityHubPageProps) {
   const highlightedId = rawHighlightedId ? safeDecode(rawHighlightedId) : null
   const records = useExtensionStore(s => s.records)
+  const views = useContributionStore(s => s.views)
   const safeMode = useExtensionStore(s => s.safeMode)
   const [catalog, setCatalog] = useState<CatalogState>({
     status: 'loading',
@@ -136,7 +144,7 @@ export function CommunityHubPage({ highlightedId: rawHighlightedId, onOpenExtens
     }
   }
 
-  const installedIds = new Set(records.map(r => r.id))
+  const installedById = new Map(records.map(r => [r.id, r]))
   const extensionCount = catalog.entries.filter(e => e.kind !== 'course').length
   const courseCount = catalog.entries.filter(e => e.kind === 'course').length
 
@@ -305,7 +313,14 @@ export function CommunityHubPage({ highlightedId: rawHighlightedId, onOpenExtens
       {catalog.status === 'ready' && filteredEntries.length > 0 && (
         <div className="sx-ext-list">
           {filteredEntries.map(entry => {
-            const installed = installedIds.has(entry.id)
+            const installedRec = installedById.get(entry.id)
+            const installed = Boolean(installedRec)
+            const hasUpdate = Boolean(
+              installedRec && compareSemver(entry.version, installedRec.manifest.version) > 0,
+            )
+            const primaryView = installed
+              ? views.find(v => v.ownerId === entry.id && v.placement !== 'embed')
+              : undefined
             const busy = checkingId === entry.id
             const isHighlighted = highlightedId === entry.id
             return (
@@ -347,14 +362,44 @@ export function CommunityHubPage({ highlightedId: rawHighlightedId, onOpenExtens
                     </div>
                   </div>
                   <div className="sx-ext-card-actions">
+                    {installed && primaryView && onNavigate && !hasUpdate && (
+                      <button
+                        type="button"
+                        className="sx-btn-primary sx-btn-sm"
+                        onClick={() =>
+                          onNavigate(
+                            `/ext/${encodeURIComponent(entry.id)}/${encodeURIComponent(primaryView.id)}`,
+                          )
+                        }
+                      >
+                        <ExternalLink size={13} aria-hidden="true" />
+                        <span>Open</span>
+                      </button>
+                    )}
                     <button
                       type="button"
-                      className={installed ? 'sx-btn-secondary sx-btn-sm' : 'sx-btn-primary sx-btn-sm'}
+                      className={
+                        !installed || hasUpdate
+                          ? 'sx-btn-primary sx-btn-sm'
+                          : 'sx-btn-secondary sx-btn-sm'
+                      }
                       disabled={busy}
                       onClick={() => void handleInspectEntry(entry)}
                     >
-                      {installed ? <Check size={13} aria-hidden="true" /> : <Download size={13} aria-hidden="true" />}
-                      <span>{busy ? 'Checking...' : installed ? 'Reinstall' : 'Install'}</span>
+                      {installed && !hasUpdate ? (
+                        <Check size={13} aria-hidden="true" />
+                      ) : (
+                        <Download size={13} aria-hidden="true" />
+                      )}
+                      <span>
+                        {busy
+                          ? 'Checking...'
+                          : hasUpdate
+                            ? `Update v${entry.version}`
+                            : installed
+                              ? 'Reinstall'
+                              : 'Install'}
+                      </span>
                     </button>
                   </div>
                 </div>

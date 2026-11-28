@@ -56,6 +56,7 @@ export function ExtensionPage({
   const docId = rawDocId ? safeDecode(rawDocId) : null
 
   const safeMode = useExtensionStore(s => s.safeMode)
+  const booted = useExtensionStore(s => s.booted)
   const record = useExtensionStore(s => s.records.find(r => r.id === extensionId))
   const runtime = useExtensionStore(s => s.runtime[extensionId])
   const allViews = useContributionStore(s => s.views)
@@ -71,6 +72,7 @@ export function ExtensionPage({
   const [doc, setDoc] = useState<DocumentEnvelope | null>(null)
   const [busy, setBusy] = useState(false)
   const [focused, setFocused] = useState(false)
+  const [dismissedErrorAt, setDismissedErrorAt] = useState<number | null>(null)
 
   useEffect(() => {
     if (!focused) return
@@ -155,6 +157,42 @@ export function ExtensionPage({
     const parts = [doc?.title, view.title, extName, 'Syntax'].filter(Boolean)
     document.title = isDevEnvironment() ? `${parts.join(' · ')} (Dev)` : parts.join(' · ')
   }, [doc?.title, view, extName])
+
+  if (!safeMode && record?.enabled && (!booted || runtime?.status === 'loading')) {
+    return (
+      <main className="sx-workspace-page sx-ext-page" aria-label={`Loading ${extName}`}>
+        <div className="sx-ext-page-bar">
+          <div className="sx-ext-page-meta">
+            <button type="button" className="sx-btn-ghost sx-btn-sm" onClick={onBackToLibrary}>
+              <ArrowLeft size={14} aria-hidden="true" />
+              <span>Library</span>
+            </button>
+            <ExtensionIcon
+              src={extIconUrl}
+              name={extName}
+              kind={record.manifest.kind}
+              size={28}
+            />
+            <span className="sx-ext-page-title">
+              <strong>{extName}</strong>
+              <small>Starting extension...</small>
+            </span>
+          </div>
+          <button type="button" className="sx-btn-ghost sx-btn-sm" onClick={onOpenExtensions}>
+            <Puzzle size={14} aria-hidden="true" />
+            <span>Extensions</span>
+          </button>
+        </div>
+
+        <div className="sx-course-loading" role="status" aria-live="polite">
+          <div className="sx-course-loading-card">
+            <span className="spinner" aria-hidden="true" />
+            <p className="sx-error-summary">Starting {extName}...</p>
+          </div>
+        </div>
+      </main>
+    )
+  }
 
   if (!view || runtime?.status !== 'active' || !runtime.activationId) {
     const missingViewOnActive = Boolean(!view && runtime?.status === 'active' && runtime.activationId)
@@ -347,7 +385,11 @@ export function ExtensionPage({
             <RefreshCw size={13} aria-hidden="true" />
             <span>Reload</span>
           </button>
-          <button type="button" className="sx-btn-ghost sx-btn-sm" onClick={onOpenExtensions}>
+          <button
+            type="button"
+            className="sx-btn-ghost sx-btn-sm sx-ext-page-manage-btn"
+            onClick={onOpenExtensions}
+          >
             <Puzzle size={13} aria-hidden="true" />
             <span>Extensions</span>
           </button>
@@ -375,6 +417,35 @@ export function ExtensionPage({
               </button>
             )
           })}
+        </div>
+      )}
+
+      {runtime.lastError && dismissedErrorAt !== runtime.lastError.at && (
+        <div className="sx-ext-view-banner" role="alert">
+          <div className="sx-ext-view-banner-copy">
+            <AlertTriangle size={15} aria-hidden="true" />
+            <span>
+              <strong>{runtime.lastError.code}</strong>: {runtime.lastError.message}
+            </span>
+          </div>
+          <div className="sx-ext-view-banner-actions">
+            <button
+              type="button"
+              className="sx-btn-secondary sx-btn-sm"
+              disabled={busy}
+              onClick={() => void handleReload()}
+            >
+              <RefreshCw size={13} aria-hidden="true" />
+              <span>Reload</span>
+            </button>
+            <button
+              type="button"
+              className="sx-btn-ghost sx-btn-sm"
+              onClick={() => setDismissedErrorAt(runtime.lastError?.at ?? null)}
+            >
+              <span>Dismiss</span>
+            </button>
+          </div>
         </div>
       )}
 

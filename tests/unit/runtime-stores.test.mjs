@@ -8,8 +8,9 @@ import {
   MAX_DOCUMENT_BYTES,
   parseImportedDocumentJson,
 } from '../../src/extensions/documents.ts'
-import { validateExtensionManifest } from '../../src/extensions/manifest.ts'
-import { isSafeMode, useExtensionStore } from '../../src/extensions/store.ts'
+import { fetchExtensionManifest, validateExtensionManifest } from '../../src/extensions/manifest.ts'
+import { rewriteWorkerRelativeImports } from '../../src/extensions/plugos/workerSandbox.ts'
+import { createInitialRuntime, isSafeMode, useExtensionStore } from '../../src/extensions/store.ts'
 import { extensionDiagnostics } from '../../src/extensions/diagnostics.ts'
 import { extractRemoteCloudPayload } from '../../src/core/cloudSchema.ts'
 import { fetchExtensionCatalog } from '../../src/extensions/catalog.ts'
@@ -379,5 +380,56 @@ describe('DocumentStore optimistic concurrency and Safe Mode detection', () => {
     const aborted = await fetchExtensionCatalog('https://example.com/catalog.json', controller.signal)
     assert.equal(aborted.status, 'idle')
     assert.deepEqual(aborted.entries, [])
+  })
+
+  it('rewrites relative ES imports in worker scripts while leaving comments and strings untouched', () => {
+    const input = [
+      `// import { nope } from './commented.js'`,
+      `import { a } from './helpers/math.js'`,
+      `export * from '../shared/util.js'`,
+      `import './side-effect.js'`,
+      `const txt = "import x from './literal.js'"`,
+      `const lazy = () => import('./lazy/chunk.js')`,
+      `import ext from 'https://cdn.example.com/lib.js'`,
+    ].join('\n')
+
+    const rewritten = rewriteWorkerRelativeImports(
+      input,
+      'https://plugins.example.com/pkg/sub/worker.js',
+    )
+
+    assert.match(rewritten, /\/\/ import \{ nope \} from '\.\/commented\.js'/)
+    assert.match(rewritten, /from 'https:\/\/plugins\.example\.com\/pkg\/sub\/helpers\/math\.js'/)
+    assert.match(rewritten, /from 'https:\/\/plugins\.example\.com\/pkg\/shared\/util\.js'/)
+    assert.match(rewritten, /import 'https:\/\/plugins\.example\.com\/pkg\/sub\/side-effect\.js'/)
+    assert.match(rewritten, /const txt = "import x from '\.\/literal\.js'"/)
+    assert.match(rewritten, /import\('https:\/\/plugins\.example\.com\/pkg\/sub\/lazy\/chunk\.js'\)/)
+    assert.match(rewritten, /from 'https:\/\/cdn\.example\.com\/lib\.js'/)
+  })
+
+  it('initializes enabled extensions in loading status and warns on GitHub blob manifest URLs', async () => {
+    const manifest = validateExtensionManifest({
+      formatVersion: 1,
+      id: 'tj.boot-state',
+      name: 'Boot State',
+      version: '1.0.0',
+    })
+    const rec = {
+      id: manifest.id,
+      manifestUrl: 'https://example.com/ext/extension.json',
+      origin: 'https://example.com',
+      enabled: true,
+      installedAt: Date.now(),
+      updatedAt: Date.now(),
+      manifest,
+    }
+    assert.equal(createInitialRuntime(rec, false).status, 'loading')
+    assert.equal(createInitialRuntime(rec, true).status, 'safe-mode')
+    assert.equal(createInitialRuntime({ ...rec, enabled: false }, false).status, 'disabled')
+
+    await assert.rejects(
+      () => fetchExtensionManifest('https://github.com/org/repo/blob/main/ext/extension.json'),
+      /raw\.githubusercontent\.com\/org\/repo\/main\/ext\/extension\.json/,
+    )
   })
 })

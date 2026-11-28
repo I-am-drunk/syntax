@@ -43,6 +43,7 @@ export function LibraryPage({
 }: LibraryPageProps) {
   const records = useExtensionStore(s => s.records)
   const runtimeById = useExtensionStore(s => s.runtime)
+  const safeMode = useExtensionStore(s => s.safeMode)
   const views = useContributionStore(s => s.views)
   const [documents, setDocuments] = useState<DocumentEnvelope[]>([])
   const [docQuery, setDocQuery] = useState('')
@@ -229,11 +230,63 @@ export function LibraryPage({
           <span className="sx-empty-icon" aria-hidden="true">
             <Puzzle size={20} strokeWidth={1.9} />
           </span>
-          <p>No extensions or documents yet.</p>
-          <p className="sx-profile-handle">
-            Install standalone or embedded extensions from Extensions or Community Hub to add new
-            screens, commands, and tools.
-          </p>
+          {(() => {
+            if (records.length === 0) {
+              return (
+                <>
+                  <p>No extensions or documents yet.</p>
+                  <p className="sx-profile-handle">
+                    Install standalone or embedded extensions from Extensions or Community Hub to add
+                    new screens, commands, and tools.
+                  </p>
+                </>
+              )
+            }
+            if (safeMode) {
+              return (
+                <>
+                  <p>Extensions are paused in Safe Mode.</p>
+                  <p className="sx-profile-handle">
+                    You have {records.length} installed {records.length === 1 ? 'package' : 'packages'}.
+                    Open Extensions to manage them or exit Safe Mode.
+                  </p>
+                </>
+              )
+            }
+            const failedCount = records.filter(r => runtimeById[r.id]?.status === 'failed').length
+            const enabledCount = records.filter(r => r.enabled).length
+            if (failedCount > 0) {
+              return (
+                <>
+                  <p>
+                    {failedCount} {failedCount === 1 ? 'extension failed' : 'extensions failed'} to start.
+                  </p>
+                  <p className="sx-profile-handle">
+                    Inspect error details, reload, or update from Extensions.
+                  </p>
+                </>
+              )
+            }
+            if (enabledCount === 0) {
+              return (
+                <>
+                  <p>Installed extensions are currently disabled.</p>
+                  <p className="sx-profile-handle">
+                    Enable your installed {records.length === 1 ? 'package' : 'packages'} in Extensions
+                    to see views and widgets here.
+                  </p>
+                </>
+              )
+            }
+            return (
+              <>
+                <p>No visual screens or saved documents yet.</p>
+                <p className="sx-profile-handle">
+                  Your active extensions contribute commands in Quick Search and the menu.
+                </p>
+              </>
+            )
+          })()}
           <div className="sx-library-empty-actions">
             <button type="button" className="sx-btn-secondary" onClick={onOpenExtensions}>
               <Puzzle size={15} strokeWidth={2} aria-hidden="true" />
@@ -477,6 +530,28 @@ export function LibraryPage({
                 {embedViews.map(v => {
                   const rt = runtimeById[v.ownerId]
                   const extName = nameById.get(v.ownerId) ?? v.ownerId
+                  if (rt?.status === 'loading') {
+                    return (
+                      <div
+                        key={v.key}
+                        className="sx-ext-view-frame is-embed"
+                        data-extension-id={v.ownerId}
+                        data-view-id={v.id}
+                        data-view-ready="false"
+                      >
+                        <div className="sx-ext-embed-bar">
+                          <span className="sx-ext-embed-title">
+                            <strong>{v.title}</strong>
+                            <small>{extName} · Embedded Extension</small>
+                          </span>
+                        </div>
+                        <div className="sx-ext-embed-recovery" role="status" aria-live="polite">
+                          <span className="spinner" aria-hidden="true" />
+                          <span>Starting {extName}...</span>
+                        </div>
+                      </div>
+                    )
+                  }
                   if (rt?.status !== 'active' || !rt.activationId) {
                     return (
                       <div

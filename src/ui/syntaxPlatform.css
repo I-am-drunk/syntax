@@ -505,7 +505,7 @@
 
 @media (max-width: 768px) {
   .sx-app-header {
-    height: 56px;
+    height: 54px;
     padding: 0 14px;
     gap: 10px;
   }
@@ -526,49 +526,93 @@
     font-size: 13px;
   }
 
+  /* Prevent iOS Safari auto-zoom on form inputs and remove tap delay */
+  .sx-ext-url-input,
+  .sx-search-field input,
+  .sx-ext-setting-input,
+  .sx-cmd-input {
+    font-size: 16px;
+  }
+
+  button,
+  a {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Floating Frosted Glass Mobile Dock */
   .sx-mobile-tabbar {
     position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    left: 12px;
+    right: 12px;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    max-width: 440px;
+    margin: 0 auto;
     z-index: var(--z-header, 200);
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 4px;
-    padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
-    background: color-mix(in srgb, var(--surface) 92%, transparent);
-    -webkit-backdrop-filter: blur(16px);
-    backdrop-filter: blur(16px);
-    border-top: 1px solid var(--border);
+    padding: 5px;
+    border-radius: 22px;
+    background: color-mix(in srgb, var(--surface) 84%, transparent);
+    -webkit-backdrop-filter: blur(22px) saturate(180%);
+    backdrop-filter: blur(22px) saturate(180%);
+    border: 1px solid color-mix(in srgb, var(--border) 92%, transparent);
+    box-shadow:
+      0 10px 30px rgba(0, 0, 0, 0.12),
+      0 2px 8px rgba(0, 0, 0, 0.06);
   }
 
   :root[data-theme='dark'] .sx-mobile-tabbar {
-    background: color-mix(in srgb, #141414 92%, transparent);
+    background: color-mix(in srgb, #1b1b1b 84%, transparent);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow:
+      0 14px 36px rgba(0, 0, 0, 0.56),
+      0 2px 8px rgba(0, 0, 0, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
   }
 
   .sx-mobile-tab {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-    padding: 4px 2px;
-    border-radius: 10px;
+    gap: 3px;
+    min-height: 50px;
+    padding: 6px 4px;
+    border-radius: 17px;
     color: var(--muted);
     font-size: 11px;
     font-weight: 600;
-    line-height: 1.2;
-    transition: color 120ms ease;
+    line-height: 1.15;
+    letter-spacing: -0.005em;
+    transition: color 140ms ease, transform 100ms ease;
   }
 
-  .sx-mobile-tab-icon-wrap {
-    width: 44px;
-    height: 28px;
-    border-radius: 9px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: background-color 130ms ease, color 130ms ease;
+  .sx-mobile-tab:active {
+    transform: scale(0.94);
+  }
+
+  .sx-mobile-tab-pill {
+    position: absolute;
+    inset: 0;
+    border-radius: 17px;
+    background: color-mix(in srgb, var(--accent-blue, #456dff) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--accent-blue, #456dff) 20%, transparent);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  :root[data-theme='dark'] .sx-mobile-tab-pill {
+    background: color-mix(in srgb, #7491ff 17%, transparent);
+    border-color: color-mix(in srgb, #7491ff 28%, transparent);
+  }
+
+  .sx-mobile-tab-icon,
+  .sx-mobile-tab-label {
+    position: relative;
+    z-index: 1;
   }
 
   .sx-mobile-tab.is-active {
@@ -577,10 +621,6 @@
 
   :root[data-theme='dark'] .sx-mobile-tab.is-active {
     color: #7491ff;
-  }
-
-  .sx-mobile-tab.is-active .sx-mobile-tab-icon-wrap {
-    background: color-mix(in srgb, var(--accent-blue, #456dff) 14%, transparent);
   }
 }
 
@@ -2960,29 +3000,38 @@
 
 @media (max-width: 768px) {
   main:not(.is-focused) {
-    padding-bottom: 84px;
+    padding-bottom: 100px;
   }
 }
 
 @media (max-width: 640px) {
-  .sx-kbd {
+  .sx-kbd,
+  .sx-ext-page-manage-btn {
     display: none;
   }
 
   .sx-workspace-page,
   .sx-hub-page {
-    margin: 22px auto 88px;
+    margin: 20px auto 100px;
     padding: 0 16px;
-    gap: 22px;
+    gap: 20px;
   }
 
   .sx-workspace-page.sx-ext-page {
-    margin: 14px auto 84px;
+    margin: 12px auto 96px;
+  }
+
+  .sx-workspace-page.sx-ext-page .sx-ext-view-frame.is-page {
+    min-height: calc(100dvh - 220px);
   }
 
   .sx-workspace-page.sx-ext-page.is-focused {
     margin: 0;
     padding: 12px 14px 14px;
+  }
+
+  .sx-workspace-page.sx-ext-page.is-focused .sx-ext-view-frame.is-page {
+    min-height: 0;
   }
 
   .sx-profile-hero {

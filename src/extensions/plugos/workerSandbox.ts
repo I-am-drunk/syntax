@@ -21,9 +21,199 @@ import {
   type WorkerToHostMessage,
 } from './protocol.ts'
 
-const DEFAULT_BOOT_TIMEOUT_MS = 5_000
+const DEFAULT_BOOT_TIMEOUT_MS = 10_000
 const MAX_WORKER_BYTES = 2 * 1024 * 1024
 const MAX_IN_FLIGHT_SYSCALLS = 64
+
+/**
+ * Rewrites relative ES module specifiers (`./`, `../`, `/`) inside a fetched worker script
+ * into absolute same-origin URLs against `workerUrl`, allowing multi-file and multi-chunk
+ * plugins to run cleanly inside a Blob-backed module Worker.
+ * Skips comments and non-import strings so literal data is never altered.
+ */
+export function rewriteWorkerRelativeImports(source: string, workerUrl: string): string {
+  let base: URL
+  try {
+    base = new URL(workerUrl)
+  } catch {
+    return source
+  }
+
+  const resolveRel = (specifier: string): string => {
+    if (
+      !specifier.startsWith('./') &&
+      !specifier.startsWith('../') &&
+      !specifier.startsWith('/')
+    ) {
+      return specifier
+    }
+    try {
+      const resolved = new URL(specifier, base)
+      if (resolved.origin !== base.origin) return specifier
+      if (resolved.protocol !== 'http:' && resolved.protocol !== 'https:') return specifier
+      return resolved.href
+    } catch {
+      return specifier
+    }
+  }
+
+  // Mask comments & template/string spans only to find exact rewrite ranges safely
+  const len = source.length
+  const out: string[] = []
+  let cursor = 0
+  let i = 0
+
+  const isIdentChar = (ch: string) => /[A-Za-z0-9_$]/.test(ch)
+  const skipWsAndComments = (pos: number): number => {
+    let p = pos
+    while (p < len) {
+      const c = source[p]!
+      if (c === ' ' || c === '\t' || c === '\n' || c === '\r') {
+        p += 1
+        continue
+      }
+      if (c === '/' && source[p + 1] === '/') {
+        p += 2
+        while (p < len && source[p] !== '\n') p += 1
+        continue
+      }
+      if (c === '/' && source[p + 1] === '*') {
+        p += 2
+        while (p < len - 1 && !(source[p] === '*' && source[p + 1] === '/')) p += 1
+        p = Math.min(len, p + 2)
+        continue
+      }
+      break
+    }
+    return p
+  }
+
+  const readStringLiteral = (pos: number): { end: number; quote: string; value: string } | null => {
+    const quote = source[pos]
+    if (quote !== '"' && quote !== "'") return null
+    let p = pos + 1
+    let val = ''
+    while (p < len) {
+      const ch = source[p]!
+      if (ch === '\\') {
+        if (p + 1 < len) {
+          val += source[p + 1]
+          p += 2
+          continue
+        }
+        return null
+      }
+      if (ch === quote) {
+        return { end: p + 1, quote, value: val }
+      }
+      if (ch === '\n' || ch === '\r') return null
+      val += ch
+      p += 1
+    }
+    return null
+  }
+
+  while (i < len) {
+    const ch = source[i]!
+
+    // Skip single-line comments
+    if (ch === '/' && source[i + 1] === '/') {
+      i += 2
+      while (i < len && source[i] !== '\n') i += 1
+      continue
+    }
+    // Skip block comments
+    if (ch === '/' && source[i + 1] === '*') {
+      i += 2
+      while (i < len - 1 && !(source[i] === '*' && source[i + 1] === '/')) i += 1
+      i = Math.min(len, i + 2)
+      continue
+    }
+    // Skip string & template literals (not preceded by import/from)
+    if (ch === '"' || ch === "'" || ch === '`') {
+      const quote = ch
+      i += 1
+      while (i < len) {
+        if (source[i] === '\\') {
+          i += 2
+          continue
+        }
+        if (source[i] === quote) {
+          i += 1
+          break
+        }
+        i += 1
+      }
+      continue
+    }
+
+    // Match keyword `from` or `import` at word boundary (not preceded by `.`)
+    if (
+      (source.startsWith('from', i) || source.startsWith('import', i)) &&
+      (i === 0 || (!isIdentChar(source[i - 1]!) && source[i - 1] !== '.'))
+    ) {
+      const isFrom = source.startsWith('from', i)
+      const kwLen = isFrom ? 4 : 6
+      const afterKw = i + kwLen
+      if (afterKw < len && isIdentChar(source[afterKw]!)) {
+        i += 1
+        continue
+      }
+
+      const nextPos = skipWsAndComments(afterKw)
+      if (isFrom) {
+        // `... from './rel.js'`
+        const lit = readStringLiteral(nextPos)
+        if (lit) {
+          const rewritten = resolveRel(lit.value)
+          if (rewritten !== lit.value) {
+            out.push(source.slice(cursor, nextPos), `${lit.quote}${rewritten}${lit.quote}`)
+            cursor = lit.end
+          }
+          i = lit.end
+          continue
+        }
+      } else {
+        // Bare `import './side-effect.js'` OR dynamic `import('./chunk.js')`
+        if (source[nextPos] === '"' || source[nextPos] === "'") {
+          const lit = readStringLiteral(nextPos)
+          if (lit) {
+            const rewritten = resolveRel(lit.value)
+            if (rewritten !== lit.value) {
+              out.push(source.slice(cursor, nextPos), `${lit.quote}${rewritten}${lit.quote}`)
+              cursor = lit.end
+            }
+            i = lit.end
+            continue
+          }
+        } else if (source[nextPos] === '(') {
+          const argPos = skipWsAndComments(nextPos + 1)
+          const lit = readStringLiteral(argPos)
+          if (lit) {
+            const afterLit = skipWsAndComments(lit.end)
+            if (source[afterLit] === ')' || source[afterLit] === ',') {
+              const rewritten = resolveRel(lit.value)
+              if (rewritten !== lit.value) {
+                out.push(source.slice(cursor, argPos), `${lit.quote}${rewritten}${lit.quote}`)
+                cursor = lit.end
+              }
+              i = lit.end
+              continue
+            }
+          }
+        }
+      }
+      i = afterKw
+      continue
+    }
+
+    i += 1
+  }
+
+  if (cursor === 0) return source
+  out.push(source.slice(cursor))
+  return out.join('')
+}
 
 export interface WorkerSandboxCallbacks {
   onSyscall: (
@@ -430,7 +620,8 @@ export class WorkerSandbox {
     }
 
     const safeSourceUrl = this.workerUrl.replace(/[\r\n]/g, '')
-    const annotatedSource = `${source}\n//# sourceURL=${safeSourceUrl}\n`
+    const rewrittenSource = rewriteWorkerRelativeImports(source, this.workerUrl)
+    const annotatedSource = `${rewrittenSource}\n//# sourceURL=${safeSourceUrl}\n`
     const moduleBlobUrl = URL.createObjectURL(
       new Blob([annotatedSource], { type: 'text/javascript' }),
     )

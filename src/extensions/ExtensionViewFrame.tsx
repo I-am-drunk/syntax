@@ -401,6 +401,16 @@ export function ExtensionViewFrame({
   }
 
   const iframeKey = `${extensionId}:${viewId}:${activationId}:${docId ?? ''}:${frameNonce}`
+  const iframeSrc = (() => {
+    if (frameNonce === 0) return entryUrl
+    try {
+      const u = new URL(entryUrl)
+      u.searchParams.set('_sxr', String(frameNonce))
+      return u.href
+    } catch {
+      return entryUrl
+    }
+  })()
 
   return (
     <div
@@ -506,11 +516,11 @@ export function ExtensionViewFrame({
           <iframe
             key={iframeKey}
             ref={iframeRef}
-            src={entryUrl}
+            src={iframeSrc}
             title={`${extensionName}: ${title}`}
             className="sx-ext-iframe"
             style={placement === 'embed' && embedHeight ? { height: `${embedHeight}px` } : undefined}
-            sandbox="allow-scripts allow-forms"
+            sandbox="allow-scripts allow-forms allow-downloads allow-popups allow-popups-to-escape-sandbox"
             allow="camera 'none'; microphone 'none'; geolocation 'none'; payment 'none'; usb 'none'"
             referrerPolicy="no-referrer"
             onLoad={handleIframeLoad}
