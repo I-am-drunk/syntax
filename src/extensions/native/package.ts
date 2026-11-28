@@ -14,7 +14,7 @@ export interface NativePackage {
   entry: string
 }
 
-function parseSourceUrl(input: string): URL {
+export function parseNativeSourceUrl(input: string): URL {
   let url
   try {
     url = new URL(input)
@@ -69,7 +69,7 @@ async function download(url: URL, limit: number, fetcher: typeof fetch): Promise
 }
 
 export async function downloadNativePackage(source: string, fetcher: typeof fetch = fetch): Promise<NativePackage> {
-  const url = parseSourceUrl(source)
+  const url = parseNativeSourceUrl(source)
   const manifestBytes = await download(url, MAX_MANIFEST_BYTES, fetcher)
   const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true })
   let input: unknown
@@ -99,7 +99,7 @@ async function verifyEntry(manifest: NativeManifest, entryBytes: Uint8Array<Arra
 }
 
 export async function verifyStoredNativePackage(pkg: NativePackage): Promise<void> {
-  parseSourceUrl(pkg.sourceUrl)
+  parseNativeSourceUrl(pkg.sourceUrl)
   const manifest = parseNativeManifest(pkg.manifest)
   if (typeof pkg.entry !== 'string') throw new NativePackageError('ENTRY_INVALID', 'The saved JavaScript entry is missing.')
   await verifyEntry(manifest, new TextEncoder().encode(pkg.entry))

@@ -10,6 +10,7 @@ type SyntaxErrorBoundaryProps = {
   onExitScope?: () => void
   exitLabel?: string
   resetKeys?: unknown[]
+  onError?: (error: unknown) => void
   children: ReactNode
 }
 
@@ -117,6 +118,7 @@ export function SyntaxErrorBoundary({
   onExitScope,
   exitLabel,
   resetKeys,
+  onError,
   children,
 }: SyntaxErrorBoundaryProps) {
   return (
@@ -127,6 +129,7 @@ export function SyntaxErrorBoundary({
           error: error instanceof Error ? error.stack : String(error),
           componentStack: info.componentStack,
         })
+        onError?.(error)
       }}
       fallbackRender={props => (
         <SyntaxCrashFallback

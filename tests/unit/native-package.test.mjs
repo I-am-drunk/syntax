@@ -7,6 +7,7 @@ import { spawnSync } from 'node:child_process'
 import { test } from 'node:test'
 import { parseNativeManifest } from '../../src/extensions/native/manifest.ts'
 import { downloadNativePackage } from '../../src/extensions/native/package.ts'
+import { createNativeDevAuthorization, nativeMode } from '../../src/extensions/native/devPolicy.ts'
 
 const entry = 'throw new Error("The package checker must not run this code.");'
 const manifest = {
@@ -18,6 +19,37 @@ const manifest = {
   main: 'entry.js',
   sha256: createHash('sha256').update(entry).digest('hex'),
 }
+
+test('native runtime availability is scoped to hosted Dev and isolated loopback development', () => {
+  const dev = new URL('https://syntax-platform.github.io/syntax-dev/')
+  assert.equal(nativeMode('dev', false, dev), 'hosted-dev')
+  for (const channel of ['stable', 'preview', 'beta', undefined]) {
+    assert.equal(nativeMode(channel, true, dev), 'disabled')
+  }
+  assert.equal(nativeMode('dev', false, new URL('/syntax/', dev)), 'disabled')
+  assert.equal(nativeMode('dev', false, new URL('https://example.com/syntax-dev/')), 'disabled')
+  const loopback = new URL('http://localhost:5189/syntax-dev/')
+  assert.equal(nativeMode(undefined, true, loopback), 'local-dev')
+  assert.equal(nativeMode(undefined, false, loopback), 'disabled')
+  assert.equal(nativeMode('stable', true, loopback), 'disabled')
+  assert.equal(nativeMode(undefined, true, new URL('/syntax/', loopback)), 'disabled')
+})
+
+test('hosted Dev authorizes only an exact reviewed manifest and source', () => {
+  const sourceUrl = 'https://example.com/fixture/manifest.json'
+  const pkg = { manifest, sourceUrl, entry }
+  const authorize = createNativeDevAuthorization('hosted-dev', [{ manifest, sourceUrl }])
+  assert.doesNotThrow(() => authorize.checkSource(sourceUrl))
+  assert.doesNotThrow(() => authorize.checkPackage(pkg))
+  const blocked = { code: 'PACKAGE_UNAPPROVED' }
+  const otherUrl = 'https://other.example.com/manifest.json'
+  assert.throws(() => authorize.checkSource(otherUrl), blocked)
+  assert.throws(() => authorize.checkPackage({ ...pkg, sourceUrl: otherUrl }), blocked)
+  assert.throws(() => authorize.checkPackage({ ...pkg, manifest: { ...manifest, sha256: '0'.repeat(64) } }), blocked)
+  assert.throws(() => authorize.checkPackage({ ...pkg, manifest: { ...manifest, id: 'example.other' } }), blocked)
+  assert.throws(() => createNativeDevAuthorization('disabled').checkPackage(pkg), blocked)
+  assert.throws(() => createNativeDevAuthorization('hosted-dev').checkPackage(pkg), blocked)
+})
 
 test('native manifests have strict fields and a package-relative JavaScript entry', () => {
   assert.deepEqual(parseNativeManifest(manifest), manifest)

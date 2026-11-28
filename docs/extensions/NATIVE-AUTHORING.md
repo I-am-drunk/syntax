@@ -16,7 +16,19 @@ Use a destination folder that does not exist yet. In that folder, edit `index.ts
 
 Publish only the files in `dist` to a static HTTPS host. Keep `manifest.json` and `main.js` together. Allow cross-origin GET requests from Syntax. The direct manifest file URL identifies the install. Publish changed JavaScript with a new version.
 
-Run the local browser walkthrough from the Syntax checkout with `node --test tests/e2e/native-starter.test.mjs`. Install Chromium or Microsoft Edge first. If the test cannot find the browser, set `SYNTAX_E2E_BROWSER` to the full path to its executable. The test hosts the build over HTTP on loopback and installs it through the native host. The normal Syntax Dev install control is still being integrated.
+## Install and run the fixture
+
+For the local walkthrough, start Syntax from the checkout. Use a fresh browser profile.
+
+```sh
+npm run dev -- --host localhost --base /syntax-dev/
+```
+
+Open the server address printed by Vite with `/syntax-dev/#/extensions` as the path. Under **Native extensions**, paste the fixture's manifest URL and select **Review native package**. Check its name, version, and source URL, then select **Install native package**. Use **Open** to see the screen. Press Ctrl+K or Command+K and select **Save sample** to run the command.
+
+The same walkthrough runs in Chromium with `node --test tests/e2e/native-starter.test.mjs`. Install Chromium or Microsoft Edge first. If the test cannot find the browser, set `SYNTAX_E2E_BROWSER` to the full path to its executable. The test serves the build on a separate loopback origin and follows the Extensions page, opening the screen and running the command.
+
+Hosted Syntax Dev shares a browser origin with Stable. It may execute only packages approved in the source for that build. An approved source must serve the exact reviewed manifest and JavaScript digest. The published fixture walkthrough is still pending.
 
 ## Package checks
 
@@ -54,4 +66,4 @@ The browser host keeps verified entry bytes and saved data in channel-scoped Ind
 
 The startup journal records an activation in the current browser tab. After a reload, Syntax quarantines the matching saved revision and starts the remaining extensions. If the journal cannot identify a suspect, Syntax skips native startup until the host explicitly acknowledges the recovery state.
 
-The Syntax Dev installation UI and published fixture walkthrough still need their release checks.
+If a native screen or command freezes the browser after startup, close the tab, then reopen Syntax Dev with `?safeMode=1#/extensions` after `/syntax-dev/`. Disable the extension before exiting Safe Mode.

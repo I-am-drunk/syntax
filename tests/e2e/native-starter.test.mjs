@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -45,21 +46,77 @@ test('an external checkout builds, checks, hosts, and activates a native fixture
   const harness = await startE2EHarness({ nativeStarterDirectory: dist })
   t.after(() => harness.close())
   const page = await harness.browser.newPage()
-  await page.goto(`${harness.appOrigin}/syntax-dev/`)
-  const result = await page.evaluate(async source => {
-    const { NativeHost } = await import('/src/extensions/native/host.ts')
-    const { createNativeRepository } = await import('/src/extensions/native/repository.ts')
-    const repository = createNativeRepository()
-    const host = new NativeHost(repository, sessionStorage, () => {})
-    const installed = await host.install(source)
-    const id = installed.package.manifest.id
-    const screen = host.runtime.getScreen(id, 'home')
-    await host.runtime.runCommand(id, 'save-sample')
-    return { title: screen.title, text: screen.component().props.children, data: await repository.load(id) }
-  }, harness.extUrl('native-starter/manifest.json'))
-  assert.deepEqual(result, {
-    title: 'Native fixture',
-    text: 'Extension built outside Syntax',
-    data: { tested: true },
+  await page.addInitScript(() => {
+    for (const prefix of ['', 'syntax-dev-']) {
+      localStorage.setItem(`${prefix}syntax.prefs.v1`, JSON.stringify({ onboarded: true }))
+    }
   })
+  await page.goto(`${harness.appOrigin}/syntax/#/extensions`)
+  await page.getByRole('heading', { name: 'Extensions', exact: true }).waitFor()
+  assert.equal(await page.getByRole('region', { name: 'Native extensions' }).count(), 0)
+
+  await page.goto(`${harness.appOrigin}/syntax-dev/#/extensions`)
+  const native = page.getByRole('region', { name: 'Native extensions' })
+  await native.getByRole('textbox', { name: 'Native manifest URL' }).fill(harness.extUrl('native-starter/manifest.json'))
+  await native.getByRole('button', { name: 'Review native package' }).click()
+  await native.getByText('This code runs with the same browser access as Syntax.').waitFor()
+  assert.equal(await native.getByRole('button', { name: 'Open Native fixture' }).count(), 0)
+  await native.getByRole('button', { name: 'Install native package' }).click()
+  await native.getByRole('button', { name: 'Open Native fixture' }).click()
+  await page.getByText('Extension built outside Syntax', { exact: true }).waitFor()
+  await page.keyboard.press('Control+k')
+  await page.getByRole('option', { name: /Save sample/ }).click()
+  await page.waitForFunction(async () => {
+    const { createNativeRepository } = await import('/src/extensions/native/repository.ts')
+    return (await createNativeRepository().load('example.native-fixture'))?.tested
+  })
+  await page.reload()
+  await page.getByText('Extension built outside Syntax', { exact: true }).waitFor()
+  await page.getByRole('button', { name: 'Back to Extensions' }).click()
+  await native.getByRole('button', { name: 'Disable', exact: true }).click()
+  await native.getByRole('button', { name: 'Enable', exact: true }).waitFor()
+  assert.equal(await native.getByRole('button', { name: 'Open Native fixture' }).count(), 0)
+  await native.getByRole('button', { name: 'Enable', exact: true }).click()
+  await native.getByRole('button', { name: 'Open Native fixture' }).waitFor()
+
+  const failingSource = harness.extUrl('native-failure/manifest.json')
+  const failingEntry = `
+    exports.activate = ctx => {
+      ctx.registerScreen({ id: 'home', title: 'Failing screen', component() { throw Error('Screen failed'); } });
+      ctx.registerCommand({ id: 'fail', title: 'Failing command', run() { throw Error('Command failed'); } });
+    };
+  `
+  await page.route('**/native-failure/*', route => route.fulfill({
+    headers: { 'access-control-allow-origin': '*' },
+    body: route.request().url() === failingSource ? JSON.stringify({
+      manifestVersion: 2,
+      id: 'example.failing-fixture',
+      name: 'Failing fixture',
+      version: '1.0.0',
+      syntaxApi: '^2.0.0',
+      main: 'main.js',
+      sha256: createHash('sha256').update(failingEntry).digest('hex'),
+    }) : failingEntry,
+  }))
+  await native.getByRole('textbox', { name: 'Native manifest URL' }).fill(failingSource)
+  await native.getByRole('button', { name: 'Review native package' }).click()
+  await native.getByRole('button', { name: 'Install native package' }).click()
+  await native.getByRole('button', { name: 'Open Failing screen' }).click()
+  await page.getByText('This extension screen is unavailable.').waitFor()
+  await page.getByRole('button', { name: 'Back to Extensions' }).click()
+  await native.getByText('Screen failed', { exact: true }).waitFor()
+  await native.getByRole('button', { name: 'Open Native fixture' }).waitFor()
+
+  await native.getByRole('button', { name: 'Enable', exact: true }).click()
+  await native.getByRole('button', { name: 'Open Failing screen' }).waitFor()
+  await page.keyboard.press('Control+k')
+  await page.getByRole('option', { name: /Failing command/ }).click()
+  await native.getByText('Command failed', { exact: true }).waitFor()
+  assert.equal(await native.getByRole('button', { name: 'Open Failing screen' }).count(), 0)
+  await native.getByRole('button', { name: 'Open Native fixture' }).waitFor()
+  await page.reload()
+  await native.getByText('Command failed', { exact: true }).waitFor()
+  await page.keyboard.press('Control+k')
+  await page.getByRole('option', { name: /Save sample/ }).waitFor()
+  assert.equal(await page.getByRole('option', { name: /Failing command/ }).count(), 0)
 })

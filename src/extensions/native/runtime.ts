@@ -17,6 +17,7 @@ export interface NativeDataStore {
 
 interface Activation {
   package: NativePackage
+  revision?: string
   controller: AbortController
   screens: Map<string, NativeScreen>
   commands: Map<string, NativeCommand>
@@ -71,6 +72,7 @@ export class NativeRuntime {
     }
     const stage: Activation = {
       package: pkg,
+      revision,
       controller: new AbortController(),
       screens: new Map(),
       commands: new Map(),
@@ -162,6 +164,18 @@ export class NativeRuntime {
 
   getScreen(ownerId: string, screenId: string): NativeScreen | undefined {
     return this.active.get(ownerId)?.screens.get(screenId)
+  }
+
+  listScreens(ownerId: string): NativeScreen[] {
+    return [...(this.active.get(ownerId)?.screens.values() ?? [])]
+  }
+
+  listCommands(ownerId: string): NativeCommand[] {
+    return [...(this.active.get(ownerId)?.commands.values() ?? [])]
+  }
+
+  getActiveRevision(ownerId: string): string | undefined {
+    return this.active.get(ownerId)?.revision
   }
 
   isActive(ownerId: string): boolean {

@@ -17,7 +17,7 @@ const broken = `
 `
 
 test('native host persists verified installs and quarantines interrupted startup in Chromium', async t => {
-  const harness = await startE2EHarness()
+  const harness = await startE2EHarness({ channel: 'preview' })
   t.after(() => harness.close())
   const context = await harness.browser.newContext()
   t.after(() => context.close().catch(() => {}))
@@ -53,7 +53,10 @@ test('native host persists verified installs and quarantines interrupted startup
     const { NativeHost } = await import('/src/extensions/native/host.ts')
     const { createNativeRepository } = await import('/src/extensions/native/repository.ts')
     window.nativeTestRepository = createNativeRepository()
-    window.nativeTestHost = new NativeHost(window.nativeTestRepository, sessionStorage, () => {})
+    window.nativeTestHost = new NativeHost(window.nativeTestRepository, sessionStorage, () => {}, {
+      checkSource() {},
+      checkPackage() {},
+    })
   }
   await page.goto(`${harness.appOrigin}/syntax-dev/`)
   await page.evaluate(hostSetup)
@@ -95,7 +98,7 @@ test('native host persists verified installs and quarantines interrupted startup
 
   await page.evaluate(async () => {
     const existing = await window.nativeTestRepository.get('example.one')
-    sessionStorage.setItem('syntax-dev-syntax.native-startup.v2', JSON.stringify({
+    sessionStorage.setItem('syntax-preview-syntax.native-startup.v2', JSON.stringify({
       id: 'example.one',
       revision: existing.revision,
     }))
@@ -119,7 +122,7 @@ test('native host persists verified installs and quarantines interrupted startup
   await page.evaluate(() => window.nativeTestHost.setEnabled('example.one', true))
   assert.deepEqual(await page.evaluate(() => window.nativeTestRepository.load('example.one')), { text: 'kept' })
 
-  await page.evaluate(() => sessionStorage.setItem('syntax-dev-syntax.native-startup.v2', 'unreadable'))
+  await page.evaluate(() => sessionStorage.setItem('syntax-preview-syntax.native-startup.v2', 'unreadable'))
   await page.reload()
   await page.evaluate(hostSetup)
   const safeMode = await page.evaluate(async () => {

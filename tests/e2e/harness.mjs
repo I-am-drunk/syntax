@@ -167,7 +167,7 @@ const MUTABLE_VIEW_HTML = `<!doctype html>
 </body>
 </html>`
 
-export async function startE2EHarness({ nativeStarterDirectory } = {}) {
+export async function startE2EHarness({ nativeStarterDirectory, channel } = {}) {
   const vitePort = await getFreePort('127.0.0.1')
   const extPort = await getFreePort('127.0.0.1')
   const appOrigin = `http://localhost:${vitePort}`
@@ -246,6 +246,7 @@ export async function startE2EHarness({ nativeStarterDirectory } = {}) {
     [viteEntry, '--host', 'localhost', '--port', String(vitePort), '--strictPort'],
     {
       cwd: REPO_ROOT,
+      env: channel ? { ...process.env, VITE_CHANNEL: channel } : process.env,
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     },

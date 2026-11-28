@@ -1,5 +1,5 @@
 import { channelStateKey } from '../../core/channelState.ts'
-import { downloadNativePackage, verifyStoredNativePackage } from './package.ts'
+import { downloadNativePackage, parseNativeSourceUrl, verifyStoredNativePackage, type NativePackage } from './package.ts'
 import { NativePackageError } from './manifest.ts'
 import type { NativeInstall, NativeRepository } from './repository.ts'
 import { NativeRuntime } from './runtime.ts'
@@ -9,6 +9,11 @@ const startupKey = channelStateKey('syntax.native-startup.v2')
 interface StartupAttempt {
   id: string
   revision: string
+}
+
+export interface NativeAuthorization {
+  checkSource: (source: string) => void
+  checkPackage: (pkg: NativePackage) => void
 }
 
 function readAttempt(raw: string): StartupAttempt | undefined {
@@ -24,15 +29,18 @@ export class NativeHost {
   readonly runtime: NativeRuntime
   private readonly repository: NativeRepository
   private readonly journal: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
+  private readonly authorization: NativeAuthorization
   private tail: Promise<unknown> = Promise.resolve()
 
   constructor(
     repository: NativeRepository,
     journal: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>,
     reportCleanupError: (id: string, error: unknown) => void,
+    authorization: NativeAuthorization,
   ) {
     this.repository = repository
     this.journal = journal
+    this.authorization = authorization
     this.runtime = new NativeRuntime(repository, reportCleanupError)
   }
 
@@ -41,21 +49,35 @@ export class NativeHost {
   }
 
   install(source: string): Promise<NativeInstall> {
-    return this.enqueue(async () => {
-      const pkg = await downloadNativePackage(source)
-      const id = pkg.manifest.id
-      const existing = await this.repository.get(id)
-      if (existing && existing.package.sourceUrl !== pkg.sourceUrl) {
-        throw new NativePackageError('SOURCE_CONFLICT', `${id} is already installed from a different manifest URL.`)
-      }
-      if (existing?.package.manifest.version === pkg.manifest.version &&
-        existing.package.manifest.sha256 !== pkg.manifest.sha256) {
-        throw new NativePackageError('VERSION_REUSED', 'Publish changed JavaScript with a new extension version.')
-      }
-      const next = { package: pkg, revision: crypto.randomUUID(), enabled: true }
-      await this.activate(next, () => this.repository.replace(id, existing?.revision, next))
-      return next
-    })
+    return this.enqueue(async () => this.installPackage(await this.inspect(source)))
+  }
+
+  async inspect(source: string): Promise<NativePackage> {
+    const canonical = parseNativeSourceUrl(source).href
+    this.authorization.checkSource(canonical)
+    const pkg = await downloadNativePackage(canonical)
+    this.authorization.checkPackage(pkg)
+    return pkg
+  }
+
+  installInspected(pkg: NativePackage): Promise<NativeInstall> {
+    const snapshot = structuredClone(pkg)
+    return this.enqueue(() => this.installPackage(snapshot))
+  }
+
+  private async installPackage(pkg: NativePackage): Promise<NativeInstall> {
+    const id = pkg.manifest.id
+    const existing = await this.repository.get(id)
+    if (existing && existing.package.sourceUrl !== pkg.sourceUrl) {
+      throw new NativePackageError('SOURCE_CONFLICT', `${id} is already installed from a different manifest URL.`)
+    }
+    if (existing?.package.manifest.version === pkg.manifest.version &&
+      existing.package.manifest.sha256 !== pkg.manifest.sha256) {
+      throw new NativePackageError('VERSION_REUSED', 'Publish changed JavaScript with a new extension version.')
+    }
+    const next = { package: pkg, revision: crypto.randomUUID(), enabled: true }
+    await this.activate(next, () => this.repository.replace(id, existing?.revision, next))
+    return next
   }
 
   setEnabled(id: string, enabled: boolean): Promise<void> {
@@ -88,6 +110,7 @@ export class NativeHost {
       const suspect = records.find(record =>
         record.package.manifest.id === attempt?.id && record.revision === attempt.revision,
       )
+      if (raw !== null && !suspect) return { recovery: 'skipped', failed: [] }
       if (suspect) {
         if (await this.quarantine(suspect, new Error('Startup was interrupted before this extension finished activating.'))) {
           failed.push(suspect.package.manifest.id)
@@ -117,7 +140,27 @@ export class NativeHost {
   acknowledgeUnknownStartup(): Promise<void> {
     return this.enqueue(async () => {
       const raw = this.journal.getItem(startupKey)
-      if (raw !== null && !readAttempt(raw)) this.journal.removeItem(startupKey)
+      if (raw === null) return
+      const attempt = readAttempt(raw)
+      const installed = attempt ? await this.repository.get(attempt.id) : undefined
+      if (!attempt || installed?.revision !== attempt.revision) this.journal.removeItem(startupKey)
+    })
+  }
+
+  async runCommand(id: string, commandId: string): Promise<void> {
+    const revision = this.runtime.getActiveRevision(id)
+    try {
+      await this.runtime.runCommand(id, commandId)
+    } catch (error) {
+      if (revision && !this.runtime.isActive(id)) await this.reportFailure(id, revision, error)
+      throw error
+    }
+  }
+
+  reportFailure(id: string, revision: string, error: unknown): Promise<void> {
+    return this.enqueue(async () => {
+      const record = await this.repository.get(id)
+      if (record?.revision === revision && record.enabled) await this.quarantine(record, error)
     })
   }
 
@@ -133,6 +176,7 @@ export class NativeHost {
     revision = record.revision,
   ): Promise<void> {
     await verifyStoredNativePackage(record.package)
+    this.authorization.checkPackage(record.package)
     const marker = { id: record.package.manifest.id, revision: record.revision }
     this.journal.setItem(startupKey, JSON.stringify(marker))
     try {
