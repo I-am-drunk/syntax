@@ -46,6 +46,32 @@ const devPins: readonly NativePin[] = [
       sha256: 'd28fb85849e4b3d832b6af5f74c2c01e90b4e6a6855eddff51f4af8d89c7fa14',
     },
   },
+  {
+    // syntax-platform/syntax-official-extensions#5
+    sourceUrl: 'https://raw.githubusercontent.com/syntax-platform/syntax-official-extensions/a43fb295e5af1b6a003bf71d3015038066df7c13/extensions/analytic-geometry-mpm2d/releases/v1.0.1/manifest.json',
+    manifest: {
+      manifestVersion: 2,
+      id: 'syntax.mpm2d-analytic-geometry',
+      name: 'Analytic Geometry (MPM2D)',
+      version: '1.0.1',
+      syntaxApi: '^2.0.0',
+      main: 'main.js',
+      sha256: 'a18df6e42e1c0fcc54482732dd5aeed34421115dfe76a450d26fcb96b5293553',
+    },
+  },
+  {
+    // syntax-platform/syntax-official-extensions#5
+    sourceUrl: 'https://raw.githubusercontent.com/syntax-platform/syntax-official-extensions/a43fb295e5af1b6a003bf71d3015038066df7c13/extensions/binary-basics/releases/v1.0.1/manifest.json',
+    manifest: {
+      manifestVersion: 2,
+      id: 'syntax.binary-basics',
+      name: 'Binary & Logic Basics',
+      version: '1.0.1',
+      syntaxApi: '^2.0.0',
+      main: 'main.js',
+      sha256: '002dc701e629480abeb9de0b304fac1fb4ffded6f2070d0f2e543553a2237141',
+    },
+  },
 ]
 export const hasHostedNativePackages = devPins.length > 0
 

@@ -15,7 +15,7 @@ const { outputFiles: [entry] } = await build({
   jsx: 'automatic',
   platform: 'browser',
   target: 'es2022',
-  external: ['react', 'react/jsx-runtime'],
+  external: ['react', 'react/jsx-runtime', '@syntax/api', '@syntax/ui'],
   write: false,
 })
 

@@ -36,8 +36,8 @@ For each milestone, record its status, PRs, exact tested commit, relevant deploy
 | Milestone | What you can use | Status |
 | --- | --- | --- |
 | [V1.0](#v10-runtime-and-authoring-foundation) | A tested runtime and a documented way to build and install an external test package | Complete |
-| [V1.1](#v11-quick-notes-and-authoring-proof) | An independently authored notes tool with a screen, a command, and recovery | In progress |
-| [V1.2](#v12-course-ui-and-progress) | A real lesson and shared learning UI | Planned |
+| [V1.1](#v11-quick-notes-and-authoring-proof) | An independently authored notes tool with a screen, a command, and recovery | Complete |
+| [V1.2](#v12-course-ui-and-progress) | A real lesson and shared learning UI | In progress |
 | [V1.3](#v13-embedded-extensions-tools-and-themes) | A course with required embedded behavior and an optional tool | Planned |
 | [V1.4](#v14-publishing-discovery-and-docs) | A documented authoring, publishing, and install path | Planned |
 | [V1.5](#v15-release-rehearsal) | A complete release rehearsal on the actual sites | Planned |
@@ -92,10 +92,17 @@ If an extension crashes, keep it visible in Extensions with **Inspect** and **Re
 
 **Release gate**
 
-- [ ] Publish a real Quick Notes build. Install it from a link on Syntax Dev, open it from install success and Extensions, and open it from the command palette.
-- [ ] Verify autosave after refresh, after disabling and enabling, and after uninstall and reinstall. Exercise a save failure and show the user what happened.
-- [ ] Use a deliberately failing fixture to verify the crash notification, **Inspect**, the same-build retry caution, and replacement recovery. Keep a healthy extension open through the test.
-- [ ] Have another reviewer follow the authoring walkthrough with no setup beyond what's documented. Record what worked, fix any friction, and rerun the full V1.0 and V1.1 checks on the candidate. One successful Quick Notes install does not close the milestone.
+- [x] Publish a real Quick Notes build. Install it from a link on Syntax Dev, open it from install success and Extensions, and open it from the command palette.
+- [x] Verify autosave after refresh, after disabling and enabling, and after uninstall and reinstall. Exercise a save failure and show the user what happened.
+- [x] Use a deliberately failing fixture to verify the crash notification, **Inspect**, the same-build retry caution, and replacement recovery. Keep a healthy extension open through the test.
+- [x] Have another reviewer follow the authoring walkthrough with no setup beyond what's documented. Record what worked, fix any friction, and rerun the full V1.0 and V1.1 checks on the candidate. One successful Quick Notes install does not close the milestone.
+
+**V1.1 evidence**
+
+- Official **Quick Notes** was scaffolded and built outside core Syntax using `npm run extension:init` and `npm run extension:check`, then published in [official extensions PR #2](https://github.com/syntax-platform/syntax-official-extensions/pull/2) (`v1.0.0`, commit `1a75b19f`, `main.js` SHA-256 `ae6eef5e84b536df8caa7ee226f70f61801ed5cbde15e127d363d3a60bc36794`).
+- An independent reviewer followed [NATIVE-AUTHORING.md](NATIVE-AUTHORING.md) from a clean Windows temp checkout (5.31s init-to-check, byte-identical rebuilds) and audited the V1.1 implementation. Six blocking findings were resolved before closing V1.1: autosave sequence race and load-vs-save error separation in [official extensions PR #3](https://github.com/syntax-platform/syntax-official-extensions/pull/3) (`v1.0.1`, commit `a35f7bc9`, `main.js` SHA-256 `d28fb85849e4b3d832b6af5f74c2c01e90b4e6a6855eddff51f4af8d89c7fa14`), Windows UTF-8 BOM tolerance in `templates/native-extension/build.mjs`, same-build reinstall and manual-disable caution persistence, live toast **Inspect** navigation, crash detail rendering on `NativeDevScreen`, and approved cross-commit pin upgrades in `devPolicy.ts`.
+- [Core PR #45](https://github.com/syntax-platform/syntax/pull/45) passed [CI](https://github.com/syntax-platform/syntax/actions/runs/46160315213) (45 unit tests, production build, and all 10 Chromium E2E scenarios including `tests/e2e/native-quick-notes.test.mjs`) and merged as `3755c47f8ed90f23bc22f01b3fed578a50c1b4b7`. PR #45 also proved the new GitHub Pages Infra preview lifecycle end-to-end (`https://syntax-platform.github.io/syntax-infra/pr-45/` published on open, updated on push `40b2807`, and cleaned up automatically on merge).
+- [Manual Dev run 46160646141](https://github.com/syntax-platform/syntax/actions/runs/46160646141) deployed `3755c47f` to [Syntax Dev](https://syntax-platform.github.io/syntax-dev/). Live Chromium verification confirmed direct link install (`?native=...`), **Open** from install success, autosave across reload, in-place upgrade from commit-pinned `v1.0.0` to `v1.0.1`, and `Ctrl+K` launch.
 
 ### V1.2 Course UI and progress
 

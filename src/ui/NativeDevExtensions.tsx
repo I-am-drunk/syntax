@@ -423,11 +423,14 @@ export function NativeDevScreen({ id, screen, onNavigate }: {
     ? getNativeDevHost().runtime.getScreen(id, screen)
     : undefined
   const Content = contribution?.component
-  const exit = () => onNavigate(extensionsPath)
+  const isCourse = contribution?.kind === 'course'
+  const exitPath = isCourse ? '/library' : extensionsPath
+  const exitLabel = isCourse ? 'Back to Library' : 'Back to Extensions'
+  const exit = () => onNavigate(exitPath)
   return (
     <main className="sx-workspace-page">
       <div className="sx-native-screen-bar">
-        <button type="button" className="sx-btn-secondary" onClick={exit}>Back to Extensions</button>
+        <button type="button" className="sx-btn-secondary" onClick={exit}>{exitLabel}</button>
       </div>
       {Content && install ? (
         <SyntaxErrorBoundary

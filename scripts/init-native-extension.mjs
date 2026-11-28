@@ -15,6 +15,7 @@ if (!path || process.argv.length !== 3) {
       await copyFile(new URL(file, template), join(destination, file))
     }
     await copyFile(new URL('../src/extensions/native/api.ts', import.meta.url), join(destination, 'syntax-api.d.ts'))
+    await copyFile(new URL('../src/extensions/native/sdk-types.d.ts', import.meta.url), join(destination, 'syntax-sdk.d.ts'))
     console.log(`Created the native extension starter in ${destination}.`)
   } catch (error) {
     console.error(error.code === 'EEXIST'
