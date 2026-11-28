@@ -2,6 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import { Route, Router, Switch, useLocation } from 'wouter'
 import { useHashLocation } from 'wouter/use-hash-location'
 import { Toaster } from 'sonner'
+import { recordActivity } from '../core/activity'
 import {
   CLOUD_SYNC_APPLIED_EVENT,
   CLOUD_SYNC_DIRTY_EVENT,
@@ -161,6 +162,7 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
   }, [navigate])
 
   useEffect(() => {
+    recordActivity('visit', 1)
     const safeMode = isSafeMode()
     void extensionManager.boot({ safeMode })
     const cleanLoc = location.split('?')[0] || '/'
@@ -310,10 +312,8 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
             <Suspense fallback={<RouteLoadingFallback label="Loading profile" />}>
               <ProfilePage
                 prefs={prefs}
-                onOpenLibrary={() => navigate('/library')}
+                onNavigate={navigate}
                 onOpenExtensions={() => navigate('/extensions')}
-                onOpenCommunityHub={() => navigate('/community')}
-                onOpenSettings={() => navigate('/settings')}
               />
             </Suspense>
           </SyntaxErrorBoundary>

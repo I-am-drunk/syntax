@@ -11,6 +11,7 @@ import {
   Square,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { recordActivity } from '../core/activity'
 import { isDevEnvironment } from '../core/devEnv'
 import { SyntaxErrorBoundary } from '../core/ErrorBoundary.tsx'
 import { useContributionStore } from './contributions.ts'
@@ -157,6 +158,11 @@ export function ExtensionPage({
     const parts = [doc?.title, view.title, extName, 'Syntax'].filter(Boolean)
     document.title = isDevEnvironment() ? `${parts.join(' · ')} (Dev)` : parts.join(' · ')
   }, [doc?.title, view, extName])
+
+  useEffect(() => {
+    if (!view || runtime?.status !== 'active') return
+    recordActivity(record?.manifest.kind === 'course' ? 'course' : 'extension', 1)
+  }, [extensionId, viewId, view, runtime?.status, record?.manifest.kind])
 
   if (!safeMode && record?.enabled && (!booted || runtime?.status === 'loading')) {
     return (

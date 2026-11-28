@@ -25,6 +25,7 @@ export const SyntaxCloudPayloadSchema = z.object({
     .object({
       onboarded: z.boolean().optional(),
       logoClickTarget: z.enum(['library', 'home']).optional(),
+      navStyle: z.enum(['underline', 'pill']).optional(),
       semaShape: z.string().max(32).optional(),
       semaTail: z.string().max(32).optional(),
       semaExpression: z.string().max(32).optional(),

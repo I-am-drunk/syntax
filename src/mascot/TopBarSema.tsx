@@ -37,7 +37,7 @@ const BOUNCE_REACTIONS: BounceReaction[] = [
 ]
 
 export function TopBarSema({
-  enableRoaming = true,
+  enableRoaming = false,
   dockedIntoLogo = false,
   isDev = false,
   scrollContainerRef,

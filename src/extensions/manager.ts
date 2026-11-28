@@ -1,3 +1,4 @@
+import { recordActivity } from '../core/activity.ts'
 import { toast } from 'sonner'
 import {
   qualifyContributionKey,
@@ -255,6 +256,7 @@ export class ExtensionManager {
           data: raw.data,
         })
         notifyDocumentsChanged()
+        recordActivity('document', 1)
         return created
       }
 
@@ -287,6 +289,7 @@ export class ExtensionManager {
           data: raw.data,
         })
         notifyDocumentsChanged()
+        recordActivity('document', 1)
         return saved
       }
 

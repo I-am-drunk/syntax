@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Menu } from '@base-ui/react/menu'
 import {
   Check,
@@ -14,6 +13,7 @@ import {
   Sparkles,
   Sun,
   Terminal,
+  User,
   Volume2,
   VolumeX,
 } from 'lucide-react'
@@ -48,24 +48,20 @@ interface AppHeaderProps {
   onPokeSema: () => void
 }
 
-const PRIMARY_TABS = [
-  { id: 'home', label: 'Home', mobileLabel: 'Home', path: '/', Icon: Home },
-  { id: 'library', label: 'Library', mobileLabel: 'Library', path: '/library', Icon: Library },
-  {
-    id: 'extensions',
-    label: 'Extensions',
-    mobileLabel: 'Extensions',
-    path: '/extensions',
-    Icon: Puzzle,
-  },
-  {
-    id: 'community',
-    label: 'Community',
-    mobileLabel: 'Hub',
-    fullLabel: 'Community Hub',
-    path: '/community',
-    Icon: Compass,
-  },
+// Keep Sema in the codebase, disabled in the top bar for now
+const SHOW_TOPBAR_SEMA = false
+
+const DESKTOP_TABS = [
+  { id: 'home', label: 'Home', path: '/' },
+  { id: 'library', label: 'Library', path: '/library' },
+] as const
+
+const MOBILE_TABS = [
+  { id: 'home', label: 'Home', path: '/', Icon: Home },
+  { id: 'library', label: 'Library', path: '/library', Icon: Library },
+  { id: 'extensions', label: 'Extensions', path: '/extensions', Icon: Puzzle },
+  { id: 'community', label: 'Community Hub', path: '/community', Icon: Compass },
+  { id: 'profile', label: 'Profile', path: '/profile', Icon: User },
 ] as const
 
 const MENU_NAV_ITEMS = [
@@ -73,7 +69,7 @@ const MENU_NAV_ITEMS = [
   { id: 'library', label: 'Library', path: '/library', Icon: Library },
   { id: 'extensions', label: 'Extensions', path: '/extensions', Icon: Puzzle },
   { id: 'community', label: 'Community Hub', path: '/community', Icon: Compass },
-  { id: 'settings', label: 'Settings & Sema', path: '/settings', Icon: Settings },
+  { id: 'settings', label: 'Settings', path: '/settings', Icon: Settings },
 ] as const
 
 export function AppHeader({
@@ -94,6 +90,43 @@ export function AppHeader({
   const extensionRecords = useExtensionStore(s => s.records)
   const runtimeById = useExtensionStore(s => s.runtime)
   const [runningCommands, setRunningCommands] = useState<ReadonlySet<string>>(() => new Set())
+
+  const navStyle = prefs.navStyle === 'pill' ? 'pill' : 'underline'
+  const navRef = useRef<HTMLElement | null>(null)
+  const tabRefs = useRef<Record<string, HTMLAnchorElement | null>>({})
+  const [indicator, setIndicator] = useState<{ left: number; width: number; visible: boolean }>({
+    left: 0,
+    width: 0,
+    visible: false,
+  })
+
+  useLayoutEffect(() => {
+    const syncIndicator = () => {
+      if (activeRoute !== 'home' && activeRoute !== 'library') {
+        setIndicator(prev => (prev.visible ? { ...prev, visible: false } : prev))
+        return
+      }
+      const el = tabRefs.current[activeRoute]
+      if (!el) return
+      setIndicator({ left: el.offsetLeft, width: el.offsetWidth, visible: true })
+    }
+    syncIndicator()
+    window.addEventListener('resize', syncIndicator, { passive: true })
+    return () => window.removeEventListener('resize', syncIndicator)
+  }, [activeRoute, navStyle])
+
+  useEffect(() => {
+    if (typeof document === 'undefined' || !('fonts' in document)) return
+    let active = true
+    void document.fonts.ready.then(() => {
+      if (!active || (activeRoute !== 'home' && activeRoute !== 'library')) return
+      const el = tabRefs.current[activeRoute]
+      if (el) setIndicator({ left: el.offsetLeft, width: el.offsetWidth, visible: true })
+    })
+    return () => {
+      active = false
+    }
+  }, [activeRoute, navStyle])
 
   const isWorkerStopped = (ownerId: string) => {
     const rt = runtimeById[ownerId]
@@ -148,7 +181,6 @@ export function AppHeader({
   }
 
   function handleLogoClick() {
-    onPokeSema()
     onNavigate(prefs.logoClickTarget === 'home' ? '/' : '/library')
   }
 
@@ -181,48 +213,66 @@ export function AppHeader({
               {isDev && <span className="dev-rainbow-text">Dev</span>}
             </a>
 
-            <TopBarSema
-              enableRoaming={prefs.onboarded}
-              dockedIntoLogo={false}
-              isDev={isDev}
-              shape={prefs.semaShape}
-              tail={prefs.semaTail}
-              expression={prefs.semaExpression}
-              hasNotification={false}
-              onPoke={onPokeSema}
-              onLogoClick={handleLogoClick}
-            />
+            {SHOW_TOPBAR_SEMA && (
+              <TopBarSema
+                enableRoaming={false}
+                dockedIntoLogo={false}
+                isDev={isDev}
+                shape={prefs.semaShape}
+                tail={prefs.semaTail}
+                expression={prefs.semaExpression}
+                hasNotification={false}
+                onPoke={onPokeSema}
+                onLogoClick={handleLogoClick}
+              />
+            )}
           </div>
 
-          <nav className="sx-nav-pills" aria-label="Main navigation">
-            {PRIMARY_TABS.map(tab => {
+          <nav
+            ref={navRef}
+            className={`sx-nav-bar ${navStyle === 'pill' ? 'is-pill' : 'is-underline'}`}
+            aria-label="Main navigation"
+          >
+            {navStyle === 'pill' && (
+              <span
+                className={`sx-nav-pill-slider${indicator.visible ? ' is-visible' : ''}`}
+                aria-hidden="true"
+                style={{
+                  width: `${indicator.width}px`,
+                  transform: `translate3d(${indicator.left}px, 0, 0)`,
+                }}
+              />
+            )}
+            {DESKTOP_TABS.map(tab => {
               const active = activeRoute === tab.id
-              const Icon = tab.Icon
-              const ariaLabel = 'fullLabel' in tab ? tab.fullLabel : tab.label
               return (
                 <a
                   key={tab.id}
+                  ref={el => {
+                    tabRefs.current[tab.id] = el
+                  }}
                   href={`#${tab.path}`}
-                  className={`sx-nav-tab${active ? ' is-active' : ''}`}
-                  aria-label={ariaLabel}
+                  className={`sx-nav-link${active ? ' is-active' : ''}`}
                   aria-current={active ? 'page' : undefined}
                   onClick={e => {
                     e.preventDefault()
                     onNavigate(tab.path)
                   }}
                 >
-                  {active && (
-                    <motion.span
-                      layoutId="sx-nav-pill"
-                      className="sx-nav-tab-bg"
-                      transition={{ type: 'spring', stiffness: 520, damping: 38 }}
-                    />
-                  )}
-                  <Icon size={15} strokeWidth={2} className="sx-nav-tab-icon" aria-hidden="true" />
-                  <span className="sx-nav-tab-label">{tab.label}</span>
+                  {tab.label}
                 </a>
               )
             })}
+            {navStyle === 'underline' && (
+              <span
+                className={`sx-nav-underline${indicator.visible ? ' is-visible' : ''}`}
+                aria-hidden="true"
+                style={{
+                  width: `${indicator.width}px`,
+                  transform: `translate3d(${indicator.left}px, 0, 0)`,
+                }}
+              />
+            )}
           </nav>
         </div>
 
@@ -308,20 +358,17 @@ export function AppHeader({
             <Menu.Portal>
               <Menu.Positioner sideOffset={8} align="end" collisionPadding={10} className="menu-positioner">
                 <Menu.Popup className="sx-menu-popup">
-                  <div className="sx-menu-group">
+                  <Menu.Group className="sx-menu-group">
                     <Menu.Item className="sx-menu-item" onClick={onOpenCommandPalette}>
-                      <span className="sx-menu-icon">
-                        <Search size={14} strokeWidth={2} aria-hidden="true" />
-                      </span>
-                      <span className="sx-menu-label">Quick Search</span>
+                      <Search size={15} strokeWidth={1.75} className="sx-menu-row-icon" aria-hidden="true" />
+                      <span className="sx-menu-label">Quick search</span>
                       <kbd className="sx-menu-kbd">{shortcutLabel}</kbd>
                     </Menu.Item>
-                  </div>
+                  </Menu.Group>
 
                   <Menu.Separator className="sx-menu-sep" />
 
                   <Menu.Group className="sx-menu-group">
-                    <div className="sx-menu-section-label">Workspace</div>
                     {MENU_NAV_ITEMS.map(({ id, label, path, Icon }) => {
                       const active = activeRoute === id
                       return (
@@ -330,12 +377,10 @@ export function AppHeader({
                           className={`sx-menu-item${active ? ' is-current' : ''}`}
                           onClick={() => onNavigate(path)}
                         >
-                          <span className="sx-menu-icon">
-                            <Icon size={14} strokeWidth={2} aria-hidden="true" />
-                          </span>
+                          <Icon size={15} strokeWidth={1.75} className="sx-menu-row-icon" aria-hidden="true" />
                           <span className="sx-menu-label">{label}</span>
                           {active && (
-                            <Check size={14} strokeWidth={2.4} className="sx-menu-check" aria-hidden="true" />
+                            <Check size={14} strokeWidth={2.2} className="sx-menu-check" aria-hidden="true" />
                           )}
                         </Menu.Item>
                       )
@@ -346,7 +391,7 @@ export function AppHeader({
                     <>
                       <Menu.Separator className="sx-menu-sep" />
                       <Menu.Group className="sx-menu-group">
-                        <div className="sx-menu-section-label">Extension Actions</div>
+                        <div className="sx-menu-section-label">Extensions</div>
                         {toolbarViewItems.map(item => (
                           <Menu.Item
                             key={`tb:${item.key}`}
@@ -357,9 +402,7 @@ export function AppHeader({
                               )
                             }
                           >
-                            <span className="sx-menu-icon">
-                              <Puzzle size={14} strokeWidth={2} aria-hidden="true" />
-                            </span>
+                            <Puzzle size={15} strokeWidth={1.75} className="sx-menu-row-icon" aria-hidden="true" />
                             <span className="sx-ext-cmd-copy">
                               <span>{item.label}</span>
                               <small>{ownerNames.get(item.ownerId) ?? item.ownerId}</small>
@@ -373,9 +416,7 @@ export function AppHeader({
                             data-extension-command-key={cmd.key}
                             onClick={() => void handleRunCommand(cmd.key, cmd.ownerId)}
                           >
-                            <span className="sx-menu-icon">
-                              <Terminal size={14} strokeWidth={2} aria-hidden="true" />
-                            </span>
+                            <Terminal size={15} strokeWidth={1.75} className="sx-menu-row-icon" aria-hidden="true" />
                             <span className="sx-ext-cmd-copy">
                               <span>{cmd.title}</span>
                               <small>{ownerNames.get(cmd.ownerId) ?? cmd.ownerId}</small>
@@ -389,33 +430,26 @@ export function AppHeader({
                   <Menu.Separator className="sx-menu-sep" />
 
                   <Menu.Group className="sx-menu-group">
-                    <div className="sx-menu-section-label">Preferences</div>
                     <Menu.Item className="sx-menu-item" onClick={onToggleTheme}>
-                      <span className="sx-menu-icon">
-                        {theme === 'dark' ? (
-                          <Sun size={14} strokeWidth={2} aria-hidden="true" />
-                        ) : (
-                          <Moon size={14} strokeWidth={2} aria-hidden="true" />
-                        )}
-                      </span>
+                      {theme === 'dark' ? (
+                        <Sun size={15} strokeWidth={1.75} className="sx-menu-row-icon" aria-hidden="true" />
+                      ) : (
+                        <Moon size={15} strokeWidth={1.75} className="sx-menu-row-icon" aria-hidden="true" />
+                      )}
                       <span className="sx-menu-label">Appearance</span>
-                      <span className="sx-menu-pill">{theme === 'dark' ? 'Dark' : 'Light'}</span>
+                      <span className="sx-menu-value">{theme === 'dark' ? 'Dark' : 'Light'}</span>
                     </Menu.Item>
                     <Menu.Item className="sx-menu-item" onClick={onToggleSound}>
-                      <span className="sx-menu-icon">
-                        {soundOn ? (
-                          <Volume2 size={14} strokeWidth={2} aria-hidden="true" />
-                        ) : (
-                          <VolumeX size={14} strokeWidth={2} aria-hidden="true" />
-                        )}
-                      </span>
-                      <span className="sx-menu-label">Sound effects</span>
-                      <span className="sx-menu-pill">{soundOn ? 'On' : 'Off'}</span>
+                      {soundOn ? (
+                        <Volume2 size={15} strokeWidth={1.75} className="sx-menu-row-icon" aria-hidden="true" />
+                      ) : (
+                        <VolumeX size={15} strokeWidth={1.75} className="sx-menu-row-icon" aria-hidden="true" />
+                      )}
+                      <span className="sx-menu-label">Sound</span>
+                      <span className="sx-menu-value">{soundOn ? 'On' : 'Off'}</span>
                     </Menu.Item>
                     <Menu.Item className="sx-menu-item" onClick={onOpenWelcome}>
-                      <span className="sx-menu-icon">
-                        <Sparkles size={14} strokeWidth={2} aria-hidden="true" />
-                      </span>
+                      <Sparkles size={15} strokeWidth={1.75} className="sx-menu-row-icon" aria-hidden="true" />
                       <span className="sx-menu-label">Welcome tour</span>
                     </Menu.Item>
                   </Menu.Group>
@@ -427,31 +461,28 @@ export function AppHeader({
       </header>
 
       <nav className="sx-mobile-tabbar" aria-label="Mobile navigation">
-        {PRIMARY_TABS.map(tab => {
+        {MOBILE_TABS.map(tab => {
           const active = activeRoute === tab.id
           const Icon = tab.Icon
-          const ariaLabel = 'fullLabel' in tab ? tab.fullLabel : tab.label
           return (
             <a
               key={tab.id}
               href={`#${tab.path}`}
               className={`sx-mobile-tab${active ? ' is-active' : ''}`}
-              aria-label={ariaLabel}
+              aria-label={tab.label}
+              title={tab.label}
               aria-current={active ? 'page' : undefined}
               onClick={e => {
                 e.preventDefault()
                 onNavigate(tab.path)
               }}
             >
-              {active && (
-                <motion.span
-                  layoutId="sx-mobile-tab-pill"
-                  className="sx-mobile-tab-pill"
-                  transition={{ type: 'spring', stiffness: 520, damping: 36 }}
-                />
-              )}
-              <Icon size={19} strokeWidth={active ? 2.25 : 1.9} className="sx-mobile-tab-icon" aria-hidden="true" />
-              <span className="sx-mobile-tab-label">{tab.mobileLabel}</span>
+              <Icon
+                size={22}
+                strokeWidth={active ? 2.3 : 1.75}
+                className="sx-mobile-tab-icon"
+                aria-hidden="true"
+              />
             </a>
           )
         })}

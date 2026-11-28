@@ -125,6 +125,7 @@ export function collectLocalCloudSnapshot(): SyntaxCloudPayload {
     prefs: {
       onboarded: prefs.onboarded,
       logoClickTarget: prefs.logoClickTarget,
+      navStyle: prefs.navStyle,
       semaShape: prefs.semaShape,
       semaTail: prefs.semaTail,
       semaExpression: prefs.semaExpression,
@@ -160,6 +161,9 @@ export function mergeCloudIntoLocal(remote: SyntaxCloudPayload): SyntaxCloudPayl
         : {}),
       ...(remote.prefs.logoClickTarget !== undefined
         ? { logoClickTarget: remote.prefs.logoClickTarget }
+        : {}),
+      ...(remote.prefs.navStyle !== undefined
+        ? { navStyle: remote.prefs.navStyle }
         : {}),
       ...(remote.prefs.semaShape
         ? { semaShape: remote.prefs.semaShape as SyntaxPrefs['semaShape'] }

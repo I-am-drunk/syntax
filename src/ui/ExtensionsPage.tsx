@@ -32,7 +32,6 @@ import {
   type ResolvedExtensionAssets,
 } from '../extensions/manifest.ts'
 import { exitSafeModeAndReload, useExtensionStore, type ExtensionRecord } from '../extensions/store.ts'
-import { Segmented } from './Controls'
 import { ExtensionIcon } from './ExtensionIcon'
 import { ExtensionInstallModal } from './ExtensionInstallModal'
 
@@ -40,8 +39,6 @@ export interface ExtensionsPageProps {
   onOpenCommunityHub: () => void
   onNavigate: (path: string) => void
 }
-
-type ExtensionsViewMode = 'extensions' | 'courses'
 
 function statusLabel(status: string | undefined, enabled: boolean): string {
   if (status === 'active') return 'Active'
@@ -116,11 +113,6 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
   const autoSafeMode = useExtensionStore(s => s.autoSafeMode)
   const views = useContributionStore(s => s.views)
 
-  const [viewMode, setViewMode] = useState<ExtensionsViewMode>(() => {
-    const hasExt = records.some(r => r.manifest.kind !== 'course')
-    const hasCourse = records.some(r => r.manifest.kind === 'course')
-    return !hasExt && hasCourse ? 'courses' : 'extensions'
-  })
   const [filterQuery, setFilterQuery] = useState('')
   const [manifestUrl, setManifestUrl] = useState('')
   const [fetchingManifest, setFetchingManifest] = useState(false)
@@ -139,14 +131,12 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
   const [logsVersion, setLogsVersion] = useState(0)
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
-  const extensionRecords = records.filter(r => r.manifest.kind !== 'course')
-  const courseRecords = records.filter(r => r.manifest.kind === 'course')
-  const visibleRecords = viewMode === 'courses' ? courseRecords : extensionRecords
+  const visibleRecords = records
   const trimmedFilter = filterQuery.trim().toLowerCase()
   const filteredVisibleRecords = trimmedFilter
     ? visibleRecords.filter(rec => {
         const status = runtimeById[rec.id]?.status ?? (rec.enabled ? 'loading' : 'disabled')
-        return `${rec.manifest.name} ${rec.id} ${rec.manifest.author ?? ''} ${rec.manifest.description ?? ''} ${status}`
+        return `${rec.manifest.name} ${rec.id} ${rec.manifest.kind} ${rec.manifest.author ?? ''} ${rec.manifest.description ?? ''} ${status}`
           .toLowerCase()
           .includes(trimmedFilter)
       })
@@ -259,7 +249,6 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
       )
       setPendingInstall(null)
       setManifestUrl('')
-      setViewMode(rec.manifest.kind === 'course' ? 'courses' : 'extensions')
       toast.success(
         safeMode
           ? `Installed ${rec.manifest.name} (paused while in Safe Mode)`
@@ -388,25 +377,12 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
       <header className="sx-plugins-header">
         <div className="sx-plugins-title-row">
           <div className="sx-workspace-head">
-            <h1>{viewMode === 'courses' ? 'Courses' : 'Extensions'}</h1>
+            <h1>Extensions</h1>
             <span className="sx-hub-count">
-              {viewMode === 'courses'
-                ? 'Installable interactive courses'
-                : 'Standalone and embedded Syntax extensions'}
+              Installed courses, tools, and embedded widgets
             </span>
           </div>
           <div className="sx-plugins-cta-group">
-            <div className="sx-ext-mode-toggle" data-testid="extensions-mode-toggle">
-              <Segmented
-                label="Show extensions or courses"
-                value={viewMode}
-                onChange={setViewMode}
-                options={[
-                  { value: 'extensions', label: `Extensions (${extensionRecords.length})` },
-                  { value: 'courses', label: `Courses (${courseRecords.length})` },
-                ]}
-              />
-            </div>
             <button
               type="button"
               className="sx-btn-secondary"
@@ -477,10 +453,10 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
 
       <section
         className="sx-plugins-section"
-        aria-label={viewMode === 'courses' ? 'Installed courses' : 'Installed extensions'}
+        aria-label="Installed packages"
       >
         <div className="sx-plugins-section-head">
-          <h2>{viewMode === 'courses' ? 'Installed Courses' : 'Installed Extensions'}</h2>
+          <h2>Installed</h2>
           <div className="sx-ext-section-head-actions">
             {visibleRecords.length > 1 && (
               <button
@@ -502,29 +478,13 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
             <span className="sx-empty-icon" aria-hidden="true">
               <Puzzle size={20} strokeWidth={1.9} />
             </span>
-            <p>
-              {viewMode === 'courses'
-                ? 'No courses installed yet.'
-                : 'No extensions installed yet.'}
-            </p>
+            <p>No extensions or courses installed yet.</p>
             <p className="sx-profile-handle">
-              {viewMode === 'courses' ? (
-                <>
-                  Install a course by pasting its <code>extension.json</code> URL above, or browse{' '}
-                  <button type="button" className="sx-link-btn" onClick={onOpenCommunityHub}>
-                    Community Hub
-                  </button>
-                  .
-                </>
-              ) : (
-                <>
-                  Paste any extension&apos;s <code>extension.json</code> URL above, or browse{' '}
-                  <button type="button" className="sx-link-btn" onClick={onOpenCommunityHub}>
-                    Community Hub
-                  </button>
-                  .
-                </>
-              )}
+              Paste any package&apos;s <code>extension.json</code> URL above, or browse{' '}
+              <button type="button" className="sx-link-btn" onClick={onOpenCommunityHub}>
+                Community Hub
+              </button>
+              .
             </p>
           </div>
         ) : (
@@ -534,11 +494,7 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
                 <Search size={15} className="sx-search-icon" aria-hidden="true" />
                 <input
                   type="search"
-                  placeholder={
-                    viewMode === 'courses'
-                      ? 'Filter installed courses...'
-                      : 'Filter installed extensions...'
-                  }
+                  placeholder="Filter installed extensions and courses..."
                   aria-label="Filter installed packages"
                   value={filterQuery}
                   onChange={e => setFilterQuery(e.target.value)}

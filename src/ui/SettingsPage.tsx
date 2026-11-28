@@ -115,6 +115,22 @@ export function SettingsPage({
 
             <div className="preference-row preference-choices">
               <div className="syntax-pref-copy">
+                <p>Navigation bar style</p>
+                <span>Switch between the classic bottom bar and the sliding pill indicator</span>
+              </div>
+              <Segmented
+                label="Navigation bar style"
+                value={prefs.navStyle}
+                onChange={v => onPatchPrefs({ navStyle: v })}
+                options={[
+                  { value: 'underline', label: 'Bottom bar' },
+                  { value: 'pill', label: 'Sliding pill' },
+                ]}
+              />
+            </div>
+
+            <div className="preference-row preference-choices">
+              <div className="syntax-pref-copy">
                 <p>Clicking the Syntax logo opens</p>
                 <span>Choose whether clicking Syntax returns to your Library or Home</span>
               </div>
