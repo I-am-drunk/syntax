@@ -1,3 +1,4 @@
+import { toast } from 'sonner'
 import { create } from 'zustand'
 import { channelStateKey } from '../../core/channelState.ts'
 import { syntaxLog } from '../../core/logger'
@@ -11,19 +12,60 @@ export const useNativeDevStore = create<{
   installs: NativeInstall[]
   phase: 'loading' | 'ready' | 'recovery' | 'failed'
   error?: string
+  inspectedId?: string
 }>(() => ({ installs: [], phase: 'loading' }))
 
 let host: NativeHost | undefined
 let boot: Promise<void> | undefined
 let changes: BroadcastChannel | undefined
+let navigatorFn: ((path: string) => void) | null = null
+
+export function setNativeDevNavigator(navigate: ((path: string) => void) | null) {
+  navigatorFn = navigate
+  if (host) host.setNavigator(navigate)
+}
+
+export function inspectNativeExtension(id: string | undefined) {
+  useNativeDevStore.setState({ inspectedId: id })
+}
+
+export function notifyNativeCrash(options: {
+  id: string
+  name: string
+  message: string
+  onInspect?: () => void
+}) {
+  const { id, name, message, onInspect } = options
+  toast.error(`${name} stopped after an error`, {
+    id: `native-crash:${id}`,
+    description: message,
+    duration: 8000,
+    action: {
+      label: 'Inspect',
+      onClick: () => {
+        inspectNativeExtension(id)
+        if (onInspect) {
+          onInspect()
+        } else {
+          navigatorFn?.('/extensions')
+        }
+      },
+    },
+  })
+}
 
 export function getNativeDevHost(): NativeHost {
   if (nativeDevMode === 'disabled') throw new Error('Native extensions are unavailable in this build.')
-  return host ??= new NativeHost(
-    createNativeRepository(), sessionStorage,
-    (id, error) => syntaxLog.error(`native:${id}`, 'Extension cleanup failed.', error),
-    createNativeDevAuthorization(nativeDevMode),
-  )
+  if (!host) {
+    host = new NativeHost(
+      createNativeRepository(),
+      sessionStorage,
+      (id, error) => syntaxLog.error(`native:${id}`, 'Extension cleanup failed.', error),
+      createNativeDevAuthorization(nativeDevMode),
+    )
+    host.setNavigator(navigatorFn)
+  }
+  return host
 }
 
 export async function refreshNativeDevInstalls(broadcast = true) {
@@ -53,6 +95,19 @@ export function bootNativeDev(safeMode: boolean): Promise<void> {
       observeNativeDevChanges()
       await refreshNativeDevInstalls(Boolean(result?.failed.length))
       useNativeDevStore.setState({ phase: !result || result.recovery === 'skipped' ? 'recovery' : 'ready' })
+      if (result?.failed.length) {
+        const installs = useNativeDevStore.getState().installs
+        for (const failedId of result.failed) {
+          const item = installs.find(entry => entry.package.manifest.id === failedId)
+          if (item?.failure) {
+            notifyNativeCrash({
+              id: failedId,
+              name: item.package.manifest.name,
+              message: item.failure,
+            })
+          }
+        }
+      }
     } catch (error) {
       useNativeDevStore.setState({ phase: 'failed', error: error instanceof Error ? error.message : String(error) })
     }

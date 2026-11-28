@@ -14,6 +14,7 @@ interface StartupAttempt {
 export interface NativeAuthorization {
   checkSource: (source: string) => void
   checkPackage: (pkg: NativePackage) => void
+  allowSourceChange?: (previousSource: string, nextPkg: NativePackage) => boolean
 }
 
 function readAttempt(raw: string): StartupAttempt | undefined {
@@ -46,6 +47,17 @@ export class NativeHost {
     this.runtime = new NativeRuntime(repository, reportCleanupError)
   }
 
+  setNavigator(navigator: ((path: string) => void) | null): void {
+    this.runtime.setNavigator(navigator)
+  }
+
+  uninstall(id: string): Promise<void> {
+    return this.enqueue(async () => {
+      this.runtime.disable(id)
+      await this.repository.remove(id)
+    })
+  }
+
   reconcile(): Promise<NativeInstall[]> {
     return this.enqueue(async () => {
       const records = await this.repository.list()
@@ -76,15 +88,36 @@ export class NativeHost {
   private async installPackage(pkg: NativePackage): Promise<NativeInstall> {
     const id = pkg.manifest.id
     const existing = await this.repository.get(id)
-    if (existing && existing.package.sourceUrl !== pkg.sourceUrl) {
+    const allowSourceChange = Boolean(
+      existing &&
+      existing.package.sourceUrl !== pkg.sourceUrl &&
+      this.authorization.allowSourceChange?.(existing.package.sourceUrl, pkg),
+    )
+    if (existing && existing.package.sourceUrl !== pkg.sourceUrl && !allowSourceChange) {
       throw new NativePackageError('SOURCE_CONFLICT', `${id} is already installed from a different manifest URL.`)
     }
     if (existing?.package.manifest.version === pkg.manifest.version &&
       existing.package.manifest.sha256 !== pkg.manifest.sha256) {
       throw new NativePackageError('VERSION_REUSED', 'Publish changed JavaScript with a new extension version.')
     }
-    const next = { package: pkg, revision: crypto.randomUUID(), enabled: true }
-    await this.activate(next, () => this.repository.replace(id, existing?.revision, next))
+    const sameBrokenBuild = Boolean(
+      existing?.failedSha256 &&
+      existing.failedSha256 === pkg.manifest.sha256,
+    )
+    const next: NativeInstall = {
+      package: pkg,
+      revision: crypto.randomUUID(),
+      enabled: true,
+      ...(sameBrokenBuild ? { failedSha256: existing!.failedSha256, retryCaution: true } : {}),
+    }
+    try {
+      await this.activate(next, () => this.repository.replace(id, existing?.revision, next), next.revision, allowSourceChange)
+    } catch (error) {
+      if (sameBrokenBuild && existing) {
+        await this.quarantine(existing, error, { retryCaution: true })
+      }
+      throw error
+    }
     return next
   }
 
@@ -92,12 +125,21 @@ export class NativeHost {
     return this.enqueue(async () => {
       const current = await this.repository.get(id)
       if (!current || current.enabled === enabled && this.runtime.isActive(id) === enabled) return
-      const next: NativeInstall = { package: current.package, revision: crypto.randomUUID(), enabled }
+      const sameBrokenBuild = Boolean(
+        current.failedSha256 &&
+        current.failedSha256 === current.package.manifest.sha256,
+      )
+      const next: NativeInstall = {
+        package: current.package,
+        revision: crypto.randomUUID(),
+        enabled,
+        ...(sameBrokenBuild ? { failedSha256: current.failedSha256, retryCaution: enabled ? true : current.retryCaution } : {}),
+      }
       if (enabled) {
         try {
           await this.activate(current, () => this.repository.replace(id, current.revision, next), next.revision)
         } catch (error) {
-          await this.quarantine(current, error)
+          await this.quarantine(current, error, { retryCaution: sameBrokenBuild })
           throw error
         }
       } else {
@@ -182,6 +224,7 @@ export class NativeHost {
     record: NativeInstall,
     commit?: () => Promise<void>,
     revision = record.revision,
+    allowSourceChange = false,
   ): Promise<void> {
     await verifyStoredNativePackage(record.package)
     this.authorization.checkPackage(record.package)
@@ -193,7 +236,7 @@ export class NativeHost {
         await commit?.()
         committed = true
         this.clearStartupMarker(marker.id)
-      }, revision)
+      }, revision, allowSourceChange)
     } finally {
       if (!committed) this.clearStartupMarker(marker.id)
     }
@@ -211,7 +254,11 @@ export class NativeHost {
     }
   }
 
-  private async quarantine(record: NativeInstall, error: unknown): Promise<boolean> {
+  private async quarantine(
+    record: NativeInstall,
+    error: unknown,
+    options?: { retryCaution?: boolean },
+  ): Promise<boolean> {
     if (error instanceof NativePackageError && error.code === 'INSTALL_CHANGED') return false
     try {
       await this.repository.replace(record.package.manifest.id, record.revision, {
@@ -219,6 +266,9 @@ export class NativeHost {
         revision: crypto.randomUUID(),
         enabled: false,
         failure: (error instanceof Error ? error.message : String(error)).slice(0, 1000),
+        failedSha256: record.package.manifest.sha256,
+        failureAt: new Date().toISOString(),
+        retryCaution: Boolean(options?.retryCaution || record.retryCaution),
       })
       this.runtime.disable(record.package.manifest.id)
       return true

@@ -20,7 +20,12 @@ import { toast } from 'sonner'
 import { useContributionStore } from '../extensions/contributions.ts'
 import { documentStore, type DocumentEnvelope } from '../extensions/documents.ts'
 import { extensionManager } from '../extensions/manager.ts'
-import { getNativeDevHost, refreshNativeDevInstalls, useNativeDevStore } from '../extensions/native/devHost.ts'
+import {
+  getNativeDevHost,
+  notifyNativeCrash,
+  refreshNativeDevInstalls,
+  useNativeDevStore,
+} from '../extensions/native/devHost.ts'
 import { useExtensionStore } from '../extensions/store.ts'
 
 export interface CommandPaletteProps {
@@ -139,8 +144,20 @@ export function CommandPalette({
                 className="sx-cmd-item"
                 onSelect={() => run(() => {
                   void getNativeDevHost().runCommand(manifest.id, command.id).catch(async error => {
-                    toast.error(`${manifest.name}: ${error instanceof Error ? error.message : String(error)}`)
+                    const message = error instanceof Error ? error.message : String(error)
+                    const code = typeof error === 'object' && error !== null && 'code' in error
+                      ? String((error as { code?: unknown }).code)
+                      : undefined
                     await refreshNativeDevInstalls()
+                    if (code === 'COMMAND_UNAVAILABLE') {
+                      toast.error(`${manifest.name}: ${message}`)
+                    } else {
+                      notifyNativeCrash({
+                        id: manifest.id,
+                        name: manifest.name,
+                        message,
+                      })
+                    }
                   }).catch(error => toast.error(error instanceof Error ? error.message : String(error)))
                 })}
               >

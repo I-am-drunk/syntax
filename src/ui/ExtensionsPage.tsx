@@ -32,7 +32,7 @@ import {
   type ResolvedExtensionAssets,
 } from '../extensions/manifest.ts'
 import { exitSafeModeAndReload, useExtensionStore, type ExtensionRecord } from '../extensions/store.ts'
-import { nativeDevMode } from '../extensions/native/devHost.ts'
+import { inspectNativeExtension, nativeDevMode } from '../extensions/native/devHost.ts'
 import { ExtensionIcon } from './ExtensionIcon'
 import { ExtensionInstallModal } from './ExtensionInstallModal'
 import { NativeDevExtensions } from './NativeDevExtensions'
@@ -132,6 +132,7 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
   const [updatingAll, setUpdatingAll] = useState(false)
   const [logsVersion, setLogsVersion] = useState(0)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [pendingNativeUrl, setPendingNativeUrl] = useState<string | undefined>()
 
   const visibleRecords = records
   const trimmedFilter = filterQuery.trim().toLowerCase()
@@ -148,40 +149,76 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
     return extensionDiagnostics.subscribe(() => setLogsVersion(v => v + 1))
   }, [])
 
-  // Support shareable 1-click install review links: #/extensions?install=https://.../extension.json
+  // Support shareable 1-click install review links: #/extensions?install=... or ?native=... and ?inspect=...
   useEffect(() => {
     const checkInstallParam = () => {
       let rawInstall: string | null = null
+      let rawNative: string | null = null
+      let rawInspect: string | null = null
       try {
         const hash = window.location.hash || ''
         const qIdx = hash.indexOf('?')
         if (qIdx >= 0) {
-          rawInstall = new URLSearchParams(hash.slice(qIdx + 1)).get('install')
+          const hashParams = new URLSearchParams(hash.slice(qIdx + 1))
+          rawInstall = hashParams.get('install')
+          rawNative = hashParams.get('native')
+          rawInspect = hashParams.get('inspect')
         }
-        if (!rawInstall && window.location.search) {
-          rawInstall = new URLSearchParams(window.location.search).get('install')
+        if (window.location.search) {
+          const searchParams = new URLSearchParams(window.location.search)
+          if (!rawInstall) rawInstall = searchParams.get('install')
+          if (!rawNative) rawNative = searchParams.get('native')
+          if (!rawInspect) rawInspect = searchParams.get('inspect')
         }
       } catch {
         return
       }
-      const candidate = rawInstall?.trim()
+      if (rawInspect?.trim()) {
+        inspectNativeExtension(rawInspect.trim())
+        try {
+          const url = new URL(window.location.href)
+          url.searchParams.delete('inspect')
+          const [hashPath, hashQuery] = (url.hash || '#/extensions').split('?')
+          if (hashQuery) {
+            const params = new URLSearchParams(hashQuery)
+            params.delete('inspect')
+            const qs = params.toString()
+            url.hash = qs ? `${hashPath}?${qs}` : hashPath
+          }
+          window.history.replaceState(null, '', url.toString())
+        } catch {
+          // ignore URL cleanup error
+        }
+      }
+      const nativeCandidate = rawNative?.trim() || (
+        nativeDevMode !== 'disabled' && rawInstall?.trim() && /\/manifest\.json(?:$|\?)/i.test(rawInstall.trim())
+          ? rawInstall.trim()
+          : null
+      )
+      const candidate = nativeCandidate || rawInstall?.trim()
       if (!candidate || (!candidate.startsWith('https://') && !candidate.startsWith('http://'))) {
         return
       }
-      // Strip install param immediately so refresh never re-prompts
+      // Strip install/native params immediately so refresh never re-prompts
       try {
         const url = new URL(window.location.href)
         url.searchParams.delete('install')
+        url.searchParams.delete('native')
         const [hashPath, hashQuery] = (url.hash || '#/extensions').split('?')
         if (hashQuery) {
           const params = new URLSearchParams(hashQuery)
           params.delete('install')
+          params.delete('native')
           const qs = params.toString()
           url.hash = qs ? `${hashPath}?${qs}` : hashPath
         }
         window.history.replaceState(null, '', url.toString())
       } catch {
         // ignore URL cleanup error
+      }
+      if (nativeCandidate && nativeDevMode !== 'disabled') {
+        setPendingNativeUrl(nativeCandidate)
+        return
       }
       setManifestUrl(candidate)
       setFetchingManifest(true)
@@ -418,7 +455,13 @@ export function ExtensionsPage({ onOpenCommunityHub, onNavigate }: ExtensionsPag
         </section>
       )}
 
-      {nativeDevMode !== 'disabled' && <NativeDevExtensions onNavigate={onNavigate} />}
+      {nativeDevMode !== 'disabled' && (
+        <NativeDevExtensions
+          onNavigate={onNavigate}
+          initialUrl={pendingNativeUrl}
+          onInitialUrlConsumed={() => setPendingNativeUrl(undefined)}
+        />
+      )}
 
       <section className="sx-plugins-section" aria-label="Install extension from URL">
         <div className="sx-plugins-section-head">

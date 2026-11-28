@@ -181,3 +181,96 @@ test('a command failure retires only its owning extension', async () => {
   assert.equal(runtime.getScreen('example.two', 'main'), undefined)
   assert.equal(runtime.getScreen('example.one', 'main').title, 'Working')
 })
+
+test('openScreen navigates only for active screens owned by the extension', async () => {
+  const { runtime } = setup()
+  const navigated = []
+  runtime.setNavigator(path => navigated.push(path))
+  await runtime.activate(pkg('example.notes', `
+    exports.activate = ctx => {
+      ctx.registerScreen({ id: 'notes', title: 'Notes', component: () => null });
+      ctx.registerCommand({ id: 'open', title: 'Open Notes', run: () => ctx.openScreen('notes') });
+      ctx.registerCommand({ id: 'bad', title: 'Bad Screen', run: () => ctx.openScreen('missing') });
+    };
+  `))
+  await runtime.runCommand('example.notes', 'open')
+  assert.deepEqual(navigated, ['/native-extension/example.notes/notes'])
+  await assert.rejects(runtime.runCommand('example.notes', 'bad'), { code: 'SCREEN_UNAVAILABLE' })
+})
+
+test('uninstall preserves saved data, same-build retry sets caution, and replacement clears it', async () => {
+  const records = new Map()
+  const data = new Map()
+  const host = new NativeHost({
+    list: async () => [...records.values()],
+    get: async id => records.get(id),
+    replace: async (id, expected, record) => {
+      assert.equal(records.get(id)?.revision, expected)
+      records.set(id, record)
+    },
+    remove: async id => { records.delete(id) },
+    load: async id => data.get(id),
+    save: async (id, value) => { data.set(id, value) },
+  }, {
+    getItem() { return null },
+    setItem() {},
+    removeItem() {},
+  }, () => {}, {
+    checkSource() {},
+    checkPackage() {},
+  })
+
+  const id = 'example.notes'
+  const makePkg = (entry, version) => {
+    const result = pkg(id, entry, version)
+    result.manifest.sha256 = createHash('sha256').update(entry).digest('hex')
+    return result
+  }
+  const v1Broken = `
+    exports.activate = ctx => {
+      ctx.registerScreen({ id: 'main', title: 'Notes', component: () => null });
+      ctx.registerCommand({ id: 'save', title: 'Save', run: () => ctx.saveData({ text: 'keep me' }) });
+      ctx.registerCommand({ id: 'boom', title: 'Boom', run: () => { throw new Error('boom'); } });
+    };
+  `
+  const v2Fixed = `
+    exports.activate = ctx => {
+      ctx.registerScreen({ id: 'main', title: 'Notes v2', component: () => null });
+    };
+  `
+  await host.installInspected(makePkg(v1Broken, '1.0.0'))
+  await host.runCommand(id, 'save')
+  assert.deepEqual(data.get(id), { text: 'keep me' })
+
+  await host.uninstall(id)
+  assert.equal(records.get(id), undefined)
+  assert.deepEqual(data.get(id), { text: 'keep me' })
+
+  await host.installInspected(makePkg(v1Broken, '1.0.0'))
+  await assert.rejects(host.runCommand(id, 'boom'), /boom/)
+  const afterCrash = records.get(id)
+  assert.equal(afterCrash.enabled, false)
+  assert.equal(afterCrash.failedSha256, afterCrash.package.manifest.sha256)
+  assert.equal(afterCrash.retryCaution, false)
+
+  await host.setEnabled(id, true)
+  const afterRetry = records.get(id)
+  assert.equal(afterRetry.enabled, true)
+  assert.equal(afterRetry.retryCaution, true)
+
+  // Manual disable/re-enable on same broken build preserves caution
+  await host.setEnabled(id, false)
+  await host.setEnabled(id, true)
+  assert.equal(records.get(id).retryCaution, true)
+
+  // Reinstalling the exact same broken build also preserves retryCaution
+  await host.installInspected(makePkg(v1Broken, '1.0.0'))
+  assert.equal(records.get(id).retryCaution, true)
+
+  await host.installInspected(makePkg(v2Fixed, '2.0.0'))
+  const afterReplace = records.get(id)
+  assert.equal(afterReplace.enabled, true)
+  assert.equal(afterReplace.retryCaution, undefined)
+  assert.equal(afterReplace.failedSha256, undefined)
+  assert.deepEqual(data.get(id), { text: 'keep me' })
+})

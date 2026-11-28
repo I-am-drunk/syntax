@@ -14,7 +14,7 @@ import { SyntaxErrorBoundary } from '../core/ErrorBoundary'
 import { loadPrefs, savePrefs, type SyntaxPrefs } from '../core/prefs'
 import { ExtensionPage } from '../extensions/ExtensionPage.tsx'
 import { extensionManager } from '../extensions/manager.ts'
-import { bootNativeDev, nativeDevMode } from '../extensions/native/devHost.ts'
+import { bootNativeDev, nativeDevMode, setNativeDevNavigator } from '../extensions/native/devHost.ts'
 import { isSafeMode, useExtensionStore } from '../extensions/store.ts'
 import { playUiSound, type UiSound } from '../services/uiSounds'
 import { HomePage } from '../ui/HomePage'
@@ -155,17 +155,19 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
 
   const navigate = useCallback(
     (path: string) => {
-      if (path !== location) {
-        setLocation(path)
-      }
+      setLocation(path)
       window.scrollTo({ top: 0 })
     },
-    [location, setLocation],
+    [setLocation],
   )
 
   useEffect(() => {
     extensionManager.setNavigator(navigate)
-    return () => extensionManager.setNavigator(null)
+    setNativeDevNavigator(navigate)
+    return () => {
+      extensionManager.setNavigator(null)
+      setNativeDevNavigator(null)
+    }
   }, [navigate])
 
   useEffect(() => {
@@ -275,7 +277,15 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
 
   return (
     <>
-      {!hideToaster && <Toaster position="bottom-center" theme={theme} />}
+      {!hideToaster && (
+        <Toaster
+          position="top-right"
+          theme={theme}
+          offset={72}
+          mobileOffset={16}
+          toastOptions={{ className: 'sx-toast' }}
+        />
+      )}
 
       <AppHeader
         activeRoute={routeInfo.activeRoute}

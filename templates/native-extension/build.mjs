@@ -4,7 +4,8 @@ import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
 
 const packageRoot = new URL('./', import.meta.url)
-const pkg = JSON.parse(await readFile(new URL('package.json', packageRoot), 'utf8'))
+const pkgRaw = (await readFile(new URL('package.json', packageRoot), 'utf8')).replace(/^\uFEFF/, '')
+const pkg = JSON.parse(pkgRaw)
 const manifestFile = new URL('dist/manifest.json', packageRoot)
 const { outputFiles: [entry] } = await build({
   absWorkingDir: fileURLToPath(packageRoot),
