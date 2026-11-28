@@ -72,12 +72,32 @@ export class NativeHost {
     return this.enqueue(() => this.repository.clearOwnerData(id))
   }
 
-  reconcile(): Promise<NativeInstall[]> {
+  reconcile(options?: { activateMissing?: boolean }): Promise<NativeInstall[]> {
     return this.enqueue(async () => {
-      const records = await this.repository.list()
+      let records = await this.repository.list()
       const revisions = new Map(records.filter(record => record.enabled)
         .map(record => [record.package.manifest.id, record.revision]))
       this.runtime.retireStaleActivations(revisions)
+      if (options?.activateMissing) {
+        let changed = false
+        for (const record of records) {
+          const id = record.package.manifest.id
+          if (!record.enabled || this.runtime.isActive(id)) continue
+          try {
+            await this.activate(record, async () => {
+              const current = await this.repository.get(id)
+              if (current?.revision !== record.revision) {
+                throw new NativePackageError('INSTALL_CHANGED', 'Another operation changed this install during sync.')
+              }
+            })
+          } catch (error) {
+            if (await this.quarantine(record, error)) changed = true
+          }
+        }
+        if (changed) {
+          records = await this.repository.list()
+        }
+      }
       return records
     })
   }

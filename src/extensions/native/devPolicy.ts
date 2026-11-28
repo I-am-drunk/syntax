@@ -60,6 +60,19 @@ const devPins: readonly NativePin[] = [
     },
   },
   {
+    // syntax-platform/syntax-official-extensions#7
+    sourceUrl: 'https://raw.githubusercontent.com/syntax-platform/syntax-official-extensions/fcf313f56cb82141603a012780b674286b3aef87/extensions/analytic-geometry-mpm2d/releases/v1.1.0/manifest.json',
+    manifest: {
+      manifestVersion: 2,
+      id: 'syntax.mpm2d-analytic-geometry',
+      name: 'Analytic Geometry (MPM2D)',
+      version: '1.1.0',
+      syntaxApi: '^2.0.0',
+      main: 'main.js',
+      sha256: '220336d91714b4c75a179de2f2808a39fa02f051a656ae986d8da4f88c1b4e75',
+    },
+  },
+  {
     // syntax-platform/syntax-official-extensions#5
     sourceUrl: 'https://raw.githubusercontent.com/syntax-platform/syntax-official-extensions/a43fb295e5af1b6a003bf71d3015038066df7c13/extensions/binary-basics/releases/v1.0.1/manifest.json',
     manifest: {
@@ -70,6 +83,32 @@ const devPins: readonly NativePin[] = [
       syntaxApi: '^2.0.0',
       main: 'main.js',
       sha256: '002dc701e629480abeb9de0b304fac1fb4ffded6f2070d0f2e543553a2237141',
+    },
+  },
+  {
+    // syntax-platform/syntax-official-extensions#6
+    sourceUrl: 'https://raw.githubusercontent.com/syntax-platform/syntax-official-extensions/b95da21145bc80361597001b1f480606067e9bea/extensions/formula-playbook/releases/v1.0.0/manifest.json',
+    manifest: {
+      manifestVersion: 2,
+      id: 'syntax.formula-playbook',
+      name: 'Formula Playbook',
+      version: '1.0.0',
+      syntaxApi: '^2.0.0',
+      main: 'main.js',
+      sha256: '4ceb76b5fda02dcfe3860131572fa4c25b185ced358b3bb89b6c30aec0495429',
+    },
+  },
+  {
+    // syntax-platform/syntax-official-extensions#6
+    sourceUrl: 'https://raw.githubusercontent.com/syntax-platform/syntax-official-extensions/b95da21145bc80361597001b1f480606067e9bea/extensions/warm-paper-theme/releases/v1.0.0/manifest.json',
+    manifest: {
+      manifestVersion: 2,
+      id: 'syntax.warm-paper-theme',
+      name: 'Warm Paper Theme',
+      version: '1.0.0',
+      syntaxApi: '^2.0.0',
+      main: 'main.js',
+      sha256: '1eb5d9c33aad740295fef153e82651734fb3197e9c132997c77d06f275268601',
     },
   },
 ]

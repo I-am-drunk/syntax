@@ -3,11 +3,15 @@ import * as jsxRuntime from 'react/jsx-runtime'
 import {
   type NativeCommand,
   type NativeCourseProgress,
+  type NativeCourseTool,
   type NativeData,
+  type NativeEmbeddedExtension,
   type NativeExtension,
   type NativeExtensionContext,
+  type NativeRegisteredCourseTool,
   type NativeScreen,
   type NativeSoundCue,
+  type NativeStyleRegistration,
 } from './api.ts'
 import { NativePackageError } from './manifest.ts'
 import type { NativePackage } from './package.ts'
@@ -24,6 +28,20 @@ export interface NativeRuntimeOptions {
   playSound?: (cue: NativeSoundCue) => void
   onDataChanged?: (ownerId: string) => void
   onProgressChanged?: (ownerId: string) => void
+  onContributionsChanged?: () => void
+}
+
+interface MountedStyle {
+  id: string
+  scope: 'scoped' | 'global'
+  css: string
+  node?: HTMLStyleElement
+}
+
+interface StagedEmbedded {
+  id: string
+  title: string
+  setup: NativeEmbeddedExtension['setup']
 }
 
 interface Activation {
@@ -32,6 +50,9 @@ interface Activation {
   controller: AbortController
   screens: Map<string, NativeScreen>
   commands: Map<string, NativeCommand>
+  embedded: Map<string, StagedEmbedded>
+  courseTools: Map<string, NativeRegisteredCourseTool>
+  styles: Map<string, MountedStyle>
   disposers: (() => void | Promise<void>)[]
 }
 
@@ -82,6 +103,97 @@ function normalizeProgress(progress: NativeCourseProgress | null): NativeCourseP
   return label ? { completed, total, label } : { completed, total }
 }
 
+/**
+ * Prevents `@scope` breakout (e.g., unbalanced `}` or top-level global at-rules)
+ * so ordinary course CSS can never escape `[data-native-ext-root]`.
+ */
+export function validateScopedCss(css: string): void {
+  let depth = 0
+  let inComment = false
+  let quote: '"' | "'" | null = null
+  let stripped = ''
+
+  for (let i = 0; i < css.length; i++) {
+    const ch = css[i]
+    const next = css[i + 1]
+    if (inComment) {
+      if (ch === '*' && next === '/') {
+        inComment = false
+        i++
+      }
+      continue
+    }
+    if (quote) {
+      if (ch === '\\') {
+        i++
+        continue
+      }
+      if (ch === quote) quote = null
+      continue
+    }
+    if (ch === '/' && next === '*') {
+      inComment = true
+      i++
+      continue
+    }
+    if (ch === '"' || ch === "'") {
+      quote = ch
+      continue
+    }
+    if (ch === '{') depth++
+    else if (ch === '}') {
+      depth--
+      if (depth < 0) {
+        throw new NativePackageError('STYLE_INVALID', 'Scoped CSS contains an unbalanced closing brace.')
+      }
+    }
+    stripped += ch
+  }
+  if (inComment || quote || depth !== 0) {
+    throw new NativePackageError('STYLE_INVALID', 'Scoped CSS has unclosed comments, strings, or braces.')
+  }
+  if (/@(?:import|charset|namespace|font-face|keyframes|property|layer)\b/i.test(stripped)) {
+    throw new NativePackageError('STYLE_INVALID', 'Scoped CSS cannot declare global at-rules such as @import, @keyframes, @property, or @font-face.')
+  }
+}
+
+function buildScopedRule(ownerId: string, css: string): string {
+  return `@scope ([data-native-ext-root="${ownerId}"]) to ([data-native-ext-root]) {\n${css}\n}`
+}
+
+function mountStyles(ownerId: string, styles: Map<string, MountedStyle>): void {
+  if (typeof document === 'undefined') return
+  for (const entry of styles.values()) {
+    const cssText = entry.scope === 'global' ? entry.css : buildScopedRule(ownerId, entry.css)
+    if (entry.scope === 'scoped' && typeof CSSStyleSheet !== 'undefined') {
+      try {
+        const probe = new CSSStyleSheet()
+        probe.replaceSync(cssText)
+        if (probe.cssRules.length !== 1) {
+          throw new NativePackageError('STYLE_INVALID', 'Scoped CSS must parse into a single @scope rule.')
+        }
+      } catch (err) {
+        if (err instanceof NativePackageError) throw err
+        throw new NativePackageError('STYLE_INVALID', 'Scoped CSS could not be parsed safely.')
+      }
+    }
+    const node = document.createElement('style')
+    node.dataset.nativeStyleOwner = ownerId
+    node.dataset.nativeStyleId = entry.id
+    node.dataset.nativeStyleScope = entry.scope
+    node.textContent = cssText
+    document.head.appendChild(node)
+    entry.node = node
+  }
+}
+
+function unmountStyles(styles: Map<string, MountedStyle>): void {
+  for (const entry of styles.values()) {
+    entry.node?.remove()
+    entry.node = undefined
+  }
+}
+
 export class NativeRuntime {
   private readonly active = new Map<string, Activation>()
   private readonly pending = new Map<string, Activation>()
@@ -92,7 +204,10 @@ export class NativeRuntime {
   private readonly soundPlayer?: (cue: NativeSoundCue) => void
   private readonly onDataChanged?: (ownerId: string) => void
   private readonly onProgressChanged?: (ownerId: string) => void
+  private readonly onContributionsChanged?: () => void
   private navigator: ((path: string) => void) | null = null
+  private toolsCacheVersion = 0
+  private toolsCache = new Map<string, readonly NativeRegisteredCourseTool[]>()
 
   constructor(
     data: NativeDataStore,
@@ -105,10 +220,17 @@ export class NativeRuntime {
     this.soundPlayer = options.playSound
     this.onDataChanged = options.onDataChanged
     this.onProgressChanged = options.onProgressChanged
+    this.onContributionsChanged = options.onContributionsChanged
   }
 
   setNavigator(navigator: ((path: string) => void) | null): void {
     this.navigator = navigator
+  }
+
+  private bumpContributions(): void {
+    this.toolsCacheVersion += 1
+    this.toolsCache.clear()
+    this.onContributionsChanged?.()
   }
 
   async activate(
@@ -131,6 +253,9 @@ export class NativeRuntime {
       controller: new AbortController(),
       screens: new Map(),
       commands: new Map(),
+      embedded: new Map(),
+      courseTools: new Map(),
+      styles: new Map(),
       disposers: [],
     }
     this.pending.set(id, stage)
@@ -161,7 +286,33 @@ export class NativeRuntime {
         if (typeof screen?.component !== 'function') {
           throw new NativePackageError('CONTRIBUTION_INVALID', 'Supply a React function component for the screen.')
         }
-        register(stage.screens, screen)
+        let validatedTools: NativeScreen['recommendedTools']
+        if (screen.recommendedTools !== undefined) {
+          if (!Array.isArray(screen.recommendedTools)) {
+            throw new NativePackageError('CONTRIBUTION_INVALID', 'recommendedTools must be an array.')
+          }
+          validatedTools = screen.recommendedTools.map(tool => {
+            if (
+              !tool ||
+              typeof tool.id !== 'string' || !tool.id.trim() ||
+              typeof tool.name !== 'string' || !tool.name.trim() ||
+              typeof tool.description !== 'string' || !tool.description.trim() ||
+              (tool.manifestUrl !== undefined && typeof tool.manifestUrl !== 'string')
+            ) {
+              throw new NativePackageError('CONTRIBUTION_INVALID', 'Each recommended tool requires id, name, and description.')
+            }
+            return Object.freeze({
+              id: tool.id.trim(),
+              name: tool.name.trim(),
+              description: tool.description.trim(),
+              ...(tool.manifestUrl ? { manifestUrl: tool.manifestUrl.trim() } : {}),
+            })
+          })
+        }
+        register(stage.screens, {
+          ...screen,
+          ...(validatedTools ? { recommendedTools: validatedTools } : {}),
+        })
       },
       registerCommand: command => {
         assertStaging()
@@ -169,6 +320,55 @@ export class NativeRuntime {
           throw new NativePackageError('CONTRIBUTION_INVALID', 'Supply a run function for the command.')
         }
         register(stage.commands, command)
+      },
+      registerEmbedded: async (embedded: NativeEmbeddedExtension) => {
+        assertStaging()
+        if (typeof embedded?.setup !== 'function') {
+          throw new NativePackageError('CONTRIBUTION_INVALID', 'Supply a setup function for the embedded extension.')
+        }
+        // Stage descriptor; setup runs atomically after commit & disposal of any prior version.
+        register(stage.embedded, { id: embedded.id, title: embedded.title, setup: embedded.setup })
+      },
+      registerCourseTool: (tool: NativeCourseTool) => {
+        assertStaging()
+        if (
+          typeof tool?.component !== 'function' ||
+          typeof tool?.buttonLabel !== 'string' ||
+          !tool.buttonLabel.trim() ||
+          !Array.isArray(tool.targetCourses) ||
+          tool.targetCourses.length === 0 ||
+          tool.targetCourses.some(target => typeof target !== 'string' || !target.trim())
+        ) {
+          throw new NativePackageError('CONTRIBUTION_INVALID', 'Supply buttonLabel, non-empty targetCourses strings, and a React component for the course tool.')
+        }
+        register(stage.courseTools, Object.freeze({
+          ...tool,
+          targetCourses: Object.freeze(tool.targetCourses.map(target => target.trim())),
+          ownerId: id,
+          ownerName: pkg.manifest.name,
+        }))
+      },
+      registerStyles: (style: NativeStyleRegistration) => {
+        assertStaging()
+        if (
+          !/^[a-z][a-z0-9-]{0,63}$/.test(style?.id ?? '') ||
+          typeof style?.css !== 'string' ||
+          !style.css.trim() ||
+          style.css.length > 100_000
+        ) {
+          throw new NativePackageError('CONTRIBUTION_INVALID', 'Supply a lowercase style ID and non-empty CSS up to 100 KiB.')
+        }
+        const scope = style.scope ?? 'scoped'
+        if (scope !== 'scoped' && scope !== 'global') {
+          throw new NativePackageError('CONTRIBUTION_INVALID', 'Style scope must be scoped or global.')
+        }
+        if (scope === 'scoped') {
+          validateScopedCss(style.css)
+        }
+        if (stage.styles.has(style.id)) {
+          throw new NativePackageError('CONTRIBUTION_DUPLICATE', `A style already uses the ID ${style.id}.`)
+        }
+        stage.styles.set(style.id, { id: style.id, css: style.css, scope })
       },
       openScreen: screenId => {
         signal.throwIfAborted()
@@ -248,7 +448,30 @@ export class NativeRuntime {
       assertStaging()
       this.active.set(id, stage)
       if (previous) this.dispose(previous)
+      // Run embedded setup AFTER previous version's cleanup has finished.
+      for (const embedded of stage.embedded.values()) {
+        signal.throwIfAborted()
+        const cleanup = await embedded.setup(context)
+        if (typeof cleanup === 'function') {
+          if (signal.aborted || this.active.get(id) !== stage) {
+            try {
+              await cleanup()
+            } catch (cleanupErr) {
+              this.reportDisposalFailure(stage, cleanupErr)
+            }
+            signal.throwIfAborted()
+          } else {
+            stage.disposers.push(cleanup)
+          }
+        }
+      }
+      mountStyles(id, stage.styles)
+      this.bumpContributions()
     } catch (error) {
+      if (this.active.get(id) === stage) {
+        this.active.delete(id)
+        this.bumpContributions()
+      }
       this.dispose(stage)
       throw error
     } finally {
@@ -268,6 +491,38 @@ export class NativeRuntime {
 
   listCommands(ownerId: string): NativeCommand[] {
     return [...(this.active.get(ownerId)?.commands.values() ?? [])]
+  }
+
+  listEmbedded(ownerId: string): { id: string; title: string }[] {
+    return [...(this.active.get(ownerId)?.embedded.values() ?? [])].map(({ id, title }) => ({ id, title }))
+  }
+
+  listStyles(ownerId: string): { id: string; scope: 'scoped' | 'global' }[] {
+    return [...(this.active.get(ownerId)?.styles.values() ?? [])].map(({ id, scope }) => ({ id, scope }))
+  }
+
+  listOwnedCourseTools(ownerId: string): NativeRegisteredCourseTool[] {
+    return [...(this.active.get(ownerId)?.courseTools.values() ?? [])]
+  }
+
+  listCourseToolsFor(courseId: string): readonly NativeRegisteredCourseTool[] {
+    const cached = this.toolsCache.get(courseId)
+    if (cached) return cached
+    const out: NativeRegisteredCourseTool[] = []
+    for (const activation of this.active.values()) {
+      for (const tool of activation.courseTools.values()) {
+        if (tool.targetCourses.includes('*') || tool.targetCourses.includes(courseId)) {
+          out.push(tool)
+        }
+      }
+    }
+    const frozen = Object.freeze(out)
+    this.toolsCache.set(courseId, frozen)
+    return frozen
+  }
+
+  getContributionsVersion(): number {
+    return this.toolsCacheVersion
   }
 
   getActiveRevision(ownerId: string): string | undefined {
@@ -296,6 +551,7 @@ export class NativeRuntime {
       if (this.active.get(ownerId) === activation) {
         this.active.delete(ownerId)
         this.dispose(activation)
+        this.bumpContributions()
       }
       throw error
     }
@@ -308,10 +564,12 @@ export class NativeRuntime {
     this.active.delete(ownerId)
     if (pending) this.dispose(pending)
     if (active && active !== pending) this.dispose(active)
+    if (active || pending) this.bumpContributions()
   }
 
   private dispose(activation: Activation): void {
     activation.controller.abort()
+    unmountStyles(activation.styles)
     for (const dispose of activation.disposers.splice(0).reverse()) {
       try {
         void Promise.resolve(dispose()).catch(error => this.reportDisposalFailure(activation, error))

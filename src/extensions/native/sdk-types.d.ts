@@ -1,8 +1,20 @@
 declare module '@syntax/api' {
+  import type { ComponentType } from 'react'
+
   export type SyntaxTheme = 'light' | 'dark'
   export type SyntaxSoundCue = 'correct' | 'incorrect' | 'click' | 'complete'
+  export interface RegisteredCourseTool {
+    id: string
+    title: string
+    buttonLabel: string
+    targetCourses: readonly string[]
+    ownerId: string
+    ownerName: string
+    component: ComponentType<{ courseId: string; onClose: () => void }>
+  }
   export function useSyntaxTheme(): SyntaxTheme
   export function playSyntaxSound(cue: SyntaxSoundCue): void
+  export function useCourseTools(courseId: string): readonly RegisteredCourseTool[]
 }
 
 declare module '@syntax/ui' {
