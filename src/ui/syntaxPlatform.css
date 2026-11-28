@@ -205,7 +205,15 @@
   opacity: 1;
 }
 
-/* Isolated Contextual "Back to Library" Bubble (Sliding Pill & Underline Modes) */
+/* Isolated Contextual "Back to Library" Bubble (Placed before Home | Library with a tight 8px gap) */
+.sx-nav-cluster {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-shrink: 0;
+}
+
 .sx-nav-back-bubble {
   display: inline-flex;
   align-items: center;

@@ -240,73 +240,75 @@ export function AppHeader({
             )}
           </div>
 
-          <nav
-            ref={navRef}
-            className={`sx-nav-bar ${navStyle === 'pill' ? 'is-pill' : 'is-underline'}`}
-            aria-label="Main navigation"
-          >
-            {navStyle === 'pill' && (
-              <span
-                className={`sx-nav-pill-slider${indicator.visible ? ' is-visible' : ''}`}
-                aria-hidden="true"
-                style={{
-                  width: `${indicator.width}px`,
-                  transform: `translate3d(${indicator.left}px, 0, 0)`,
-                }}
-              />
-            )}
-            {DESKTOP_TABS.map(tab => {
-              const active = activeRoute === tab.id
-              return (
-                <a
-                  key={tab.id}
-                  ref={el => {
-                    tabRefs.current[tab.id] = el
-                  }}
-                  href={`#${tab.path}`}
-                  className={`sx-nav-link${active ? ' is-active' : ''}`}
-                  aria-current={active ? 'page' : undefined}
+          <div className="sx-nav-cluster">
+            <AnimatePresence initial={false}>
+              {activeRoute !== 'home' && activeRoute !== 'library' && (
+                <motion.a
+                  key={`back-library-${navStyle}`}
+                  href="#/library"
+                  className={`sx-nav-back-bubble ${navStyle === 'pill' ? 'is-pill' : 'is-underline'}`}
+                  initial={{ opacity: 0, x: -10, scale: 0.94 }}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  exit={{ opacity: 0, x: -8, scale: 0.94 }}
+                  transition={{ type: 'spring', stiffness: 380, damping: 30, mass: 0.85 }}
                   onClick={e => {
                     e.preventDefault()
-                    onNavigate(tab.path)
+                    onNavigate('/library')
                   }}
                 >
-                  {tab.label}
-                </a>
-              )
-            })}
-            {navStyle === 'underline' && (
-              <span
-                className={`sx-nav-underline${indicator.visible ? ' is-visible' : ''}`}
-                aria-hidden="true"
-                style={{
-                  width: `${indicator.width}px`,
-                  transform: `translate3d(${indicator.left}px, 0, 0)`,
-                }}
-              />
-            )}
-          </nav>
+                  <ArrowLeft size={14} strokeWidth={2} aria-hidden="true" />
+                  <span>Back to Library</span>
+                </motion.a>
+              )}
+            </AnimatePresence>
 
-          <AnimatePresence initial={false}>
-            {activeRoute !== 'home' && activeRoute !== 'library' && (
-              <motion.a
-                key={`back-library-${navStyle}`}
-                href="#/library"
-                className={`sx-nav-back-bubble ${navStyle === 'pill' ? 'is-pill' : 'is-underline'}`}
-                initial={{ opacity: 0, x: -12, scale: 0.94 }}
-                animate={{ opacity: 1, x: 0, scale: 1 }}
-                exit={{ opacity: 0, x: -10, scale: 0.94 }}
-                transition={{ type: 'spring', stiffness: 380, damping: 30, mass: 0.85 }}
-                onClick={e => {
-                  e.preventDefault()
-                  onNavigate('/library')
-                }}
-              >
-                <ArrowLeft size={14} strokeWidth={2} aria-hidden="true" />
-                <span>Back to Library</span>
-              </motion.a>
-            )}
-          </AnimatePresence>
+            <nav
+              ref={navRef}
+              className={`sx-nav-bar ${navStyle === 'pill' ? 'is-pill' : 'is-underline'}`}
+              aria-label="Main navigation"
+            >
+              {navStyle === 'pill' && (
+                <span
+                  className={`sx-nav-pill-slider${indicator.visible ? ' is-visible' : ''}`}
+                  aria-hidden="true"
+                  style={{
+                    width: `${indicator.width}px`,
+                    transform: `translate3d(${indicator.left}px, 0, 0)`,
+                  }}
+                />
+              )}
+              {DESKTOP_TABS.map(tab => {
+                const active = activeRoute === tab.id
+                return (
+                  <a
+                    key={tab.id}
+                    ref={el => {
+                      tabRefs.current[tab.id] = el
+                    }}
+                    href={`#${tab.path}`}
+                    className={`sx-nav-link${active ? ' is-active' : ''}`}
+                    aria-current={active ? 'page' : undefined}
+                    onClick={e => {
+                      e.preventDefault()
+                      onNavigate(tab.path)
+                    }}
+                  >
+                    {tab.label}
+                  </a>
+                )
+              })}
+              {navStyle === 'underline' && (
+                <span
+                  className={`sx-nav-underline${indicator.visible ? ' is-visible' : ''}`}
+                  aria-hidden="true"
+                  style={{
+                    width: `${indicator.width}px`,
+                    transform: `translate3d(${indicator.left}px, 0, 0)`,
+                  }}
+                />
+              )}
+            </nav>
+          </div>
         </div>
 
         <div className="header-actions">
