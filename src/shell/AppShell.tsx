@@ -81,7 +81,7 @@ function parseRouteInfo(location: string): {
     return { clean, activeRoute: 'community' }
   }
   if (clean.startsWith('/ext/')) return { clean, activeRoute: null }
-  if (clean === '/' || clean === '') return { clean: '/', activeRoute: 'home' }
+  if (clean === '/' || clean === '' || clean === '/home') return { clean: '/', activeRoute: 'home' }
   if (clean === '/profile') return { clean, activeRoute: 'profile' }
   return { clean, activeRoute: 'library' }
 }

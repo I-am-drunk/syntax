@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
+  Blocks,
   Check,
   Compass,
   Download,
   ExternalLink,
   FileText,
   Pencil,
-  Puzzle,
   RefreshCw,
   Search,
   Trash2,
@@ -180,13 +180,15 @@ export function LibraryPage({
     }
   }
 
+  const isEmptyState = pageViews.length === 0 && embedViews.length === 0 && documents.length === 0
+
   return (
     <main className="sx-workspace-page sx-library-page" aria-label="Library">
       <header className="sx-library-head">
         <div className="sx-library-head-copy">
           <h1>Library</h1>
           <span className="sx-library-count">
-            {pageViews.length} {pageViews.length === 1 ? 'extension view' : 'extension views'}
+            {pageViews.length} {pageViews.length === 1 ? 'app' : 'apps'}
             {documents.length > 0
               ? ` · ${documents.length} ${documents.length === 1 ? 'document' : 'documents'}`
               : ''}
@@ -210,25 +212,29 @@ export function LibraryPage({
             <Upload size={14} strokeWidth={2} aria-hidden="true" />
             <span>Import doc</span>
           </button>
-          <button type="button" className="sx-btn-secondary" onClick={onOpenExtensions}>
-            <Puzzle size={15} strokeWidth={2} aria-hidden="true" />
-            <span>Extensions</span>
-          </button>
-          <button
-            type="button"
-            className="sx-btn-primary"
-            onClick={onOpenCommunityHub}
-          >
-            <Compass size={15} strokeWidth={2} aria-hidden="true" />
-            <span>Community Hub</span>
-          </button>
+          {!isEmptyState && (
+            <>
+              <button type="button" className="sx-btn-secondary" onClick={onOpenExtensions}>
+                <Blocks size={15} strokeWidth={1.85} aria-hidden="true" />
+                <span>Extensions</span>
+              </button>
+              <button
+                type="button"
+                className="sx-btn-primary"
+                onClick={onOpenCommunityHub}
+              >
+                <Compass size={15} strokeWidth={1.85} aria-hidden="true" />
+                <span>Community Hub</span>
+              </button>
+            </>
+          )}
         </div>
       </header>
 
-      {pageViews.length === 0 && embedViews.length === 0 && documents.length === 0 ? (
+      {isEmptyState ? (
         <div className="sx-library-empty">
           <span className="sx-empty-icon" aria-hidden="true">
-            <Puzzle size={20} strokeWidth={1.9} />
+            <Blocks size={20} strokeWidth={1.85} />
           </span>
           {(() => {
             if (records.length === 0) {
@@ -289,7 +295,7 @@ export function LibraryPage({
           })()}
           <div className="sx-library-empty-actions">
             <button type="button" className="sx-btn-secondary" onClick={onOpenExtensions}>
-              <Puzzle size={15} strokeWidth={2} aria-hidden="true" />
+              <Blocks size={15} strokeWidth={1.85} aria-hidden="true" />
               <span>Extensions</span>
             </button>
             <button
