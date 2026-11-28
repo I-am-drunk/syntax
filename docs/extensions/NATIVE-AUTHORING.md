@@ -16,6 +16,8 @@ Use a destination folder that does not exist yet. In that folder, edit `index.ts
 
 Publish only the files in `dist` to a static HTTPS host. Keep `manifest.json` and `main.js` together. Allow cross-origin GET requests from Syntax. The direct manifest file URL identifies the install. Publish changed JavaScript with a new version.
 
+For the foundation fixture, the two build files were committed to the official extensions repository. GitHub's raw file URLs include that exact commit and return `Access-Control-Allow-Origin: *`. Check that both files return HTTP 200 without redirects and that the deployed JavaScript matches the manifest digest. [Published manifest](https://raw.githubusercontent.com/syntax-platform/syntax-official-extensions/e5bc14968853daaf75e170917f8d7d53ffa95366/fixtures/native-foundation/v1/manifest.json)
+
 ## Install and run the fixture
 
 For the local walkthrough, start Syntax from the checkout. Use a fresh browser profile.
@@ -28,7 +30,7 @@ Open the server address printed by Vite with `/syntax-dev/#/extensions` as the p
 
 The same walkthrough runs in Chromium with `node --test tests/e2e/native-starter.test.mjs`. Install Chromium or Microsoft Edge first. If the test cannot find the browser, set `SYNTAX_E2E_BROWSER` to the full path to its executable. The test serves the build on a separate loopback origin and follows the Extensions page, opening the screen and running the command.
 
-Hosted Syntax Dev shares a browser origin with Stable. It may execute only packages approved in the source for that build. An approved source must serve the exact reviewed manifest and JavaScript digest. The published fixture walkthrough is still pending.
+Hosted Syntax Dev shares a browser origin with Stable. It may execute only packages approved in the source for that build. An approved source must serve the exact reviewed manifest and JavaScript digest. Use the same Extensions page to install the fixture after the build that approves it reaches [Syntax Dev](https://syntax-platform.github.io/syntax-dev/#/extensions).
 
 ## Package checks
 

@@ -5,8 +5,19 @@ import type { NativePackage } from './package.ts'
 type NativeMode = 'hosted-dev' | 'local-dev' | 'disabled'
 type NativePin = { sourceUrl: string; manifest: NativePackage['manifest'] }
 
-// Add an entry only after reviewing the exact executable artifact.
-const devPins: readonly NativePin[] = []
+// Reviewed starter output from syntax-platform/syntax-official-extensions#1.
+const devPins: readonly NativePin[] = [{
+  sourceUrl: 'https://raw.githubusercontent.com/syntax-platform/syntax-official-extensions/e5bc14968853daaf75e170917f8d7d53ffa95366/fixtures/native-foundation/v1/manifest.json',
+  manifest: {
+    manifestVersion: 2,
+    id: 'example.native-fixture',
+    name: 'Native fixture',
+    version: '1.0.0',
+    syntaxApi: '^2.0.0',
+    main: 'main.js',
+    sha256: 'b9710bcf205b5a500c12cbf0b0fd1365abc5fd87c210abfdb4b47973031edfda',
+  },
+}]
 export const hasHostedNativePackages = devPins.length > 0
 
 export function nativeMode(channel: string | undefined, development: boolean, location: URL): NativeMode {
