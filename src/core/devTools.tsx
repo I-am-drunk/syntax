@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Agentation } from 'agentation'
 import { resetAllDevStateAndCookies } from './devEnv'
 import { clearLogs, getLogs } from './logger'
@@ -42,6 +42,19 @@ function escapeHtml(value: string): string {
  *    on-screen Touches/Clicks overlay, and a dedicated Syntax tab for state reset & logs.
  */
 export function DevToolsSuite() {
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth > 768 : true,
+  )
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const mq = window.matchMedia('(min-width: 769px)')
+    const sync = () => setIsDesktop(mq.matches)
+    sync()
+    mq.addEventListener('change', sync)
+    return () => mq.removeEventListener('change', sync)
+  }, [])
+
   useEffect(() => {
     if (typeof window === 'undefined' || window.__SYNTAX_ERUDA_INIT__) return
     let cancelled = false
@@ -161,10 +174,10 @@ export function DevToolsSuite() {
         // ignore
       }
 
-      // Park Eruda button cleanly at bottom-left so it never overlaps Agentation or the mobile bottom tab bar
+      // Park Eruda button cleanly at bottom-left so it never overlaps Agentation or the floating mobile bottom dock
       const parkEruda = () => {
         try {
-          const bottomClearance = window.innerWidth <= 768 ? 116 : 54
+          const bottomClearance = window.innerWidth <= 768 ? 132 : 54
           eruda.position({ x: 12, y: Math.max(84, window.innerHeight - bottomClearance) })
         } catch {
           // ignore
@@ -198,5 +211,5 @@ export function DevToolsSuite() {
     }
   }, [])
 
-  return <Agentation useHashLocation appName="Syntax Dev" />
+  return isDesktop ? <Agentation useHashLocation appName="Syntax Dev" /> : null
 }

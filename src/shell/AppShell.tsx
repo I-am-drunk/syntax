@@ -387,7 +387,10 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
         <Route path="/community">
           <SyntaxErrorBoundary scope="workspace:community" onExitScope={() => navigate('/library')}>
             <Suspense fallback={<RouteLoadingFallback label="Loading Community Hub" />}>
-              <CommunityHubPage onOpenExtensions={() => navigate('/extensions')} />
+              <CommunityHubPage
+                onOpenExtensions={() => navigate('/extensions')}
+                onNavigate={navigate}
+              />
             </Suspense>
           </SyntaxErrorBoundary>
         </Route>
@@ -399,6 +402,7 @@ function AppShellInner({ hideToaster = false }: AppShellProps) {
                 <CommunityHubPage
                   highlightedId={params.id}
                   onOpenExtensions={() => navigate('/extensions')}
+                  onNavigate={navigate}
                 />
               </Suspense>
             </SyntaxErrorBoundary>

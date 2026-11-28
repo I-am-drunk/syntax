@@ -89,10 +89,20 @@ export function AppHeader({
   onPokeSema,
 }: AppHeaderProps) {
   const isDev = isDevEnvironment()
-  const extensionToolbar = useContributionStore(s => s.toolbar)
-  const extensionCommands = useContributionStore(s => s.commands)
+  const rawExtensionToolbar = useContributionStore(s => s.toolbar)
+  const rawExtensionCommands = useContributionStore(s => s.commands)
   const extensionRecords = useExtensionStore(s => s.records)
+  const runtimeById = useExtensionStore(s => s.runtime)
   const [runningCommands, setRunningCommands] = useState<ReadonlySet<string>>(() => new Set())
+
+  const isWorkerStopped = (ownerId: string) => {
+    const rt = runtimeById[ownerId]
+    return Boolean(rt && rt.status === 'failed' && !rt.hasLiveWorker)
+  }
+  const extensionToolbar = rawExtensionToolbar.filter(
+    item => !item.commandKey || !isWorkerStopped(item.ownerId),
+  )
+  const extensionCommands = rawExtensionCommands.filter(cmd => !isWorkerStopped(cmd.ownerId))
 
   const ownerNames = new Map(extensionRecords.map(r => [r.id, r.manifest.name]))
   const isMac =
@@ -433,10 +443,15 @@ export function AppHeader({
                 onNavigate(tab.path)
               }}
             >
-              <span className="sx-mobile-tab-icon-wrap">
-                <Icon size={18} strokeWidth={active ? 2.2 : 1.9} aria-hidden="true" />
-              </span>
-              <span>{tab.mobileLabel}</span>
+              {active && (
+                <motion.span
+                  layoutId="sx-mobile-tab-pill"
+                  className="sx-mobile-tab-pill"
+                  transition={{ type: 'spring', stiffness: 520, damping: 36 }}
+                />
+              )}
+              <Icon size={19} strokeWidth={active ? 2.25 : 1.9} className="sx-mobile-tab-icon" aria-hidden="true" />
+              <span className="sx-mobile-tab-label">{tab.mobileLabel}</span>
             </a>
           )
         })}

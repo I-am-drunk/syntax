@@ -52,6 +52,7 @@ export function CommandPalette({
   onToggleSound,
 }: CommandPaletteProps) {
   const records = useExtensionStore(s => s.records)
+  const runtimeById = useExtensionStore(s => s.runtime)
   const commands = useContributionStore(s => s.commands)
   const views = useContributionStore(s => s.views)
   const [query, setQuery] = useState('')
@@ -80,6 +81,8 @@ export function CommandPalette({
     const list: PaletteItem[] = []
 
     for (const cmd of commands) {
+      const rt = runtimeById[cmd.ownerId]
+      if (rt && rt.status === 'failed' && !rt.hasLiveWorker) continue
       const ownerName = nameById.get(cmd.ownerId) ?? cmd.ownerId
       list.push({
         id: `cmd:${cmd.key}`,
@@ -209,7 +212,7 @@ export function CommandPalette({
     )
 
     return list
-  }, [records, commands, views, documents, theme, soundOn, onNavigate, onToggleTheme, onToggleSound])
+  }, [records, runtimeById, commands, views, documents, theme, soundOn, onNavigate, onToggleTheme, onToggleSound])
 
   const filtered = useMemo(() => {
     const joined = query.trim().toLowerCase()

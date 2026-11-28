@@ -36,8 +36,10 @@ export function connectSyntaxView(options = {}) {
     applyTheme = true,
     autoResize = false,
     timeoutMs = 5000,
+    callTimeoutMs = 30000,
     onTheme,
     onSettings,
+    onError,
   } = options
 
   return new Promise((resolve, reject) => {
@@ -49,6 +51,8 @@ export function connectSyntaxView(options = {}) {
     let callSeq = 0
     const pending = new Map()
     let resizeObserver = null
+    let readyRetryTimer = 0
+    let domReadyHandler = null
     let lastReportedHeight = 0
 
     function send(payload) {
@@ -56,6 +60,13 @@ export function connectSyntaxView(options = {}) {
     }
 
     function sendError(message, stack) {
+      if (typeof onError === 'function') {
+        try {
+          onError(message, stack)
+        } catch {
+          // ignore user error hook exceptions
+        }
+      }
       if (!initData || disposed) return
       send({
         type: 'syntax:view-error',
@@ -66,15 +77,23 @@ export function connectSyntaxView(options = {}) {
       })
     }
 
+    function measureBodyHeight() {
+      const body = document.body
+      if (!body) return 0
+      const rectHeight = body.getBoundingClientRect ? body.getBoundingClientRect().height : 0
+      const style = window.getComputedStyle ? window.getComputedStyle(body) : null
+      const marginY = style
+        ? (Number.parseFloat(style.marginTop) || 0) + (Number.parseFloat(style.marginBottom) || 0)
+        : 0
+      return Math.max(Math.ceil(rectHeight + marginY), body.scrollHeight || 0)
+    }
+
     function reportResize(rawHeight) {
       if (!initData || disposed) return
       const height = Math.round(
         typeof rawHeight === 'number' && Number.isFinite(rawHeight)
           ? rawHeight
-          : Math.max(
-              document.documentElement?.scrollHeight || 0,
-              document.body?.scrollHeight || 0,
-            ),
+          : measureBodyHeight(),
       )
       if (height <= 0 || Math.abs(height - lastReportedHeight) < 2) return
       lastReportedHeight = height
@@ -86,22 +105,66 @@ export function connectSyntaxView(options = {}) {
       })
     }
 
+    function attachAutoResize() {
+      if (!autoResize || disposed || typeof ResizeObserver !== 'function') return
+      const startObserving = () => {
+        if (disposed || resizeObserver || !document.body) return
+        resizeObserver = new ResizeObserver(() => reportResize())
+        resizeObserver.observe(document.body)
+        reportResize()
+      }
+      if (document.body) {
+        startObserving()
+      } else if (typeof document !== 'undefined') {
+        domReadyHandler = () => {
+          domReadyHandler = null
+          startObserving()
+        }
+        document.addEventListener('DOMContentLoaded', domReadyHandler, { once: true })
+      }
+    }
+
     function callHost(target, method, args = []) {
       if (disposed || !initData) {
         return Promise.reject(new Error('Syntax view is not connected.'))
       }
       return new Promise((res, rej) => {
         const callId = `sdk-${++callSeq}`
-        pending.set(callId, { resolve: res, reject: rej })
-        send({
-          type: 'syntax:view-call',
-          instanceId: initData.instanceId,
-          activationId: initData.activationId,
-          callId,
-          target,
-          method,
-          args,
+        let callTimer = 0
+        if (typeof callTimeoutMs === 'number' && callTimeoutMs > 0) {
+          callTimer = window.setTimeout(() => {
+            if (!pending.has(callId)) return
+            pending.delete(callId)
+            const err = new Error(`Syntax ${target} call "${method}" timed out after ${callTimeoutMs}ms.`)
+            err.code = 'WORKER_RUNTIME_ERROR'
+            rej(err)
+          }, callTimeoutMs)
+        }
+        pending.set(callId, {
+          resolve: value => {
+            if (callTimer) window.clearTimeout(callTimer)
+            res(value)
+          },
+          reject: err => {
+            if (callTimer) window.clearTimeout(callTimer)
+            rej(err)
+          },
         })
+        try {
+          send({
+            type: 'syntax:view-call',
+            instanceId: initData.instanceId,
+            activationId: initData.activationId,
+            callId,
+            target,
+            method,
+            args,
+          })
+        } catch (err) {
+          const entry = pending.get(callId)
+          pending.delete(callId)
+          entry?.reject(err instanceof Error ? err : new Error(String(err)))
+        }
       })
     }
 
@@ -120,6 +183,14 @@ export function connectSyntaxView(options = {}) {
     function cleanup() {
       disposed = true
       window.clearTimeout(timer)
+      if (readyRetryTimer) {
+        window.clearInterval(readyRetryTimer)
+        readyRetryTimer = 0
+      }
+      if (domReadyHandler && typeof document !== 'undefined') {
+        document.removeEventListener('DOMContentLoaded', domReadyHandler)
+        domReadyHandler = null
+      }
       window.removeEventListener('message', onMessage)
       window.removeEventListener('error', onWindowError)
       window.removeEventListener('unhandledrejection', onUnhandledRejection)
@@ -141,6 +212,10 @@ export function connectSyntaxView(options = {}) {
       if (msg.type === 'syntax:view-init' && !settled) {
         settled = true
         window.clearTimeout(timer)
+        if (readyRetryTimer) {
+          window.clearInterval(readyRetryTimer)
+          readyRetryTimer = 0
+        }
         initData = msg
         currentTheme = msg.theme || currentTheme
         currentSettings = msg.settings || {}
@@ -149,11 +224,7 @@ export function connectSyntaxView(options = {}) {
         if (typeof onTheme === 'function') onTheme(currentTheme)
         if (typeof onSettings === 'function') onSettings(currentSettings)
 
-        if (autoResize && typeof ResizeObserver === 'function' && document.body) {
-          resizeObserver = new ResizeObserver(() => reportResize())
-          resizeObserver.observe(document.body)
-          reportResize()
-        }
+        attachAutoResize()
 
         resolve({
           extensionId: msg.extensionId,
@@ -161,6 +232,7 @@ export function connectSyntaxView(options = {}) {
           docId: msg.docId ?? null,
           activationId: msg.activationId,
           instanceId: msg.instanceId,
+          isConnected: () => !disposed && Boolean(initData),
           getTheme: () => currentTheme,
           getSettings: () => ({ ...currentSettings }),
           callWorker: (method, ...args) => callHost('worker', method, args),
@@ -234,5 +306,14 @@ export function connectSyntaxView(options = {}) {
     window.addEventListener('error', onWindowError)
     window.addEventListener('unhandledrejection', onUnhandledRejection)
     send({ type: 'syntax:view-ready' })
+    // Retry handshake periodically in case the iframe loaded before host listener attached
+    readyRetryTimer = window.setInterval(() => {
+      if (settled || disposed) {
+        window.clearInterval(readyRetryTimer)
+        readyRetryTimer = 0
+        return
+      }
+      send({ type: 'syntax:view-ready' })
+    }, 200)
   })
 }

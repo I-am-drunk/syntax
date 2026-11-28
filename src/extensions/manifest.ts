@@ -361,59 +361,100 @@ export async function fetchExtensionManifest(
   manifestUrl: string,
   timeoutMs = MANIFEST_FETCH_TIMEOUT_MS,
 ): Promise<{ manifest: ExtensionManifest; assets: ResolvedExtensionAssets }> {
+  const rawInput = manifestUrl.trim()
+  const normalizedInput =
+    rawInput && !/^[a-z][a-z0-9+.-]*:/i.test(rawInput) && rawInput.includes('.')
+      ? `https://${rawInput}`
+      : rawInput
+
   let parsedUrl: URL
   try {
-    parsedUrl = new URL(manifestUrl.trim())
+    parsedUrl = new URL(normalizedInput)
   } catch {
     throw new ExtensionError('MANIFEST_INVALID', `Invalid URL: ${manifestUrl}`)
   }
   assertHttpUrl(parsedUrl, 'manifestUrl')
 
-  const controller = new AbortController()
-  const timer = globalThis.setTimeout(() => controller.abort(), timeoutMs)
-  let rawText: string
-  try {
-    const res = await fetch(parsedUrl.href, {
-      mode: 'cors',
-      credentials: 'omit',
-      cache: 'no-store',
-      signal: controller.signal,
-    })
-    if (!res.ok) {
+  // Helpful hint when someone pastes a GitHub web /blob/ URL instead of raw or GitHub Pages
+  if (parsedUrl.hostname === 'github.com' && /\/[^/]+\/[^/]+\/blob\//.test(parsedUrl.pathname)) {
+    const rawSuggestion = `https://raw.githubusercontent.com${parsedUrl.pathname.replace('/blob/', '/')}`
+    throw new ExtensionError(
+      'MANIFEST_INVALID',
+      `GitHub web pages cannot be installed directly because they return HTML without CORS. Use GitHub Pages or the raw URL instead: ${rawSuggestion}`,
+      { detail: parsedUrl.href },
+    )
+  }
+
+  const fetchRawText = async (target: URL): Promise<string> => {
+    const controller = new AbortController()
+    const timer = globalThis.setTimeout(() => controller.abort(), timeoutMs)
+    try {
+      const res = await fetch(target.href, {
+        mode: 'cors',
+        credentials: 'omit',
+        cache: 'no-store',
+        signal: controller.signal,
+      })
+      if (!res.ok) {
+        throw new ExtensionError(
+          'MANIFEST_FETCH_FAILED',
+          `Could not download extension.json (${res.status} ${res.statusText}).`,
+          { detail: target.href },
+        )
+      }
+      const ct = (res.headers.get('content-type') || '').toLowerCase()
+      if (ct.startsWith('text/html')) {
+        throw new ExtensionError(
+          'MANIFEST_INVALID',
+          'URL returned HTML instead of extension.json (verify the link points directly to extension.json).',
+          { detail: target.href },
+        )
+      }
+      const declaredLen = Number(res.headers.get('content-length') || '0')
+      if (declaredLen > MAX_MANIFEST_BYTES) {
+        throw new ExtensionError('MANIFEST_INVALID', 'extension.json exceeds maximum size (256 KB).')
+      }
+      const text = await res.text()
+      if (text.length > MAX_MANIFEST_BYTES) {
+        throw new ExtensionError('MANIFEST_INVALID', 'extension.json exceeds maximum size (256 KB).')
+      }
+      return text
+    } catch (err) {
+      if (err instanceof ExtensionError) throw err
+      const isAbort = err instanceof DOMException && err.name === 'AbortError'
       throw new ExtensionError(
         'MANIFEST_FETCH_FAILED',
-        `Could not download extension.json (${res.status} ${res.statusText}).`,
-        { detail: parsedUrl.href },
+        isAbort
+          ? `Downloading extension.json timed out after ${timeoutMs}ms.`
+          : `Failed to fetch ${target.href} (verify URL is reachable and sends Access-Control-Allow-Origin: *).`,
+        { cause: err, detail: target.href },
       )
+    } finally {
+      globalThis.clearTimeout(timer)
     }
-    const ct = (res.headers.get('content-type') || '').toLowerCase()
-    if (ct.startsWith('text/html')) {
-      throw new ExtensionError(
-        'MANIFEST_INVALID',
-        'URL returned HTML instead of extension.json (verify the link points directly to extension.json).',
-        { detail: parsedUrl.href },
-      )
+  }
+
+  let effectiveUrl = parsedUrl
+  let rawText: string
+  try {
+    rawText = await fetchRawText(parsedUrl)
+  } catch (primaryErr) {
+    // If the user pasted a directory URL (without .json), automatically try appending /extension.json on the same origin
+    const looksLikeFolder = !parsedUrl.pathname.toLowerCase().endsWith('.json')
+    const canFallback =
+      looksLikeFolder &&
+      primaryErr instanceof ExtensionError &&
+      (primaryErr.code === 'MANIFEST_INVALID' ||
+        (primaryErr.code === 'MANIFEST_FETCH_FAILED' && primaryErr.message.includes('404')))
+    if (!canFallback) throw primaryErr
+    const fallbackUrl = new URL(parsedUrl.href)
+    fallbackUrl.pathname = `${fallbackUrl.pathname.replace(/\/+$/, '')}/extension.json`
+    try {
+      rawText = await fetchRawText(fallbackUrl)
+      effectiveUrl = fallbackUrl
+    } catch {
+      throw primaryErr
     }
-    const declaredLen = Number(res.headers.get('content-length') || '0')
-    if (declaredLen > MAX_MANIFEST_BYTES) {
-      throw new ExtensionError('MANIFEST_INVALID', 'extension.json exceeds maximum size (256 KB).')
-    }
-    rawText = await res.text()
-    if (rawText.length > MAX_MANIFEST_BYTES) {
-      throw new ExtensionError('MANIFEST_INVALID', 'extension.json exceeds maximum size (256 KB).')
-    }
-  } catch (err) {
-    if (err instanceof ExtensionError) throw err
-    const isAbort = err instanceof DOMException && err.name === 'AbortError'
-    throw new ExtensionError(
-      'MANIFEST_FETCH_FAILED',
-      isAbort
-        ? `Downloading extension.json timed out after ${timeoutMs}ms.`
-        : `Failed to fetch ${parsedUrl.href} (verify URL is reachable and sends Access-Control-Allow-Origin: *).`,
-      { cause: err, detail: parsedUrl.href },
-    )
-  } finally {
-    globalThis.clearTimeout(timer)
   }
 
   let json: unknown
@@ -435,6 +476,6 @@ export async function fetchExtensionManifest(
     )
   }
 
-  const assets = resolveExtensionAssets(parsedUrl.href, manifest)
+  const assets = resolveExtensionAssets(effectiveUrl.href, manifest)
   return { manifest, assets }
 }

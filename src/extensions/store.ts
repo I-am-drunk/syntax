@@ -4,6 +4,37 @@ import { extensionManifestSchema, type ExtensionManifest } from './manifest.ts'
 
 const RECORDS_STORAGE_KEY = 'syntax.extensions.v1'
 const SETTINGS_STORAGE_KEY = 'syntax.extensions.settings.v1'
+const BOOT_SENTINEL_KEY = 'syntax.extensions.boot-attempts.v1'
+const BOOT_CRASH_THRESHOLD = 3
+
+/**
+ * Tracks consecutive incomplete extension startups in sessionStorage so repeated crashes
+ * during boot automatically fall back to Safe Mode instead of trapping the user.
+ */
+export function beginBootGuard(hasEnabledExtensions: boolean): boolean {
+  if (!hasEnabledExtensions || typeof sessionStorage === 'undefined') return false
+  try {
+    const raw = Number.parseInt(sessionStorage.getItem(BOOT_SENTINEL_KEY) || '0', 10)
+    const attempts = Number.isFinite(raw) && raw > 0 ? raw : 0
+    if (attempts >= BOOT_CRASH_THRESHOLD) {
+      sessionStorage.removeItem(BOOT_SENTINEL_KEY)
+      return true
+    }
+    sessionStorage.setItem(BOOT_SENTINEL_KEY, String(attempts + 1))
+  } catch {
+    // ignore storage errors
+  }
+  return false
+}
+
+export function completeBootGuard(): void {
+  if (typeof sessionStorage === 'undefined') return
+  try {
+    sessionStorage.removeItem(BOOT_SENTINEL_KEY)
+  } catch {
+    // ignore
+  }
+}
 
 export interface ExtensionRecord {
   id: string
@@ -153,7 +184,7 @@ export function createInitialRuntime(
 ): ExtensionRuntimeInfo {
   return {
     id: record.id,
-    status: !record.enabled ? 'disabled' : safeMode ? 'safe-mode' : 'disabled',
+    status: !record.enabled ? 'disabled' : safeMode ? 'safe-mode' : 'loading',
     activationId: null,
     lastError: null,
     unavailableOptionalServices: {},
@@ -166,9 +197,10 @@ interface ExtensionStoreState {
   runtime: Record<string, ExtensionRuntimeInfo>
   settings: Record<string, Record<string, ExtensionSettingValue>>
   safeMode: boolean
+  autoSafeMode: boolean
   booted: boolean
 
-  setSafeMode: (safeMode: boolean) => void
+  setSafeMode: (safeMode: boolean, autoTriggered?: boolean) => void
   setBooted: (booted: boolean) => void
   upsertRecord: (record: ExtensionRecord) => void
   removeRecord: (id: string) => void
@@ -201,10 +233,11 @@ export const useExtensionStore = create<ExtensionStoreState>((set, get) => ({
   runtime: initialRuntime,
   settings: readPersistedSettings(),
   safeMode: initialSafeMode,
+  autoSafeMode: false,
   booted: false,
 
-  setSafeMode(safeMode) {
-    set({ safeMode })
+  setSafeMode(safeMode, autoTriggered = false) {
+    set({ safeMode, autoSafeMode: safeMode ? autoTriggered : false })
   },
 
   setBooted(booted) {
@@ -213,11 +246,14 @@ export const useExtensionStore = create<ExtensionStoreState>((set, get) => ({
 
   upsertRecord(record) {
     set(state => {
-      const idx = state.records.findIndex(r => r.id === record.id)
+      // Merge against latest persisted records so concurrent tabs do not clobber each other
+      const latestDisk = typeof localStorage !== 'undefined' ? readPersistedRecords() : state.records
+      const base = latestDisk.length > 0 || state.records.length === 0 ? latestDisk : state.records
+      const idx = base.findIndex(r => r.id === record.id)
       const next =
         idx >= 0
-          ? state.records.map(r => (r.id === record.id ? record : r))
-          : [...state.records, record]
+          ? base.map(r => (r.id === record.id ? record : r))
+          : [...base, record]
       writePersistedRecords(next)
       const runtime = state.runtime[record.id]
         ? state.runtime
@@ -228,7 +264,9 @@ export const useExtensionStore = create<ExtensionStoreState>((set, get) => ({
 
   removeRecord(id) {
     set(state => {
-      const next = state.records.filter(r => r.id !== id)
+      const latestDisk = typeof localStorage !== 'undefined' ? readPersistedRecords() : state.records
+      const base = latestDisk.length > 0 || state.records.length === 0 ? latestDisk : state.records
+      const next = base.filter(r => r.id !== id)
       writePersistedRecords(next)
       const nextRuntime = { ...state.runtime }
       delete nextRuntime[id]
@@ -343,6 +381,14 @@ if (typeof window !== 'undefined') {
     if (event.key === SETTINGS_STORAGE_KEY) {
       useExtensionStore.setState({ settings: readPersistedSettings() })
       emitSettingsChanged(null)
+    } else if (event.key === RECORDS_STORAGE_KEY) {
+      const records = readPersistedRecords()
+      const state = useExtensionStore.getState()
+      const nextRuntime: Record<string, ExtensionRuntimeInfo> = {}
+      for (const rec of records) {
+        nextRuntime[rec.id] = state.runtime[rec.id] ?? createInitialRuntime(rec, state.safeMode)
+      }
+      useExtensionStore.setState({ records, runtime: nextRuntime })
     }
   })
 }

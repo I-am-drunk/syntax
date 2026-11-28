@@ -477,6 +477,28 @@ export function LibraryPage({
                 {embedViews.map(v => {
                   const rt = runtimeById[v.ownerId]
                   const extName = nameById.get(v.ownerId) ?? v.ownerId
+                  if (rt?.status === 'loading') {
+                    return (
+                      <div
+                        key={v.key}
+                        className="sx-ext-view-frame is-embed"
+                        data-extension-id={v.ownerId}
+                        data-view-id={v.id}
+                        data-view-ready="false"
+                      >
+                        <div className="sx-ext-embed-bar">
+                          <span className="sx-ext-embed-title">
+                            <strong>{v.title}</strong>
+                            <small>{extName} · Embedded Extension</small>
+                          </span>
+                        </div>
+                        <div className="sx-ext-embed-recovery" role="status" aria-live="polite">
+                          <span className="spinner" aria-hidden="true" />
+                          <span>Starting {extName}...</span>
+                        </div>
+                      </div>
+                    )
+                  }
                   if (rt?.status !== 'active' || !rt.activationId) {
                     return (
                       <div

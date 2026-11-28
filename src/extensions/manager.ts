@@ -21,6 +21,8 @@ import { ExtensionError, type SerializedError } from './plugos/protocol.ts'
 import { WorkerSandbox } from './plugos/workerSandbox.ts'
 import { findServiceCycle, serviceRegistry, type ServiceRegistration } from './services.ts'
 import {
+  beginBootGuard,
+  completeBootGuard,
   isSafeMode,
   useExtensionStore,
   type ExtensionRecord,
@@ -48,38 +50,53 @@ function toErrorInfo(err: unknown): { code: string; message: string; detail?: st
 }
 
 /**
- * Topologically orders enabled records so service providers boot before their consumers.
+ * Groups enabled records into topological dependency waves so independent extensions
+ * boot in parallel while service providers always finish before their consumers.
  */
-function orderForBoot(records: ExtensionRecord[]): ExtensionRecord[] {
+function groupForBootWaves(records: ExtensionRecord[]): ExtensionRecord[][] {
   const enabled = records.filter(r => r.enabled)
+  if (enabled.length === 0) return []
+
   const providerByService = new Map<string, string>()
   for (const r of enabled) {
     for (const svc of Object.keys(r.manifest.services.provides)) {
       providerByService.set(svc, r.id)
     }
   }
-  const byId = new Map(enabled.map(r => [r.id, r]))
-  const visited = new Set<string>()
-  const visiting = new Set<string>()
-  const ordered: ExtensionRecord[] = []
 
-  function visit(id: string) {
-    if (visited.has(id) || visiting.has(id)) return
-    visiting.add(id)
-    const rec = byId.get(id)
-    if (rec) {
-      for (const reqSvc of Object.keys(rec.manifest.services.requires)) {
-        const provId = providerByService.get(reqSvc)
-        if (provId && provId !== id) visit(provId)
-      }
-      ordered.push(rec)
+  const remaining = new Map(enabled.map(r => [r.id, r]))
+  const depsById = new Map<string, Set<string>>()
+  for (const r of enabled) {
+    const deps = new Set<string>()
+    for (const reqSvc of Object.keys(r.manifest.services.requires)) {
+      const provId = providerByService.get(reqSvc)
+      if (provId && provId !== r.id) deps.add(provId)
     }
-    visiting.delete(id)
-    visited.add(id)
+    depsById.set(r.id, deps)
   }
 
-  for (const r of enabled) visit(r.id)
-  return ordered
+  const waves: ExtensionRecord[][] = []
+  const placed = new Set<string>()
+
+  while (remaining.size > 0) {
+    const wave: ExtensionRecord[] = []
+    for (const rec of remaining.values()) {
+      const deps = depsById.get(rec.id)
+      const ready = !deps || [...deps].every(depId => placed.has(depId))
+      if (ready) wave.push(rec)
+    }
+    if (wave.length === 0) {
+      // Break any cycle deterministically so boot still runs and reports SERVICE_CYCLE
+      wave.push(...remaining.values())
+    }
+    waves.push(wave)
+    for (const rec of wave) {
+      remaining.delete(rec.id)
+      placed.add(rec.id)
+    }
+  }
+
+  return waves
 }
 
 const NOTIFY_RATE_LIMIT = 5
@@ -691,10 +708,14 @@ export class ExtensionManager {
     }
 
     const run = (async () => {
-      const safeMode = opts?.safeMode ?? isSafeMode()
-      store.setSafeMode(safeMode)
+      const explicitSafeMode = opts?.safeMode ?? isSafeMode()
+      const hasEnabled = store.records.some(r => r.enabled)
+      const autoTriggered = !explicitSafeMode && beginBootGuard(hasEnabled)
+      const safeMode = explicitSafeMode || autoTriggered
+      store.setSafeMode(safeMode, autoTriggered)
 
       if (safeMode) {
+        completeBootGuard()
         for (const rec of store.records) {
           this.deactivateNow(rec.id, rec.enabled ? 'safe-mode' : 'disabled')
         }
@@ -702,22 +723,30 @@ export class ExtensionManager {
         return
       }
 
-      const ordered = orderForBoot(store.records)
-      for (const rec of ordered) {
-        await this.withLock(rec.id, async () => {
-          const latestStore = useExtensionStore.getState()
-          if (latestStore.safeMode) return
-          const current = latestStore.records.find(r => r.id === rec.id)
-          if (!current || !current.enabled) return
-          try {
-            const assets = resolveExtensionAssets(current.manifestUrl, current.manifest)
-            await this.stageAndActivate(current.manifest, assets)
-          } catch {
-            // Failure recorded per-extension; continue booting unrelated extensions
-          }
-        })
+      try {
+        const waves = groupForBootWaves(store.records)
+        for (const wave of waves) {
+          await Promise.allSettled(
+            wave.map(rec =>
+              this.withLock(rec.id, async () => {
+                const latestStore = useExtensionStore.getState()
+                if (latestStore.safeMode) return
+                const current = latestStore.records.find(r => r.id === rec.id)
+                if (!current || !current.enabled) return
+                try {
+                  const assets = resolveExtensionAssets(current.manifestUrl, current.manifest)
+                  await this.stageAndActivate(current.manifest, assets)
+                } catch {
+                  // Failure recorded per-extension; continue booting unrelated extensions
+                }
+              }),
+            ),
+          )
+        }
+        store.setBooted(true)
+      } finally {
+        completeBootGuard()
       }
-      store.setBooted(true)
     })()
 
     this.bootInFlight = run
@@ -933,7 +962,9 @@ export class ExtensionManager {
       }
 
       if (rec.enabled && !store.safeMode) {
-        await this.stageAndActivate(manifest, assets, { preserveLiveOnFailure: true })
+        await this.stageAndActivate(manifest, assets, {
+          preserveLiveOnFailure: this.active.has(extId),
+        })
       }
 
       const updated: ExtensionRecord = {
