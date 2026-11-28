@@ -21,8 +21,13 @@ const devPins: readonly NativePin[] = [{
 export const hasHostedNativePackages = devPins.length > 0
 
 export function nativeMode(channel: string | undefined, development: boolean, location: URL): NativeMode {
+  if (location.origin === 'https://syntax-platform.github.io') {
+    if (channel === 'dev' && /^\/syntax-dev(?:\/|$)/.test(location.pathname)) return 'hosted-dev'
+    if (channel === 'beta' && /^\/syntax-beta(?:\/|$)/.test(location.pathname)) return 'hosted-dev'
+    if (channel === 'preview' && /^\/syntax-infra\/pr-\d+(?:\/|$)/.test(location.pathname)) return 'hosted-dev'
+    return 'disabled'
+  }
   if (!/^\/syntax-dev(?:\/|$)/.test(location.pathname)) return 'disabled'
-  if (channel === 'dev' && location.origin === 'https://syntax-platform.github.io') return 'hosted-dev'
   const loopback = ['127.0.0.1', 'localhost', '[::1]'].includes(location.hostname)
   if (channel === undefined && development && loopback) return 'local-dev'
   return 'disabled'

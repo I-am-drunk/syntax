@@ -29,9 +29,23 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      - name: Resolve preview base path
+        id: base
+        env:
+          INFRA_URL: ${{ vars.SYNTAX_INFRA_ORIGIN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          preview_base=$(node -e '
+            const raw = (process.env.INFRA_URL || "").replace(/\/+$/, "");
+            const u = new URL(raw);
+            if (u.protocol !== "https:") throw Error("Infra preview requires an HTTPS URL.");
+            const prefix = u.pathname === "/" ? "" : u.pathname.replace(/\/+$/, "");
+            process.stdout.write(`${prefix}/pr-${process.env.PR_NUMBER}/`);
+          ')
+          echo "preview_base=$preview_base" >> "$GITHUB_OUTPUT"
       - run: npm run build
         env:
-          VITE_BASE: /
+          VITE_BASE: ${{ steps.base.outputs.preview_base }}
           VITE_CHANNEL: preview
           VITE_CLERK_PUBLISHABLE_KEY: ''
       - run: printf '%s\n' "$HEAD_SHA" > dist/preview-commit.txt
@@ -57,13 +71,12 @@ jobs:
       pull-requests: write
     environment: syntax-infra
     env:
-      INFRA_ORIGIN: ${{ vars.SYNTAX_INFRA_ORIGIN }}
+      INFRA_URL: ${{ vars.SYNTAX_INFRA_ORIGIN }}
       PR_NUMBER: ${{ github.event.pull_request.number }}
       HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       CLOSED: ${{ github.event.action == 'closed' }}
     steps:
       - uses: actions/checkout@v4
-        if: github.event.action != 'closed'
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           persist-credentials: false
@@ -76,32 +89,23 @@ jobs:
       - name: Check the static preview bundle
         if: github.event.action != 'closed'
         run: node .github/scripts/verify-static-artifact.mjs incoming preview-commit.txt "$HEAD_SHA"
-      - name: Publish this PR's Cloudflare preview
-        if: github.event.action != 'closed'
-        id: deployment
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_PAGES_TOKEN }}
-          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy incoming --project-name=syntax-infra --branch=pr-${{ github.event.pull_request.number }} --commit-hash=${{ github.event.pull_request.head.sha }}
-      - name: Verify the deployed commit
+      - name: Publish PR preview to GitHub Pages (syntax-infra)
         if: github.event.action != 'closed'
         env:
-          PREVIEW_URL: ${{ steps.deployment.outputs.pages-deployment-alias-url }}
-        run: |
-          [[ "$PREVIEW_URL" == "https://pr-$PR_NUMBER.${INFRA_ORIGIN#https://}" || "$PREVIEW_URL" == "https://pr-$PR_NUMBER.${INFRA_ORIGIN#https://}/" ]]
-          for attempt in {1..24}; do
-            actual=$(curl --silent --fail --max-time 10 "${PREVIEW_URL%/}/preview-commit.txt?run=$GITHUB_RUN_ID" || true)
-            if [[ "$actual" == "$HEAD_SHA" ]]; then exit 0; fi
-            sleep 10
-          done
-          echo 'The Infra site did not serve the expected commit.' >&2
-          exit 1
+          DEPLOY_KEY: ${{ secrets.SYNTAX_INFRA_DEPLOY_KEY }}
+          DEPLOY_REPO: syntax-platform/syntax-infra
+          DEPLOY_URL: ${{ vars.SYNTAX_INFRA_ORIGIN }}
+          DEPLOY_COMMIT: ${{ github.event.pull_request.head.sha }}
+        run: bash .github/scripts/deploy-preview-site.sh deploy incoming
+      - name: Remove closed PR preview from GitHub Pages (syntax-infra)
+        if: github.event.action == 'closed'
+        env:
+          DEPLOY_KEY: ${{ secrets.SYNTAX_INFRA_DEPLOY_KEY }}
+          DEPLOY_REPO: syntax-platform/syntax-infra
+          DEPLOY_URL: ${{ vars.SYNTAX_INFRA_ORIGIN }}
+        run: bash .github/scripts/deploy-preview-site.sh remove
       - name: Update the preview link on the PR
         uses: actions/github-script@v7
-        env:
-          PREVIEW_URL: ${{ steps.deployment.outputs.pages-deployment-alias-url }}
-          BUILD_URL: ${{ steps.deployment.outputs.deployment-url }}
         with:
           script: |
             const marker = '<!-- syntax-infra-preview -->';
@@ -112,9 +116,12 @@ jobs:
             if (closing ? pr.state !== 'closed' : pr.state !== 'open' || pr.head.sha !== process.env.HEAD_SHA) return;
             const comments = await github.paginate(github.rest.issues.listComments, key);
             const previous = comments.find(comment => comment.user?.login === 'github-actions[bot]' && comment.body?.startsWith(marker));
+            const base = process.env.INFRA_URL.replace(/\/+$/, '');
+            const previewUrl = `${base}/pr-${number}/`;
+            const commitUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/commit/${process.env.HEAD_SHA}`;
             const body = closing
-              ? `${marker}\n### Syntax preview\n\nThe PR is closed. This preview no longer receives updates.`
-              : `${marker}\n### Syntax preview\n\n[Open the PR preview](${process.env.PREVIEW_URL}) · [Open this exact build](${process.env.BUILD_URL})\n\nCommit \`${process.env.HEAD_SHA.slice(0, 7)}\``;
+              ? `${marker}\n### Syntax preview\n\nThe PR is closed. This preview has been removed.`
+              : `${marker}\n### Syntax preview\n\n[Open the PR preview](${previewUrl}) · [Commit \`${process.env.HEAD_SHA.slice(0, 7)}\`](${commitUrl})`;
             if (previous) {
               await github.rest.issues.updateComment({ ...context.repo, comment_id: previous.id, body });
             } else if (!closing) {
