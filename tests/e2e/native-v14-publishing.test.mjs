@@ -90,7 +90,7 @@ test('V1.4 Build a Course & Build a Tool starters, Community Hub discovery with 
   const toolV1Url = harness.extUrl('v14/tool-v1/manifest.json')
   const previewImgUrl = harness.extUrl('v14/previews/starter-course.png')
 
-  let catalogPhase = 'initial'
+  let catalogPhase = 'mismatched'
   await context.route('**/syntax-community/catalog/catalog.json', route => {
     const coursePkg = catalogPhase === 'bad-update'
       ? {
@@ -125,7 +125,7 @@ test('V1.4 Build a Course & Build a Tool starters, Community Hub discovery with 
             manifestVersion: 2,
             kind: 'course',
             name: courseManifest.name,
-            version: courseManifest.version,
+            version: catalogPhase === 'mismatched' ? '9.9.9' : courseManifest.version,
             syntaxApi: '^2.0.0',
             sha256: courseManifest.sha256,
             description: 'Starter course with separate listing preview.',
@@ -183,6 +183,11 @@ test('V1.4 Build a Course & Build a Tool starters, Community Hub discovery with 
   await page.goto(`${harness.appOrigin}/syntax-dev/#/community`)
   const courseCatalogCard = page.locator(`[data-catalog-id="${courseManifest.id}"]`)
   await courseCatalogCard.waitFor()
+  await courseCatalogCard.getByRole('button', { name: 'Install', exact: true }).click()
+  await page.getByText('The downloaded package does not match the Community Hub listing.', { exact: true }).waitFor()
+  assert.equal(await page.locator(`[data-native-hub-review="${courseManifest.id}"]`).count(), 0)
+  catalogPhase = 'initial'
+  await page.reload()
   const previewImg = courseCatalogCard.locator(`[data-catalog-previews="${courseManifest.id}"] img`)
   await previewImg.waitFor()
   const previewLoaded = await previewImg.evaluate(async img => {
