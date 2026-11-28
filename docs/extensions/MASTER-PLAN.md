@@ -37,8 +37,8 @@ For each milestone, record its status, PRs, exact tested commit, relevant deploy
 | --- | --- | --- |
 | [V1.0](#v10-runtime-and-authoring-foundation) | A tested runtime and a documented way to build and install an external test package | Complete |
 | [V1.1](#v11-quick-notes-and-authoring-proof) | An independently authored notes tool with a screen, a command, and recovery | Complete |
-| [V1.2](#v12-course-ui-and-progress) | A real lesson and shared learning UI | In progress |
-| [V1.3](#v13-embedded-extensions-tools-and-themes) | A course with required embedded behavior and an optional tool | Planned |
+| [V1.2](#v12-course-ui-and-progress) | A real lesson and shared learning UI | Complete |
+| [V1.3](#v13-embedded-extensions-tools-and-themes) | A course with required embedded behavior and an optional tool | In progress |
 | [V1.4](#v14-publishing-discovery-and-docs) | A documented authoring, publishing, and install path | Planned |
 | [V1.5](#v15-release-rehearsal) | A complete release rehearsal on the actual sites | Planned |
 | [V2](#v2-release-gate) | The complete system after every gate passes | Planned |
@@ -110,9 +110,16 @@ Publish `@syntax/api` for host services and `@syntax/ui` for shared controls and
 
 **Release gate**
 
-- [ ] Complete a real MPM2D Analytic Geometry lesson on desktop and mobile, in light and dark mode, and using a keyboard. Check the graph axes, points, and line against the lesson background. Exercise the same shared components in a small example from another subject.
-- [ ] Change a shared control in Syntax and verify that an installed example picks up the change without rebuilding the extension. During alpha and beta, update official extensions alongside breaking `@syntax/ui` changes. Commit to backward compatibility at the public UI API's v1.0.
-- [ ] Show a progress count in Library when a course supplies one. Preserve it on reinstall. At the bottom of Profile, allow deleting one course's saved data without affecting other courses or the account.
+- [x] Complete a real MPM2D Analytic Geometry lesson on desktop and mobile, in light and dark mode, and using a keyboard. Check the graph axes, points, and line against the lesson background. Exercise the same shared components in a small example from another subject.
+- [x] Change a shared control in Syntax and verify that an installed example picks up the change without rebuilding the extension. During alpha and beta, update official extensions alongside breaking `@syntax/ui` changes. Commit to backward compatibility at the public UI API's v1.0.
+- [x] Show a progress count in Library when a course supplies one. Preserve it on reinstall. At the bottom of Profile, allow deleting one course's saved data without affecting other courses or the account.
+
+**V1.2 evidence**
+
+- Published official **Analytic Geometry (MPM2D)** and **Binary & Logic Basics** courses outside core Syntax in [official extensions PR #4](https://github.com/syntax-platform/syntax-official-extensions/pull/4) (`v1.0.0`, `54a3cda1`) and [official extensions PR #5](https://github.com/syntax-platform/syntax-official-extensions/pull/5) (`v1.0.1`, `a43fb295`, MPM2D SHA-256 `a18df6e42e1c0fcc54482732dd5aeed34421115dfe76a450d26fcb96b5293553`, Binary Basics SHA-256 `002dc701e629480abeb9de0b304fac1fb4ffded6f2070d0f2e543553a2237141`).
+- An independent V1.2 review identified 8 blocking findings (dark-mode `ChoiceGroup`/`CheckBar` CSS specificity, mobile sticky `CheckBar` overlap with `.sx-mobile-tabbar`, `saveData()` host refresh, roving `tabIndex` and StrictMode `WorkedSteps`, IndexedDB `v1 -> v2` `onversionchange`/`onblocked` upgrade safety, real dual-host-build live `@syntax/ui` E2E proof, equal-aspect 90-degree graph scaling and WCAG AA text contrast, and save-error retry handling in both courses). All 8 blockers were fixed and verified before merging.
+- [Core PR #46](https://github.com/syntax-platform/syntax/pull/46) passed [CI](https://github.com/syntax-platform/syntax/actions/runs/46163005792) (46 unit tests, production build, and all 12 real Chromium E2E tests including dual-build live `@syntax/ui` propagation without rebuilding the installed extension) and merged as `d6ffbed5c522ae443def884f0a15f47a76d9f2f7`.
+- [Manual Dev run 46163233903](https://github.com/syntax-platform/syntax/actions/runs/46163233903) deployed `d6ffbed5` to [Syntax Dev](https://syntax-platform.github.io/syntax-dev/). Live Chromium verification confirmed installing both MPM2D and Binary Basics v1.0.1 over HTTPS, completing both lessons, reading live progress counts in Library, and deleting only MPM2D saved data from Profile while leaving Binary Basics intact.
 
 ### V1.3 Embedded extensions, tools, and themes
 

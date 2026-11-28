@@ -10,11 +10,19 @@ export interface NativeCourseProgress {
   label?: string
 }
 
+export interface NativeRecommendedTool {
+  id: string
+  name: string
+  description: string
+  manifestUrl?: string
+}
+
 export interface NativeScreen {
   id: string
   title: string
   kind?: 'course' | 'tool'
   subtitle?: string
+  recommendedTools?: readonly NativeRecommendedTool[]
   component: ComponentType
 }
 
@@ -24,10 +32,40 @@ export interface NativeCommand {
   run: () => void | Promise<void>
 }
 
+export interface NativeEmbeddedExtension {
+  id: string
+  title: string
+  setup(
+    context: NativeExtensionContext,
+  ): void | (() => void | Promise<void>) | Promise<void | (() => void | Promise<void>)>
+}
+
+export interface NativeCourseTool {
+  id: string
+  title: string
+  buttonLabel: string
+  targetCourses: readonly string[]
+  component: ComponentType<{ courseId: string; onClose: () => void }>
+}
+
+export interface NativeRegisteredCourseTool extends NativeCourseTool {
+  ownerId: string
+  ownerName: string
+}
+
+export interface NativeStyleRegistration {
+  id: string
+  css: string
+  scope?: 'scoped' | 'global'
+}
+
 export interface NativeExtensionContext {
   readonly signal: AbortSignal
   registerScreen(screen: NativeScreen): void
   registerCommand(command: NativeCommand): void
+  registerEmbedded(embedded: NativeEmbeddedExtension): Promise<void>
+  registerCourseTool(tool: NativeCourseTool): void
+  registerStyles(style: NativeStyleRegistration): void
   openScreen(screenId: string): void
   onDispose(callback: () => void | Promise<void>): void
   loadData(): Promise<NativeData | undefined>

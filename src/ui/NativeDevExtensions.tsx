@@ -234,6 +234,14 @@ export function NativeDevExtensions({
             const runtime = phase === 'ready' ? getNativeDevHost().runtime : undefined
             const screens = runtime?.listScreens(manifest.id) ?? []
             const commands = runtime?.listCommands(manifest.id) ?? []
+            const embedded = runtime?.listEmbedded(manifest.id) ?? []
+            const styles = runtime?.listStyles(manifest.id) ?? []
+            const courseToolsCount = runtime?.listOwnedCourseTools(manifest.id).length ?? 0
+            const recommendedTools = Array.from(
+              new Map(
+                screens.flatMap(screen => screen.recommendedTools ?? []).map(tool => [tool.id, tool]),
+              ).values(),
+            )
             const isInspected = inspectedId === manifest.id
             const status = failure ? 'failed' : enabled ? 'active' : 'disabled'
             const statusText = failure ? 'Needs attention' : enabled ? 'Active' : 'Disabled'
@@ -381,7 +389,59 @@ export function NativeDevExtensions({
                       <dt>Build digest</dt>
                       <dd><code>{manifest.sha256.slice(0, 16)}...</code></dd>
                       <dt>Contributions</dt>
-                      <dd>{screens.length} {screens.length === 1 ? 'screen' : 'screens'}, {commands.length} {commands.length === 1 ? 'command' : 'commands'}</dd>
+                      <dd>
+                        {screens.length} {screens.length === 1 ? 'screen' : 'screens'}, {commands.length} {commands.length === 1 ? 'command' : 'commands'}
+                        {courseToolsCount > 0 ? `, ${courseToolsCount} course ${courseToolsCount === 1 ? 'tool' : 'tools'}` : ''}
+                      </dd>
+                      {embedded.length > 0 && (
+                        <>
+                          <dt>Embedded</dt>
+                          <dd>{embedded.map(item => item.title).join(', ')}</dd>
+                        </>
+                      )}
+                      {styles.length > 0 && (
+                        <>
+                          <dt>Styles</dt>
+                          <dd>{styles.map(item => `${item.id} (${item.scope})`).join(', ')}</dd>
+                        </>
+                      )}
+                      {recommendedTools.length > 0 && (
+                        <>
+                          <dt>Recommended tools</dt>
+                          <dd>
+                            {recommendedTools.map(tool => {
+                              const installedTool = installs.find(i => i.package.manifest.id === tool.id)
+                              return (
+                                <div key={tool.id} data-recommended-tool={tool.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                                  <span>
+                                    <strong>{tool.name}</strong>: {tool.description}
+                                  </span>
+                                  {tool.manifestUrl && !installedTool && phase === 'ready' && canInstall && (
+                                    <button
+                                      type="button"
+                                      className="sx-btn-secondary sx-btn-sm"
+                                      disabled={pending}
+                                      onClick={() => {
+                                        setUrl(tool.manifestUrl!)
+                                        setInstalledBanner(undefined)
+                                        setStatusMessage(undefined)
+                                        void perform(async () => setCandidate(await getNativeDevHost().inspect(tool.manifestUrl!)))
+                                      }}
+                                    >
+                                      Install {tool.name}
+                                    </button>
+                                  )}
+                                  {installedTool && (
+                                    <span className="sx-ext-version-tag">
+                                      {installedTool.enabled ? 'Installed' : 'Installed (disabled)'}
+                                    </span>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </dd>
+                        </>
+                      )}
                       {failure && (
                         <>
                           <dt>Last error</dt>
@@ -438,7 +498,7 @@ export function NativeDevScreen({ id, screen, onNavigate }: {
           scope={id}
           extensionName={install.package.manifest.name}
           onExitScope={exit}
-          exitLabel="Back to Extensions"
+          exitLabel={exitLabel}
           onError={error => {
             const message = formatError(error)
             void getNativeDevHost().reportFailure(id, install.revision, error)
@@ -449,14 +509,16 @@ export function NativeDevScreen({ id, screen, onNavigate }: {
                     id,
                     name: install.package.manifest.name,
                     message,
-                    onInspect: exit,
+                    onInspect: () => onNavigate(extensionsPath),
                   })
                 }
               })
               .catch(failure => toast.error(formatError(failure)))
           }}
         >
-          <Content />
+          <div data-native-ext-root={id}>
+            <Content />
+          </div>
         </SyntaxErrorBoundary>
       ) : install?.failure ? (
         <section className="sx-native-review-card" role="alert">

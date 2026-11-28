@@ -364,3 +364,132 @@ test('hostModules expose live @syntax/ui and @syntax/api, and course progress su
   assert.deepEqual((await host.listProgress())['syntax.course-b'], { completed: 1, total: 2, label: '1 / 2 lessons' })
   assert.deepEqual(data.get('syntax.course-b'), { done: true })
 })
+
+test('embedded extensions, optional course tools, and scoped/global styles follow owner lifecycle cleanly', async () => {
+  const events = []
+  let contributionChanges = 0
+  const { runtime } = setup()
+  const trackedRuntime = new NativeRuntime(
+    { load: async () => undefined, save: async () => {} },
+    () => {},
+    { onContributionsChanged: () => { contributionChanges += 1 } },
+  )
+  assert.ok(runtime)
+
+  const coursePkg = pkg('syntax.geo', `
+    exports.activate = async ctx => {
+      await ctx.registerEmbedded({
+        id: 'graph-helper',
+        title: 'Graph Helper',
+        setup: () => {
+          globalThis.__v13Events.push('setup:v1');
+          return () => { globalThis.__v13Events.push('cleanup:v1'); };
+        },
+      });
+      ctx.registerStyles({ id: 'local', scope: 'scoped', css: '.box { color: red; }' });
+      ctx.registerScreen({ id: 'main', title: 'Geo', kind: 'course', component: () => null });
+    };
+  `, '1.0.0')
+  const toolPkg = pkg('syntax.playbook', `
+    exports.activate = ctx => {
+      ctx.registerCourseTool({
+        id: 'formulas',
+        title: 'Formula Playbook',
+        buttonLabel: 'Formulas',
+        targetCourses: ['syntax.geo'],
+        component: () => null,
+      });
+    };
+  `, '1.0.0')
+  const themePkg = pkg('syntax.theme', `
+    exports.activate = ctx => {
+      ctx.registerStyles({ id: 'paper', scope: 'global', css: ':root { --paper: 1; }' });
+      ctx.registerCommand({ id: 'boom', title: 'Boom', run: () => { throw new Error('theme crash'); } });
+    };
+  `, '1.0.0')
+
+  globalThis.__v13Events = events
+  try {
+    await trackedRuntime.activate(coursePkg)
+    assert.deepEqual(events, ['setup:v1'])
+    assert.deepEqual(trackedRuntime.listEmbedded('syntax.geo'), [{ id: 'graph-helper', title: 'Graph Helper' }])
+    assert.deepEqual(trackedRuntime.listStyles('syntax.geo'), [{ id: 'local', scope: 'scoped' }])
+
+    await trackedRuntime.activate(toolPkg)
+    assert.equal(trackedRuntime.listCourseToolsFor('syntax.geo').length, 1)
+    assert.equal(trackedRuntime.listCourseToolsFor('syntax.other').length, 0)
+
+    // Disable optional tool while course stays active
+    trackedRuntime.disable('syntax.playbook')
+    assert.equal(trackedRuntime.listCourseToolsFor('syntax.geo').length, 0)
+    assert.equal(trackedRuntime.isActive('syntax.geo'), true)
+
+    // Updating a course runs previous embedded cleanup BEFORE new embedded setup
+    const courseV2 = pkg('syntax.geo', `
+      exports.activate = async ctx => {
+        await ctx.registerEmbedded({
+          id: 'graph-helper',
+          title: 'Graph Helper v2',
+          setup: () => {
+            globalThis.__v13Events.push('setup:v2');
+            return () => { globalThis.__v13Events.push('cleanup:v2'); };
+          },
+        });
+        ctx.registerScreen({ id: 'main', title: 'Geo v2', kind: 'course', component: () => null });
+      };
+    `, '1.1.0')
+    await trackedRuntime.activate(courseV2)
+    assert.deepEqual(events, ['setup:v1', 'cleanup:v1', 'setup:v2'])
+
+    // Disabling course cleans up embedded behavior together
+    trackedRuntime.disable('syntax.geo')
+    assert.deepEqual(events, ['setup:v1', 'cleanup:v1', 'setup:v2', 'cleanup:v2'])
+    assert.deepEqual(trackedRuntime.listEmbedded('syntax.geo'), [])
+
+    // Theme crash cleans up global styles and command
+    await trackedRuntime.activate(themePkg)
+    assert.deepEqual(trackedRuntime.listStyles('syntax.theme'), [{ id: 'paper', scope: 'global' }])
+    await assert.rejects(trackedRuntime.runCommand('syntax.theme', 'boom'), /theme crash/)
+    assert.deepEqual(trackedRuntime.listStyles('syntax.theme'), [])
+    assert.deepEqual(trackedRuntime.listCommands('syntax.theme'), [])
+    assert.ok(contributionChanges >= 4)
+  } finally {
+    delete globalThis.__v13Events
+  }
+})
+
+test('scoped CSS rejects breakout braces and global at-rules, and invalid tool metadata is rejected', async () => {
+  const { runtime } = setup()
+  await assert.rejects(
+    runtime.activate(pkg('example.breakout', `
+      exports.activate = ctx => {
+        ctx.registerStyles({ id: 'bad', scope: 'scoped', css: '.a { color: red; } } body { background: black; } {' });
+      };
+    `)),
+    { code: 'STYLE_INVALID' },
+  )
+  await assert.rejects(
+    runtime.activate(pkg('example.atrule', `
+      exports.activate = ctx => {
+        ctx.registerStyles({ id: 'bad', scope: 'scoped', css: '@import url("https://evil.example/x.css"); .a { color: red; }' });
+      };
+    `)),
+    { code: 'STYLE_INVALID' },
+  )
+  await assert.rejects(
+    runtime.activate(pkg('example.badtool', `
+      exports.activate = ctx => {
+        ctx.registerCourseTool({ id: 't', title: 'T', buttonLabel: 'T', targetCourses: [123], component: () => null });
+      };
+    `)),
+    { code: 'CONTRIBUTION_INVALID' },
+  )
+  await assert.rejects(
+    runtime.activate(pkg('example.badrec', `
+      exports.activate = ctx => {
+        ctx.registerScreen({ id: 's', title: 'S', component: () => null, recommendedTools: [{ id: 'x' }] });
+      };
+    `)),
+    { code: 'CONTRIBUTION_INVALID' },
+  )
+})

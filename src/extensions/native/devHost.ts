@@ -3,11 +3,12 @@ import { create } from 'zustand'
 import { channelStateKey } from '../../core/channelState.ts'
 import { syntaxLog } from '../../core/logger'
 import { syntaxUiHostModule } from '../../ui/sdk/SyntaxUI'
-import type { NativeCourseProgress } from './api.ts'
+import type { NativeCourseProgress, NativeRegisteredCourseTool } from './api.ts'
+import { wrapCourseTool } from './courseToolWrapper.tsx'
 import { createNativeDevAuthorization, nativeMode } from './devPolicy.ts'
 import { NativeHost } from './host.ts'
 import { createNativeRepository, type NativeInstall } from './repository.ts'
-import { playSyntaxSound, syntaxApiHostModule } from './sdkApi.ts'
+import { bindCourseToolsStore, playSyntaxSound, syntaxApiHostModule } from './sdkApi.ts'
 
 export const nativeDevMode = nativeMode(import.meta.env.VITE_CHANNEL, import.meta.env.DEV, new URL(window.location.href))
 
@@ -15,10 +16,57 @@ export const useNativeDevStore = create<{
   installs: NativeInstall[]
   progressById: Record<string, NativeCourseProgress>
   dataOwnerIds: string[]
+  contributionsVersion: number
   phase: 'loading' | 'ready' | 'recovery' | 'failed'
   error?: string
   inspectedId?: string
-}>(() => ({ installs: [], progressById: {}, dataOwnerIds: [], phase: 'loading' }))
+}>(() => ({ installs: [], progressById: {}, dataOwnerIds: [], contributionsVersion: 0, phase: 'loading' }))
+
+const EMPTY_COURSE_TOOLS: readonly NativeRegisteredCourseTool[] = Object.freeze([])
+let wrappedToolsVersion = -1
+const wrappedToolsCache = new Map<string, readonly NativeRegisteredCourseTool[]>()
+
+function getSafeCourseTools(courseId: string): readonly NativeRegisteredCourseTool[] {
+  if (!host) return EMPTY_COURSE_TOOLS
+  const version = host.runtime.getContributionsVersion()
+  if (version !== wrappedToolsVersion) {
+    wrappedToolsVersion = version
+    wrappedToolsCache.clear()
+  }
+  const cached = wrappedToolsCache.get(courseId)
+  if (cached) return cached
+  const rawTools = host.runtime.listCourseToolsFor(courseId)
+  if (rawTools.length === 0) {
+    wrappedToolsCache.set(courseId, EMPTY_COURSE_TOOLS)
+    return EMPTY_COURSE_TOOLS
+  }
+  const wrapped = Object.freeze(rawTools.map(tool =>
+    wrapCourseTool(
+      tool,
+      host!.runtime.getActiveRevision(tool.ownerId),
+      (ownerId, ownerName, revision, error) => {
+        const message = error instanceof Error ? error.message : String(error)
+        if (revision) {
+          void host!.reportFailure(ownerId, revision, error)
+            .then(async quarantined => {
+              await refreshNativeDevInstalls()
+              if (quarantined) {
+                notifyNativeCrash({ id: ownerId, name: ownerName, message })
+              }
+            })
+            .catch(() => undefined)
+        }
+      },
+    ),
+  ))
+  wrappedToolsCache.set(courseId, wrapped)
+  return wrapped
+}
+
+bindCourseToolsStore(
+  listener => useNativeDevStore.subscribe(listener),
+  getSafeCourseTools,
+)
 
 let host: NativeHost | undefined
 let boot: Promise<void> | undefined
@@ -81,6 +129,9 @@ export function getNativeDevHost(): NativeHost {
           void refreshNativeDevProgress(true).catch(error =>
             syntaxLog.error('native', 'Could not refresh course progress.', error))
         },
+        onContributionsChanged: () => {
+          useNativeDevStore.setState(state => ({ contributionsVersion: state.contributionsVersion + 1 }))
+        },
       },
     )
     host.setNavigator(navigatorFn)
@@ -100,7 +151,8 @@ export async function refreshNativeDevProgress(broadcast = false) {
 
 export async function refreshNativeDevInstalls(broadcast = true) {
   const currentHost = getNativeDevHost()
-  const installs = await currentHost.reconcile()
+  const activateMissing = useNativeDevStore.getState().phase === 'ready'
+  const installs = await currentHost.reconcile({ activateMissing })
   const [progressById, dataOwnerIds] = await Promise.all([
     currentHost.listProgress(),
     currentHost.listDataOwners(),
