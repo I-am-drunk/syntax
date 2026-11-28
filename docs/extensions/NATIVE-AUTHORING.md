@@ -1,5 +1,10 @@
 # Build and check a native extension
 
+For complete step-by-step guides from a fresh checkout through publishing and installation, see:
+
+- [Build a Course](BUILD-A-COURSE.md) (subject-neutral starter with `--course`, one working lesson, bundled diagrams, Library progress, and separate listing screenshots)
+- [Build a Tool](BUILD-A-TOOL.md) (screen, `Ctrl+K` command, optional course tools, and opt-in themes)
+
 ## Build the starter
 
 From the Syntax checkout, use Node.js 24 or later. These commands create a project next to Syntax, install its locked dependencies, and build and check its package.

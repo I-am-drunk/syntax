@@ -3790,3 +3790,82 @@
   color: #141414;
   border-color: #ffffff;
 }
+
+/* Community Hub listing preview screenshots & native v2 trust review */
+.sx-hub-previews {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.sx-hub-preview-img {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface-2, var(--hover));
+  display: block;
+}
+
+.sx-hub-native-review {
+  border: 1.5px solid var(--accent);
+  border-radius: 14px;
+  background: var(--surface);
+  padding: 16px 18px;
+  margin-bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sx-hub-native-review-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.sx-hub-native-review-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.sx-hub-native-review-head p {
+  margin: 3px 0 0;
+  font-size: 13.5px;
+  color: var(--muted);
+}
+
+.sx-hub-native-review-meta {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.sx-hub-native-review-meta > div {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sx-hub-native-review-meta dt {
+  font-weight: 600;
+  color: var(--muted);
+  min-width: 68px;
+}
+
+.sx-hub-native-review-meta dd {
+  margin: 0;
+  word-break: break-all;
+}
+
+.sx-hub-native-review-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}

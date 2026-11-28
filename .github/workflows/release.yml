@@ -206,7 +206,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -219,6 +219,20 @@ jobs:
           VITE_RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
           VITE_CLERK_PUBLISHABLE_KEY: ${{ vars.VITE_CLERK_PUBLISHABLE_KEY }}
         run: npm run build
+
+      - name: Build rolling Nightly docs and examples
+        if: needs.resolve.outputs.channel == 'nightly'
+        env:
+          SYNTAX_DOCS_BASE_PATH: /syntax-dev/docs
+          SYNTAX_DOCS_COMMIT: ${{ needs.resolve.outputs.ref }}
+          SYNTAX_DOCS_RELEASE_TAG: ${{ needs.resolve.outputs.tag }}
+        run: |
+          npm --prefix docs-site ci
+          npm --prefix docs-site run build
+          npm run build-storybook
+          mv docs-site/out dist/docs
+          mv storybook-static dist/storybook
+          printf '%s\n' "$SYNTAX_DOCS_COMMIT" | tee dist/docs/release-commit.txt dist/storybook/release-commit.txt
 
       - name: Prepare static site archive
         env:
@@ -404,10 +418,12 @@ jobs:
 
       - name: Deploy and tag the Nightly in syntax-dev
         env:
+          GH_TOKEN: ${{ github.token }}
           DEPLOY_KEY: ${{ secrets.SYNTAX_DEV_DEPLOY_KEY }}
           TAG: ${{ needs.resolve.outputs.tag }}
           RELEASE_NAME: ${{ needs.resolve.outputs.release_name }}
           SHORT_SHA: ${{ needs.resolve.outputs.short_sha }}
+          DEPLOY_COMMIT: ${{ needs.resolve.outputs.ref }}
         run: |
           set -euo pipefail
           if [[ -z "${DEPLOY_KEY:-}" ]]; then
@@ -418,7 +434,10 @@ jobs:
           mkdir -p "$HOME/.ssh" deploy-site
           printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/syntax_dev_key"
           chmod 600 "$HOME/.ssh/syntax_dev_key"
-          ssh-keyscan -t ed25519 github.com >> "$HOME/.ssh/known_hosts" 2>/dev/null
+          curl --fail --silent --show-error --retry 3 \
+            -H "Authorization: Bearer $GH_TOKEN" https://api.github.com/meta |
+            jq -er '.ssh_keys[] | "github.com " + .' > "$HOME/.ssh/known_hosts"
+          test -s "$HOME/.ssh/known_hosts"
 
           tar -xzf bundle/site-nightly.tar.gz -C deploy-site
           touch deploy-site/.nojekyll
@@ -437,3 +456,15 @@ jobs:
             git push --force git@github.com:syntax-platform/syntax-dev.git gh-pages:gh-pages
           GIT_SSH_COMMAND="ssh -i $HOME/.ssh/syntax_dev_key -o IdentitiesOnly=yes" \
             git push --force git@github.com:syntax-platform/syntax-dev.git "refs/tags/${TAG}:refs/tags/${TAG}"
+
+          for attempt in {1..24}; do
+            all_match=true
+            for path in release-commit.txt docs/release-commit.txt storybook/release-commit.txt; do
+              actual=$(curl --silent --fail --max-time 10 "https://syntax-platform.github.io/syntax-dev/$path?run=$GITHUB_RUN_ID" || true)
+              if [[ "$actual" != "$DEPLOY_COMMIT" ]]; then all_match=false; fi
+            done
+            if [[ "$all_match" == true ]]; then exit 0; fi
+            sleep 10
+          done
+          echo 'Dev, docs, and Storybook did not all serve the expected Nightly commit.' >&2
+          exit 1

@@ -4,23 +4,28 @@ export const COMMUNITY_CATALOG_URL =
   'https://syntax-platform.github.io/syntax-community/catalog/catalog.json'
 export const COMMUNITY_HUB_WEB_URL = 'https://syntax-platform.github.io/syntax-community/'
 export const OFFICIAL_EXTENSIONS_REPO_URL =
-  'https://github.com/syntax-platform/syntax-official-plugins'
+  'https://github.com/syntax-platform/syntax-official-extensions'
 
 const CATALOG_FETCH_TIMEOUT_MS = 8_000
 
+const httpUrlSchema = z
+  .string()
+  .url()
+  .refine(u => u.startsWith('https://') || u.startsWith('http://'))
+
 const catalogEntrySchema = z.object({
   id: z.string().min(3),
+  manifestVersion: z.union([z.literal(1), z.literal(2)]).default(1),
   kind: z.enum(['extension', 'course']).default('extension'),
   name: z.string().min(1),
   version: z.string().min(1),
+  syntaxApi: z.string().optional(),
+  sha256: z.string().regex(/^[0-9a-f]{64}$/).optional(),
   description: z.string().optional(),
   author: z.string().optional(),
-  icon: z
-    .string()
-    .url()
-    .refine(u => u.startsWith('https://') || u.startsWith('http://'))
-    .optional(),
-  manifestUrl: z.string().url().refine(u => u.startsWith('https://') || u.startsWith('http://')),
+  icon: httpUrlSchema.optional(),
+  previewImages: z.array(httpUrlSchema).max(6).default([]),
+  manifestUrl: httpUrlSchema,
   tested: z.boolean().optional(),
   tags: z.array(z.string()).default([]),
 })

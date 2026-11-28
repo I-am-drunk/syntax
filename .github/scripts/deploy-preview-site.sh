@@ -35,8 +35,13 @@ trap 'rm -rf "$work"' EXIT
 umask 077
 printf '%s\n' "$DEPLOY_KEY" > "$work/key"
 unset DEPLOY_KEY
-curl --fail --silent --show-error https://api.github.com/meta |
+curl_args=(--fail --silent --show-error)
+if [[ -n "${GH_TOKEN:-}" ]]; then
+  curl_args+=(-H "Authorization: Bearer ${GH_TOKEN}" -H "X-GitHub-Api-Version: 2022-11-28")
+fi
+curl "${curl_args[@]}" --retry 3 https://api.github.com/meta |
   jq -er '.ssh_keys[] | "github.com " + .' > "$work/known_hosts"
+test -s "$work/known_hosts"
 export GIT_SSH_COMMAND="ssh -i $work/key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$work/known_hosts"
 
 remote="git@github.com:${deploy_repo}.git"

@@ -139,6 +139,7 @@ jobs:
         run: node .github/scripts/verify-static-artifact.mjs incoming release-commit.txt "$APPROVED_SHA"
       - name: Publish the Beta build to GitHub Pages (syntax-beta)
         env:
+          GH_TOKEN: ${{ github.token }}
           DEPLOY_KEY: ${{ secrets.SYNTAX_BETA_DEPLOY_KEY }}
           DEPLOY_REPO: syntax-platform/syntax-beta
           DEPLOY_URL: ${{ needs.build.outputs.beta_url }}

@@ -77,6 +77,8 @@ jobs:
           path: incoming
       - name: Publish merged build to Syntax Dev
         env:
+          GH_TOKEN: ${{ github.token }}
+          PRESERVE_NIGHTLY_DOCS: 'true'
           DEPLOY_KEY: ${{ secrets.SYNTAX_DEV_DEPLOY_KEY }}
           DEPLOY_COMMIT: ${{ needs.build.outputs.sha }}
         run: bash .github/scripts/deploy-static-site.sh incoming

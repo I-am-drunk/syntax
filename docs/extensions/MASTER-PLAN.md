@@ -38,8 +38,8 @@ For each milestone, record its status, PRs, exact tested commit, relevant deploy
 | [V1.0](#v10-runtime-and-authoring-foundation) | A tested runtime and a documented way to build and install an external test package | Complete |
 | [V1.1](#v11-quick-notes-and-authoring-proof) | An independently authored notes tool with a screen, a command, and recovery | Complete |
 | [V1.2](#v12-course-ui-and-progress) | A real lesson and shared learning UI | Complete |
-| [V1.3](#v13-embedded-extensions-tools-and-themes) | A course with required embedded behavior and an optional tool | In progress |
-| [V1.4](#v14-publishing-discovery-and-docs) | A documented authoring, publishing, and install path | Planned |
+| [V1.3](#v13-embedded-extensions-tools-and-themes) | A course with required embedded behavior and an optional tool | Complete |
+| [V1.4](#v14-publishing-discovery-and-docs) | A documented authoring, publishing, and install path | In progress |
 | [V1.5](#v15-release-rehearsal) | A complete release rehearsal on the actual sites | Planned |
 | [V2](#v2-release-gate) | The complete system after every gate passes | Planned |
 
@@ -127,9 +127,16 @@ An embedded extension is required course-owned behavior. Represent it explicitly
 
 **Release gate**
 
-- [ ] A fresh course install includes every required interaction. Updating or disabling the course updates or removes its embedded behavior together.
-- [ ] Install one real optional tool, such as Pen Studio or Formula Playbook, and use it in the course. Disable it while the course is open. The course still teaches and grades, and the optional control disappears cleanly. Course details can recommend the tool.
-- [ ] Enable and disable a small theme and command extension. Verify app-wide styling only when enabled, removal of the styling and command on disable, and recovery if the extension throws.
+- [x] A fresh course install includes every required interaction. Updating or disabling the course updates or removes its embedded behavior together.
+- [x] Install one real optional tool, such as Pen Studio or Formula Playbook, and use it in the course. Disable it while the course is open. The course still teaches and grades, and the optional control disappears cleanly. Course details can recommend the tool.
+- [x] Enable and disable a small theme and command extension. Verify app-wide styling only when enabled, removal of the styling and command on disable, and recovery if the extension throws.
+
+**V1.3 evidence**
+
+- Published official V1.3 extensions outside core Syntax in [official extensions PR #6](https://github.com/syntax-platform/syntax-official-extensions/pull/6) (`b95da211`, **Formula Playbook** `v1.0.0` SHA-256 `4ceb76b5fda02dcfe3860131572fa4c25b185ced358b3bb89b6c30aec0495429` and **Warm Paper Theme** `v1.0.0` SHA-256 `1eb5d9c33aad740295fef153e82651734fb3197e9c132997c77d06f275268601`) and [official extensions PR #7](https://github.com/syntax-platform/syntax-official-extensions/pull/7) (`fcf313f5`, **Analytic Geometry (MPM2D)** `v1.1.0` SHA-256 `220336d91714b4c75a179de2f2808a39fa02f051a656ae986d8da4f88c1b4e75` with explicit `registerEmbedded`, scoped styles, live `useCourseTools`, and `recommendedTools`).
+- An independent V1.3 review identified 5 blocking findings (optional course tool crash isolation via host `SyntaxErrorBoundary` and isolated `[data-native-ext-root]` in `courseToolWrapper.tsx`, `@scope` breakout validation and lower-limit isolation in `validateScopedCss`, atomic embedded `v1 -> v2` cleanup-before-setup ordering after commit, strict metadata validation for `recommendedTools`/`targetCourses`, and multi-tab `reconcile({ activateMissing: true })` outside Safe Mode). All 5 blockers were fixed and verified in unit and Chromium E2E tests.
+- [Core PR #47](https://github.com/syntax-platform/syntax/pull/47) passed [CI](https://github.com/syntax-platform/syntax/actions/runs/46165173003) (48 unit tests, production build, and all 13 Chromium E2E tests including `tests/e2e/native-v13-ecosystem.test.mjs`) and merged as `99bc50fa8dcba4da83a278e74c8c7a77c53aeacc`.
+- [Manual Dev run 46165495765](https://github.com/syntax-platform/syntax/actions/runs/46165495765) deployed `99bc50fa` to [Syntax Dev](https://syntax-platform.github.io/syntax-dev/). Live Chromium verification confirmed MPM2D `v1.1.0` embedded setup and non-leaking scoped CSS, one-click Formula Playbook install from MPM2D Inspect plus live cross-tab disable while MPM2D continued grading, and Warm Paper Theme global styling, command toggle, and full cleanup on disable.
 
 ### V1.4 Publishing, discovery, and docs
 
@@ -141,6 +148,12 @@ Give authors and agents two complete paths. **Build a Course** starts with a sub
 - [ ] Publish a build with separate listing screenshots. The course download contains the images needed in lessons. The listing carries its preview images. Attach a screenshot from the running app or generate it from an example that runs in Storybook.
 - [ ] Verify compatible course and tool releases update automatically during alpha. A rejected build leaves the working install usable. Keep the full versioning and upgrade design for later.
 - [ ] Test both tutorials, links, and Storybook examples from the release commit. Verify the site shows the Dev build it describes, while the two authoring guides, runnable source, and deeper agent instructions have stable source links.
+
+**V1.4 evidence so far**
+
+- The docs build initially failed because it rewrote placeholders that were already inside inline code. The generated course also failed to compile because its saved state and screen metadata did not match the host contract. After correcting both, the production build and V1.4 browser walkthrough passed. An independent reviewer built both starters twice from a fresh Windows checkout and verified identical bundles and manifests. The docs built for `/syntax-dev/docs`, and the local pages and assets resolved under that path.
+- Independent reviews found that Community Hub needed the same Safe Mode guard as the direct installer, and that a pending update could undo a newer user action. Community Hub now checks the selected listing against the downloaded manifest. The update checks the installed revision again before activation. The focused unit suite passed all six tests, including disable, uninstall, and replacement during an update. Chromium passed the author walkthrough and both interactive Storybook examples.
+- [Community Hub PR #1](https://github.com/syntax-platform/syntax-community/pull/1) adds native listing validation and support for external preview images. Hosted Dev still requires an exact reviewed package. The production catalog, published examples, and Nightly docs remain to be verified together.
 
 ### V1.5 Release rehearsal
 

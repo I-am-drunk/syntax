@@ -92,6 +92,7 @@ jobs:
       - name: Publish PR preview to GitHub Pages (syntax-infra)
         if: github.event.action != 'closed'
         env:
+          GH_TOKEN: ${{ github.token }}
           DEPLOY_KEY: ${{ secrets.SYNTAX_INFRA_DEPLOY_KEY }}
           DEPLOY_REPO: syntax-platform/syntax-infra
           DEPLOY_URL: ${{ vars.SYNTAX_INFRA_ORIGIN }}
@@ -100,6 +101,7 @@ jobs:
       - name: Remove closed PR preview from GitHub Pages (syntax-infra)
         if: github.event.action == 'closed'
         env:
+          GH_TOKEN: ${{ github.token }}
           DEPLOY_KEY: ${{ secrets.SYNTAX_INFRA_DEPLOY_KEY }}
           DEPLOY_REPO: syntax-platform/syntax-infra
           DEPLOY_URL: ${{ vars.SYNTAX_INFRA_ORIGIN }}

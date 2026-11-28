@@ -2,10 +2,12 @@ import { toast } from 'sonner'
 import { create } from 'zustand'
 import { channelStateKey } from '../../core/channelState.ts'
 import { syntaxLog } from '../../core/logger'
+import { fetchExtensionCatalog } from '../catalog.ts'
 import { syntaxUiHostModule } from '../../ui/sdk/SyntaxUI'
 import type { NativeCourseProgress, NativeRegisteredCourseTool } from './api.ts'
+import { checkAndApplyNativeUpdates, type NativeAutoUpdateReport, type NativeUpdateCandidate } from './autoUpdater.ts'
 import { wrapCourseTool } from './courseToolWrapper.tsx'
-import { createNativeDevAuthorization, nativeMode } from './devPolicy.ts'
+import { approvedNativeDevPins, createNativeDevAuthorization, nativeMode } from './devPolicy.ts'
 import { NativeHost } from './host.ts'
 import { createNativeRepository, type NativeInstall } from './repository.ts'
 import { bindCourseToolsStore, playSyntaxSound, syntaxApiHostModule } from './sdkApi.ts'
@@ -180,6 +182,62 @@ function observeNativeDevChanges() {
   }
 }
 
+const autoUpdateRejectedKeys = new Set<string>()
+
+export async function runNativeAutoUpdateCheck(
+  overrideCandidates?: readonly NativeUpdateCandidate[],
+): Promise<NativeAutoUpdateReport> {
+  if (nativeDevMode === 'disabled') return { updated: [], rejected: [] }
+  if (useNativeDevStore.getState().phase !== 'ready') return { updated: [], rejected: [] }
+
+  const candidates: NativeUpdateCandidate[] = overrideCandidates ? [...overrideCandidates] : []
+  if (!overrideCandidates) {
+    if (nativeDevMode === 'hosted-dev') {
+      for (const pin of approvedNativeDevPins) {
+        candidates.push({
+          id: pin.manifest.id,
+          version: pin.manifest.version,
+          manifestUrl: pin.sourceUrl,
+          syntaxApi: pin.manifest.syntaxApi,
+          sha256: pin.manifest.sha256,
+        })
+      }
+    } else {
+      const catalog = await fetchExtensionCatalog(undefined, undefined, 5_000)
+      if (catalog.status === 'ready') {
+        for (const entry of catalog.entries) {
+          if (entry.manifestVersion !== 2) continue
+          candidates.push({
+            id: entry.id,
+            version: entry.version,
+            manifestUrl: entry.manifestUrl,
+            syntaxApi: entry.syntaxApi,
+            sha256: entry.sha256,
+          })
+        }
+      }
+    }
+  }
+
+  if (candidates.length === 0) return { updated: [], rejected: [] }
+  const report = await checkAndApplyNativeUpdates({
+    host: getNativeDevHost(),
+    candidates,
+    rejectedKeys: autoUpdateRejectedKeys,
+    sameSourceOnly: nativeDevMode === 'local-dev',
+    onUpdated: entry => {
+      toast.success(`Updated ${entry.name} to v${entry.toVersion}`)
+    },
+    onRejected: entry => {
+      syntaxLog.warn(`native:${entry.id}`, `Skipped alpha auto-update to v${entry.version}: ${entry.reason}`)
+    },
+  })
+  if (report.updated.length > 0) {
+    await refreshNativeDevInstalls(true)
+  }
+  return report
+}
+
 export function bootNativeDev(safeMode: boolean): Promise<void> {
   if (nativeDevMode === 'disabled') return Promise.resolve()
   return boot ??= (async () => {
@@ -187,7 +245,8 @@ export function bootNativeDev(safeMode: boolean): Promise<void> {
       const result = safeMode ? undefined : await getNativeDevHost().boot()
       observeNativeDevChanges()
       await refreshNativeDevInstalls(Boolean(result?.failed.length))
-      useNativeDevStore.setState({ phase: !result || result.recovery === 'skipped' ? 'recovery' : 'ready' })
+      const phase = !result || result.recovery === 'skipped' ? 'recovery' : 'ready'
+      useNativeDevStore.setState({ phase })
       if (result?.failed.length) {
         const installs = useNativeDevStore.getState().installs
         for (const failedId of result.failed) {
@@ -200,6 +259,10 @@ export function bootNativeDev(safeMode: boolean): Promise<void> {
             })
           }
         }
+      }
+      if (phase === 'ready') {
+        void runNativeAutoUpdateCheck().catch(error =>
+          syntaxLog.warn('native', 'Background alpha update check skipped.', error))
       }
     } catch (error) {
       useNativeDevStore.setState({ phase: 'failed', error: error instanceof Error ? error.message : String(error) })

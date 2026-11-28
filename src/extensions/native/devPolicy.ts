@@ -112,6 +112,7 @@ const devPins: readonly NativePin[] = [
     },
   },
 ]
+export const approvedNativeDevPins: readonly NativePin[] = devPins
 export const hasHostedNativePackages = devPins.length > 0
 
 export function nativeMode(channel: string | undefined, development: boolean, location: URL): NativeMode {
