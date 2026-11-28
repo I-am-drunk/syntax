@@ -13,10 +13,12 @@ const COOKIE_NAME = 'syntax_prefs'
 const LEGACY_COOKIE_NAME = 'syntax_mpm2d_prefs'
 
 export type LogoClickTarget = 'library' | 'home'
+export type NavBarStyle = 'underline' | 'pill'
 
 export type SyntaxPrefs = {
   onboarded: boolean
   logoClickTarget: LogoClickTarget
+  navStyle: NavBarStyle
   semaShape: SemaShapeName
   semaTail: SemaTailName
   semaExpression: SemaExpressionName
@@ -25,6 +27,7 @@ export type SyntaxPrefs = {
 const DEFAULT_PREFS: SyntaxPrefs = {
   onboarded: false,
   logoClickTarget: 'library',
+  navStyle: 'underline',
   semaShape: 'jenson',
   semaTail: 'jenson',
   semaExpression: 'neutral',
@@ -92,9 +95,16 @@ export function loadPrefs(): SyntaxPrefs {
       ? rawLogoTarget
       : DEFAULT_PREFS.logoClickTarget
 
+  const rawNavStyle = parsed.navStyle
+  const navStyle: NavBarStyle =
+    rawNavStyle === 'pill' || rawNavStyle === 'underline'
+      ? rawNavStyle
+      : DEFAULT_PREFS.navStyle
+
   return {
     onboarded: Boolean(parsed.onboarded ?? DEFAULT_PREFS.onboarded),
     logoClickTarget,
+    navStyle,
     semaShape: validShape,
     semaTail: isValidTailName(parsed.semaTail) ? parsed.semaTail : DEFAULT_PREFS.semaTail,
     semaExpression: isValidExpressionName(parsed.semaExpression)

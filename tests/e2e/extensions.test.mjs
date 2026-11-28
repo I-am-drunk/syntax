@@ -700,18 +700,11 @@ describe('Syntax Extensions v1 end-to-end acceptance suite (real Chromium)', () 
       await page.waitForSelector('[data-extension-id="tj.exporter"][data-extension-status="active"]')
       await page.waitForSelector('[data-extension-id="tj.view-only"][data-extension-status="active"]')
 
-      // Verify Extensions / Courses top toggle cleanly separates courses from general extensions
+      // Installing a course appears directly in the unified Extensions list alongside general extensions
       await installViaUi(page, harness.extUrl('demo-course/extension.json'))
-      // Auto-switches to Courses mode after installing kind: "course"
-      await page.waitForSelector('h1:has-text("Courses")')
-      await page.waitForSelector('[data-extension-id="tj.demo-course"][data-extension-status="active"]')
-      assert.equal(await page.locator('[data-extension-id="tj.storyboard"]').count(), 0)
-
-      // Toggle back to Extensions -> shows general extensions only, hides course
-      await page.click('[data-testid="extensions-mode-toggle"] [role="radio"]:has-text("Extensions")')
       await page.waitForSelector('h1:has-text("Extensions")')
+      await page.waitForSelector('[data-extension-id="tj.demo-course"][data-extension-status="active"]')
       await page.waitForSelector('[data-extension-id="tj.storyboard"]')
-      assert.equal(await page.locator('[data-extension-id="tj.demo-course"]').count(), 0)
 
       // Import a .syntaxdoc.json backup on LibraryPage, then verify alive HomePage (Quick Launch + Continue Working) and Ctrl+K Command Palette
       await page.goto(`${harness.appOrigin}/#/library`)

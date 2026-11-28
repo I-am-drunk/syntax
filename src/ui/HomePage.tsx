@@ -286,54 +286,30 @@ export function HomePage({
         <div className="sx-profile-section-head">
           <h2>Workspace</h2>
         </div>
-        <div className="preference-rows">
-          <div className="preference-row">
-            <div className="syntax-pref-copy">
-              <p>Library</p>
-              <span>Your courses, extension screens, embedded widgets, and saved documents</span>
-            </div>
-            <button type="button" className="sx-btn-secondary sx-btn-sm" onClick={onOpenLibrary}>
-              <Library size={14} aria-hidden="true" />
-              <span>Library</span>
-            </button>
-          </div>
+        <div className="sx-home-grid">
+          <button type="button" className="sx-home-tile" onClick={onOpenLibrary}>
+            <Library size={18} strokeWidth={1.9} className="sx-home-tile-icon" aria-hidden="true" />
+            <strong>Library</strong>
+            <span>Your courses, extension screens, embedded widgets, and saved documents</span>
+          </button>
 
-          <div className="preference-row">
-            <div className="syntax-pref-copy">
-              <p>Extensions &amp; Courses</p>
-              <span>Install by link, update, configure settings, and inspect logs</span>
-            </div>
-            <button type="button" className="sx-btn-secondary sx-btn-sm" onClick={onOpenExtensions}>
-              <Puzzle size={14} aria-hidden="true" />
-              <span>Extensions</span>
-            </button>
-          </div>
+          <button type="button" className="sx-home-tile" onClick={onOpenExtensions}>
+            <Puzzle size={18} strokeWidth={1.9} className="sx-home-tile-icon" aria-hidden="true" />
+            <strong>Extensions &amp; Courses</strong>
+            <span>Install by link, update, configure settings, and inspect logs</span>
+          </button>
 
-          <div className="preference-row">
-            <div className="syntax-pref-copy">
-              <p>Community Hub</p>
-              <span>Browse published extensions and interactive courses</span>
-            </div>
-            <button
-              type="button"
-              className="sx-btn-secondary sx-btn-sm"
-              onClick={onOpenCommunityHub}
-            >
-              <Compass size={14} aria-hidden="true" />
-              <span>Browse</span>
-            </button>
-          </div>
+          <button type="button" className="sx-home-tile" onClick={onOpenCommunityHub}>
+            <Compass size={18} strokeWidth={1.9} className="sx-home-tile-icon" aria-hidden="true" />
+            <strong>Community Hub</strong>
+            <span>Browse published extensions and interactive courses</span>
+          </button>
 
-          <div className="preference-row">
-            <div className="syntax-pref-copy">
-              <p>Settings &amp; Sema</p>
-              <span>Customize Light or Dark mode, sound effects, and Sema companion style</span>
-            </div>
-            <button type="button" className="sx-btn-secondary sx-btn-sm" onClick={onOpenSettings}>
-              <Settings size={14} aria-hidden="true" />
-              <span>Settings</span>
-            </button>
-          </div>
+          <button type="button" className="sx-home-tile" onClick={onOpenSettings}>
+            <Settings size={18} strokeWidth={1.9} className="sx-home-tile-icon" aria-hidden="true" />
+            <strong>Settings</strong>
+            <span>Customize Light or Dark mode, sound effects, and workspace defaults</span>
+          </button>
         </div>
       </section>
     </main>

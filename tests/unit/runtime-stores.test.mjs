@@ -13,6 +13,7 @@ import { rewriteWorkerRelativeImports } from '../../src/extensions/plugos/worker
 import { createInitialRuntime, isSafeMode, useExtensionStore } from '../../src/extensions/store.ts'
 import { extensionDiagnostics } from '../../src/extensions/diagnostics.ts'
 import { extractRemoteCloudPayload } from '../../src/core/cloudSchema.ts'
+import { computeActivityStats } from '../../src/core/activity.ts'
 import { fetchExtensionCatalog } from '../../src/extensions/catalog.ts'
 
 describe('ContributionStore ownership and cleanup', () => {
@@ -431,5 +432,29 @@ describe('DocumentStore optimistic concurrency and Safe Mode detection', () => {
       () => fetchExtensionManifest('https://github.com/org/repo/blob/main/ext/extension.json'),
       /raw\.githubusercontent\.com\/org\/repo\/main\/ext\/extension\.json/,
     )
+  })
+
+  it('computes active days, current streak, and best streak from local activity records', () => {
+    const day = (total) => ({ total, course: 1, extension: 0, document: 0, visit: 1 })
+    const map = {
+      '2026-11-10': day(2),
+      '2026-11-11': day(3),
+      '2026-11-12': day(4),
+      '2026-11-13': day(2),
+      '2026-11-25': day(2),
+      '2026-11-26': day(5),
+    }
+    const statsTodayEmpty = computeActivityStats(map, new Date(2026, 10, 27))
+    assert.equal(statsTodayEmpty.activeDays, 6)
+    assert.equal(statsTodayEmpty.currentStreak, 2)
+    assert.equal(statsTodayEmpty.bestStreak, 4)
+    assert.equal(statsTodayEmpty.totalEvents, 18)
+
+    const statsWithToday = computeActivityStats(
+      { ...map, '2026-11-27': day(3) },
+      new Date(2026, 10, 27),
+    )
+    assert.equal(statsWithToday.currentStreak, 3)
+    assert.equal(statsWithToday.bestStreak, 4)
   })
 })
