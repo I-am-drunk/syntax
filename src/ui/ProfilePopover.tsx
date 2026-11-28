@@ -12,6 +12,7 @@ import {
 import { useAccount, useSessionStatus } from '../core/account'
 import { useAuthActions } from '../core/clerkAuth'
 import { useCloudSyncStore } from '../core/clerkSync'
+import { channelStatePrefix } from '../core/channelState'
 
 interface ProfilePopoverProps {
   onNavigate: (path: string) => void
@@ -58,6 +59,7 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
   const showAvatarImg = Boolean(account.avatarUrl && !imgFailed)
   const otherSessions = auth.sessions.filter(s => !s.isCurrent)
   const isClerkAccount = auth.isClerkActive && account.provider === 'clerk'
+  const canCloudSync = isClerkAccount && !channelStatePrefix
 
   function handleManageAccount() {
     window.clearTimeout(manageTimerRef.current)
@@ -66,7 +68,7 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
     }, 40)
   }
 
-  const syncDotClass = !isClerkAccount
+  const syncDotClass = !canCloudSync
     ? 'is-local'
     : cloudStatus === 'synced'
       ? 'is-synced'
@@ -76,7 +78,7 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
           ? 'is-error'
           : 'is-local'
 
-  const syncLabel = !isClerkAccount
+  const syncLabel = !canCloudSync
     ? 'Local storage'
     : cloudStatus === 'syncing'
       ? 'Syncing...'
@@ -140,7 +142,7 @@ export function ProfilePopover({ onNavigate }: ProfilePopoverProps) {
                   <span>{syncLabel}</span>
                 </span>
               </div>
-              {isClerkAccount && (
+              {canCloudSync && (
                 <button
                   type="button"
                   className="sx-profile-pop-sync-icon"
