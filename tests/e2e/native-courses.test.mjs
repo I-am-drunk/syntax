@@ -176,8 +176,14 @@ test('V1.2 MPM2D & second-subject courses: contrast, mobile CheckBar, keyboard n
   await page.keyboard.press('ArrowDown')
   const thirdOption = radioGroup.locator('[data-choice-option="c"]')
   assert.equal(await thirdOption.getAttribute('aria-checked'), 'true', 'ArrowDown must select option 3')
-  const selectedBorder = await thirdOption.evaluate(el => getComputedStyle(el).borderColor)
-  assert.notEqual(selectedBorder, idleBorder, 'Dark-mode selected choice border must visually stand out')
+  await page.waitForFunction(
+    ([sel, idle]) => {
+      const el = document.querySelector(sel)
+      return el && getComputedStyle(el).borderColor !== idle
+    },
+    ['[data-choice-option="c"]', idleBorder],
+    { timeout: 3000 },
+  )
 
   // 5. Switch to mobile viewport (390x844) on Step 2 and verify sticky CheckBar sits ABOVE mobile tabbar!
   await page.setViewportSize({ width: 390, height: 844 })
