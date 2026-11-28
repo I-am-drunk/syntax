@@ -57,6 +57,17 @@ test('a failed replacement disposes staged work and leaves the installed version
   assert.equal(runtime.getScreen('example.two', 'main').title, 'Working')
 })
 
+test('a replacement cannot publish its contributions if writing the new install fails', async () => {
+  const { runtime } = setup()
+  await runtime.activate(pkg('example.one', working))
+  const replacement = working.replace('Working', 'Candidate')
+  await assert.rejects(runtime.activate(pkg('example.one', replacement, '2.0.0'), async () => {
+    assert.equal(runtime.getScreen('example.one', 'main').title, 'Working')
+    throw new Error('storage rejected the new install')
+  }), /storage rejected/)
+  assert.equal(runtime.getScreen('example.one', 'main').title, 'Working')
+})
+
 test('disable retires an activation that finishes late', async () => {
   const { promise: loading, resolve: loadStarted } = Promise.withResolvers()
   const { promise: result, resolve: finishLoad } = Promise.withResolvers()

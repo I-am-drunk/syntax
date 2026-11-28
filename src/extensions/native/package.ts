@@ -71,25 +71,36 @@ async function download(url: URL, limit: number, fetcher: typeof fetch): Promise
 export async function downloadNativePackage(source: string, fetcher: typeof fetch = fetch): Promise<NativePackage> {
   const url = parseSourceUrl(source)
   const manifestBytes = await download(url, MAX_MANIFEST_BYTES, fetcher)
-  const decoder = new TextDecoder('utf-8', { fatal: true })
+  const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true })
   let input: unknown
   try {
-    input = JSON.parse(decoder.decode(manifestBytes))
+    input = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(manifestBytes))
   } catch {
     throw new NativePackageError('MANIFEST_INVALID', 'The extension manifest must be valid UTF-8 JSON.')
   }
   const manifest = parseNativeManifest(input)
   const entryUrl = new URL(manifest.main, url)
   const entryBytes = await download(entryUrl, MAX_NATIVE_ENTRY_BYTES, fetcher)
+  await verifyEntry(manifest, entryBytes)
+  try {
+    return { sourceUrl: url.href, manifest, entry: decoder.decode(entryBytes) }
+  } catch {
+    throw new NativePackageError('ENTRY_INVALID', 'The JavaScript entry must be valid UTF-8.')
+  }
+}
+
+async function verifyEntry(manifest: NativeManifest, entryBytes: Uint8Array<ArrayBuffer>): Promise<void> {
   assertNativeEntrySize(entryBytes.byteLength)
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', entryBytes))
   const hex = Array.from(digest, byte => byte.toString(16).padStart(2, '0')).join('')
   if (hex !== manifest.sha256) {
     throw new NativePackageError('ENTRY_HASH_MISMATCH', 'The downloaded JavaScript does not match its manifest.')
   }
-  try {
-    return { sourceUrl: url.href, manifest, entry: decoder.decode(entryBytes) }
-  } catch {
-    throw new NativePackageError('ENTRY_INVALID', 'The JavaScript entry must be valid UTF-8.')
-  }
+}
+
+export async function verifyStoredNativePackage(pkg: NativePackage): Promise<void> {
+  parseSourceUrl(pkg.sourceUrl)
+  const manifest = parseNativeManifest(pkg.manifest)
+  if (typeof pkg.entry !== 'string') throw new NativePackageError('ENTRY_INVALID', 'The saved JavaScript entry is missing.')
+  await verifyEntry(manifest, new TextEncoder().encode(pkg.entry))
 }

@@ -12,7 +12,7 @@ import type { NativePackage } from './package.ts'
 
 export interface NativeDataStore {
   load(ownerId: string): Promise<NativeData | undefined>
-  save(ownerId: string, value: NativeData): Promise<void>
+  save(ownerId: string, value: NativeData, revision?: string): Promise<void>
 }
 
 interface Activation {
@@ -60,7 +60,7 @@ export class NativeRuntime {
     this.reportCleanupError = reportCleanupError
   }
 
-  async activate(pkg: NativePackage): Promise<void> {
+  async activate(pkg: NativePackage, commit?: () => Promise<void>, revision?: string): Promise<void> {
     const id = pkg.manifest.id
     if (this.pending.has(id)) {
       throw new NativePackageError('ACTIVATION_BUSY', `${id} is already starting.`)
@@ -123,7 +123,7 @@ export class NativeRuntime {
         }
         const snapshot = structuredClone(value)
         const previousWrite = this.writes.get(id) ?? Promise.resolve()
-        const write = previousWrite.then(() => this.data.save(id, snapshot))
+        const write = previousWrite.then(() => this.data.save(id, snapshot, revision))
         const tail = write.catch(() => undefined)
         this.writes.set(id, tail)
         try {
@@ -145,6 +145,9 @@ export class NativeRuntime {
       const start = new Promise<void>(resolve => resolve(createExtension(pkg.entry).activate(context)))
       await Promise.race([start, cancelled])
       assertStaging()
+      clearTimeout(timeout)
+      await commit?.()
+      assertStaging()
       this.active.set(id, stage)
       if (previous) this.dispose(previous)
     } catch (error) {
@@ -159,6 +162,10 @@ export class NativeRuntime {
 
   getScreen(ownerId: string, screenId: string): NativeScreen | undefined {
     return this.active.get(ownerId)?.screens.get(screenId)
+  }
+
+  isActive(ownerId: string): boolean {
+    return this.active.has(ownerId)
   }
 
   async runCommand(ownerId: string, commandId: string): Promise<void> {
