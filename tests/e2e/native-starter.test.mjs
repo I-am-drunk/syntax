@@ -40,6 +40,7 @@ test('an external checkout builds, checks, hosts, and activates a native fixture
   await runNpm(['ci', '--no-audit', '--no-fund'], destination)
   await runNpm(['run', 'build'], destination)
   const first = await Promise.all([readFile(manifestPath), readFile(entryPath)])
+  const manifest = JSON.parse(first[0])
   await rm(manifestPath)
   await rm(entryPath)
   await runNpm(['run', 'build'], destination)
@@ -91,6 +92,48 @@ test('an external checkout builds, checks, hosts, and activates a native fixture
   await secondTab.reload()
   await secondTab.getByText('Extension built outside Syntax', { exact: true }).waitFor()
   await secondTab.close()
+
+  const openFixture = native.getByRole('button', { name: 'Open Native fixture' })
+  const savedCommand = page.getByRole('option', { name: /Save sample/ })
+  for (let cycle = 0; cycle < 2; cycle++) {
+    await native.getByRole('button', { name: 'Disable', exact: true }).click()
+    await native.getByRole('button', { name: 'Enable', exact: true }).click()
+    await openFixture.waitFor()
+    await page.reload()
+    await openFixture.waitFor()
+    assert.equal(await openFixture.count(), 1)
+    await page.keyboard.press('Control+k')
+    await savedCommand.waitFor()
+    assert.equal(await savedCommand.count(), 1)
+    await page.keyboard.press('Escape')
+  }
+
+  await page.route('**/native-check/*/*', route => {
+    const { pathname } = new URL(route.request().url())
+    const [, , scenario, file] = pathname.split('/')
+    const headers = { 'access-control-allow-origin': '*' }
+    if (scenario === 'missing' && file === 'main.js') return route.fulfill({ status: 404, headers })
+    if (file === 'main.js') return route.fulfill({ headers, body: first[1] })
+    const input = scenario === 'incompatible' ? { ...manifest, syntaxApi: '^3.0.0' } : manifest
+    return route.fulfill({ headers, body: scenario === 'malformed' ? '{' : JSON.stringify(input) })
+  })
+  const manifestField = native.getByRole('textbox', { name: 'Native manifest URL' })
+  for (const [scenario, error] of [
+    ['missing', /Could not read .*main.js \(HTTP 404\)/],
+    ['malformed', /must be valid UTF-8 JSON/],
+    ['incompatible', /requires Syntax API/],
+  ]) {
+    await manifestField.fill(harness.extUrl(`native-check/${scenario}/manifest.json`))
+    await native.getByRole('button', { name: 'Review native package' }).click()
+    await native.getByRole('alert').filter({ hasText: error }).waitFor()
+    assert.equal(await openFixture.count(), 1)
+  }
+  await manifestField.fill(harness.extUrl('native-check/duplicate/manifest.json'))
+  await native.getByRole('button', { name: 'Review native package' }).click()
+  await native.getByRole('button', { name: 'Install native package' }).click()
+  await native.getByRole('alert').filter({ hasText: /already installed from a different manifest URL/ }).waitFor()
+  assert.equal(await openFixture.count(), 1)
+  await native.getByRole('button', { name: 'Cancel', exact: true }).click()
 
   const failingSource = harness.extUrl('native-failure/manifest.json')
   const failingEntry = `
@@ -157,7 +200,6 @@ test('an external checkout builds, checks, hosts, and activates a native fixture
       return route.fulfill({ status: 404 })
     })
     let changed = false
-    const manifest = JSON.parse(first[0])
     const changedEntry = Buffer.concat([first[1], Buffer.from('\n')])
     await context.route(publishedFixture, route => route.fulfill({
       headers: { 'access-control-allow-origin': '*' },
