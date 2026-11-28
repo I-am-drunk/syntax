@@ -18,6 +18,7 @@ import {
 } from '../core/activity'
 import { useAuthActions } from '../core/clerkAuth'
 import { useCloudSyncStore } from '../core/clerkSync'
+import { channelStatePrefix } from '../core/channelState'
 import type { SyntaxPrefs } from '../core/prefs'
 import { useContributionStore } from '../extensions/contributions.ts'
 import { documentStore, subscribeDocumentsChanged } from '../extensions/documents.ts'
@@ -267,6 +268,7 @@ export function ProfilePage({
     : 'G'
 
   const isClerkUser = Boolean(account && account.provider === 'clerk' && auth.isClerkActive)
+  const canCloudSync = isClerkUser && !channelStatePrefix
   const courseCount = records.filter(r => r.manifest.kind === 'course').length
   const extensionCount = records.length - courseCount
 
@@ -321,7 +323,9 @@ export function ProfilePage({
             <p className="sx-profile-handle">
               {account
                 ? `@${account.handle}`
-                : 'Sign in with Passkey, Google, or Apple to cloud-sync your preferences'}
+                : channelStatePrefix
+                  ? 'Sign in to access your Syntax account'
+                  : 'Sign in with Passkey, Google, or Apple to cloud-sync your preferences'}
               {account?.email ? ` · ${account.email}` : ''}
             </p>
           </div>
@@ -602,13 +606,13 @@ export function ProfilePage({
           <div className="preference-row">
             <div className="syntax-pref-copy">
               <p className="sx-inline-icon-label">
-                {isClerkUser && cloudSync.status !== 'error' ? (
+                {canCloudSync && cloudSync.status !== 'error' ? (
                   <Cloud size={15} aria-hidden="true" />
                 ) : (
                   <CloudOff size={15} aria-hidden="true" />
                 )}
                 <span>
-                  {isClerkUser
+                  {canCloudSync
                     ? cloudSync.status === 'syncing'
                       ? 'Syncing to your Clerk account...'
                       : cloudSync.status === 'error'
@@ -618,12 +622,14 @@ export function ProfilePage({
                 </span>
               </p>
               <span>
-                {isClerkUser
+                {canCloudSync
                   ? `${formatSyncTime(cloudSync.lastSyncedAt)} · Syncs your theme, sound, installed extensions, and extension settings across devices`
-                  : 'Sign in to sync your preferences and installed extensions across devices'}
+                  : channelStatePrefix
+                    ? 'Preferences and extension data stay on this device in this channel.'
+                    : 'Sign in to sync your preferences and installed extensions across devices'}
               </span>
             </div>
-            {isClerkUser ? (
+            {canCloudSync && (
               <button
                 type="button"
                 className="sx-btn-secondary sx-btn-sm"
@@ -637,7 +643,8 @@ export function ProfilePage({
                 />
                 <span>Sync now</span>
               </button>
-            ) : (
+            )}
+            {!isClerkUser && !channelStatePrefix && (
               <button
                 type="button"
                 className="sx-btn-secondary sx-btn-sm"
