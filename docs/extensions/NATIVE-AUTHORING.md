@@ -23,3 +23,11 @@ Use `--json` for a result another tool can read. A successful check reports the 
 The checker reads and compiles the entry to check CommonJS syntax. Activation, authoring from a separate checkout, and URL installation each have their own tests in the [foundation milestone](MASTER-PLAN.md#v10-runtime-and-authoring-foundation).
 
 The host download code expects a direct HTTPS manifest URL. Use HTTP on localhost for tests. It downloads the entry relative to that manifest and verifies the SHA-256 digest before returning the downloaded code for activation. The host limits the manifest to 16 KiB and the entry to 2 MiB.
+
+## Activation contract
+
+The [foundation API types](../../src/extensions/native/api.ts) describe the CommonJS export and the context Syntax provides. Export an `activate(context)` function. Register screens, commands, and cleanup callbacks during activation. Use the host's `react` and `react/jsx-runtime` imports so the screen uses the same React instance as Syntax.
+
+Activation can read saved data. Write data only once the extension is active, such as from a screen interaction or command. The context signal aborts when the extension is disabled or replaced. Stop ongoing work on abort and release resources with `onDispose`. The raw runtime observes cleanup failures and prevents a failed candidate from replacing the working version.
+
+These are the foundation APIs under test. The Syntax Dev installation UI, the persistent store, and the complete published fixture walkthrough still need their release checks.
