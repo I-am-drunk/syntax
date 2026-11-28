@@ -1,13 +1,15 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Menu } from '@base-ui/react/menu'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
+  ArrowLeft,
+  Blocks,
+  BookOpen,
   Check,
   Compass,
   Home,
-  Library,
   Menu as MenuIcon,
   Moon,
-  Puzzle,
   Search,
   Settings,
   Sparkles,
@@ -58,16 +60,16 @@ const DESKTOP_TABS = [
 
 const MOBILE_TABS = [
   { id: 'home', label: 'Home', path: '/', Icon: Home },
-  { id: 'library', label: 'Library', path: '/library', Icon: Library },
-  { id: 'extensions', label: 'Extensions', path: '/extensions', Icon: Puzzle },
+  { id: 'library', label: 'Library', path: '/library', Icon: BookOpen },
+  { id: 'extensions', label: 'Extensions', path: '/extensions', Icon: Blocks },
   { id: 'community', label: 'Community Hub', path: '/community', Icon: Compass },
   { id: 'profile', label: 'Profile', path: '/profile', Icon: User },
 ] as const
 
 const MENU_NAV_ITEMS = [
   { id: 'home', label: 'Home', path: '/', Icon: Home },
-  { id: 'library', label: 'Library', path: '/library', Icon: Library },
-  { id: 'extensions', label: 'Extensions', path: '/extensions', Icon: Puzzle },
+  { id: 'library', label: 'Library', path: '/library', Icon: BookOpen },
+  { id: 'extensions', label: 'Extensions', path: '/extensions', Icon: Blocks },
   { id: 'community', label: 'Community Hub', path: '/community', Icon: Compass },
   { id: 'settings', label: 'Settings', path: '/settings', Icon: Settings },
 ] as const
@@ -107,12 +109,22 @@ export function AppHeader({
         return
       }
       const el = tabRefs.current[activeRoute]
-      if (!el) return
+      if (!el || el.offsetWidth === 0) return
       setIndicator({ left: el.offsetLeft, width: el.offsetWidth, visible: true })
     }
     syncIndicator()
+    const rafId = window.requestAnimationFrame(syncIndicator)
+    const ro =
+      typeof ResizeObserver !== 'undefined' && navRef.current
+        ? new ResizeObserver(syncIndicator)
+        : null
+    if (ro && navRef.current) ro.observe(navRef.current)
     window.addEventListener('resize', syncIndicator, { passive: true })
-    return () => window.removeEventListener('resize', syncIndicator)
+    return () => {
+      window.cancelAnimationFrame(rafId)
+      ro?.disconnect()
+      window.removeEventListener('resize', syncIndicator)
+    }
   }, [activeRoute, navStyle])
 
   useEffect(() => {
@@ -274,6 +286,27 @@ export function AppHeader({
               />
             )}
           </nav>
+
+          <AnimatePresence initial={false}>
+            {activeRoute !== 'home' && activeRoute !== 'library' && (
+              <motion.a
+                key={`back-library-${navStyle}`}
+                href="#/library"
+                className={`sx-nav-back-bubble ${navStyle === 'pill' ? 'is-pill' : 'is-underline'}`}
+                initial={{ opacity: 0, x: -12, scale: 0.94 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: -10, scale: 0.94 }}
+                transition={{ type: 'spring', stiffness: 380, damping: 30, mass: 0.85 }}
+                onClick={e => {
+                  e.preventDefault()
+                  onNavigate('/library')
+                }}
+              >
+                <ArrowLeft size={14} strokeWidth={2} aria-hidden="true" />
+                <span>Back to Library</span>
+              </motion.a>
+            )}
+          </AnimatePresence>
         </div>
 
         <div className="header-actions">
@@ -402,7 +435,7 @@ export function AppHeader({
                               )
                             }
                           >
-                            <Puzzle size={15} strokeWidth={1.75} className="sx-menu-row-icon" aria-hidden="true" />
+                            <Blocks size={15} strokeWidth={1.75} className="sx-menu-row-icon" aria-hidden="true" />
                             <span className="sx-ext-cmd-copy">
                               <span>{item.label}</span>
                               <small>{ownerNames.get(item.ownerId) ?? item.ownerId}</small>

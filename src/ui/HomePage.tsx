@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import {
   AlertTriangle,
+  Blocks,
+  BookOpen,
   Compass,
   ExternalLink,
   FileText,
-  Library,
-  Puzzle,
   Search,
   Settings,
   ShieldAlert,
@@ -163,7 +163,7 @@ export function HomePage({
             </button>
           ) : (
             <button type="button" className="sx-btn-primary" onClick={onOpenLibrary}>
-              <Library size={15} strokeWidth={2} aria-hidden="true" />
+              <BookOpen size={15} strokeWidth={1.85} aria-hidden="true" />
               <span>Open Library</span>
             </button>
           )}
@@ -288,13 +288,13 @@ export function HomePage({
         </div>
         <div className="sx-home-grid">
           <button type="button" className="sx-home-tile" onClick={onOpenLibrary}>
-            <Library size={18} strokeWidth={1.9} className="sx-home-tile-icon" aria-hidden="true" />
+            <BookOpen size={18} strokeWidth={1.8} className="sx-home-tile-icon" aria-hidden="true" />
             <strong>Library</strong>
             <span>Your courses, extension screens, embedded widgets, and saved documents</span>
           </button>
 
           <button type="button" className="sx-home-tile" onClick={onOpenExtensions}>
-            <Puzzle size={18} strokeWidth={1.9} className="sx-home-tile-icon" aria-hidden="true" />
+            <Blocks size={18} strokeWidth={1.8} className="sx-home-tile-icon" aria-hidden="true" />
             <strong>Extensions &amp; Courses</strong>
             <span>Install by link, update, configure settings, and inspect logs</span>
           </button>

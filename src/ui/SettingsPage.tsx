@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Download, Upload } from 'lucide-react'
+import { Download, RotateCcw, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { Segmented, Toggle } from './Controls'
 import {
@@ -86,6 +86,18 @@ export function SettingsPage({
   const activeAnimLabel =
     SEMA_ANIMATIONS.find(a => a.id === previewAnim)?.label ?? previewAnim
 
+  const defaultTheme: 'light' | 'dark' =
+    typeof window !== 'undefined' &&
+    window.matchMedia &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches
+      ? 'dark'
+      : 'light'
+  const isSemaDefault =
+    prefs.semaShape === 'jenson' &&
+    prefs.semaTail === 'jenson' &&
+    prefs.semaExpression === 'neutral' &&
+    previewAnim === 'idle'
+
   return (
     <main className="sx-workspace-page sx-settings-single" aria-label="Settings">
       <header className="sx-workspace-head">
@@ -102,15 +114,27 @@ export function SettingsPage({
                 <p>Color mode</p>
                 <span>Choose between Light and Dark appearance</span>
               </div>
-              <Segmented
-                label="Color mode"
-                value={theme}
-                onChange={onChangeTheme}
-                options={[
-                  { value: 'light', label: 'Light' },
-                  { value: 'dark', label: 'Dark' },
-                ]}
-              />
+              <div className="sx-pref-control-group">
+                <Segmented
+                  label="Color mode"
+                  value={theme}
+                  onChange={onChangeTheme}
+                  options={[
+                    { value: 'light', label: 'Light' },
+                    { value: 'dark', label: 'Dark' },
+                  ]}
+                />
+                <button
+                  type="button"
+                  className="sx-pref-reset-btn"
+                  disabled={theme === defaultTheme}
+                  aria-label="Reset color mode to default"
+                  title="Reset to default"
+                  onClick={() => onChangeTheme(defaultTheme)}
+                >
+                  <RotateCcw size={14} strokeWidth={1.9} aria-hidden="true" />
+                </button>
+              </div>
             </div>
 
             <div className="preference-row preference-choices">
@@ -118,15 +142,27 @@ export function SettingsPage({
                 <p>Navigation bar style</p>
                 <span>Switch between the classic bottom bar and the sliding pill indicator</span>
               </div>
-              <Segmented
-                label="Navigation bar style"
-                value={prefs.navStyle}
-                onChange={v => onPatchPrefs({ navStyle: v })}
-                options={[
-                  { value: 'underline', label: 'Bottom bar' },
-                  { value: 'pill', label: 'Sliding pill' },
-                ]}
-              />
+              <div className="sx-pref-control-group">
+                <Segmented
+                  label="Navigation bar style"
+                  value={prefs.navStyle}
+                  onChange={v => onPatchPrefs({ navStyle: v })}
+                  options={[
+                    { value: 'underline', label: 'Bottom bar' },
+                    { value: 'pill', label: 'Sliding pill' },
+                  ]}
+                />
+                <button
+                  type="button"
+                  className="sx-pref-reset-btn"
+                  disabled={prefs.navStyle === 'underline'}
+                  aria-label="Reset navigation bar style to default"
+                  title="Reset to default"
+                  onClick={() => onPatchPrefs({ navStyle: 'underline' })}
+                >
+                  <RotateCcw size={14} strokeWidth={1.9} aria-hidden="true" />
+                </button>
+              </div>
             </div>
 
             <div className="preference-row preference-choices">
@@ -134,15 +170,27 @@ export function SettingsPage({
                 <p>Clicking the Syntax logo opens</p>
                 <span>Choose whether clicking Syntax returns to your Library or Home</span>
               </div>
-              <Segmented
-                label="Syntax logo destination"
-                value={prefs.logoClickTarget}
-                onChange={v => onPatchPrefs({ logoClickTarget: v })}
-                options={[
-                  { value: 'library', label: 'Library' },
-                  { value: 'home', label: 'Home' },
-                ]}
-              />
+              <div className="sx-pref-control-group">
+                <Segmented
+                  label="Syntax logo destination"
+                  value={prefs.logoClickTarget}
+                  onChange={v => onPatchPrefs({ logoClickTarget: v })}
+                  options={[
+                    { value: 'library', label: 'Library' },
+                    { value: 'home', label: 'Home' },
+                  ]}
+                />
+                <button
+                  type="button"
+                  className="sx-pref-reset-btn"
+                  disabled={prefs.logoClickTarget === 'library'}
+                  aria-label="Reset logo destination to default"
+                  title="Reset to default"
+                  onClick={() => onPatchPrefs({ logoClickTarget: 'library' })}
+                >
+                  <RotateCcw size={14} strokeWidth={1.9} aria-hidden="true" />
+                </button>
+              </div>
             </div>
           </div>
         </section>
@@ -150,104 +198,105 @@ export function SettingsPage({
         <hr />
 
         <section id="pref-sema" aria-labelledby="pref-sema-h">
-          <h2 id="pref-sema-h">Sema Companion</h2>
-          <div className="sema-studio-card">
-            <div className="sema-studio-hero">
-              <div className="sema-studio-stage">
+          <div className="sx-sema-section-head">
+            <div>
+              <h2 id="pref-sema-h">Sema Companion</h2>
+              <span className="sx-sema-section-sub">
+                {activeShapeLabel} · {activeTailLabel} · {activeExprLabel}
+                {previewAnim !== 'idle' ? ` · ${activeAnimLabel}` : ''}
+              </span>
+            </div>
+            <button
+              type="button"
+              className="sx-btn-secondary sx-btn-sm"
+              disabled={isSemaDefault}
+              onClick={() => {
+                setPreviewAnim('idle')
+                onPatchPrefs({ semaShape: 'jenson', semaTail: 'jenson', semaExpression: 'neutral' })
+              }}
+            >
+              <RotateCcw size={13} strokeWidth={1.9} aria-hidden="true" />
+              <span>Reset</span>
+            </button>
+          </div>
+
+          <div className="sx-sema-studio">
+            <div className="sx-sema-stage-panel">
+              <div className="sx-sema-stage-canvas">
                 <Sema
                   state={previewAnim}
                   expression={prefs.semaExpression}
                   shape={prefs.semaShape}
                   tail={prefs.semaTail}
-                  size={104}
+                  size={120}
                   interactive
                   followCursor={false}
                   ariaLabel="Sema live studio preview"
                 />
               </div>
-              <div className="sema-studio-summary">
-                <div className="sema-studio-badges">
-                  <span className="sema-studio-badge">{activeShapeLabel}</span>
-                  <span className="sema-studio-badge is-tail">{activeTailLabel}</span>
-                  <span className="sema-studio-badge is-expr">{activeExprLabel}</span>
-                  <span className="sema-studio-badge is-motion">{activeAnimLabel}</span>
-                </div>
-                <p className="sema-studio-hint">
-                  Poke Sema to cycle reactions, or pull to test elastic stretch physics.
-                </p>
-                <div className="sema-studio-quick-actions">
+              <p className="sx-sema-stage-hint">
+                Poke or pull Sema to test elastic reactions
+              </p>
+            </div>
+
+            <div className="sx-sema-controls-panel">
+              <div
+                className="sx-pill-switch sx-sema-pill-tabs"
+                role="tablist"
+                aria-label="Sema customization"
+                onKeyDown={e => {
+                  const order: StudioTab[] = ['shape', 'semicolon', 'expression', 'motion']
+                  const idx = order.indexOf(studioTab)
+                  if (e.key === 'ArrowRight') {
+                    e.preventDefault()
+                    const next = order[(idx + 1) % order.length]!
+                    setStudioTab(next)
+                    document.getElementById(`sema-tab-${next}`)?.focus()
+                  } else if (e.key === 'ArrowLeft') {
+                    e.preventDefault()
+                    const next = order[(idx - 1 + order.length) % order.length]!
+                    setStudioTab(next)
+                    document.getElementById(`sema-tab-${next}`)?.focus()
+                  }
+                }}
+              >
+                {(
+                  [
+                    { id: 'shape', label: 'Shape' },
+                    { id: 'semicolon', label: 'Tail' },
+                    { id: 'expression', label: 'Expression' },
+                    { id: 'motion', label: 'Motion' },
+                  ] as const
+                ).map(t => (
                   <button
+                    key={t.id}
+                    id={`sema-tab-${t.id}`}
                     type="button"
-                    className="sema-studio-action-btn"
-                    onClick={() => {
-                      setPreviewAnim('idle')
-                      onPatchPrefs({ semaShape: 'jenson', semaTail: 'jenson', semaExpression: 'neutral' })
-                    }}
+                    role="tab"
+                    aria-selected={studioTab === t.id}
+                    aria-controls="sema-studio-tabpanel"
+                    tabIndex={studioTab === t.id ? 0 : -1}
+                    className={`sx-pill-switch-btn${studioTab === t.id ? ' is-active' : ''}`}
+                    onClick={() => setStudioTab(t.id)}
                   >
-                    Reset defaults
+                    {t.label}
                   </button>
-                </div>
+                ))}
               </div>
-            </div>
 
-            <div
-              className="sema-studio-tabs"
-              role="tablist"
-              aria-label="Sema customization"
-              onKeyDown={e => {
-                const order: StudioTab[] = ['shape', 'semicolon', 'expression', 'motion']
-                const idx = order.indexOf(studioTab)
-                if (e.key === 'ArrowRight') {
-                  e.preventDefault()
-                  const next = order[(idx + 1) % order.length]!
-                  setStudioTab(next)
-                  document.getElementById(`sema-tab-${next}`)?.focus()
-                } else if (e.key === 'ArrowLeft') {
-                  e.preventDefault()
-                  const next = order[(idx - 1 + order.length) % order.length]!
-                  setStudioTab(next)
-                  document.getElementById(`sema-tab-${next}`)?.focus()
-                }
-              }}
-            >
-              {(
-                [
-                  { id: 'shape', label: `Shape (${SEMA_SHAPES.length})` },
-                  { id: 'semicolon', label: `Semicolon (${SEMA_TAILS.length})` },
-                  { id: 'expression', label: `Expression (${SEMA_EXPRESSIONS.length})` },
-                  { id: 'motion', label: `Motion (${SEMA_ANIMATIONS.length})` },
-                ] as const
-              ).map(t => (
-                <button
-                  key={t.id}
-                  id={`sema-tab-${t.id}`}
-                  type="button"
-                  role="tab"
-                  aria-selected={studioTab === t.id}
-                  aria-controls="sema-studio-tabpanel"
-                  tabIndex={studioTab === t.id ? 0 : -1}
-                  className={`sema-studio-tab${studioTab === t.id ? ' is-active' : ''}`}
-                  onClick={() => setStudioTab(t.id)}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-
-            <div
-              id="sema-studio-tabpanel"
-              className="sema-studio-panel"
-              role="tabpanel"
-              aria-labelledby={`sema-tab-${studioTab}`}
-            >
-              {studioTab === 'shape' && (
-                <div className="sema-studio-chips">
-                  {SEMA_SHAPES.map(sh => (
+              <div
+                id="sema-studio-tabpanel"
+                className="sx-sema-option-grid"
+                role="tabpanel"
+                aria-labelledby={`sema-tab-${studioTab}`}
+              >
+                {studioTab === 'shape' &&
+                  SEMA_SHAPES.map(sh => (
                     <button
                       key={sh.id}
                       type="button"
                       aria-pressed={prefs.semaShape === sh.id}
-                      className={`sema-chip${prefs.semaShape === sh.id ? ' is-active' : ''}`}
+                      className={`sx-sema-opt-btn${prefs.semaShape === sh.id ? ' is-active' : ''}`}
                       onClick={() => {
                         setPreviewAnim('idle')
                         onPatchPrefs({ semaShape: sh.id })
@@ -256,17 +305,14 @@ export function SettingsPage({
                       {sh.label}
                     </button>
                   ))}
-                </div>
-              )}
 
-              {studioTab === 'semicolon' && (
-                <div className="sema-studio-chips">
-                  {SEMA_TAILS.map(tl => (
+                {studioTab === 'semicolon' &&
+                  SEMA_TAILS.map(tl => (
                     <button
                       key={tl.id}
                       type="button"
                       aria-pressed={prefs.semaTail === tl.id}
-                      className={`sema-chip is-tail-chip${prefs.semaTail === tl.id ? ' is-active' : ''}`}
+                      className={`sx-sema-opt-btn${prefs.semaTail === tl.id ? ' is-active' : ''}`}
                       onClick={() => {
                         setPreviewAnim('idle')
                         onPatchPrefs({ semaTail: tl.id })
@@ -274,8 +320,8 @@ export function SettingsPage({
                     >
                       <svg
                         className="sema-chip-glyph"
-                        width="12"
-                        height="16"
+                        width="11"
+                        height="15"
                         viewBox="-74 126 148 176"
                         fill="none"
                         aria-hidden="true"
@@ -285,17 +331,14 @@ export function SettingsPage({
                       <span>{tl.label}</span>
                     </button>
                   ))}
-                </div>
-              )}
 
-              {studioTab === 'expression' && (
-                <div className="sema-studio-chips">
-                  {SEMA_EXPRESSIONS.map(ex => (
+                {studioTab === 'expression' &&
+                  SEMA_EXPRESSIONS.map(ex => (
                     <button
                       key={ex.id}
                       type="button"
                       aria-pressed={prefs.semaExpression === ex.id}
-                      className={`sema-chip${prefs.semaExpression === ex.id ? ' is-active' : ''}`}
+                      className={`sx-sema-opt-btn${prefs.semaExpression === ex.id ? ' is-active' : ''}`}
                       onClick={() => {
                         setPreviewAnim('idle')
                         onPatchPrefs({ semaExpression: ex.id })
@@ -304,24 +347,20 @@ export function SettingsPage({
                       {ex.label}
                     </button>
                   ))}
-                </div>
-              )}
 
-              {studioTab === 'motion' && (
-                <div className="sema-studio-chips">
-                  {SEMA_ANIMATIONS.map(an => (
+                {studioTab === 'motion' &&
+                  SEMA_ANIMATIONS.map(an => (
                     <button
                       key={an.id}
                       type="button"
                       aria-pressed={previewAnim === an.id}
-                      className={`sema-chip is-anim${previewAnim === an.id ? ' is-active' : ''}`}
+                      className={`sx-sema-opt-btn${previewAnim === an.id ? ' is-active' : ''}`}
                       onClick={() => setPreviewAnim(an.id)}
                     >
                       {an.label}
                     </button>
                   ))}
-                </div>
-              )}
+              </div>
             </div>
           </div>
         </section>

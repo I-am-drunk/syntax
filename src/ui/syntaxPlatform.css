@@ -205,6 +205,52 @@
   opacity: 1;
 }
 
+/* Isolated Contextual "Back to Library" Bubble (Sliding Pill & Underline Modes) */
+.sx-nav-back-bubble {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: color 140ms ease, background-color 140ms ease, border-color 140ms ease;
+}
+
+.sx-nav-back-bubble:hover {
+  color: var(--text);
+}
+
+.sx-nav-back-bubble.is-pill {
+  height: 36px;
+  padding: 0 13px;
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  background: var(--secondary);
+}
+
+:root[data-theme='dark'] .sx-nav-back-bubble.is-pill {
+  background: #1b1b1b;
+  border-color: rgba(255, 255, 255, 0.09);
+}
+
+.sx-nav-back-bubble.is-pill:hover {
+  background: var(--hover);
+  border-color: var(--tertiary);
+}
+
+.sx-nav-back-bubble.is-underline {
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 8px;
+}
+
+.sx-nav-back-bubble.is-underline:hover {
+  background: var(--hover);
+}
+
 /* Unified 34px Right-Side Header Controls */
 .sx-app-header .header-actions {
   display: inline-flex;
@@ -551,6 +597,7 @@
     font-size: 22px;
   }
   .sx-nav-bar,
+  .sx-nav-back-bubble,
   .sx-app-header .sx-header-theme-btn,
   .sx-header-sep {
     display: none;
@@ -3423,4 +3470,175 @@
   .sx-cmd-footer {
     display: none;
   }
+}
+
+/* ==========================================================================
+   Settings Reset Buttons & Modern 2-Column Sema Studio
+   ========================================================================== */
+.sx-pref-control-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.sx-pref-reset-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease, opacity 120ms ease;
+}
+
+.sx-pref-reset-btn:hover:not(:disabled) {
+  background: var(--hover);
+  color: var(--text);
+  border-color: var(--tertiary);
+}
+
+.sx-pref-reset-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.sx-sema-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.sx-sema-section-head h2 {
+  margin-bottom: 4px !important;
+}
+
+.sx-sema-section-sub {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.sx-sema-studio {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+@media (max-width: 720px) {
+  .sx-sema-studio {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sx-sema-stage-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px 18px 18px;
+  border-radius: 16px;
+  border: 1.5px solid var(--border);
+  background:
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--text) 9%, transparent) 1px, transparent 0)
+    0 0 / 16px 16px,
+    var(--surface);
+}
+
+:root[data-theme='dark'] .sx-sema-stage-panel {
+  background:
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.08) 1px, transparent 0)
+    0 0 / 16px 16px,
+    #181818;
+  border-color: #2c2c2c;
+}
+
+.sx-sema-stage-canvas {
+  display: grid;
+  place-items: center;
+  min-height: 152px;
+}
+
+.sx-sema-stage-hint {
+  font-size: 12px;
+  color: var(--tertiary);
+  text-align: center;
+}
+
+.sx-sema-controls-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 16px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  min-width: 0;
+}
+
+:root[data-theme='dark'] .sx-sema-controls-panel {
+  background: #181818;
+  border-color: #2c2c2c;
+}
+
+.sx-sema-pill-tabs {
+  align-self: flex-start;
+}
+
+.sx-sema-option-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+  gap: 8px;
+}
+
+.sx-sema-opt-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--secondary);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  transition: background-color 110ms ease, color 110ms ease, border-color 110ms ease, transform 90ms ease;
+}
+
+:root[data-theme='dark'] .sx-sema-opt-btn {
+  background: #141414;
+  border-color: #2b2b2b;
+}
+
+.sx-sema-opt-btn:hover {
+  color: var(--text);
+  border-color: var(--tertiary);
+  background: var(--hover);
+}
+
+.sx-sema-opt-btn:active {
+  transform: scale(0.97);
+}
+
+.sx-sema-opt-btn.is-active {
+  background: var(--text);
+  color: var(--surface);
+  border-color: var(--text);
+  font-weight: 600;
+}
+
+:root[data-theme='dark'] .sx-sema-opt-btn.is-active {
+  background: #ffffff;
+  color: #141414;
+  border-color: #ffffff;
 }
