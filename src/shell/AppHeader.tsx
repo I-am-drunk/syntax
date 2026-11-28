@@ -58,6 +58,12 @@ const DESKTOP_TABS = [
   { id: 'library', label: 'Library', path: '/library' },
 ] as const
 
+const WORKSPACE_TABS = [
+  { id: 'settings', label: 'Settings', path: '/settings' },
+  { id: 'extensions', label: 'Extensions', path: '/extensions' },
+  { id: 'community', label: 'Community Hub', path: '/community' },
+] as const
+
 const MOBILE_TABS = [
   { id: 'home', label: 'Home', path: '/', Icon: Home },
   { id: 'library', label: 'Library', path: '/library', Icon: BookOpen },
@@ -94,51 +100,106 @@ export function AppHeader({
   const [runningCommands, setRunningCommands] = useState<ReadonlySet<string>>(() => new Set())
 
   const navStyle = prefs.navStyle === 'pill' ? 'pill' : 'underline'
-  const navRef = useRef<HTMLElement | null>(null)
-  const tabRefs = useRef<Record<string, HTMLAnchorElement | null>>({})
-  const [indicator, setIndicator] = useState<{ left: number; width: number; visible: boolean }>({
+  const isWorkspaceRoute =
+    activeRoute === 'settings' || activeRoute === 'extensions' || activeRoute === 'community'
+  const navMode: 'main' | 'workspace' = isWorkspaceRoute ? 'workspace' : 'main'
+  const showBackBubble = activeRoute !== 'home' && activeRoute !== 'library'
+  const activeTabId =
+    navMode === 'workspace'
+      ? activeRoute
+      : activeRoute === 'home' || activeRoute === 'library'
+        ? activeRoute
+        : null
+
+  const activeRowRef = useRef<HTMLDivElement | null>(null)
+  const tabRefs = useRef<Record<string, HTMLElement | null>>({})
+  const navAnimatedRef = useRef(false)
+  const prevModeRef = useRef<'main' | 'workspace'>(navMode)
+
+  const [navWidth, setNavWidth] = useState<number | null>(null)
+  const [navAnimated, setNavAnimated] = useState(false)
+  const [indicator, setIndicator] = useState<{
+    left: number
+    width: number
+    visible: boolean
+    animate: boolean
+  }>({
     left: 0,
     width: 0,
     visible: false,
+    animate: false,
   })
 
   useLayoutEffect(() => {
-    const syncIndicator = () => {
-      if (activeRoute !== 'home' && activeRoute !== 'library') {
-        setIndicator(prev => (prev.visible ? { ...prev, visible: false } : prev))
+    const modeChanged = prevModeRef.current !== navMode
+    prevModeRef.current = navMode
+
+    const syncMetrics = (allowAnimate: boolean) => {
+      const row = activeRowRef.current
+      if (row) {
+        const extra = navStyle === 'pill' ? 8 : 0 // 3px padding x2 + 1px border x2
+        const nextW = Math.ceil(row.scrollWidth) + extra
+        if (nextW > 0) setNavWidth(nextW)
+      }
+
+      if (!activeTabId) {
+        setIndicator(prev => (prev.visible ? { ...prev, visible: false, animate: allowAnimate } : prev))
         return
       }
-      const el = tabRefs.current[activeRoute]
+      const el = tabRefs.current[`${navMode}:${activeTabId}`]
       if (!el || el.offsetWidth === 0) return
-      setIndicator({ left: el.offsetLeft, width: el.offsetWidth, visible: true })
+      setIndicator(prev => ({
+        left: el.offsetLeft,
+        width: el.offsetWidth,
+        visible: true,
+        animate: allowAnimate && prev.visible && !modeChanged,
+      }))
     }
-    syncIndicator()
-    const rafId = window.requestAnimationFrame(syncIndicator)
+
+    syncMetrics(navAnimatedRef.current)
+    const rafId = window.requestAnimationFrame(() => {
+      syncMetrics(navAnimatedRef.current)
+      if (!navAnimatedRef.current) {
+        navAnimatedRef.current = true
+        setNavAnimated(true)
+      }
+    })
+
     const ro =
-      typeof ResizeObserver !== 'undefined' && navRef.current
-        ? new ResizeObserver(syncIndicator)
+      typeof ResizeObserver !== 'undefined' && activeRowRef.current
+        ? new ResizeObserver(() => syncMetrics(false))
         : null
-    if (ro && navRef.current) ro.observe(navRef.current)
-    window.addEventListener('resize', syncIndicator, { passive: true })
+    if (ro && activeRowRef.current) ro.observe(activeRowRef.current)
+    const onResize = () => syncMetrics(false)
+    window.addEventListener('resize', onResize, { passive: true })
     return () => {
       window.cancelAnimationFrame(rafId)
       ro?.disconnect()
-      window.removeEventListener('resize', syncIndicator)
+      window.removeEventListener('resize', onResize)
     }
-  }, [activeRoute, navStyle])
+  }, [activeRoute, activeTabId, navMode, navStyle])
 
   useEffect(() => {
     if (typeof document === 'undefined' || !('fonts' in document)) return
     let active = true
     void document.fonts.ready.then(() => {
-      if (!active || (activeRoute !== 'home' && activeRoute !== 'library')) return
-      const el = tabRefs.current[activeRoute]
-      if (el) setIndicator({ left: el.offsetLeft, width: el.offsetWidth, visible: true })
+      if (!active) return
+      const row = activeRowRef.current
+      if (row) {
+        const extra = navStyle === 'pill' ? 8 : 0
+        const nextW = Math.ceil(row.scrollWidth) + extra
+        if (nextW > 0) setNavWidth(nextW)
+      }
+      if (!activeTabId) return
+      const el = tabRefs.current[`${navMode}:${activeTabId}`]
+      if (el && el.offsetWidth > 0) {
+        setIndicator({ left: el.offsetLeft, width: el.offsetWidth, visible: true, animate: false })
+      }
     })
     return () => {
       active = false
     }
-  }, [activeRoute, navStyle])
+  }, [activeTabId, navMode, navStyle])
 
   const isWorkerStopped = (ownerId: string) => {
     const rt = runtimeById[ownerId]
@@ -242,71 +303,144 @@ export function AppHeader({
 
           <div className="sx-nav-cluster">
             <AnimatePresence initial={false}>
-              {activeRoute !== 'home' && activeRoute !== 'library' && (
-                <motion.a
-                  key={`back-library-${navStyle}`}
-                  href="#/library"
-                  className={`sx-nav-back-bubble ${navStyle === 'pill' ? 'is-pill' : 'is-underline'}`}
-                  initial={{ opacity: 0, x: -10, scale: 0.94 }}
-                  animate={{ opacity: 1, x: 0, scale: 1 }}
-                  exit={{ opacity: 0, x: -8, scale: 0.94 }}
-                  transition={{ type: 'spring', stiffness: 380, damping: 30, mass: 0.85 }}
-                  onClick={e => {
-                    e.preventDefault()
-                    onNavigate('/library')
-                  }}
+              {showBackBubble && (
+                <motion.div
+                  key="nav-back-slot"
+                  className="sx-nav-back-slot"
+                  initial={{ width: 0, opacity: 0, marginRight: 0 }}
+                  animate={{ width: 'auto', opacity: 1, marginRight: 8 }}
+                  exit={{ width: 0, opacity: 0, marginRight: 0 }}
+                  transition={{ duration: 0.34, ease: [0.22, 1, 0.36, 1] }}
                 >
-                  <ArrowLeft size={14} strokeWidth={2} aria-hidden="true" />
-                  <span>Back to Library</span>
-                </motion.a>
+                  <motion.a
+                    href="#/library"
+                    className={`sx-nav-back-bubble ${navStyle === 'pill' ? 'is-pill' : 'is-underline'}`}
+                    initial={{ x: -10, scale: 0.95 }}
+                    animate={{ x: 0, scale: 1 }}
+                    exit={{ x: -8, scale: 0.95 }}
+                    transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                    onClick={e => {
+                      e.preventDefault()
+                      onNavigate('/library')
+                    }}
+                  >
+                    <ArrowLeft size={14} strokeWidth={2} aria-hidden="true" />
+                    <span>Back to Library</span>
+                  </motion.a>
+                </motion.div>
               )}
             </AnimatePresence>
 
             <nav
-              ref={navRef}
-              className={`sx-nav-bar ${navStyle === 'pill' ? 'is-pill' : 'is-underline'}`}
-              aria-label="Main navigation"
+              className={`sx-nav-bar ${navStyle === 'pill' ? 'is-pill' : 'is-underline'}${navAnimated ? ' is-animated' : ''}`}
+              aria-label={navMode === 'workspace' ? 'Workspace navigation' : 'Main navigation'}
+              style={navWidth !== null ? { width: `${navWidth}px` } : undefined}
             >
-              {navStyle === 'pill' && (
-                <span
-                  className={`sx-nav-pill-slider${indicator.visible ? ' is-visible' : ''}`}
-                  aria-hidden="true"
-                  style={{
-                    width: `${indicator.width}px`,
-                    transform: `translate3d(${indicator.left}px, 0, 0)`,
-                  }}
-                />
-              )}
-              {DESKTOP_TABS.map(tab => {
-                const active = activeRoute === tab.id
-                return (
-                  <a
-                    key={tab.id}
-                    ref={el => {
-                      tabRefs.current[tab.id] = el
-                    }}
-                    href={`#${tab.path}`}
-                    className={`sx-nav-link${active ? ' is-active' : ''}`}
-                    aria-current={active ? 'page' : undefined}
-                    onClick={e => {
-                      e.preventDefault()
-                      onNavigate(tab.path)
-                    }}
+              <AnimatePresence mode="popLayout" initial={false}>
+                {navMode === 'workspace' ? (
+                  <motion.div
+                    key="workspace"
+                    ref={activeRowRef}
+                    className="sx-nav-row"
+                    initial={{ opacity: 0, y: 9, filter: 'blur(2px)' }}
+                    animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                    exit={{ opacity: 0, y: -9, filter: 'blur(2px)' }}
+                    transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
                   >
-                    {tab.label}
-                  </a>
-                )
-              })}
-              {navStyle === 'underline' && (
-                <span
-                  className={`sx-nav-underline${indicator.visible ? ' is-visible' : ''}`}
-                  aria-hidden="true"
-                  style={{
-                    width: `${indicator.width}px`,
-                    transform: `translate3d(${indicator.left}px, 0, 0)`,
-                  }}
-                />
-              )}
+                    {navStyle === 'pill' && (
+                      <span
+                        className={`sx-nav-pill-slider${indicator.visible ? ' is-visible' : ''}${indicator.animate ? '' : ' is-instant'}`}
+                        aria-hidden="true"
+                        style={{
+                          width: `${indicator.width}px`,
+                          transform: `translate3d(${indicator.left}px, 0, 0)`,
+                        }}
+                      />
+                    )}
+                    {WORKSPACE_TABS.map(tab => {
+                      const active = activeRoute === tab.id
+                      return (
+                        <a
+                          key={tab.id}
+                          ref={el => {
+                            tabRefs.current[`workspace:${tab.id}`] = el
+                          }}
+                          href={`#${tab.path}`}
+                          className={`sx-nav-link${active ? ' is-active' : ''}`}
+                          aria-current={active ? 'page' : undefined}
+                          onClick={e => {
+                            e.preventDefault()
+                            onNavigate(tab.path)
+                          }}
+                        >
+                          {tab.label}
+                        </a>
+                      )
+                    })}
+                    {navStyle === 'underline' && (
+                      <span
+                        className={`sx-nav-underline${indicator.visible ? ' is-visible' : ''}${indicator.animate ? '' : ' is-instant'}`}
+                        aria-hidden="true"
+                        style={{
+                          width: `${indicator.width}px`,
+                          transform: `translate3d(${indicator.left}px, 0, 0)`,
+                        }}
+                      />
+                    )}
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="main"
+                    ref={activeRowRef}
+                    className="sx-nav-row"
+                    initial={{ opacity: 0, y: -9, filter: 'blur(2px)' }}
+                    animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                    exit={{ opacity: 0, y: 9, filter: 'blur(2px)' }}
+                    transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    {navStyle === 'pill' && (
+                      <span
+                        className={`sx-nav-pill-slider${indicator.visible ? ' is-visible' : ''}${indicator.animate ? '' : ' is-instant'}`}
+                        aria-hidden="true"
+                        style={{
+                          width: `${indicator.width}px`,
+                          transform: `translate3d(${indicator.left}px, 0, 0)`,
+                        }}
+                      />
+                    )}
+                    {DESKTOP_TABS.map(tab => {
+                      const active = activeRoute === tab.id
+                      return (
+                        <a
+                          key={tab.id}
+                          ref={el => {
+                            tabRefs.current[`main:${tab.id}`] = el
+                          }}
+                          href={`#${tab.path}`}
+                          className={`sx-nav-link${active ? ' is-active' : ''}`}
+                          aria-current={active ? 'page' : undefined}
+                          onClick={e => {
+                            e.preventDefault()
+                            onNavigate(tab.path)
+                          }}
+                        >
+                          {tab.label}
+                        </a>
+                      )
+                    })}
+                    {navStyle === 'underline' && (
+                      <span
+                        className={`sx-nav-underline${indicator.visible ? ' is-visible' : ''}${indicator.animate ? '' : ' is-instant'}`}
+                        aria-hidden="true"
+                        style={{
+                          width: `${indicator.width}px`,
+                          transform: `translate3d(${indicator.left}px, 0, 0)`,
+                        }}
+                      />
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </nav>
           </div>
         </div>
